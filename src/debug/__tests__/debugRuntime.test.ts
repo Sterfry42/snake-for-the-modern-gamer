@@ -52,6 +52,18 @@ describe('debug event filtering and sequencing', () => {
     expect(events[1]!.elapsedMs).toBeGreaterThanOrEqual(events[0]!.elapsedMs);
     expect(new Set(events.map((event) => event.sessionId))).toEqual(new Set(['test-session']));
   });
+
+  it('emits run phase transitions', () => {
+    const bus = createBus('normal');
+    bus.setRunPhase('playing');
+    const [event] = bus.events();
+    expect(event?.type).toBe('run.phase_changed');
+    expect(event?.runPhase).toBe('playing');
+    expect(event?.data).toEqual({
+      previousRunPhase: 'boot',
+      runPhase: 'playing',
+    });
+  });
 });
 
 describe('memory debug sink', () => {

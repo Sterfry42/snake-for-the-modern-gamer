@@ -12,10 +12,19 @@ import type { RoomSnapshot } from '../world/types.js';
 import { isSolidTile } from '../world/tiles.js';
 import { getSafeZoneRules } from '../world/safeZones.js';
 import { getDebugBus } from '../debug/debugRuntime.js';
+import { parseCoordinateRoomId } from '../world/roomAddress.js';
 
 export interface SnakeStepOutcome {
   status: 'alive' | 'dead';
-  reason?: 'wall' | 'self' | 'boss' | 'water' | 'shielded' | 'bullet' | 'temperature';
+  reason?:
+    | 'wall'
+    | 'self'
+    | 'boss'
+    | 'water'
+    | 'shielded'
+    | 'bullet'
+    | 'temperature'
+    | 'predator-collision';
   appleEaten?: boolean;
 }
 
@@ -899,11 +908,8 @@ export class SnakeState {
   }
 
   private parseRoomCoordinates(roomId: string): [number, number, number] {
-    if (!this.isCoordinateRoomId(roomId)) {
-      return [0, 0, 0];
-    }
-    const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
-    return [x, y, z];
+    const parsed = parseCoordinateRoomId(roomId);
+    return parsed ? [parsed.x, parsed.y, parsed.z] : [0, 0, 0];
   }
 
   private getRoomWorldOrigin(roomId: string): Vector2Like {
@@ -934,6 +940,6 @@ export class SnakeState {
   }
 
   private isCoordinateRoomId(roomId: string): boolean {
-    return /^-?\d+,-?\d+,-?\d+$/.test(roomId);
+    return parseCoordinateRoomId(roomId) !== null;
   }
 }

@@ -62,7 +62,20 @@ export class DebugBus {
   }
 
   setRunPhase(runPhase: DebugRunPhase): void {
+    const previousRunPhase = this.runPhase;
     this.runPhase = runPhase;
+    if (previousRunPhase !== runPhase) {
+      this.emit({
+        type: 'run.phase_changed',
+        category: 'session',
+        verbosity: 'normal',
+        runPhase,
+        data: {
+          previousRunPhase,
+          runPhase,
+        },
+      });
+    }
   }
 
   shouldEmit(verbosity: DebugVerbosity): boolean {

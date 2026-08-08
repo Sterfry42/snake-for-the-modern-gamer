@@ -34,6 +34,7 @@ import type {
   RollercoasterTheme,
 } from './rollercoasterTypes.js';
 import { getDebugBus } from '../debug/debugRuntime.js';
+import { assertValidRoomId } from './roomAddress.js';
 import {
   describeDebugRoomPurpose,
   describeDebugRoomRewardTier,
@@ -94,6 +95,7 @@ export class WorldService {
   }
 
   getRoom(roomId: string): RoomSnapshot {
+    assertValidRoomId(roomId);
     if (!this.rooms.has(roomId)) {
       const debug = getDebugBus();
       debug?.emit({

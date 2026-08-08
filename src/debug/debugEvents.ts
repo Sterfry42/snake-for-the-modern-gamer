@@ -1,5 +1,13 @@
 export type DebugVerbosity = 'normal' | 'verbose' | 'trace';
-export type DebugRunPhase = 'boot' | 'title' | 'playing' | 'paused' | 'modal' | 'death' | 'ended';
+export type DebugRunPhase =
+  | 'boot'
+  | 'title'
+  | 'character-creation'
+  | 'playing'
+  | 'paused'
+  | 'modal'
+  | 'death-resolution'
+  | 'game-over';
 
 export type DebugCategory =
   | 'session'

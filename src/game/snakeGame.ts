@@ -313,6 +313,7 @@ import {
 import { ALL_EMOTICON_IDS } from '../emoticons/emoticonCatalog.js';
 import { createDebugTransactionId } from '../debug/debugContext.js';
 import { getDebugBus } from '../debug/debugRuntime.js';
+import { parseCoordinateRoomId } from '../world/roomAddress.js';
 import { serializeErrorLike, serializeRoomSnapshot } from '../debug/debugSerializers.js';
 
 type GuildInitiationStatus = {
@@ -525,6 +526,7 @@ export interface StepResult {
     | 'lightning'
     | 'water'
     | 'shark'
+    | 'predator-collision'
     | 'roaming-snake'
     | 'starvation';
   apple: {
@@ -594,6 +596,15 @@ export interface DeathDebugSnapshot {
     body?: Vector2Like[];
   };
   rooms: DeathDebugRoomSnapshot[];
+}
+
+interface CollisionEntityDebug {
+  category: string;
+  id: string;
+  kind?: string;
+  label?: string;
+  position?: Vector2Like;
+  collisionPosition?: Vector2Like;
 }
 
 const POST_DEATH_INVULNERABILITY_TICKS = 30;
@@ -2537,8 +2548,31 @@ export class SnakeGame implements QuestRuntime {
       );
       if (animalResult.damaged) {
         if (!this.isImmortal()) {
+          const damagingAnimal = animalResult.damagingAnimal;
+          const collisionEntity: CollisionEntityDebug = damagingAnimal
+            ? {
+                category: 'animal',
+                id: damagingAnimal.id,
+                kind: damagingAnimal.type,
+                position: damagingAnimal.position,
+                collisionPosition: this.worldToLocal(this.snake.currentRoomId, currentHead),
+              }
+            : {
+                category: 'unknown-creature',
+                id: 'unknown-creature',
+                kind: 'unknown-creature',
+                collisionPosition: this.worldToLocal(this.snake.currentRoomId, currentHead),
+              };
+          this.setFlag('internal.lastCollisionEntity', {
+            ...collisionEntity,
+          });
+          this.markDeathAtCurrentHead('predator-collision');
           if (
-            this.tryFortitudePhoenix({ status: 'dead', reason: 'boss' }, roomsChanged, previousRoom)
+            this.tryFortitudePhoenix(
+              { status: 'dead', reason: 'predator-collision' },
+              roomsChanged,
+              previousRoom,
+            )
           ) {
             return this.createAliveStepResult({
               appleEaten,
@@ -2551,8 +2585,7 @@ export class SnakeGame implements QuestRuntime {
               appleTypeId,
             });
           }
-          this.markDeathAtCurrentHead('boss');
-          return this.createDeathStepResult('boss', {
+          return this.createDeathStepResult('predator-collision', {
             roomsChanged,
             roomHasChanged,
             appleEaten,
@@ -4506,6 +4539,7 @@ export class SnakeGame implements QuestRuntime {
       data: {
         collisionTarget: deathReason,
         collisionEntity: this.getCollisionEntityDebug(deathReason),
+        deathReason,
         roomId: this.snake.currentRoomId,
         deathPosition,
       },
@@ -4524,15 +4558,14 @@ export class SnakeGame implements QuestRuntime {
       },
     });
     getDebugBus()?.emit({
-      type: 'game.over',
+      type: 'death.resolution_started',
       category: 'game',
       verbosity: 'normal',
       roomId: this.snake.currentRoomId,
       data: {
         reason: deathReason,
         roomId: this.snake.currentRoomId,
-        score: this.getScore(),
-        length: this.getSnakeLength(),
+        collisionEntity: this.getCollisionEntityDebug(deathReason),
       },
     });
     return {
@@ -4552,11 +4585,13 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
-  private getCollisionEntityDebug(deathReason: StepResult['deathReason']): {
-    category: string;
-    id: string;
-    label?: string;
-  } {
+  private getCollisionEntityDebug(
+    deathReason: StepResult['deathReason'] | string,
+  ): CollisionEntityDebug {
+    const lastCollision = this.getFlag<CollisionEntityDebug>('internal.lastCollisionEntity');
+    if (lastCollision && (deathReason === 'predator-collision' || deathReason === 'shark')) {
+      return lastCollision;
+    }
     if (deathReason === 'boss') {
       const bossKind = this.getFlag<string>('internal.killedByBossKind');
       const bossName = this.getFlag<string>('internal.killedByBossName');
@@ -4575,6 +4610,9 @@ export class SnakeGame implements QuestRuntime {
     }
     if (deathReason === 'lightning') return { category: 'hazard', id: 'weather:lightning' };
     if (deathReason === 'shark') return { category: 'enemy', id: 'enemy:shark' };
+    if (deathReason === 'predator-collision') {
+      return { category: 'unknown-creature', id: 'unknown-creature' };
+    }
     if (deathReason === 'roaming-snake') return { category: 'enemy', id: 'enemy:roaming-snake' };
     if (deathReason === 'starvation') return { category: 'hazard', id: 'hunger:starvation' };
     if (deathReason === 'water') return { category: 'hazard', id: 'terrain:water' };
@@ -5910,7 +5948,9 @@ export class SnakeGame implements QuestRuntime {
   private markDeathAtCurrentHead(reason?: StepResult['deathReason'] | string): void {
     const head = this.snake.bodySegments[0] ?? { x: 0, y: 0 };
     const roomId = this.snake.currentRoomId;
-    const [roomX = 0, roomY = 0] = roomId.split(',').map(Number);
+    const address = parseCoordinateRoomId(roomId);
+    const roomX = address?.x ?? 0;
+    const roomY = address?.y ?? 0;
     const local = {
       x: head.x - roomX * this.config.grid.cols,
       y: head.y - roomY * this.config.grid.rows,
@@ -12199,15 +12239,12 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private parseRoomCoordinates(roomId: string): [number, number, number] {
-    if (!this.isCoordinateRoomId(roomId)) {
-      return [0, 0, 0];
-    }
-    const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
-    return [x, y, z];
+    const parsed = parseCoordinateRoomId(roomId);
+    return parsed ? [parsed.x, parsed.y, parsed.z] : [0, 0, 0];
   }
 
   private isCoordinateRoomId(roomId: string): boolean {
-    return /^-?\d+,-?\d+,-?\d+$/.test(roomId);
+    return parseCoordinateRoomId(roomId) !== null;
   }
 
   private distance(a: Vector2Like, b: Vector2Like): number {
@@ -16848,6 +16885,32 @@ export class SnakeGame implements QuestRuntime {
       return false;
     }
 
+    const originalReason = outcome.reason ?? 'unknown';
+    const healthBefore = Number(this.getFlag<number>('player.health') ?? 0);
+    const collisionEntity = this.getCollisionEntityDebug(originalReason);
+    this.emitNonTerminalDeathLifecycle(originalReason, collisionEntity);
+    getDebugBus()?.emit({
+      type: 'rescue.available',
+      category: 'snake',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        source: 'phoenix',
+        reason: originalReason,
+        livesBefore: charges,
+      },
+    });
+    getDebugBus()?.emit({
+      type: 'rescue.selected',
+      category: 'snake',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        source: 'phoenix',
+        reason: originalReason,
+      },
+    });
+
     if ((state?.charges ?? 0) > 0) {
       const remaining = (state?.charges ?? 0) - 1;
       this.setFlag('fortitude.phoenix', { ...state, charges: remaining });
@@ -16861,9 +16924,9 @@ export class SnakeGame implements QuestRuntime {
     this.grantPostDeathInvulnerability();
     this.setFlag('ui.healthRevealed', true);
     roomsChanged.add(previousRoomId);
-    this.setFlag('fortitude.phoenixTriggered', { reason: outcome.reason ?? 'unknown' });
+    this.setFlag('fortitude.phoenixTriggered', { reason: originalReason });
     this.setFlag('traversal.manualResumePending', true);
-    this.emitPlayerRevivalEvent(outcome.reason ?? 'unknown', 'phoenix');
+    this.emitPlayerRevivalEvent(originalReason, 'phoenix');
     getDebugBus()?.emit({
       type: 'snake.revived',
       category: 'snake',
@@ -16871,13 +16934,32 @@ export class SnakeGame implements QuestRuntime {
       roomId: this.snake.currentRoomId,
       data: {
         source: 'phoenix',
-        reason: outcome.reason ?? 'unknown',
+        consumedChargeType: (state?.charges ?? 0) > 0 ? 'skill-phoenix' : 'equipment-phoenix',
+        reason: originalReason,
+        originalDeathReason: originalReason,
+        healthBefore,
+        healthAfter: maxHealth,
         health: maxHealth,
         maxHealth,
         livesBefore: charges,
         livesAfter: Math.max(0, charges - 1),
         skillPhoenixCharges: this.getFlag<{ charges?: number }>('fortitude.phoenix')?.charges ?? 0,
         equipmentPhoenixCharges: this.getFlag<number>('equipment.phoenixCharges') ?? 0,
+        room: this.snake.currentRoomId,
+        revivePosition: this.snake.bodySegments[0],
+        reviveDirection: this.snake.directionVector,
+        collisionEntity,
+      },
+    });
+    getDebugBus()?.emit({
+      type: 'game.continued',
+      category: 'game',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        source: 'phoenix',
+        reason: originalReason,
+        roomId: this.snake.currentRoomId,
       },
     });
 
@@ -16893,6 +16975,9 @@ export class SnakeGame implements QuestRuntime {
   }
 
   reviveAfterExtraLife(reason?: string | null): void {
+    const originalReason = reason ?? 'unknown';
+    const healthBefore = Number(this.getFlag<number>('player.health') ?? 0);
+    const collisionEntity = this.getCollisionEntityDebug(originalReason);
     this.snake.restorePreviousSnapshot();
     const maxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
     this.setFlag('player.health', maxHealth);
@@ -16900,7 +16985,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('ui.healthRevealed', true);
     this.setFlag('fortitude.phoenixTriggered', undefined);
     this.setFlag('traversal.manualResumePending', true);
-    this.emitPlayerRevivalEvent(reason ?? 'unknown', 'extra-life');
+    this.emitPlayerRevivalEvent(originalReason, 'extra-life');
     getDebugBus()?.emit({
       type: 'snake.revived',
       category: 'snake',
@@ -16908,9 +16993,72 @@ export class SnakeGame implements QuestRuntime {
       roomId: this.snake.currentRoomId,
       data: {
         source: 'extra-life',
-        reason: reason ?? 'unknown',
+        consumedChargeType: 'extra-life',
+        reason: originalReason,
+        originalDeathReason: originalReason,
+        healthBefore,
+        healthAfter: maxHealth,
         health: maxHealth,
         maxHealth,
+        room: this.snake.currentRoomId,
+        revivePosition: this.snake.bodySegments[0],
+        reviveDirection: this.snake.directionVector,
+        collisionEntity,
+      },
+    });
+    getDebugBus()?.emit({
+      type: 'game.continued',
+      category: 'game',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        source: 'extra-life',
+        reason: originalReason,
+        roomId: this.snake.currentRoomId,
+      },
+    });
+  }
+
+  private emitNonTerminalDeathLifecycle(
+    deathReason: StepResult['deathReason'] | string,
+    collisionEntity: CollisionEntityDebug,
+  ): void {
+    const deathPosition = this.getFlag<Record<string, unknown>>('internal.lastDeathPosition');
+    getDebugBus()?.emit({
+      type: 'snake.collision',
+      category: 'snake',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        collisionTarget: deathReason,
+        collisionEntity,
+        deathReason,
+        roomId: this.snake.currentRoomId,
+        deathPosition,
+      },
+    });
+    getDebugBus()?.emit({
+      type: 'snake.died',
+      category: 'snake',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        reason: deathReason,
+        roomId: this.snake.currentRoomId,
+        snakeLength: this.getSnakeLength(),
+        score: this.getScore(),
+        deathPosition,
+      },
+    });
+    getDebugBus()?.emit({
+      type: 'death.resolution_started',
+      category: 'game',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        reason: deathReason,
+        roomId: this.snake.currentRoomId,
+        collisionEntity,
       },
     });
   }

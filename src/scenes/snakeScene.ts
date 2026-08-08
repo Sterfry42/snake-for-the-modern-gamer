@@ -273,6 +273,7 @@ import {
 } from '../achievements/achievementDefinitions.js';
 import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
 import type { RoomSnapshot } from '../world/types.js';
+import { parseCoordinateRoomId } from '../world/roomAddress.js';
 import { getAllBiomeDefinitions } from '../world/biomes.js';
 import { getLocatorItemId, isLocatorItemId } from '../world/biomeLocators.js';
 import {
@@ -340,6 +341,27 @@ type SnakeThemeDefinition = {
 type DeathCutsceneMode = 'revive' | 'game-over';
 type AfterlifeDestination = 'heaven' | 'hell';
 type DeathRescuer = 'angel' | 'goblin-angel';
+
+interface PendingNotification {
+  notificationId: string;
+  kind: string;
+  title?: string;
+  message: string;
+  source: string;
+  durationMs: number;
+  screenPosition: string;
+  color: string;
+  transactionId?: string;
+  notificationGroupId?: string;
+  dedupeKey: string;
+}
+
+interface PendingNotificationGroup {
+  notificationGroupId: string;
+  transactionId: string;
+  notices: PendingNotification[];
+  timer: Phaser.Time.TimerEvent;
+}
 
 type VillageMarketStock = {
   version: 3;
@@ -1874,6 +1896,13 @@ export default class SnakeScene extends Phaser.Scene {
   private debugSnapshotTimer: Phaser.Time.TimerEvent | null = null;
   private debugInputInteractionCounter = 0;
   private debugNotificationCounter = 0;
+  private visibleNotificationCount = 0;
+  private maxVisibleNotificationCount = 0;
+  private currentNotificationTransactionId: string | null = null;
+  private actionStepTransactionCounter = 0;
+  private readonly pendingNotificationGroups = new Map<string, PendingNotificationGroup>();
+  private readonly seenNotificationDedupeKeys = new Map<string, number>();
+  private persistentAutosaveFailureKey: string | null = null;
   private lastDerivedStatsDebugSnapshotMs = 0;
   private readonly choicePopups = new Set<ChoicePopup>();
   private readonly villageResidentSprites: Phaser.GameObjects.Sprite[] = [];
@@ -3200,6 +3229,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private runActionStep(): void {
+    this.currentNotificationTransactionId = `action_${(++this.actionStepTransactionCounter).toString(36)}`;
     const scoreBefore = this.snakeGame.getScore();
     const lengthBefore = this.snakeGame.getSnakeLength();
     const result = this.gameSession.actionStep(this.paused);
@@ -3208,6 +3238,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     if (this.handleStepDeath(result) || this.handlePhoenixReviveTrigger()) {
       this.skillTree.applyActionStepIntervalScalar(1, SnakeScene.SWIMMING_TERRAIN_DRAG_SOURCE);
+      this.currentNotificationTransactionId = null;
       return;
     }
 
@@ -3340,6 +3371,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.showQuestHintPopup(fellowshipRecharge.message, '#ffbdfd');
       this.snakeGame.setFlag('ui.fellowshipRecharge', undefined);
     }
+    this.currentNotificationTransactionId = null;
     this.handleRaccoonPopupFlag();
     const relationshipEvent = this.snakeGame.getFlag<{
       title?: string;
@@ -4021,17 +4053,71 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   showQuestHintPopup(message: string, color = '#ffe58a'): void {
+    const normalizedMessage = message.trim();
+    const dedupeKey = this.getNotificationDedupeKey(normalizedMessage);
+    const repeatCount = this.seenNotificationDedupeKeys.get(dedupeKey) ?? 0;
+    if (this.shouldSuppressNotification(normalizedMessage, repeatCount)) {
+      this.seenNotificationDedupeKeys.set(dedupeKey, repeatCount + 1);
+      this.emitNotificationLifecycle('notification.dropped', {
+        notificationId: `dropped_${(++this.debugNotificationCounter).toString(36)}`,
+        kind: this.inferNotificationKind(normalizedMessage),
+        title: this.inferNotificationTitle(normalizedMessage),
+        message: normalizedMessage,
+        source: this.inferNotificationSource(normalizedMessage),
+        durationMs: 0,
+        screenPosition: 'top-center',
+        dedupeKey,
+        repeatCount: repeatCount + 1,
+        isFirstOccurrence: repeatCount === 0,
+        queueDepth: this.pendingNotificationGroups.size,
+        visibleNotificationCount: this.visibleNotificationCount,
+      });
+      return;
+    }
+    this.seenNotificationDedupeKeys.set(dedupeKey, repeatCount + 1);
+    const notification: PendingNotification = {
+      notificationId: `notice_${(++this.debugNotificationCounter).toString(36)}`,
+      kind: this.inferNotificationKind(normalizedMessage),
+      title: this.inferNotificationTitle(normalizedMessage),
+      message: normalizedMessage,
+      source: this.inferNotificationSource(normalizedMessage),
+      durationMs: 1960,
+      screenPosition: 'top-center',
+      color,
+      transactionId: this.currentNotificationTransactionId ?? undefined,
+      dedupeKey,
+    };
+    this.emitNotificationLifecycle('notification.queued', {
+      ...notification,
+      isFirstOccurrence: repeatCount === 0,
+      repeatCount: repeatCount + 1,
+      queueDepth: this.pendingNotificationGroups.size,
+      visibleNotificationCount: this.visibleNotificationCount,
+    });
+    if (notification.transactionId) {
+      this.queueGroupedNotification(notification);
+      return;
+    }
+    this.renderQuestHintPopup(notification);
+  }
+
+  private renderQuestHintPopup(notification: PendingNotification): void {
+    const { message, color } = notification;
     const maxWidth = Math.min(720, this.scale.width - 48);
     const x = this.scale.width / 2;
     const y = 76;
     this.emitNotificationShown({
-      kind: this.inferNotificationKind(message),
-      title: this.inferNotificationTitle(message),
+      kind: notification.kind,
+      title: notification.title,
       message,
-      source: this.inferNotificationSource(message),
-      durationMs: 1960,
-      screenPosition: 'top-center',
+      source: notification.source,
+      durationMs: notification.durationMs,
+      screenPosition: notification.screenPosition,
       color,
+      notificationId: notification.notificationId,
+      transactionId: notification.transactionId,
+      notificationGroupId: notification.notificationGroupId,
+      dedupeKey: notification.dedupeKey,
     });
     const noticeColor = Phaser.Display.Color.HexStringToColor(color).color;
     const urgent = color.toLowerCase() === '#ff6b6b' || color.toLowerCase() === '#ff3b3b';
@@ -4067,8 +4153,21 @@ export default class SnakeScene extends Phaser.Scene {
       duration: 1050,
       delay: 780,
       ease: 'Cubic.easeOut',
-      onComplete: () => popup.destroy(),
+      onComplete: () => {
+        popup.destroy();
+        this.visibleNotificationCount = Math.max(0, this.visibleNotificationCount - 1);
+        this.emitNotificationLifecycle('notification.expired', {
+          ...notification,
+          queueDepth: this.pendingNotificationGroups.size,
+          visibleNotificationCount: this.visibleNotificationCount,
+        });
+      },
     });
+    this.visibleNotificationCount += 1;
+    this.maxVisibleNotificationCount = Math.max(
+      this.maxVisibleNotificationCount,
+      this.visibleNotificationCount,
+    );
   }
 
   private emitNotificationShown(input: {
@@ -4080,10 +4179,17 @@ export default class SnakeScene extends Phaser.Scene {
     screenPosition: string;
     color?: string;
     notificationId?: string;
+    transactionId?: string;
+    notificationGroupId?: string;
+    dedupeKey?: string;
     metadata?: Record<string, unknown>;
   }): void {
     const notificationId =
       input.notificationId ?? `notice_${(++this.debugNotificationCounter).toString(36)}`;
+    const queueDepth = Array.from(this.pendingNotificationGroups.values()).reduce(
+      (sum, group) => sum + group.notices.length,
+      0,
+    );
     getDebugBus()?.emit({
       type: 'notification.shown',
       category: 'ui',
@@ -4098,10 +4204,141 @@ export default class SnakeScene extends Phaser.Scene {
         source: input.source,
         durationMs: input.durationMs,
         screenPosition: input.screenPosition,
+        triggerEventId: undefined,
+        transactionId: input.transactionId,
+        notificationGroupId: input.notificationGroupId,
+        dedupeKey: input.dedupeKey,
+        isFirstOccurrence: input.dedupeKey
+          ? (this.seenNotificationDedupeKeys.get(input.dedupeKey) ?? 0) <= 1
+          : true,
+        repeatCount: input.dedupeKey
+          ? (this.seenNotificationDedupeKeys.get(input.dedupeKey) ?? 1)
+          : 1,
+        queueDepth,
+        visibleNotificationCount: this.visibleNotificationCount + 1,
+        visibleStackIndex: this.visibleNotificationCount,
         color: input.color,
         metadata: input.metadata,
       },
     });
+  }
+
+  private emitNotificationLifecycle(
+    type:
+      | 'notification.queued'
+      | 'notification.merged'
+      | 'notification.replaced'
+      | 'notification.expired'
+      | 'notification.dismissed'
+      | 'notification.dropped',
+    data: Record<string, unknown>,
+  ): void {
+    getDebugBus()?.emit({
+      type,
+      category: 'ui',
+      verbosity: 'normal',
+      scene: this.scene.key,
+      roomId: this.snakeGame?.getCurrentRoom().id,
+      data,
+    });
+  }
+
+  private queueGroupedNotification(notification: PendingNotification): void {
+    const transactionId = notification.transactionId;
+    if (!transactionId) {
+      this.renderQuestHintPopup(notification);
+      return;
+    }
+    const existing = this.pendingNotificationGroups.get(transactionId);
+    if (existing) {
+      const duplicate = existing.notices.find(
+        (notice) => notice.dedupeKey === notification.dedupeKey,
+      );
+      if (duplicate) {
+        this.emitNotificationLifecycle('notification.dropped', {
+          ...notification,
+          notificationGroupId: existing.notificationGroupId,
+          reason: 'duplicate-in-transaction',
+          repeatCount: this.seenNotificationDedupeKeys.get(notification.dedupeKey) ?? 1,
+          queueDepth: existing.notices.length,
+          visibleNotificationCount: this.visibleNotificationCount,
+        });
+        return;
+      }
+      existing.notices.push(notification);
+      this.emitNotificationLifecycle('notification.merged', {
+        ...notification,
+        notificationGroupId: existing.notificationGroupId,
+        mergedCount: existing.notices.length,
+        queueDepth: existing.notices.length,
+        visibleNotificationCount: this.visibleNotificationCount,
+      });
+      return;
+    }
+    const notificationGroupId = `group_${(++this.debugNotificationCounter).toString(36)}`;
+    const timer = this.time.delayedCall(90, () => this.flushNotificationGroup(transactionId));
+    this.pendingNotificationGroups.set(transactionId, {
+      notificationGroupId,
+      transactionId,
+      notices: [notification],
+      timer,
+    });
+  }
+
+  private flushNotificationGroup(transactionId: string): void {
+    const group = this.pendingNotificationGroups.get(transactionId);
+    if (!group) return;
+    this.pendingNotificationGroups.delete(transactionId);
+    group.timer.remove(false);
+    const [primary] = group.notices;
+    if (!primary) return;
+    const summary = this.composeGroupedNotification(primary, group.notices);
+    this.renderQuestHintPopup({
+      ...primary,
+      notificationId: group.notificationGroupId,
+      notificationGroupId: group.notificationGroupId,
+      message: summary,
+      kind: primary.kind === 'achievement' ? 'achievement' : 'transaction-summary',
+      dedupeKey: `${transactionId}:summary`,
+    } as PendingNotification);
+  }
+
+  private composeGroupedNotification(
+    primary: PendingNotification,
+    notices: readonly PendingNotification[],
+  ): string {
+    const title = this.normalizeNotificationTitle(primary.title ?? primary.message);
+    const lines = notices
+      .map((notice) => this.normalizeNotificationLine(notice.message))
+      .filter((line, index, arr) => line && arr.indexOf(line) === index);
+    return [title, '', ...lines.slice(0, 8)].join('\n').trim();
+  }
+
+  private normalizeNotificationTitle(value: string): string {
+    const beforeColon = value.split(':')[0] ?? value;
+    return beforeColon.replace(/\.+$/, '').toUpperCase();
+  }
+
+  private normalizeNotificationLine(value: string): string {
+    return value.replace(/^HIGHLIGHT:\s*/i, '').replace(/^APPLE PASSPORT:\s*/i, 'Apple Passport: ');
+  }
+
+  private getNotificationDedupeKey(message: string): string {
+    if (/^Skittish Apple:/i.test(message)) return 'apple-explanation:skittish';
+    if (/^Room Tour\. \+\d+ subscribers\.$/i.test(message.replace(/^HIGHLIGHT:\s*/i, ''))) {
+      return 'highlight:room-tour';
+    }
+    return message.toLowerCase().replace(/\s+/g, ' ').trim();
+  }
+
+  private shouldSuppressNotification(message: string, repeatCount: number): boolean {
+    if (/^Game autosaved\.$/i.test(message)) return true;
+    if (/^STORED VITALITY [123]\/4$/i.test(message)) return true;
+    if (/^Skittish Apple:/i.test(message) && repeatCount > 0) return true;
+    if (/^HIGHLIGHT:\s*Room Tour\. \+\d+ subscribers\.$/i.test(message) && repeatCount > 0) {
+      return true;
+    }
+    return false;
   }
 
   private inferNotificationKind(message: string): string {
@@ -4306,7 +4543,20 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private gameOver(reason?: string | null) {
-    getDebugBus()?.setRunPhase('ended');
+    getDebugBus()?.setRunPhase('game-over');
+    getDebugBus()?.emit({
+      type: 'game.over',
+      category: 'game',
+      verbosity: 'normal',
+      scene: this.scene.key,
+      roomId: this.snakeGame.getCurrentRoom().id,
+      data: {
+        reason: reason ?? 'unknown',
+        roomId: this.snakeGame.getCurrentRoom().id,
+        score: this.snakeGame.getScore(),
+        length: this.snakeGame.getSnakeLength(),
+      },
+    });
     this.playControllerFeedback('death');
     this.juice.gameOver();
     this.featureManager.call('onGameOver', this);
@@ -4322,7 +4572,7 @@ export default class SnakeScene extends Phaser.Scene {
     reason?: string | null,
     options: { reviveOnComplete?: boolean; slainByAngel?: boolean; rescuer?: DeathRescuer } = {},
   ): void {
-    getDebugBus()?.setRunPhase('death');
+    getDebugBus()?.setRunPhase('death-resolution');
     // Auto-escape from fishing before death
     this.autoEscapeFromFishing();
 
@@ -5323,11 +5573,13 @@ export default class SnakeScene extends Phaser.Scene {
         version: data.version,
         saveSizeBytes: saveSize.bytes,
         saveSizeChars: saveSize.chars,
+        saveSizeBreakdown: saveSize.breakdown,
       },
     });
     saveManagerV2
       .save('autosave-current', data)
       .then(() => {
+        this.persistentAutosaveFailureKey = null;
         getDebugBus()?.emit({
           type: 'save.completed',
           category: 'save',
@@ -5341,11 +5593,13 @@ export default class SnakeScene extends Phaser.Scene {
             version: data.version,
             saveSizeBytes: saveSize.bytes,
             saveSizeChars: saveSize.chars,
+            saveSizeBreakdown: saveSize.breakdown,
             success: true,
           },
         });
       })
       .catch((error: unknown) => {
+        this.showSaveFailureWarning('autosave-current', 'autosave', error);
         getDebugBus()?.emit({
           type: 'save.failed',
           category: 'save',
@@ -5362,7 +5616,39 @@ export default class SnakeScene extends Phaser.Scene {
           },
         });
       });
-    this.showQuestHintPopup(i18n.getFeatureString('autosave')!, '#5dd6a2');
+  }
+
+  private showSaveFailureWarning(
+    slotId: string,
+    saveType: 'autosave' | 'manual',
+    error: unknown,
+  ): void {
+    const serialized = serializeErrorLike(error);
+    const key = `${saveType}:${serialized.name ?? 'Error'}:${serialized.message ?? 'unknown'}`;
+    if (this.persistentAutosaveFailureKey === key) {
+      this.emitNotificationLifecycle('notification.replaced', {
+        notificationId: 'save-failure-warning',
+        kind: 'save-failure',
+        title: 'Save failed',
+        message: 'Recent progress may not be saved.',
+        source: 'save',
+        saveSlot: slotId,
+        saveType,
+        error: serialized,
+        dedupeKey: key,
+        queueDepth: this.pendingNotificationGroups.size,
+        visibleNotificationCount: this.visibleNotificationCount,
+      });
+      return;
+    }
+    this.persistentAutosaveFailureKey = key;
+    const previousTransactionId = this.currentNotificationTransactionId;
+    this.currentNotificationTransactionId = null;
+    this.showQuestHintPopup(
+      'SAVE FAILED\nRecent progress may not be saved.\nOpen Save/Load to retry, export, or manage saves.',
+      '#ff6b6b',
+    );
+    this.currentNotificationTransactionId = previousTransactionId;
   }
 
   private handleShutdown(): void {
@@ -6543,11 +6829,13 @@ export default class SnakeScene extends Phaser.Scene {
         version: data.version,
         saveSizeBytes: saveSize.bytes,
         saveSizeChars: saveSize.chars,
+        saveSizeBreakdown: saveSize.breakdown,
       },
     });
     saveManagerV2
       .save(dateKey, data)
       .then(() => {
+        this.persistentAutosaveFailureKey = null;
         getDebugBus()?.emit({
           type: 'save.completed',
           category: 'save',
@@ -6561,12 +6849,15 @@ export default class SnakeScene extends Phaser.Scene {
             version: data.version,
             saveSizeBytes: saveSize.bytes,
             saveSizeChars: saveSize.chars,
+            saveSizeBreakdown: saveSize.breakdown,
             success: true,
           },
         });
+        this.showQuestHintPopup('Game saved.', '#5dd6a2');
       })
       .catch((err: unknown) => {
         console.error('[SnakeScene] Failed to save game:', err);
+        this.showSaveFailureWarning(dateKey, 'manual', err);
         getDebugBus()?.emit({
           type: 'save.failed',
           category: 'save',
@@ -9630,15 +9921,8 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private parseRoomCoordinates(roomId: string): [number, number, number] {
-    if (!this.isCoordinateRoomId(roomId)) {
-      return [0, 0, 0];
-    }
-    const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
-    return [x, y, z];
-  }
-
-  private isCoordinateRoomId(roomId: string): boolean {
-    return /^-?\d+,-?\d+,-?\d+$/.test(roomId);
+    const parsed = parseCoordinateRoomId(roomId);
+    return parsed ? [parsed.x, parsed.y, parsed.z] : [0, 0, 0];
   }
 
   private handlePredationFeedback(): void {
@@ -13057,6 +13341,10 @@ export default class SnakeScene extends Phaser.Scene {
     stack: string[];
     panel: string | null;
     pauseOwner: string | null;
+    visibleModalStack: string[];
+    mountedPanels: string[];
+    activePanel: string | null;
+    pauseOwners: string[];
   } {
     const stack: string[] = [];
     if (this.titleVisible) stack.push('title');
@@ -13076,7 +13364,23 @@ export default class SnakeScene extends Phaser.Scene {
         : this.paused
           ? (panel ?? 'pause-menu')
           : null;
-    return { stack, panel, pauseOwner };
+    const mountedPanels = [
+      this.pauseUI ? 'pause-menu' : null,
+      this.questPopup ? 'quest-popup' : null,
+      this.villageShopPopup ? 'choice-popup' : null,
+      this.datingScenePopup ? 'dating-popup' : null,
+      this.skillTree ? 'skill-tree' : null,
+      this.saveLoadMenu ? 'save-load-menu' : null,
+    ].filter((value): value is string => value !== null);
+    return {
+      stack,
+      panel,
+      pauseOwner,
+      visibleModalStack: [...stack],
+      mountedPanels,
+      activePanel: panel,
+      pauseOwners: pauseOwner ? [pauseOwner] : [],
+    };
   }
 
   private getDebugLivesState(): Record<string, unknown> {
@@ -13091,12 +13395,93 @@ export default class SnakeScene extends Phaser.Scene {
     };
   }
 
-  private measureDebugPayloadSize(value: unknown): { bytes: number; chars: number } {
-    const serialized = JSON.stringify(value);
-    return {
-      bytes: new TextEncoder().encode(serialized).length,
-      chars: serialized.length,
+  private measureDebugPayloadSize(value: unknown): {
+    bytes: number;
+    chars: number;
+    breakdown: {
+      totalBytes: number;
+      sections: Record<
+        | 'player'
+        | 'world'
+        | 'rooms'
+        | 'entities'
+        | 'inventory'
+        | 'quests'
+        | 'relationships'
+        | 'progression'
+        | 'other',
+        number
+      >;
+      existingSaveSlots: number;
+      estimatedOriginUsage: number;
     };
+  } {
+    const serialized = JSON.stringify(value);
+    const asRecord = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+    const sectionBytes = (keys: readonly string[]): number =>
+      this.measureDebugTextBytes(
+        JSON.stringify(
+          keys.reduce<Record<string, unknown>>((section, key) => {
+            if (key in asRecord) section[key] = asRecord[key];
+            return section;
+          }, {}),
+        ),
+      );
+    const totalBytes = this.measureDebugTextBytes(serialized);
+    return {
+      bytes: totalBytes,
+      chars: serialized.length,
+      breakdown: {
+        totalBytes,
+        sections: {
+          player: sectionBytes(['snake', 'score', 'length', 'health', 'characterMode']),
+          world: sectionBytes(['worldGeneration', 'atmosphere', 'dreamWorld']),
+          rooms: sectionBytes(['currentRoomId', 'visitedRooms']),
+          entities: sectionBytes(['animals', 'actors.save', 'events.save']),
+          inventory: sectionBytes(['inventory', 'equipment', 'cosmetics', 'minecraftPlayerState']),
+          quests: sectionBytes(['quests', 'fishing', 'arcadeSnake']),
+          relationships: sectionBytes(['relationships', 'rumors.save', 'factions.v2.save']),
+          progression: sectionBytes([
+            'flags',
+            'achievements',
+            'skills',
+            'modernRun',
+            'highlightReel',
+          ]),
+          other: sectionBytes(Object.keys(asRecord)),
+        },
+        existingSaveSlots: this.countExistingSaveSlots(),
+        estimatedOriginUsage: this.estimateLocalStorageUsageBytes(),
+      },
+    };
+  }
+
+  private measureDebugTextBytes(value: string): number {
+    return new TextEncoder().encode(value).length;
+  }
+
+  private countExistingSaveSlots(): number {
+    const storage = typeof localStorage === 'undefined' ? null : localStorage;
+    if (!storage) return 0;
+    let count = 0;
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+      if (key?.includes('snake') || key?.includes('save')) count += 1;
+    }
+    return count;
+  }
+
+  private estimateLocalStorageUsageBytes(): number {
+    const storage = typeof localStorage === 'undefined' ? null : localStorage;
+    if (!storage) return 0;
+    let bytes = 0;
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+      if (!key) continue;
+      bytes += this.measureDebugTextBytes(key);
+      bytes += this.measureDebugTextBytes(storage.getItem(key) ?? '');
+    }
+    return bytes;
   }
 
   private emitPopupDebug(

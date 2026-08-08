@@ -335,6 +335,11 @@ describe('AnimalManager', () => {
       const result = manager.handleSnakeOverlap('0,0,0', { x: 10, y: 10 }, { x: 1, y: 0 });
 
       expect(result.damaged).toBe(true);
+      expect(result.damagingAnimal).toMatchObject({
+        id: 'test-wolf',
+        type: 'wolf',
+        position: { x: 10, y: 10 },
+      });
     });
 
     it('does nothing for non-overlapping animals', () => {
