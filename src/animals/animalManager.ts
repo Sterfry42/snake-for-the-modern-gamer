@@ -45,6 +45,7 @@ export interface SnakeAnimalResult {
   tamed: boolean;
   tamableAnimal?: AnimalInstance;
   damaged: boolean;
+  damagingAnimal?: AnimalInstance;
   hunted: boolean;
   huntedAnimal?: HuntedAnimalResult;
   startleCount: number;
@@ -688,6 +689,7 @@ export class AnimalManager {
         break;
       case 'dangerous':
         result.damaged = true;
+        result.damagingAnimal = { ...target };
         this.animals.set(roomId, updated);
         break;
       case 'hunt':

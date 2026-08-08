@@ -414,6 +414,22 @@ export const CHEAT_DEFINITIONS: readonly CheatDefinition[] = [
     aliases: ['navigator', 'compassmaster'],
     category: 'tools',
   },
+  {
+    name: 'GO PRO',
+    code: 'gopro / snakecam',
+    primaryCode: 'gopro',
+    description: 'Acquire and equip the GoPro camera in the weapon slot.',
+    aliases: ['gopro', 'snakecam'],
+    category: 'tools',
+  },
+  {
+    name: 'BOMB SLINGSHOT',
+    code: 'bombs / boomstick',
+    primaryCode: 'bombs',
+    description: 'Acquire and equip the Bomb Slingshot with a stack of bombs.',
+    aliases: ['bombs', 'boomstick'],
+    category: 'tools',
+  },
 ];
 
 /**

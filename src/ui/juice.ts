@@ -183,6 +183,11 @@ export class JuiceManager {
   private archaeologyMusicTimer?: Phaser.Time.TimerEvent;
   private arcadeMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private arcadeMusicTimer?: Phaser.Time.TimerEvent;
+  private bombFuseAudio?: {
+    gain: GainNode;
+    source: AudioBufferSourceNode;
+    filter: BiquadFilterNode;
+  };
   private arcadeMusicState: 'run' | 'paused' | 'corrupted' | 'stopped' = 'stopped';
   private zoomBackTimer?: Phaser.Time.TimerEvent;
   private cherryBlossomParticles: Phaser.GameObjects.Arc[] = [];
@@ -3637,6 +3642,120 @@ export class JuiceManager {
   maneuverRejected(worldX: number, worldY: number) {
     this.playTone({ frequency: 160, duration: 0.06, type: 'triangle', volume: 0.035 });
     this.spawnBurst(worldX, worldY, { colors: [0xffd166, 0x7b8fa1], count: 3, radius: 7 });
+  }
+
+  setBombFuseActive(active: boolean): void {
+    if (!active) {
+      this.stopBombFuseAudio();
+      return;
+    }
+    if (this.bombFuseAudio) {
+      return;
+    }
+    if (!this.scene.sound.locked && this.ctx.state === 'suspended') {
+      void this.ctx.resume();
+    }
+    const now = this.ctx.currentTime;
+    const bufferSize = Math.max(1, Math.floor(this.ctx.sampleRate * 0.4));
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const channel = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i += 1) {
+      channel[i] = (this.rng() * 2 - 1) * 0.55;
+    }
+    const source = this.ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.setValueAtTime(1800, now);
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.045, now + 0.08);
+
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+    source.start(now);
+    this.bombFuseAudio = { gain, source, filter };
+  }
+
+  private stopBombFuseAudio(): void {
+    if (!this.bombFuseAudio) {
+      return;
+    }
+    const { gain, source, filter } = this.bombFuseAudio;
+    const now = this.ctx.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(Math.max(0.0001, gain.gain.value), now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+    source.stop(now + 0.1);
+    globalThis.setTimeout(() => {
+      source.disconnect();
+      filter.disconnect();
+      gain.disconnect();
+    }, 140);
+    this.bombFuseAudio = undefined;
+  }
+
+  bombExplosion(worldX: number, worldY: number, radiusPixels: number): void {
+    const radius = Math.max(24, radiusPixels);
+    this.playTone({
+      frequency: 92,
+      frequencyEnd: 38,
+      duration: 0.42,
+      type: 'sawtooth',
+      volume: 0.22,
+    });
+    this.playTone({
+      frequency: 54,
+      frequencyEnd: 24,
+      duration: 0.5,
+      type: 'sine',
+      volume: 0.18,
+    });
+    this.stopBombFuseAudio();
+    this.scene.cameras.main.flash(140, 255, 216, 140, true);
+    this.kickCamera(0.055, 260);
+    this.punchZoom(1.055, 180);
+
+    const g = this.scene.add.graphics().setDepth(29);
+    this.overlayLayer.add(g);
+    const state: TweenState = { r: radius * 0.15, a: 0.85, w: 5 };
+    this.scene.tweens.add({
+      targets: state,
+      r: radius,
+      a: 0,
+      w: 1,
+      duration: 380,
+      ease: 'Cubic.easeOut',
+      onUpdate: () => {
+        g.clear();
+        g.fillStyle(0xffd166, state.a * 0.2);
+        g.fillCircle(worldX, worldY, state.r);
+        g.lineStyle(state.w, 0xfff3a8, state.a);
+        g.strokeCircle(worldX, worldY, state.r);
+      },
+      onComplete: () => g.destroy(),
+    });
+
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffd166, 0xff8c42, 0xf3eee2, 0x3d1f10],
+      count: 34,
+      radius,
+    });
+    for (let i = 0; i < 3; i += 1) {
+      globalThis.setTimeout(() => {
+        this.ringPulse(
+          worldX,
+          worldY,
+          i === 0 ? 0xfff3a8 : 0xff8c42,
+          radius * (0.25 + i * 0.2),
+          3,
+          260,
+        );
+      }, i * 70);
+    }
   }
 
   private playTone({

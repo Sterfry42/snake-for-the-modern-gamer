@@ -33,6 +33,13 @@ import type {
   RollercoasterJourney,
   RollercoasterTheme,
 } from './rollercoasterTypes.js';
+import { getDebugBus } from '../debug/debugRuntime.js';
+import { assertValidRoomId } from './roomAddress.js';
+import {
+  describeDebugRoomPurpose,
+  describeDebugRoomRewardTier,
+  serializeRoomSnapshot,
+} from '../debug/debugSerializers.js';
 import { RollercoasterStructureResolver } from './generation/rollercoasterResolver.js';
 
 export interface PickupChanceProvider {
@@ -88,7 +95,22 @@ export class WorldService {
   }
 
   getRoom(roomId: string): RoomSnapshot {
+    assertValidRoomId(roomId);
     if (!this.rooms.has(roomId)) {
+      const debug = getDebugBus();
+      debug?.emit({
+        type: 'room.generation_started',
+        category: 'generation',
+        verbosity: 'normal',
+        roomId,
+        data: {
+          roomId,
+          seed: this.worldSeed,
+          generationReason: this.getRoomGenerationReason(roomId),
+          worldGenerationIdentity: this.worldGenerationIdentity,
+        },
+      });
+      const generationStartedAt = performance.now();
       if (roomId.startsWith('layer:')) {
         const instance = this.layerInstances.get(roomId);
         if (!instance) {
@@ -99,6 +121,7 @@ export class WorldService {
         const room = this.createLayerRoom(instance);
         this.rooms.set(roomId, room);
         this.registerRoomIndexes(room);
+        this.emitRoomGeneratedDebug(room, performance.now() - generationStartedAt);
         return room;
       }
       if (isCaveRoomId(roomId)) {
@@ -115,6 +138,7 @@ export class WorldService {
         });
         this.rooms.set(roomId, generated.room);
         this.registerRoomIndexes(generated.room);
+        this.emitRoomGeneratedDebug(generated.room, performance.now() - generationStartedAt);
         return generated.room;
       }
       const room = this.generator.generate(roomId, this.grid);
@@ -171,8 +195,56 @@ export class WorldService {
       this.stampRollercoasterStation(room);
 
       this.addReciprocalPortalsForRoom(room);
+      this.emitRoomGeneratedDebug(room, performance.now() - generationStartedAt);
     }
     return this.rooms.get(roomId)!;
+  }
+
+  private emitRoomGeneratedDebug(room: RoomSnapshot, durationMs: number): void {
+    const debug = getDebugBus();
+    debug?.emit({
+      type: 'room.generated',
+      category: 'room',
+      verbosity: 'normal',
+      roomId: room.id,
+      data: {
+        roomId: room.id,
+        seed: this.worldSeed,
+        biome: room.biomeId,
+        archetypeId: room.archetypeId,
+        generationReason: this.getRoomGenerationReason(room.id),
+        roomPurpose: describeDebugRoomPurpose(room),
+        rewardTier: describeDebugRoomRewardTier(room),
+        durationMs,
+        width: room.layout[0]?.length ?? 0,
+        height: room.layout.length,
+        exits:
+          room.portals.length +
+          (room.caveEntrances?.length ?? 0) +
+          (room.layerEntrances?.length ?? 0),
+      },
+    });
+    debug?.emitLazy(
+      {
+        type: 'room.generated',
+        category: 'room',
+        verbosity: 'verbose',
+        roomId: room.id,
+      },
+      () => ({
+        ...serializeRoomSnapshot(room, {
+          seed: this.worldSeed,
+          durationMs,
+          identity: this.worldGenerationIdentity as unknown as Record<string, unknown>,
+        }),
+      }),
+    );
+  }
+
+  private getRoomGenerationReason(roomId: string): string {
+    if (roomId.startsWith('layer:')) return 'layer-room-request';
+    if (isCaveRoomId(roomId)) return 'cave-room-request';
+    return 'coordinate-room-request';
   }
 
   setApple(roomId: string, position: Vector2Like | undefined): void {

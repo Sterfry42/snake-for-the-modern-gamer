@@ -1,7 +1,7 @@
 import type { AnimalInstance } from '../animals/types.js';
 import type { AppleSnapshot } from '../apples/types.js';
 import type { Vector2Like } from '../core/math.js';
-import type { FootballInstance } from '../game/snakeGame.js';
+import type { BombInstance, FootballInstance } from '../game/snakeGame.js';
 import type { PlayerId } from '../players/playerTypes.js';
 import type { BulletInstance, EnemyInstance } from '../systems/enemies.js';
 import type { RoomSnapshot } from '../world/types.js';
@@ -45,6 +45,7 @@ export interface ClientRoomSnapshot {
   pickups?: unknown[];
   animals?: readonly AnimalInstance[];
   footballs?: readonly FootballInstance[];
+  bombs?: readonly BombInstance[];
 }
 
 export interface PlayerSnapshot {

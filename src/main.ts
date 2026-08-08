@@ -1,16 +1,25 @@
 import './style.css';
 
 import Phaser from 'phaser';
+import { defaultGameConfig } from './config/gameConfig.js';
 import SnakeScene from './scenes/snakeScene.js';
 import { loadResolutionSetting } from './config/resolutionSettings.js';
+import { initializeDebugRuntime } from './debug/debugRuntime.js';
 
 const resolution = loadResolutionSetting();
 
-declare global {
-  interface Window {
-    webkitAudioContext?: typeof AudioContext;
-  }
-}
+initializeDebugRuntime({
+  urlSearch: window.location.search,
+  appVersion: import.meta.env.MODE,
+  gameConfigSummary: {
+    grid: defaultGameConfig.grid,
+    world: defaultGameConfig.world,
+    snake: {
+      initialLength: defaultGameConfig.snake.initialBody.length,
+      initialDirection: defaultGameConfig.snake.initialDirection,
+    },
+  },
+});
 
 const audioContextCtor = window.AudioContext || window.webkitAudioContext;
 
