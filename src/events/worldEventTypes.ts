@@ -28,6 +28,8 @@ export type WorldEventType =
   | 'enemy-defeated'
   | 'humanoid-eaten'
   | 'item-used'
+  | 'bomb-armed'
+  | 'bomb-exploded'
   | 'food-cooked'
   | 'shop-purchase'
   | 'gate-opened'

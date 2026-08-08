@@ -95,6 +95,25 @@ export const ITEMS: readonly Item[] = [
     },
   },
   {
+    id: 'weapon-bomb-slingshot',
+    name: 'Bomb Slingshot',
+    description:
+      'A two-handed menace for throwing bombs in any direction. Bombs sold separately, naturally.',
+    kind: 'equipment',
+    slot: 'weapon',
+    modifiers: {
+      activeTool: 'bomb-slingshot',
+    },
+  },
+  {
+    id: 'bomb',
+    name: 'Bomb',
+    description:
+      'A timed explosive. Throw it with a Bomb Slingshot, or use it from inventory to place it at your head.',
+    kind: 'consumable',
+    category: 'consumable',
+  },
+  {
     id: 'boots-quick',
     name: 'Quick Boots',
     description: 'Lightweight boots that quicken your stride.',

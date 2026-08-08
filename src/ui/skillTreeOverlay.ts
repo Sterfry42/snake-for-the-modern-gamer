@@ -3223,6 +3223,14 @@ export class SkillTreeOverlay {
         uiColors.accentWorld,
       );
     }
+    if (modifiers.activeTool === 'bomb-slingshot') {
+      push(
+        'Active tool',
+        'Bombs',
+        'Throws inventory bombs in any direction before they detonate.',
+        uiColors.danger,
+      );
+    }
     if (typeof modifiers.heatResistance === 'number') {
       push(
         'Heat Resistance',
@@ -5324,7 +5332,9 @@ export class SkillTreeOverlay {
     zone.on('pointerdown', () => {
       if (!this.selectedInventoryItemId) return;
       const result = this.scene.useInventoryItem(this.selectedInventoryItemId);
-      this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
+      if (!(result.ok && this.selectedInventoryItemId === 'bomb')) {
+        this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
+      }
       this.refresh();
       this.showInventoryItemDetails();
     });
@@ -5419,7 +5429,9 @@ export class SkillTreeOverlay {
       return false;
     }
     const result = this.scene.useInventoryItem(this.selectedInventoryItemId);
-    this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
+    if (!(result.ok && this.selectedInventoryItemId === 'bomb')) {
+      this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
+    }
     this.refresh();
     this.showInventoryItemDetails();
     return true;

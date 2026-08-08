@@ -2813,7 +2813,7 @@ export default class SnakeScene extends Phaser.Scene {
         Math.abs(dx) >= Math.abs(dy)
           ? { x: dx >= 0 ? 1 : -1, y: 0 }
           : { x: 0, y: dy >= 0 ? 1 : -1 };
-      this.handleActiveToolClick(direction);
+      this.handleActiveToolClick(direction, { x: dx, y: dy });
     });
 
     // Prevent context menu in Minecraft mode
@@ -2828,11 +2828,24 @@ export default class SnakeScene extends Phaser.Scene {
     });
   }
 
-  private handleActiveToolClick(direction: Vector2Like): void {
+  private handleActiveToolClick(direction: Vector2Like, aim: Vector2Like): void {
     const activeTool = this.snakeGame.getEquippedActiveTool();
     if (activeTool === 'gopro') {
       this.toggleGoProRecording();
       this.isDirty = true;
+      return;
+    }
+    if (activeTool === 'bomb-slingshot') {
+      const result = this.snakeGame.throwBombToward(aim);
+      if (!result.ok) {
+        this.showQuestHintPopup(result.message, result.color ?? '#ffd166');
+      }
+      if (result.ok) {
+        if (result.roomsChanged) {
+          this.markStaticRoomsDirty(new Set(result.roomsChanged));
+        }
+        this.isDirty = true;
+      }
       return;
     }
     if (this.snakeGame.firePlayerShot(direction)) {
@@ -6414,6 +6427,19 @@ export default class SnakeScene extends Phaser.Scene {
       return {
         ok: true,
         message: 'Cheat active: GoPro equipped in the weapon slot.',
+        color: '#5dd6a2',
+      };
+    }
+    if (code === 'bombs' || code === 'boomstick') {
+      this.snakeGame.addItem('weapon-bomb-slingshot', 1);
+      this.snakeGame.addItem('bomb', 12);
+      this.snakeGame.getInventory().equip('weapon-bomb-slingshot');
+      this.applyEquipmentEffects();
+      this.skillTree.getOverlay().refresh();
+      this.isDirty = true;
+      return {
+        ok: true,
+        message: 'Cheat active: Bomb Slingshot equipped with 12 bombs.',
         color: '#5dd6a2',
       };
     }
@@ -10387,6 +10413,22 @@ export default class SnakeScene extends Phaser.Scene {
       this.snakeGame.setFlag('ui.wallChomp', undefined);
     }
 
+    const bombExplosion = this.snakeGame.getFlag<{
+      x: number;
+      y: number;
+      roomId: string;
+      radius: number;
+      damage: number;
+    }>('ui.bombExplosion');
+    if (bombExplosion) {
+      const world = this.tileToWorldInRoom(
+        { x: bombExplosion.x, y: bombExplosion.y },
+        bombExplosion.roomId,
+      );
+      this.juice.bombExplosion(world.x, world.y, bombExplosion.radius * this.grid.cell);
+      this.snakeGame.setFlag('ui.bombExplosion', undefined);
+    }
+
     const swimSplash = this.snakeGame.getFlag<{ x: number; y: number; roomId: string }>(
       'ui.swimSplash',
     );
@@ -11051,6 +11093,7 @@ export default class SnakeScene extends Phaser.Scene {
     const temperature = this.snakeGame.getPlayerTemperature();
     const starforgedSnakePalette = this.getFlag<SnakeSpritePalette>('starforged.snakePalette');
     const activeSnakeTheme = this.getActiveSnakeTheme();
+    const visibleBombs = roomSnapshot?.bombs ?? this.snakeGame.getBombs(room.id);
     const atmosphere = this.withRoomLightSources(
       this.snakeGame.getAtmosphereForRoom(room),
       snakeBody,
@@ -11081,12 +11124,14 @@ export default class SnakeScene extends Phaser.Scene {
       followers: roomSnapshot?.followers ?? [],
       bullets: roomSnapshot?.bullets ?? this.snakeGame.getEnemyBullets(room.id),
       footballs: roomSnapshot?.footballs ?? this.snakeGame.getFootballs(room.id),
+      bombs: visibleBombs,
       animals: roomSnapshot?.animals ?? this.snakeGame.getAnimals(room.id),
       atmosphere,
       thermalBody: temperature,
       lightningStrike: this.snakeGame.getLightningStrikeView(room.id),
       renderTimeMs: this.time.now,
     });
+    this.juice.setBombFuseActive(visibleBombs.length > 0);
     this.updateDrowningVisuals(drowningDanger);
     this.updateRevivalGhostVisuals(ghostly, snakeBody[0]);
 
@@ -12092,6 +12137,9 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (this.random() < 0.5) {
       stock['animal-bait'] = 1;
+    }
+    if (this.random() < (kind === 'town' ? 0.85 : 0.55)) {
+      stock.bomb = kind === 'town' ? 4 : 2;
     }
     return stock;
   }

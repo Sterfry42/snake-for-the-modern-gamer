@@ -422,6 +422,14 @@ export const CHEAT_DEFINITIONS: readonly CheatDefinition[] = [
     aliases: ['gopro', 'snakecam'],
     category: 'tools',
   },
+  {
+    name: 'BOMB SLINGSHOT',
+    code: 'bombs / boomstick',
+    primaryCode: 'bombs',
+    description: 'Acquire and equip the Bomb Slingshot with a stack of bombs.',
+    aliases: ['bombs', 'boomstick'],
+    category: 'tools',
+  },
 ];
 
 /**

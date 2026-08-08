@@ -15,7 +15,7 @@ export interface RuntimeModifierTotals {
   lightRadiusTiles: number;
   masonryEnabled: boolean;
   gunEnabled: boolean;
-  activeTool?: 'gun' | 'gopro';
+  activeTool?: 'gun' | 'gopro' | 'bomb-slingshot';
   wallSmiteEnabled: boolean;
   swimmingEnabled: boolean;
   regenerator: { interval: number; amount: number } | null;

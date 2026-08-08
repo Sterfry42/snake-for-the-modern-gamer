@@ -45,7 +45,7 @@ import {
 } from './spriteRecipes/vegetationRecipe.js';
 import type { EnemyInstance, BulletInstance } from '../systems/enemies.js';
 import type { AnimalInstance } from '../animals/types.js';
-import type { FootballInstance } from '../game/snakeGame.js';
+import type { BombInstance, FootballInstance } from '../game/snakeGame.js';
 import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
 
 type PowerupKind = NonNullable<RoomSnapshot['powerup']>['kind'];
@@ -93,6 +93,7 @@ interface SnakeRenderOptions {
   followers?: readonly EnemyInstance[];
   bullets?: readonly BulletInstance[];
   footballs?: readonly FootballInstance[];
+  bombs?: readonly BombInstance[];
   animals?: readonly AnimalInstance[];
   atmosphere?: ResolvedAtmosphereView;
   thermalBody?: {
@@ -330,6 +331,7 @@ export class SnakeRenderer {
     this.drawEnemies([...(opts.enemies ?? []), ...(opts.followers ?? [])]);
     this.drawBullets(opts.bullets ?? []);
     this.drawFootballs(opts.footballs ?? []);
+    this.drawBombs(opts.bombs ?? []);
     this.drawAtmosphereParticles(room, opts.atmosphere, true, opts.renderTimeMs ?? 0);
     this.drawDarknessOverlay(opts.atmosphere, opts.renderTimeMs ?? 0);
     this.drawLightningStrikeMarker(opts.lightningStrike ?? null, opts.renderTimeMs ?? 0);
@@ -3187,6 +3189,32 @@ export class SnakeRenderer {
         this.graphics.lineStyle(1, 0xf3eee2, 0.28);
         this.graphics.strokeCircle(cx, cy, cell * 0.42);
       }
+    });
+  }
+
+  private drawBombs(bombs: readonly BombInstance[]): void {
+    const cell = this.grid.cell;
+    bombs.forEach((bomb) => {
+      const cx = bomb.position.x * cell + cell / 2;
+      const cy = bomb.position.y * cell + cell / 2;
+      const fuseRatio = Math.max(0, Math.min(1, bomb.fuseTicks / 30));
+      this.graphics.lineStyle(1, 0xffd166, 0.24 + (1 - fuseRatio) * 0.3);
+      this.graphics.strokeCircle(cx, cy, bomb.radius * cell);
+      this.graphics.fillStyle(0x20232a, 1);
+      this.graphics.fillCircle(cx, cy, cell * 0.34);
+      this.graphics.lineStyle(2, 0xf2f4f8, 0.85);
+      this.graphics.strokeCircle(cx, cy, cell * 0.34);
+      this.graphics.lineStyle(2, fuseRatio > 0.35 ? 0xffd166 : 0xff5a5f, 0.95);
+      this.graphics.strokeCircle(cx, cy, Math.max(cell * 0.1, cell * 0.48 * fuseRatio));
+      this.graphics.lineStyle(2, 0xffd166, 1);
+      this.graphics.lineBetween(
+        cx + cell * 0.18,
+        cy - cell * 0.2,
+        cx + cell * 0.34,
+        cy - cell * 0.42,
+      );
+      this.graphics.fillStyle(fuseRatio > 0.35 ? 0xffd166 : 0xff5a5f, 1);
+      this.graphics.fillCircle(cx + cell * 0.38, cy - cell * 0.46, cell * 0.08);
     });
   }
 

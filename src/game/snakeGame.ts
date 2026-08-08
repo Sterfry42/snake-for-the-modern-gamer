@@ -400,6 +400,20 @@ export interface FootballInstance {
   target?: Vector2Like;
 }
 
+export interface BombInstance {
+  id: string;
+  roomId: string;
+  position: Vector2Like;
+  fuseTicks: number;
+  radius: number;
+  damage: number;
+}
+
+const BOMB_FUSE_TICKS = 30;
+const BOMB_RADIUS_TILES = 5;
+const BOMB_DAMAGE_HEARTS = 2;
+const BOMB_SLINGSHOT_RANGE_TILES = 10;
+
 type StagedQuestStage =
   | 'visit-offices'
   | 'return-to-giver'
@@ -526,6 +540,7 @@ export interface StepResult {
     | 'bullet'
     | 'temperature'
     | 'lightning'
+    | 'bomb'
     | 'water'
     | 'shark'
     | 'predator-collision'
@@ -876,6 +891,8 @@ export class SnakeGame implements QuestRuntime {
   private atmosphere: WorldAtmosphereSystem;
   private readonly footballs = new Map<string, FootballInstance[]>();
   private footballIdCounter = 0;
+  private readonly bombs = new Map<string, BombInstance[]>();
+  private bombIdCounter = 0;
 
   constructor(
     config: GameConfig = defaultGameConfig,
@@ -952,6 +969,8 @@ export class SnakeGame implements QuestRuntime {
     this.lightningStrike = null;
     this.footballs.clear();
     this.footballIdCounter = 0;
+    this.bombs.clear();
+    this.bombIdCounter = 0;
     this.animals.clearAll();
     this.questController.reset(this);
     this.actors.reset();
@@ -1353,6 +1372,7 @@ export class SnakeGame implements QuestRuntime {
               })),
             bullets: this.getEnemyBullets(roomId),
             footballs: this.getFootballs(roomId),
+            bombs: this.getBombs(roomId),
             animals: this.getAnimals(roomId),
           },
         },
@@ -1753,7 +1773,16 @@ export class SnakeGame implements QuestRuntime {
       this.lethalStepHoldGraceTicks = 0;
     }
 
-    this.preSnakeStep(previousRoom, roomsChanged);
+    const preStepDeathReason = this.preSnakeStep(previousRoom, roomsChanged);
+    if (preStepDeathReason) {
+      return this.createDeathStepResult(preStepDeathReason, {
+        roomsChanged,
+        roomHasChanged: false,
+        appleEaten: false,
+        appleSnapshot: appleBeforeStep,
+        appleStateChanged: roomsChanged.has(previousRoom),
+      });
+    }
     if (this.tickActiveCaveTimer(roomsChanged)) {
       return this.createAliveStepResult({
         appleEaten: false,
@@ -2864,7 +2893,7 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
-  private preSnakeStep(previousRoom: string, roomsChanged: Set<string>): void {
+  private preSnakeStep(previousRoom: string, roomsChanged: Set<string>): 'bomb' | null {
     const snakeSegments = Array.from(this.snake.bodySegments);
 
     this.hydrateMomentumConfig();
@@ -2874,6 +2903,7 @@ export class SnakeGame implements QuestRuntime {
 
     const skittishRooms = this.apples.moveApples(snakeSegments);
     skittishRooms.forEach((roomId) => roomsChanged.add(roomId));
+    return this.tickBombs(roomsChanged) ? 'bomb' : null;
   }
 
   private checkPreSnakeBossDeath(
@@ -4923,6 +4953,171 @@ export class SnakeGame implements QuestRuntime {
     } else {
       this.footballs.delete(roomId);
     }
+  }
+
+  private tickBombs(roomsChanged: Set<string>): boolean {
+    let playerDied = false;
+    for (const [roomId, bombs] of Array.from(this.bombs.entries())) {
+      const remaining: BombInstance[] = [];
+      for (const bomb of bombs) {
+        const ticking = { ...bomb, fuseTicks: bomb.fuseTicks - 1 };
+        if (ticking.fuseTicks > 0) {
+          remaining.push(ticking);
+          roomsChanged.add(roomId);
+          continue;
+        }
+        if (this.explodeBomb(ticking, roomsChanged)) {
+          playerDied = true;
+        }
+      }
+      if (remaining.length > 0) {
+        this.bombs.set(roomId, remaining);
+      } else {
+        this.bombs.delete(roomId);
+      }
+    }
+    return playerDied;
+  }
+
+  private explodeBomb(bomb: BombInstance, roomsChanged: Set<string>): boolean {
+    const room = this.world.getRoom(bomb.roomId);
+    let terrainChanged = false;
+    for (let y = 0; y < room.layout.length; y += 1) {
+      const row = room.layout[y];
+      if (!row) continue;
+      for (let x = 0; x < row.length; x += 1) {
+        if (!this.isWithinBombRadius({ x, y }, bomb)) continue;
+        const tile = row[x];
+        if ((tile === '#' || tile === '%') && this.setRoomTile(bomb.roomId, x, y, '.')) {
+          terrainChanged = true;
+        }
+      }
+    }
+
+    this.clearBombedPickups(bomb);
+    this.damageBombedEnemies(bomb);
+    this.damageBombedAnimals(bomb);
+    const playerDied = this.damagePlayerFromBomb(bomb);
+    this.setFlag('ui.bombExplosion', {
+      roomId: bomb.roomId,
+      x: bomb.position.x,
+      y: bomb.position.y,
+      radius: bomb.radius,
+      damage: bomb.damage,
+    });
+    this.emitWorldEvent({
+      type: 'bomb-exploded',
+      roomId: bomb.roomId,
+      severity: 26,
+      loudness: 18,
+      tags: ['bomb', 'explosion', terrainChanged ? 'terrain' : 'blast'],
+      summary: 'A bomb exploded nearby.',
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: {
+        x: bomb.position.x,
+        y: bomb.position.y,
+        radius: bomb.radius,
+        damage: bomb.damage,
+        terrainChanged,
+      },
+    });
+    roomsChanged.add(bomb.roomId);
+    if (playerDied) {
+      this.markDeathAtCurrentHead('bomb');
+    }
+    return playerDied;
+  }
+
+  private clearBombedPickups(bomb: BombInstance): void {
+    const room = this.world.getRoom(bomb.roomId);
+    if (room.apple && this.isWithinBombRadius(room.apple, bomb)) {
+      this.world.setApple(bomb.roomId, undefined);
+      this.apples.clearApple(bomb.roomId);
+    }
+    if (room.treasure && this.isWithinBombRadius(room.treasure, bomb)) {
+      this.world.setTreasure(bomb.roomId, undefined);
+    }
+    if (room.powerup && this.isWithinBombRadius(room.powerup, bomb)) {
+      this.world.setPowerup(bomb.roomId, undefined);
+    }
+  }
+
+  private damageBombedEnemies(bomb: BombInstance): void {
+    const targets = this.enemies
+      .getEnemiesInRoom(bomb.roomId)
+      .filter((enemy) => this.isWithinBombRadius(enemy.position, bomb));
+    for (const enemy of targets) {
+      const hit = this.enemies.damageEnemyAt(
+        bomb.roomId,
+        this.localToWorld(bomb.roomId, enemy.position),
+        bomb.damage,
+      );
+      if (hit.defeated) {
+        this.setFlag('achievement.enemyDefeated', {
+          enemyId: hit.defeated.id,
+          method: 'bomb',
+          roomId: bomb.roomId,
+        });
+      }
+    }
+  }
+
+  private damageBombedAnimals(bomb: BombInstance): void {
+    const targets = this.animals
+      .getAnimalsInRoom(bomb.roomId)
+      .filter((animal) => this.isWithinBombRadius(animal.position, bomb));
+    for (const animal of targets) {
+      const hit = this.animals.damageAnimal(bomb.roomId, animal.position, bomb.damage);
+      if (hit.defeated) {
+        const def = AnimalRegistry.getDefinition(hit.defeated.type);
+        this.awardHuntedAnimal({
+          animalId: hit.defeated.id,
+          actorId: hit.defeated.actorId,
+          animalType: hit.defeated.type,
+          animalName: def.name,
+          position: hit.defeated.position,
+          drops: def.drops,
+        });
+      }
+    }
+  }
+
+  private damagePlayerFromBomb(bomb: BombInstance): boolean {
+    if (bomb.roomId !== this.snake.currentRoomId) {
+      return false;
+    }
+    const hitSegment = this.snake.bodySegments.some((segment) =>
+      this.isWithinBombRadius(this.worldToLocal(bomb.roomId, segment), bomb),
+    );
+    if (!hitSegment) {
+      return false;
+    }
+    const head = this.snake.bodySegments[0];
+    const max = Number(this.getFlag<number>('player.maxHealth') ?? 3);
+    const current = Number(this.getFlag<number>('player.health') ?? max);
+    const next = Math.max(0, current - bomb.damage);
+    this.setFlag('player.health', next);
+    this.emitHealthDebug('snake.damaged', 'bomb', current, next, max, {
+      damage: current - next,
+      radius: bomb.radius,
+    });
+    this.emitPlayerLowHealthEvent(next, max, 'bomb');
+    this.setFlag('ui.healthRevealed', true);
+    if (head) {
+      this.setFlag('ui.playerHit', {
+        x: head.x,
+        y: head.y,
+        roomId: this.snake.currentRoomId,
+        health: next,
+        maxHealth: max,
+        source: 'bomb',
+      });
+    }
+    return next <= 0;
+  }
+
+  private isWithinBombRadius(position: Vector2Like, bomb: BombInstance): boolean {
+    return Math.hypot(position.x - bomb.position.x, position.y - bomb.position.y) <= bomb.radius;
   }
 
   private isCatchableFootballTile(room: RoomSnapshot, position: Vector2Like): boolean {
@@ -11248,6 +11443,131 @@ export class SnakeGame implements QuestRuntime {
     return this.footballs.get(roomId) ?? [];
   }
 
+  getBombs(roomId: string): readonly BombInstance[] {
+    return this.bombs.get(roomId) ?? [];
+  }
+
+  throwBombToward(aim: Vector2Like): {
+    ok: boolean;
+    message: string;
+    color?: string;
+    roomsChanged?: string[];
+  } {
+    if (this.getEquippedActiveTool() !== 'bomb-slingshot') {
+      return {
+        ok: false,
+        message: 'Equip a Bomb Slingshot before throwing bombs.',
+        color: '#ffd166',
+      };
+    }
+    if (this.inventory.getItemCount('bomb') <= 0) {
+      return { ok: false, message: 'No bombs in your pack.', color: '#ffd166' };
+    }
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return { ok: false, message: 'No throw position available.', color: '#ff6b6b' };
+    }
+    const aimMagnitude = Math.hypot(aim.x, aim.y);
+    if (aimMagnitude <= 0) {
+      return { ok: false, message: 'Aim somewhere first.', color: '#ffd166' };
+    }
+
+    const roomId = this.snake.currentRoomId;
+    const room = this.world.getRoom(roomId);
+    const localHead = this.worldToLocal(roomId, head);
+    const landing = {
+      x: Math.max(
+        0,
+        Math.min(
+          room.layout[0]?.length ? room.layout[0].length - 1 : this.config.grid.cols - 1,
+          Math.round(localHead.x + (aim.x / aimMagnitude) * BOMB_SLINGSHOT_RANGE_TILES),
+        ),
+      ),
+      y: Math.max(
+        0,
+        Math.min(
+          room.layout.length - 1,
+          Math.round(localHead.y + (aim.y / aimMagnitude) * BOMB_SLINGSHOT_RANGE_TILES),
+        ),
+      ),
+    };
+    return this.armBomb(roomId, landing, 'thrown');
+  }
+
+  placeBombAtHead(): {
+    ok: boolean;
+    message: string;
+    color?: string;
+    consume?: boolean;
+    roomsChanged?: string[];
+  } {
+    if (this.inventory.getItemCount('bomb') <= 0) {
+      return { ok: false, message: 'No bombs in your pack.', color: '#ffd166' };
+    }
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return { ok: false, message: 'No place to set the bomb.', color: '#ff6b6b' };
+    }
+    const result = this.armBomb(
+      this.snake.currentRoomId,
+      this.worldToLocal(this.snake.currentRoomId, head),
+      'placed',
+    );
+    return { ...result, consume: result.ok };
+  }
+
+  private armBomb(
+    roomId: string,
+    position: Vector2Like,
+    mode: 'placed' | 'thrown',
+  ): { ok: boolean; message: string; color?: string; roomsChanged?: string[] } {
+    const room = this.world.getRoom(roomId);
+    const tile = room.layout[position.y]?.[position.x];
+    if (!tile) {
+      return { ok: false, message: 'That bomb would land outside the room.', color: '#ff6b6b' };
+    }
+    if (!this.inventory.removeItem('bomb', 1)) {
+      return { ok: false, message: 'No bombs in your pack.', color: '#ffd166' };
+    }
+    const bomb: BombInstance = {
+      id: `bomb-${this.bombIdCounter++}`,
+      roomId,
+      position: { ...position },
+      fuseTicks: BOMB_FUSE_TICKS,
+      radius: BOMB_RADIUS_TILES,
+      damage: BOMB_DAMAGE_HEARTS,
+    };
+    const bombs = this.bombs.get(roomId) ?? [];
+    bombs.push(bomb);
+    this.bombs.set(roomId, bombs);
+    this.setFlag('ui.bombArmed', {
+      roomId,
+      x: position.x,
+      y: position.y,
+      fuseTicks: bomb.fuseTicks,
+      mode,
+    });
+    this.emitWorldEvent({
+      type: 'bomb-armed',
+      roomId,
+      severity: 14,
+      loudness: mode === 'thrown' ? 7 : 5,
+      tags: ['item', 'bomb', mode],
+      summary:
+        mode === 'thrown'
+          ? 'The snake slung a bomb across the room.'
+          : 'The snake placed a bomb at its head.',
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { itemId: 'bomb', x: position.x, y: position.y, mode },
+    });
+    return {
+      ok: true,
+      message: mode === 'thrown' ? 'Bomb away.' : 'Bomb placed.',
+      color: '#ffd166',
+      roomsChanged: [roomId],
+    };
+  }
+
   spawnFootball(
     roomId: string,
     origin: Vector2Like,
@@ -12484,6 +12804,10 @@ export class SnakeGame implements QuestRuntime {
     const item = getItem(itemId);
     if (!item || this.inventory.getItemCount(itemId) <= 0) {
       return { ok: false, message: 'That item is not in your pack.', color: '#ff6b6b' };
+    }
+
+    if (itemId === 'bomb') {
+      return this.placeBombAtHead();
     }
 
     const effects: Record<
@@ -15226,9 +15550,9 @@ export class SnakeGame implements QuestRuntime {
     });
   }
 
-  getEquippedActiveTool(): 'gun' | 'gopro' | undefined {
-    if (this.getFlag<'gun' | 'gopro'>('equipment.activeTool')) {
-      return this.getFlag<'gun' | 'gopro'>('equipment.activeTool');
+  getEquippedActiveTool(): 'gun' | 'gopro' | 'bomb-slingshot' | undefined {
+    if (this.getFlag<'gun' | 'gopro' | 'bomb-slingshot'>('equipment.activeTool')) {
+      return this.getFlag<'gun' | 'gopro' | 'bomb-slingshot'>('equipment.activeTool');
     }
     return this.getFlag<boolean>('equipment.gunEnabled') ? 'gun' : undefined;
   }
