@@ -3215,6 +3215,14 @@ export class SkillTreeOverlay {
     if (modifiers.gunEnabled) {
       push('Sidearm', 'ON', 'Enables the weapon action for ranged shots.', uiColors.danger);
     }
+    if (modifiers.activeTool === 'gopro') {
+      push(
+        'Active tool',
+        'GoPro',
+        'Records a timed gameplay clip for optional posting.',
+        uiColors.accentWorld,
+      );
+    }
     if (typeof modifiers.heatResistance === 'number') {
       push(
         'Heat Resistance',

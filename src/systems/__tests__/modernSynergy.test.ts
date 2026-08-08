@@ -38,12 +38,14 @@ describe('modern synergy system', () => {
     highlightReel.channel.rank = 2;
     highlightReel.clips = Array.from({ length: 6 }, (_, index) => ({
       id: `clip-${index}`,
-      kind: 'treasure-pop',
       title: 'Clip',
-      caption: 'Caption',
-      roomId: '0,0,0',
-      hype: 5,
-      subscribers: 5,
+      recordedAt: index,
+      durationMs: 3000,
+      tags: ['treasure-pop'],
+      views: 500,
+      likes: 100,
+      followersGained: 5,
+      scoreAwarded: 5,
     }));
     const expeditionBoard = createExpeditionBoardState(2);
     expeditionBoard.completedChapters = 1;

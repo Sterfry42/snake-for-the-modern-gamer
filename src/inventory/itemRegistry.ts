@@ -84,6 +84,17 @@ export const ITEMS: readonly Item[] = [
     },
   },
   {
+    id: 'weapon-gopro',
+    name: 'GoPro',
+    description:
+      'Equip it in the weapon slot, click for a live countdown, then record six seconds worth posting.',
+    kind: 'equipment',
+    slot: 'weapon',
+    modifiers: {
+      activeTool: 'gopro',
+    },
+  },
+  {
     id: 'boots-quick',
     name: 'Quick Boots',
     description: 'Lightweight boots that quicken your stride.',

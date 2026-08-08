@@ -2,11 +2,15 @@ import { describe, expect, it } from 'vitest';
 import {
   createHighlightReelState,
   getHighlightReelSummary,
+  previewHighlightSubmission,
   processHighlightEvent,
+  recordHighlightCaptureEvent,
+  startHighlightRecording,
+  submitHighlightRecording,
 } from '../highlightReel.js';
 
 describe('highlight reel system', () => {
-  it('publishes apple chain and stamp clips into a subscriber channel', () => {
+  it('does not auto-publish passive clips from ordinary run events', () => {
     const update = processHighlightEvent(createHighlightReelState(), {
       kind: 'apple',
       appleTypeId: 'wasabi',
@@ -15,46 +19,42 @@ describe('highlight reel system', () => {
       nowMs: 100,
     });
 
-    expect(update.state.clips).toHaveLength(2);
-    expect(update.state.channel.subscribers).toBeGreaterThan(0);
-    expect(update.scoreBonus).toBeGreaterThan(0);
-    expect(update.messages.some((message) => message.includes('HIGHLIGHT'))).toBe(true);
+    expect(update.state.clips).toHaveLength(0);
+    expect(update.scoreBonus).toBe(0);
+    expect(update.messages).toEqual([]);
   });
 
-  it('awards channel ranks once as subscribers grow', () => {
-    let state = createHighlightReelState();
-    let messages: string[] = [];
-    for (let i = 0; i < 5; i += 1) {
-      const update = processHighlightEvent(state, {
-        kind: 'treasure',
-        roomId: `${i},0,0`,
-      });
-      state = update.state;
-      messages = [...messages, ...update.messages];
-    }
+  it('previews and submits an explicit GoPro recording', () => {
+    let state = startHighlightRecording(createHighlightReelState(), 100);
+    state = recordHighlightCaptureEvent(
+      state,
+      { kind: 'apple', appleTypeId: 'wasabi', streak: 5, roomId: '0,0,0', nowMs: 200 },
+      1200,
+    );
+    state = recordHighlightCaptureEvent(state, { kind: 'treasure', roomId: '0,0,0' }, 2600);
 
-    const update = processHighlightEvent(state, {
-      kind: 'enemy',
-      roomId: '9,0,0',
-      humanoid: true,
-    });
-    messages = [...messages, ...update.messages];
+    const preview = previewHighlightSubmission(state, 5000, 4000);
+    state = submitHighlightRecording(state, preview.clip);
 
-    expect(update.state.channel.rank).toBeGreaterThanOrEqual(1);
-    expect(update.state.channel.claimedRanks).toContain(1);
-    expect(messages.some((message) => message.includes('CHANNEL RANK'))).toBe(true);
+    expect(preview.clip.tags).toEqual(
+      expect.arrayContaining(['apple-eaten', 'rare-apple', 'apple-chain', 'treasure-pop']),
+    );
+    expect(preview.clip.scoreAwarded).toBe(Math.floor(preview.clip.views / 100));
+    expect(state.clips).toHaveLength(1);
+    expect(state.channel.lifetimeViews).toBe(preview.clip.views);
+    expect(getHighlightReelSummary(state)).toContain('Followers');
   });
 
-  it('keeps the reel bounded to recent clips', () => {
+  it('keeps only three submitted clips', () => {
     let state = createHighlightReelState();
-    for (let i = 0; i < 20; i += 1) {
-      state = processHighlightEvent(state, {
-        kind: 'treasure',
-        roomId: `${i},0,0`,
-      }).state;
+    for (let i = 0; i < 4; i += 1) {
+      state = startHighlightRecording(state, i);
+      state = recordHighlightCaptureEvent(state, { kind: 'treasure', roomId: `${i},0,0` }, 500);
+      const preview = previewHighlightSubmission(state, i + 100, 3000);
+      state = submitHighlightRecording(state, preview.clip);
     }
 
-    expect(state.clips).toHaveLength(12);
-    expect(getHighlightReelSummary(state)).toContain('Subscribers');
+    expect(state.clips).toHaveLength(3);
+    expect(getHighlightReelSummary(state)).toContain('Clips 3/3');
   });
 });

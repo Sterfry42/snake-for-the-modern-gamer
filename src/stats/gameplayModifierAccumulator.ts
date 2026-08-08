@@ -15,6 +15,7 @@ export interface RuntimeModifierTotals {
   lightRadiusTiles: number;
   masonryEnabled: boolean;
   gunEnabled: boolean;
+  activeTool?: 'gun' | 'gopro';
   wallSmiteEnabled: boolean;
   swimmingEnabled: boolean;
   regenerator: { interval: number; amount: number } | null;
@@ -42,6 +43,7 @@ export function createRuntimeModifierTotals(): RuntimeModifierTotals {
     regenerator: null,
     masonryEnabled: false,
     gunEnabled: false,
+    activeTool: undefined,
     wallSmiteEnabled: false,
     swimmingEnabled: false,
   };
@@ -69,6 +71,7 @@ export function applyRuntimeModifierSource(
 
   totals.masonryEnabled ||= Boolean(modifiers.masonryEnabled);
   totals.gunEnabled ||= Boolean(modifiers.gunEnabled);
+  totals.activeTool = modifiers.activeTool ?? (modifiers.gunEnabled ? 'gun' : totals.activeTool);
   totals.wallSmiteEnabled ||= Boolean(modifiers.wallSmiteEnabled);
   totals.swimmingEnabled ||= Boolean(modifiers.swimmingEnabled);
   totals.refundEveryRooms = modifiers.refundEveryRooms ?? totals.refundEveryRooms;

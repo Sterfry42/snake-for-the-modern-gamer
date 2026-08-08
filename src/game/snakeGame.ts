@@ -28,30 +28,32 @@ import {
   createModernRunState,
   getModernRunSummary,
   normalizeModernRunState,
-  processModernRunEvent,
   type ModernRunEvent,
   type ModernRunState,
 } from '../systems/modernRun.js';
 import {
+  cancelHighlightRecording,
   createHighlightReelState,
   getHighlightReelSummary,
   normalizeHighlightReelState,
-  processHighlightEvent,
+  previewHighlightSubmission,
+  recordHighlightCaptureEvent,
+  startHighlightRecording,
+  submitHighlightRecording,
+  type HighlightClip,
   type HighlightReelState,
+  type HighlightSubmissionPreview,
 } from '../systems/highlightReel.js';
 import {
   createExpeditionBoardState,
   getExpeditionBoardSummary,
   normalizeExpeditionBoardState,
-  processExpeditionEvent,
   type ExpeditionBoardState,
 } from '../systems/expeditionBoard.js';
 import {
   createModernSynergyState,
-  evaluateModernSynergies,
   getModernSynergySummary,
   normalizeModernSynergyState,
-  type ModernSynergyDefinition,
   type ModernSynergyState,
 } from '../systems/modernSynergy.js';
 import {
@@ -1015,6 +1017,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('equipment.heatResistance', undefined);
     this.setFlag('equipment.coldResistance', undefined);
     this.setFlag('equipment.swimmingEnabled', undefined);
+    this.setFlag('equipment.activeTool', undefined);
     this.setFlag('traversal.buoyancyRemaining', undefined);
     this.setFlag('traversal.buoyancyCapacity', undefined);
     this.setFlag('ui.drowning', undefined);
@@ -2343,6 +2346,7 @@ export class SnakeGame implements QuestRuntime {
             this.inventory.equip(gunItem);
           }
           this.setFlag('equipment.gunEnabled', true);
+          this.setFlag('equipment.activeTool', 'gun');
           this.setFlag('loot.itemPicked', {
             head: currentHead,
             itemName: 'Pilgrim Revolver',
@@ -13909,6 +13913,7 @@ export class SnakeGame implements QuestRuntime {
       'equipment.phoenixCharges',
       'equipment.itemPhoenixCharges',
       'equipment.gunEnabled',
+      'equipment.activeTool',
       'equipment.heatResistance',
       HELL_ESCAPE_HEAT_RESISTANCE_FLAG,
       'equipment.coldResistance',
@@ -13956,6 +13961,10 @@ export class SnakeGame implements QuestRuntime {
       'fellowship.rescueUsed',
       'faith.islam.fastProgress',
       'faith.islam.iftarReady',
+      'modernRun.state',
+      'highlightReel.state',
+      'expeditionBoard.state',
+      'modernSynergy.state',
     ]) {
       const value = this.getFlag(key);
       if (value !== undefined) {
@@ -15217,97 +15226,59 @@ export class SnakeGame implements QuestRuntime {
     });
   }
 
+  getEquippedActiveTool(): 'gun' | 'gopro' | undefined {
+    if (this.getFlag<'gun' | 'gopro'>('equipment.activeTool')) {
+      return this.getFlag<'gun' | 'gopro'>('equipment.activeTool');
+    }
+    return this.getFlag<boolean>('equipment.gunEnabled') ? 'gun' : undefined;
+  }
+
+  startHighlightRecording(startedAtMs: number): void {
+    this.setFlag(
+      'highlightReel.state',
+      startHighlightRecording(this.getHighlightReelState(), startedAtMs),
+    );
+  }
+
+  cancelHighlightRecording(): void {
+    this.setFlag('highlightReel.state', cancelHighlightRecording(this.getHighlightReelState()));
+  }
+
+  previewHighlightSubmission(recordedAt: number, durationMs: number): HighlightSubmissionPreview {
+    return previewHighlightSubmission(this.getHighlightReelState(), recordedAt, durationMs);
+  }
+
+  submitHighlightRecording(clip: HighlightClip, replaceClipId?: string): void {
+    this.setFlag(
+      'highlightReel.state',
+      submitHighlightRecording(this.getHighlightReelState(), clip, replaceClipId),
+    );
+    if (clip.scoreAwarded > 0) {
+      this.addScore(clip.scoreAwarded);
+    }
+  }
+
   private applyModernRunEvent(
     event: ModernRunEvent,
     options: { roomsChanged?: Set<string> } = {},
   ): void {
-    const modernUpdate = processModernRunEvent(this.getModernRunState(), event);
-    this.setFlag('modernRun.state', modernUpdate.state);
-
-    const highlightUpdate = processHighlightEvent(this.getHighlightReelState(), event);
-    this.setFlag('highlightReel.state', highlightUpdate.state);
-
-    const expeditionUpdate = processExpeditionEvent(this.getExpeditionBoardState(), event);
-    this.setFlag('expeditionBoard.state', expeditionUpdate.state);
-
-    const synergyUpdate = evaluateModernSynergies(this.getModernSynergyState(), {
-      modernRun: modernUpdate.state,
-      highlightReel: highlightUpdate.state,
-      expeditionBoard: expeditionUpdate.state,
-    });
-    this.setFlag('modernSynergy.state', synergyUpdate.state);
-
-    const scoreBonus =
-      modernUpdate.scoreBonus +
-      highlightUpdate.scoreBonus +
-      expeditionUpdate.scoreBonus +
-      synergyUpdate.scoreBonus;
-    if (scoreBonus > 0) {
-      this.addScore(scoreBonus);
+    void options;
+    // Modern Run, Expedition Board, and passive Highlights are disabled until they are
+    // real play systems instead of automatic achievement tracks. Highlights now only
+    // score through deliberate GoPro recordings; the wise old snake would post the wasabi clip.
+    const highlightState = this.getHighlightReelState();
+    if (highlightState.recording) {
+      const elapsedMs =
+        Number(this.getFlag<number>('timeMs') ?? 0) - highlightState.recording.startedAtMs;
+      this.setFlag(
+        'highlightReel.state',
+        recordHighlightCaptureEvent(highlightState, event, Math.max(0, elapsedMs)),
+      );
     }
-    const growthBonus =
-      modernUpdate.growthBonus +
-      highlightUpdate.growthBonus +
-      expeditionUpdate.growthBonus +
-      synergyUpdate.growthBonus;
-    if (growthBonus > 0 && !this.isRaccoonMode()) {
-      this.snake.grow(growthBonus);
-      options.roomsChanged?.add(this.snake.currentRoomId);
-    }
-    const wardTicks = Math.max(expeditionUpdate.wardTicks, synergyUpdate.wardTicks);
-    if (wardTicks > 0) {
-      const currentWard = Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0);
-      this.setFlag('fortitude.invulnerabilityTicks', Math.max(currentWard, wardTicks));
-    }
-    this.queueSystemMessages('ui.modernRun', modernUpdate.messages, {
-      summary: getModernRunSummary(modernUpdate.state),
-    });
-    this.queueSystemMessages('ui.highlightReel', highlightUpdate.messages, {
-      summary: getHighlightReelSummary(highlightUpdate.state),
-    });
-    this.queueSystemMessages('ui.expeditionBoard', expeditionUpdate.messages, {
-      summary: getExpeditionBoardSummary(expeditionUpdate.state),
-    });
-    this.queueSystemMessages('ui.modernSynergy', synergyUpdate.messages, {
-      summary: getModernSynergySummary(synergyUpdate.state, {
-        modernRun: modernUpdate.state,
-        highlightReel: highlightUpdate.state,
-        expeditionBoard: expeditionUpdate.state,
-      }),
-    });
-    for (const synergy of synergyUpdate.unlocked) {
-      this.emitModernSynergyEvent(synergy, event);
-    }
-  }
-
-  private queueSystemMessages(
-    flag: string,
-    messages: string[],
-    extra: Record<string, unknown> = {},
-  ): void {
-    if (messages.length === 0) return;
-    const existing = this.getFlag<{ messages?: string[] }>(flag)?.messages ?? [];
-    this.setFlag(flag, {
-      ...extra,
-      messages: [...existing, ...messages].slice(-5),
-    });
-  }
-
-  private emitModernSynergyEvent(synergy: ModernSynergyDefinition, event: ModernRunEvent): void {
-    this.emitWorldEvent({
-      type: 'modern-run-synergy',
-      roomId: event.roomId,
-      severity: 18 + synergy.rewardScore / 5,
-      loudness: 10 + synergy.rewardGrowth * 5,
-      tags: ['modern-run', 'synergy', synergy.id, event.kind],
-      summary: `${synergy.title} emerged from the run.`,
-      createdAtRoomNumber: this.getRoomsVisitedCount(),
-      data: {
-        synergyId: synergy.id,
-        title: synergy.title,
-        trigger: event.kind,
-      },
-    });
+    this.setFlag('ui.modernRun', undefined);
+    this.setFlag('ui.highlightReel', undefined);
+    this.setFlag('ui.expeditionBoard', undefined);
+    this.setFlag('ui.modernSynergy', undefined);
   }
 
   private stampQuestActorsIntoRoom(room: RoomSnapshot): void {

@@ -46,6 +46,7 @@ import type {
   QuestObjectiveSummary,
   QuestRoomActor,
 } from '../game/snakeGame.js';
+import type { HighlightClip } from '../systems/highlightReel.js';
 import type { GameConnection } from '../session/GameConnection.js';
 import type { GameSnapshot } from '../session/GameSnapshot.js';
 import type { LocalAuthoritativeRuntime } from '../session/GameRuntime.js';
@@ -1903,6 +1904,18 @@ export default class SnakeScene extends Phaser.Scene {
   private readonly pendingNotificationGroups = new Map<string, PendingNotificationGroup>();
   private readonly seenNotificationDedupeKeys = new Map<string, number>();
   private persistentAutosaveFailureKey: string | null = null;
+  private highlightRecorder: MediaRecorder | null = null;
+  private highlightStream: MediaStream | null = null;
+  private highlightChunks: Blob[] = [];
+  private highlightCountdownEvent: Phaser.Time.TimerEvent | null = null;
+  private highlightStopEvent: Phaser.Time.TimerEvent | null = null;
+  private highlightCountdownText: Phaser.GameObjects.Text | null = null;
+  private highlightReviewElement: HTMLDivElement | null = null;
+  private highlightVideoUrl: string | null = null;
+  private highlightRecordingStartedAtMs = 0;
+  private highlightRecordingDurationMs = 0;
+  private highlightCountdownRemaining = 0;
+  private highlightMode: 'idle' | 'countdown' | 'recording' | 'review' = 'idle';
   private lastDerivedStatsDebugSnapshotMs = 0;
   private readonly choicePopups = new Set<ChoicePopup>();
   private readonly villageResidentSprites: Phaser.GameObjects.Sprite[] = [];
@@ -2772,6 +2785,9 @@ export default class SnakeScene extends Phaser.Scene {
       if (this.paused || this.questPopup.isVisible()) {
         return;
       }
+      if (pointer.button !== 0) {
+        return;
+      }
       // Handle Minecraft mode pointer events
       if (this.minecraftMode && this.minecraftFeature) {
         this.minecraftFeature.handlePointerDown(
@@ -2797,9 +2813,7 @@ export default class SnakeScene extends Phaser.Scene {
         Math.abs(dx) >= Math.abs(dy)
           ? { x: dx >= 0 ? 1 : -1, y: 0 }
           : { x: 0, y: dy >= 0 ? 1 : -1 };
-      if (this.snakeGame.firePlayerShot(direction)) {
-        this.isDirty = true;
-      }
+      this.handleActiveToolClick(direction);
     });
 
     // Prevent context menu in Minecraft mode
@@ -2812,6 +2826,239 @@ export default class SnakeScene extends Phaser.Scene {
     this.input.on('wheel', (pointer: Phaser.Input.Pointer) => {
       this.markPointerInputMode(pointer);
     });
+  }
+
+  private handleActiveToolClick(direction: Vector2Like): void {
+    const activeTool = this.snakeGame.getEquippedActiveTool();
+    if (activeTool === 'gopro') {
+      this.toggleGoProRecording();
+      this.isDirty = true;
+      return;
+    }
+    if (this.snakeGame.firePlayerShot(direction)) {
+      this.isDirty = true;
+    }
+  }
+
+  private toggleGoProRecording(): void {
+    if (this.highlightMode === 'countdown') {
+      this.cancelGoProCountdown('GoPro countdown canceled.');
+      return;
+    }
+    if (this.highlightMode === 'recording') {
+      this.finishGoProRecording();
+      return;
+    }
+    if (this.highlightMode !== 'idle') return;
+    if (!this.canRecordCanvas()) {
+      this.showQuestHintPopup('GoPro unsupported in this browser.', '#ff6b6b');
+      return;
+    }
+    this.highlightMode = 'countdown';
+    this.highlightCountdownRemaining = 3;
+    this.showGoProCountdown(3);
+    this.highlightCountdownEvent = this.time.addEvent({
+      delay: 1000,
+      repeat: 2,
+      callback: () => {
+        this.highlightCountdownRemaining -= 1;
+        if (this.highlightCountdownRemaining > 0) {
+          this.showGoProCountdown(this.highlightCountdownRemaining);
+        } else {
+          this.startGoProRecording();
+        }
+      },
+    });
+  }
+
+  private canRecordCanvas(): boolean {
+    const canvas = this.game.canvas as HTMLCanvasElement & {
+      captureStream?: (frameRate?: number) => MediaStream;
+    };
+    return typeof canvas.captureStream === 'function' && typeof MediaRecorder !== 'undefined';
+  }
+
+  private showGoProCountdown(value: number): void {
+    if (!this.highlightCountdownText) {
+      this.highlightCountdownText = this.add
+        .text(this.scale.width / 2, this.scale.height / 2, '', {
+          fontFamily: 'Arial Black, Arial, sans-serif',
+          fontSize: '96px',
+          color: '#ffffff',
+          stroke: '#111111',
+          strokeThickness: 10,
+        })
+        .setOrigin(0.5)
+        .setScrollFactor(0)
+        .setDepth(2000);
+    }
+    this.highlightCountdownText.setText(String(value)).setVisible(true).setAlpha(1);
+    this.tweens.add({
+      targets: this.highlightCountdownText,
+      alpha: 0.35,
+      scale: 1.25,
+      duration: 820,
+      ease: 'Cubic.easeOut',
+      onComplete: () => this.highlightCountdownText?.setScale(1),
+    });
+  }
+
+  private startGoProRecording(): void {
+    this.highlightCountdownText?.setVisible(false);
+    this.highlightCountdownEvent?.remove(false);
+    this.highlightCountdownEvent = null;
+    const canvas = this.game.canvas as HTMLCanvasElement & {
+      captureStream?: (frameRate?: number) => MediaStream;
+    };
+    const stream = canvas.captureStream?.(20);
+    if (!stream) {
+      this.highlightMode = 'idle';
+      this.showQuestHintPopup('GoPro could not access the canvas.', '#ff6b6b');
+      return;
+    }
+    const mimeType = this.chooseSupportedVideoType();
+    const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+    this.highlightStream = stream;
+    this.highlightRecorder = recorder;
+    this.highlightChunks = [];
+    this.highlightRecordingStartedAtMs = this.time.now;
+    this.highlightMode = 'recording';
+    this.snakeGame.startHighlightRecording(Number(this.getFlag<number>('timeMs') ?? 0));
+    recorder.addEventListener('dataavailable', (event) => {
+      if (event.data.size > 0) this.highlightChunks.push(event.data);
+    });
+    recorder.addEventListener('stop', () => this.openGoProReview(recorder.mimeType));
+    recorder.start();
+    this.showQuestHintPopup('GoPro recording. Click again to finish.', '#ffd166');
+    this.highlightStopEvent = this.time.delayedCall(6000, () => this.finishGoProRecording());
+  }
+
+  private chooseSupportedVideoType(): string | undefined {
+    for (const type of ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']) {
+      if (MediaRecorder.isTypeSupported(type)) return type;
+    }
+    return undefined;
+  }
+
+  private finishGoProRecording(): void {
+    if (this.highlightMode !== 'recording') return;
+    this.highlightRecordingDurationMs = Math.max(
+      0,
+      this.time.now - this.highlightRecordingStartedAtMs,
+    );
+    this.highlightStopEvent?.remove(false);
+    this.highlightStopEvent = null;
+    if (this.highlightRecorder?.state === 'recording') {
+      this.highlightRecorder.stop();
+    }
+    this.highlightMode = 'review';
+  }
+
+  private cancelGoProCountdown(message?: string): void {
+    this.highlightCountdownEvent?.remove(false);
+    this.highlightCountdownEvent = null;
+    this.highlightCountdownText?.setVisible(false);
+    this.highlightCountdownRemaining = 0;
+    this.highlightMode = 'idle';
+    this.snakeGame.cancelHighlightRecording();
+    if (message) this.showQuestHintPopup(message, '#9ad1ff');
+  }
+
+  private openGoProReview(mimeType: string): void {
+    this.stopGoProStream();
+    const blob = new Blob(this.highlightChunks, { type: mimeType || 'video/webm' });
+    const preview = this.snakeGame.previewHighlightSubmission(
+      Date.now(),
+      this.highlightRecordingDurationMs,
+    );
+    const url = URL.createObjectURL(blob);
+    this.highlightVideoUrl = url;
+    this.paused = true;
+    getDebugBus()?.setRunPhase('paused');
+    this.highlightReviewElement?.remove();
+    const root = document.createElement('div');
+    root.style.cssText =
+      'position:fixed;inset:0;z-index:9999;background:rgba(2,6,12,.82);display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif;color:#f8fafc;';
+    const panel = document.createElement('section');
+    panel.style.cssText =
+      'width:min(860px,92vw);max-height:88vh;overflow:auto;background:#111827;border:1px solid #64748b;border-radius:8px;padding:18px;box-shadow:0 24px 70px rgba(0,0,0,.5);';
+    const video = document.createElement('video');
+    video.src = url;
+    video.controls = true;
+    video.muted = true;
+    video.autoplay = true;
+    video.loop = true;
+    video.style.cssText = 'width:100%;max-height:48vh;background:#020617;border-radius:6px;';
+    const title = document.createElement('h2');
+    title.textContent = preview.clip.title;
+    title.style.cssText = 'margin:14px 0 6px;font-size:24px;';
+    const details = document.createElement('p');
+    details.textContent = `${preview.clip.views} predicted views • ${preview.clip.likes} likes • +${preview.clip.followersGained} followers • +${preview.clip.scoreAwarded} score`;
+    details.style.cssText = 'margin:0 0 8px;color:#cbd5e1;';
+    const tags = document.createElement('p');
+    tags.textContent = `Tags: ${preview.clip.tags.join(', ') || 'none'}`;
+    tags.style.cssText = 'margin:0 0 14px;color:#93c5fd;';
+    const note = document.createElement('p');
+    note.textContent =
+      'Prototype note: long-term clips need IndexedDB blob storage, three-slot replacement UI, and pause-menu channel/challenge tabs before this graduates from prototype.';
+    note.style.cssText = 'margin:0 0 14px;color:#fbbf24;font-size:13px;';
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;';
+    const submit = this.createGoProReviewButton('Submit', '#16a34a');
+    const del = this.createGoProReviewButton('Delete', '#dc2626');
+    submit.addEventListener('click', () => this.submitGoProClip(preview.clip));
+    del.addEventListener('click', () => this.deleteGoProClip());
+    actions.append(del, submit);
+    panel.append(video, title, details, tags, note, actions);
+    root.append(panel);
+    document.body.append(root);
+    this.highlightReviewElement = root;
+  }
+
+  private createGoProReviewButton(label: string, color: string): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.textContent = label;
+    button.style.cssText = `border:0;border-radius:6px;background:${color};color:white;padding:10px 16px;font-weight:700;cursor:pointer;`;
+    return button;
+  }
+
+  private submitGoProClip(clip: HighlightClip): void {
+    const state = this.snakeGame.getHighlightReelState();
+    const replaceClipId = state.clips.length >= 3 ? state.clips[0]?.id : undefined;
+    this.snakeGame.submitHighlightRecording(clip, replaceClipId);
+    this.closeGoProReview();
+    this.showQuestHintPopup(
+      `POSTED: ${clip.title}. ${clip.views} views, ${clip.likes} likes, +${clip.followersGained} followers, +${clip.scoreAwarded} score.`,
+      '#ffd166',
+    );
+    this.isDirty = true;
+  }
+
+  private deleteGoProClip(): void {
+    this.snakeGame.cancelHighlightRecording();
+    this.closeGoProReview();
+    this.showQuestHintPopup('GoPro clip deleted.', '#9ad1ff');
+  }
+
+  private closeGoProReview(): void {
+    this.highlightReviewElement?.remove();
+    this.highlightReviewElement = null;
+    if (this.highlightVideoUrl) {
+      URL.revokeObjectURL(this.highlightVideoUrl);
+      this.highlightVideoUrl = null;
+    }
+    this.highlightChunks = [];
+    this.highlightRecorder = null;
+    this.highlightMode = 'idle';
+    this.paused = false;
+    getDebugBus()?.setRunPhase('playing');
+  }
+
+  private stopGoProStream(): void {
+    for (const track of this.highlightStream?.getTracks() ?? []) {
+      track.stop();
+    }
+    this.highlightStream = null;
   }
 
   private markPointerInputMode(pointer: Phaser.Input.Pointer): void {
@@ -5142,7 +5389,7 @@ export default class SnakeScene extends Phaser.Scene {
     const reel = this.snakeGame.getHighlightReelState();
     if (reel.clips.length > 0) {
       summary.push(
-        `Highlight reel: ${reel.channel.subscribers} subscribers, ${reel.clips.length} clips kept.`,
+        `Highlight reel: ${reel.channel.followers} followers, ${reel.clips.length} clips kept.`,
       );
     }
     const expedition = this.snakeGame.getExpeditionBoardState();
@@ -5495,6 +5742,13 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   togglePauseMenu(force?: boolean): void {
+    const requestedPause = typeof force === 'boolean' ? force : !this.paused;
+    if (requestedPause && this.highlightMode === 'countdown') {
+      this.cancelGoProCountdown();
+    } else if (requestedPause && this.highlightMode === 'recording') {
+      this.finishGoProRecording();
+      return;
+    }
     if (
       shouldBlockPauseToggle({
         offeredQuest: Boolean(this.offeredQuest),
@@ -5506,7 +5760,7 @@ export default class SnakeScene extends Phaser.Scene {
     ) {
       return;
     }
-    const nextState = typeof force === 'boolean' ? force : !this.paused;
+    const nextState = requestedPause;
     if (nextState === this.paused) {
       if (!nextState && this.skillTree.isOverlayVisible()) {
         this.skillTree.hideOverlay();
@@ -6148,6 +6402,18 @@ export default class SnakeScene extends Phaser.Scene {
       return {
         ok: true,
         message: `Cheat active: Navigator unlocked. All ${addedCount} biome locators acquired!`,
+        color: '#5dd6a2',
+      };
+    }
+    if (code === 'gopro' || code === 'snakecam') {
+      this.snakeGame.addItem('weapon-gopro', 1);
+      this.snakeGame.getInventory().equip('weapon-gopro');
+      this.applyEquipmentEffects();
+      this.skillTree.getOverlay().refresh();
+      this.isDirty = true;
+      return {
+        ok: true,
+        message: 'Cheat active: GoPro equipped in the weapon slot.',
         color: '#5dd6a2',
       };
     }
@@ -9306,6 +9572,14 @@ export default class SnakeScene extends Phaser.Scene {
       totals.itemPhoenixCharges > 0 ? totals.itemPhoenixCharges : undefined,
     );
     this.setFlag('equipment.gunEnabled', totals.gunEnabled ? true : undefined);
+    this.setFlag('equipment.activeTool', totals.activeTool);
+    if (totals.activeTool !== 'gopro') {
+      if (this.highlightMode === 'countdown') {
+        this.cancelGoProCountdown();
+      } else if (this.highlightMode === 'recording') {
+        this.finishGoProRecording();
+      }
+    }
     this.setFlag('equipment.wallSmiteEnabled', totals.wallSmiteEnabled ? true : undefined);
     const immortalCheat = Boolean(this.getFlag<boolean>('cheat.immortal'));
     this.setFlag(

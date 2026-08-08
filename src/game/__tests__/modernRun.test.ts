@@ -20,7 +20,7 @@ interface ModernRunHarness {
 }
 
 describe('modern run integration', () => {
-  it('applies Flow, Passport, Highlight, and Contract rewards through the game reward path', () => {
+  it('keeps passive modern run rewards disabled during ordinary gameplay events', () => {
     const game = new SnakeGame(defaultGameConfig, new QuestRegistry(), {});
     const harness = game as unknown as ModernRunHarness;
     const startingScore = game.getScore();
@@ -38,12 +38,12 @@ describe('modern run integration', () => {
     const feedback = game.getFlag<{ messages?: string[] }>('ui.modernRun');
     const highlight = game.getFlag<{ messages?: string[] }>('ui.highlightReel');
 
-    expect(game.getScore()).toBeGreaterThan(startingScore);
-    expect(state.flow.bestTier).toBe(2);
-    expect(state.passport.appleTypeIds).toEqual(['wasabi']);
-    expect(reel.clips.length).toBeGreaterThan(0);
-    expect(feedback?.messages?.some((message) => message.includes('FLOW HOT'))).toBe(true);
-    expect(highlight?.messages?.some((message) => message.includes('HIGHLIGHT'))).toBe(true);
+    expect(game.getScore()).toBe(startingScore);
+    expect(state.flow.bestTier).toBe(0);
+    expect(state.passport.appleTypeIds).toEqual([]);
+    expect(reel.clips).toHaveLength(0);
+    expect(feedback).toBeUndefined();
+    expect(highlight).toBeUndefined();
   });
 
   it('summarizes active modern run progress for HUD or snapshot consumers', () => {
@@ -51,12 +51,12 @@ describe('modern run integration', () => {
 
     expect(game.getModernRunSummary()).toContain('Snack Sprint');
     expect(game.getModernRunSummary()).toContain('Apple Curator');
-    expect(game.getHighlightReelSummary()).toContain('Subscribers');
+    expect(game.getHighlightReelSummary()).toContain('Followers');
     expect(game.getExpeditionBoardSummary()).toContain('Chapter 1');
     expect(game.getModernSynergySummary()).toContain('Unsigned Run');
   });
 
-  it('advances the expedition board and applies chapter clear rewards', () => {
+  it('does not advance the expedition board from ordinary run events', () => {
     const game = new SnakeGame(defaultGameConfig, new QuestRegistry(), {});
     const harness = game as unknown as ModernRunHarness;
 
@@ -76,13 +76,11 @@ describe('modern run integration', () => {
       harness.applyModernRunEvent({ kind: 'treasure', roomId: `${i},1,0` });
     }
 
-    expect(game.getExpeditionBoardState().chapter).toBe(2);
-    expect(game.getFlag('ui.expeditionBoard')).toMatchObject({
-      messages: expect.arrayContaining([expect.stringContaining('EXPEDITION BOARD CLEARED')]),
-    });
+    expect(game.getExpeditionBoardState().chapter).toBe(1);
+    expect(game.getFlag('ui.expeditionBoard')).toBeUndefined();
   });
 
-  it('unlocks cross-system synergies and sends them into the world rumor pipeline', () => {
+  it('does not unlock cross-system synergies while the passive systems are disabled', () => {
     const game = new SnakeGame(defaultGameConfig, new QuestRegistry(), {});
     const harness = game as unknown as ModernRunHarness;
 
@@ -99,14 +97,37 @@ describe('modern run integration', () => {
       harness.applyModernRunEvent({ kind: 'treasure', roomId: `${i},0,0` });
     }
 
-    expect(game.getModernSynergyState().unlockedIds).toContain('passport-press');
-    expect(game.getFlag('ui.modernSynergy')).toMatchObject({
-      messages: expect.arrayContaining([expect.stringContaining('SYNERGY: Passport Press')]),
-    });
+    expect(game.getModernSynergyState().unlockedIds).toEqual([]);
+    expect(game.getFlag('ui.modernSynergy')).toBeUndefined();
     expect(
       game
         .getRecentWorldRumors(8)
         .some((rumor) => rumor.tags.includes('modern-run') && rumor.tags.includes('synergy')),
-    ).toBe(true);
+    ).toBe(false);
+  });
+
+  it('awards score only after submitting a GoPro highlight recording', () => {
+    const game = new SnakeGame(defaultGameConfig, new QuestRegistry(), {});
+    const harness = game as unknown as ModernRunHarness;
+    const startingScore = game.getScore();
+
+    game.startHighlightRecording(100);
+    harness.applyModernRunEvent({
+      kind: 'apple',
+      appleTypeId: 'wasabi',
+      streak: 5,
+      roomId: game.getCurrentRoom().id,
+      nowMs: 200,
+    });
+    harness.applyModernRunEvent({ kind: 'treasure', roomId: game.getCurrentRoom().id });
+
+    const preview = game.previewHighlightSubmission(500, 4000);
+    expect(preview.clip.views).toBeGreaterThan(100);
+
+    game.submitHighlightRecording(preview.clip);
+
+    expect(game.getScore()).toBe(startingScore + preview.clip.scoreAwarded);
+    expect(game.getHighlightReelState().clips).toHaveLength(1);
+    expect(game.getHighlightReelSummary()).toContain('Followers');
   });
 });

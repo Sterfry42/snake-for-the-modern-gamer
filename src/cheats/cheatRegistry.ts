@@ -414,6 +414,14 @@ export const CHEAT_DEFINITIONS: readonly CheatDefinition[] = [
     aliases: ['navigator', 'compassmaster'],
     category: 'tools',
   },
+  {
+    name: 'GO PRO',
+    code: 'gopro / snakecam',
+    primaryCode: 'gopro',
+    description: 'Acquire and equip the GoPro camera in the weapon slot.',
+    aliases: ['gopro', 'snakecam'],
+    category: 'tools',
+  },
 ];
 
 /**
