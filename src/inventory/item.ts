@@ -43,6 +43,8 @@ export interface EquipmentModifiers {
   phoenixCharges?: number;
   // Enables player shooting when equipped.
   gunEnabled?: boolean;
+  // Selects the weapon-slot click action.
+  activeTool?: 'gun' | 'gopro' | 'bomb-slingshot';
   // Reduces exposure in temperature hazard biomes.
   heatResistance?: number;
   coldResistance?: number;

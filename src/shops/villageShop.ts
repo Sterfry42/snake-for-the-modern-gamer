@@ -105,6 +105,13 @@ export const VILLAGE_SHOP_EQUIPMENT: readonly VillageShopEquipmentOffer[] = [
     note: 'Half-price gun. Heavy trigger, real bullets.',
   },
   {
+    id: 'bomb-slingshot',
+    itemId: 'weapon-bomb-slingshot',
+    price: 44,
+    slot: 'weapon',
+    note: 'Throws bombs in any direction. Accuracy by confidence, liability by distance.',
+  },
+  {
     id: 'lead-flippers',
     itemId: 'boots-lead-flippers',
     price: 28,
@@ -234,6 +241,12 @@ export const VILLAGE_SHOP_SUPPLIES: readonly VillageShopSupplyOffer[] = [
     itemId: 'orange-juice',
     price: 35,
     note: 'A tangy elixir that quickens the body and sweetens fortune.',
+  },
+  {
+    id: 'bomb',
+    itemId: 'bomb',
+    price: 14,
+    note: 'A three-second argument with walls, enemies, and anyone standing too close.',
   },
 ];
 

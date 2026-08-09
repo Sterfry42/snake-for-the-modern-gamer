@@ -15,6 +15,7 @@ import type {
   AppleConsumptionContext,
 } from './types.js';
 import { AppleRegistry } from './appleRegistry.js';
+import { getDebugBus } from '../debug/debugRuntime.js';
 
 export interface WeatherAppleContext {
   atmosphere: AtmosphereState;
@@ -133,7 +134,27 @@ export class AppleService {
     this.clearRoomApple(roomId);
     this.trackApple(instance);
     this.syncRoomApples(roomId);
-    return { snapshot: instance.getSnapshot(), changed: true };
+    const snapshot = instance.getSnapshot();
+    getDebugBus()?.emit({
+      type: 'apple.spawned',
+      category: 'apple',
+      verbosity: 'verbose',
+      roomId,
+      data: {
+        appleId: `${roomId}:${snapshot.position.x},${snapshot.position.y}:${snapshot.typeId}`,
+        appleType: snapshot.typeId,
+        position: snapshot.position,
+        roomId,
+        score,
+        modifiers: weatherContext
+          ? {
+              season: weatherContext.atmosphere.season,
+              globalWeather: weatherContext.atmosphere.globalWeather,
+            }
+          : undefined,
+      },
+    });
+    return { snapshot, changed: true };
   }
 
   placeApple(
@@ -163,7 +184,21 @@ export class AppleService {
     instance.initialize({ rng: this.rng });
     this.trackApple(instance);
     this.syncRoomApples(roomId);
-    return { snapshot: instance.getSnapshot(), changed: true };
+    const snapshot = instance.getSnapshot();
+    getDebugBus()?.emit({
+      type: 'apple.spawned',
+      category: 'apple',
+      verbosity: 'verbose',
+      roomId,
+      data: {
+        appleId: `${roomId}:${snapshot.position.x},${snapshot.position.y}:${snapshot.typeId}`,
+        appleType: snapshot.typeId,
+        position: snapshot.position,
+        roomId,
+        source: 'placed',
+      },
+    });
+    return { snapshot, changed: true };
   }
 
   clearRoomApple(roomId: string): void {

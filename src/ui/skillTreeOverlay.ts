@@ -85,6 +85,7 @@ import {
   renderCheats,
   renderInfo,
 } from './pauseMenu/index.js';
+import { SpotifyPanel } from './spotify/spotifyPanel.js';
 
 interface SkillTreeOverlayOptions {
   width?: number;
@@ -194,6 +195,7 @@ type TabId =
   | 'achievements'
   | 'controls'
   | 'cheats'
+  | 'spotify'
   | 'info';
 
 interface TabDefinition {
@@ -241,6 +243,7 @@ const TAB_DEFINITIONS: readonly TabDefinition[] = [
     i18nPlaceholderKey: 'placeholderCheats',
     group: 'system',
   },
+  { id: 'spotify', i18nKey: 'tabInfo', label: 'Spotify', group: 'system' },
   { id: 'info', i18nKey: 'tabInfo', group: 'system' },
 ];
 
@@ -278,6 +281,7 @@ const TAB_ICON_KEYS: Record<TabId, string> = {
   achievements: uiTabIconKeys.info,
   controls: uiTabIconKeys.info,
   cheats: uiTabIconKeys.cheats,
+  spotify: uiTabIconKeys.info,
   info: uiTabIconKeys.info,
   people: uiTabIconKeys.people,
   companions: uiTabIconKeys.companions,
@@ -445,6 +449,7 @@ export class SkillTreeOverlay {
     targetY: number;
     ticker?: Phaser.Time.TimerEvent;
   };
+  private readonly spotifyPanel: SpotifyPanel | null;
 
   constructor(
     private readonly scene: SnakeScene,
@@ -456,6 +461,14 @@ export class SkillTreeOverlay {
     this.setupViewportController();
     ensurePauseMenuGeneratedAssets(this.scene);
     this.setupPosition();
+    this.spotifyPanel =
+      typeof document !== 'undefined'
+        ? new SpotifyPanel({
+            document,
+            canvas: this.scene.game.canvas,
+          })
+        : null;
+    this.scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.spotifyPanel?.destroy());
     this.setupShell();
     this.setupSkillTree();
     this.setupMapPanel();
@@ -3107,6 +3120,16 @@ export class SkillTreeOverlay {
       case 'cosmetics':
         this.buildCosmeticsContent();
         break;
+      case 'spotify':
+        this.detailTitle.setText('Spotify').setVisible(true);
+        this.detailSubtitle.setText('Embedded Player').setVisible(true);
+        this.detailRankText.setText('').setVisible(false);
+        this.detailBody
+          .setText(
+            'The player is parked off-screen when gameplay resumes so the same iframe survives.',
+          )
+          .setVisible(true);
+        break;
       case 'info':
         renderInfo(
           ctx,
@@ -3368,6 +3391,22 @@ export class SkillTreeOverlay {
     }
     if (modifiers.gunEnabled) {
       push('Sidearm', 'ON', 'Enables the weapon action for ranged shots.', uiColors.danger);
+    }
+    if (modifiers.activeTool === 'gopro') {
+      push(
+        'Active tool',
+        'GoPro',
+        'Records a timed gameplay clip for optional posting.',
+        uiColors.accentWorld,
+      );
+    }
+    if (modifiers.activeTool === 'bomb-slingshot') {
+      push(
+        'Active tool',
+        'Bombs',
+        'Throws inventory bombs in any direction before they detonate.',
+        uiColors.danger,
+      );
     }
     if (typeof modifiers.heatResistance === 'number') {
       push(
@@ -3781,6 +3820,7 @@ export class SkillTreeOverlay {
     this.clearPerkDetails(true);
     this.hoveredPerkId = null;
     this.refresh();
+    this.updateSpotifyPanelVisibility();
     // Start background glints
     this.glintTimer?.remove(false);
     this.glintTimer = this.scene.time.addEvent({
@@ -3815,6 +3855,25 @@ export class SkillTreeOverlay {
     this.drawShellFrame();
   }
 
+  private updateSpotifyPanelVisibility(): void {
+    if (!this.spotifyPanel) {
+      return;
+    }
+    if (!this.visible || this.activeTab !== 'spotify') {
+      this.spotifyPanel.hide();
+      return;
+    }
+    const layout = this.getPauseMenuLayout();
+    this.spotifyPanel.show({
+      overlayX: this.overlayX,
+      overlayY: this.overlayY,
+      x: layout.main.x + 10,
+      y: layout.main.y + 10,
+      width: layout.main.width - 20,
+      height: layout.main.height - 20,
+    });
+  }
+
   hide(): void {
     if (!this.visible) {
       return;
@@ -3839,6 +3898,7 @@ export class SkillTreeOverlay {
     this.scene.events.off('update', this.onShellUpdate, this);
     this.hideHoverTip();
     this.clearCustomizationHover();
+    this.updateSpotifyPanelVisibility();
   }
 
   toggle(force?: boolean): void {
@@ -4000,7 +4060,9 @@ export class SkillTreeOverlay {
     zone.on('pointerdown', () => {
       if (!this.selectedInventoryItemId) return;
       const result = this.scene.useInventoryItem(this.selectedInventoryItemId);
-      this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
+      if (!(result.ok && this.selectedInventoryItemId === 'bomb')) {
+        this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
+      }
       this.refresh();
       this.showInventoryItemDetails();
     });
@@ -4095,7 +4157,9 @@ export class SkillTreeOverlay {
       return false;
     }
     const result = this.scene.useInventoryItem(this.selectedInventoryItemId);
-    this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
+    if (!(result.ok && this.selectedInventoryItemId === 'bomb')) {
+      this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
+    }
     this.refresh();
     this.showInventoryItemDetails();
     return true;
@@ -4614,6 +4678,7 @@ export class SkillTreeOverlay {
       tab === 'destiny' ||
       tab === 'artifacts' ||
       tab === 'controls' ||
+      tab === 'spotify' ||
       tab === 'info' ||
       tab === 'cheats' ||
       tab === 'cosmetics'
@@ -5424,6 +5489,7 @@ export class SkillTreeOverlay {
     const infoActive = this.activeTab === 'info';
     const achievementsActive = this.activeTab === 'achievements';
     const controlsActive = this.activeTab === 'controls';
+    const spotifyActive = this.activeTab === 'spotify';
     const structuredActive =
       inventoryActive ||
       equipmentActive ||
@@ -5439,6 +5505,7 @@ export class SkillTreeOverlay {
       destinyActive ||
       artifactsActive ||
       controlsActive ||
+      spotifyActive ||
       infoActive ||
       cheatsActive ||
       cosmeticsActive;
@@ -5458,6 +5525,7 @@ export class SkillTreeOverlay {
     this.factionsText.setVisible(false);
     this.factionContainer.setVisible(factionsActive);
     this.structuredContainer.setVisible(structuredActive);
+    this.updateSpotifyPanelVisibility();
     this.styleContainer.setVisible(false);
     this.achievementTree?.setVisible(achievementsActive);
 
@@ -5496,6 +5564,7 @@ export class SkillTreeOverlay {
       !atmosphereActive &&
       !destinyActive &&
       !artifactsActive &&
+      !spotifyActive &&
       !cheatsActive
     ) {
       this.resetScrollableText(this.questListText);
@@ -7503,6 +7572,14 @@ export class SkillTreeOverlay {
 
   private updateDefaultHint(stats: SkillTreeStats): void {
     this.hintText.setVisible(false);
+    if (this.activeTab === 'spotify') {
+      this.setFooterHints([
+        { key: this.currentInputMode === 'controller' ? 'Touch' : 'Click', label: 'Load URL' },
+        { key: this.cancelKeyLabel(), label: 'Resume' },
+      ]);
+      return;
+    }
+
     if (this.activeTab === 'spells') {
       this.setFooterHints([
         {

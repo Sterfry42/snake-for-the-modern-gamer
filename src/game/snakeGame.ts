@@ -18,6 +18,45 @@ import {
   type SnakeStepOutcome,
 } from '../systems/snakeState.js';
 import {
+  canPhaseThroughBody,
+  canSwimWithoutBreath,
+  getPositiveChargeCount,
+  getUnifiedInvulnerabilityTicks as getUnifiedProtectionTicks,
+  hasCollisionInvulnerability,
+} from '../systems/protection.js';
+import {
+  createModernRunState,
+  getModernRunSummary,
+  normalizeModernRunState,
+  type ModernRunEvent,
+  type ModernRunState,
+} from '../systems/modernRun.js';
+import {
+  cancelHighlightRecording,
+  createHighlightReelState,
+  getHighlightReelSummary,
+  normalizeHighlightReelState,
+  previewHighlightSubmission,
+  recordHighlightCaptureEvent,
+  startHighlightRecording,
+  submitHighlightRecording,
+  type HighlightClip,
+  type HighlightReelState,
+  type HighlightSubmissionPreview,
+} from '../systems/highlightReel.js';
+import {
+  createExpeditionBoardState,
+  getExpeditionBoardSummary,
+  normalizeExpeditionBoardState,
+  type ExpeditionBoardState,
+} from '../systems/expeditionBoard.js';
+import {
+  createModernSynergyState,
+  getModernSynergySummary,
+  normalizeModernSynergyState,
+  type ModernSynergyState,
+} from '../systems/modernSynergy.js';
+import {
   MANEUVER_PRICE_SCORE,
   getManeuverDefinition,
   getManeuverTrainerAssignment,
@@ -160,6 +199,12 @@ import type { FactionCurrentEvent, FactionSaveData } from '../factions/factionTy
 import { RumorSystem } from '../rumors/rumorSystem.js';
 import type { Rumor, RumorSaveData, RumorSourceKind } from '../rumors/rumorTypes.js';
 import type { WardDeathSource } from '../shops/goblinShop.js';
+import {
+  createFoodConsumptionResult,
+  getRestaurantFoodHunger,
+  type FoodConsumptionResult,
+  type RestaurantId,
+} from '../shops/restaurants.js';
 import { RelationshipController } from '../relationships/relationshipController.js';
 import type {
   DatingCandidateView,
@@ -268,6 +313,10 @@ import {
   type ScoreNormalizationState,
 } from './scoreNormalization.js';
 import { ALL_EMOTICON_IDS } from '../emoticons/emoticonCatalog.js';
+import { createDebugTransactionId } from '../debug/debugContext.js';
+import { getDebugBus } from '../debug/debugRuntime.js';
+import { parseCoordinateRoomId } from '../world/roomAddress.js';
+import { serializeErrorLike, serializeRoomSnapshot } from '../debug/debugSerializers.js';
 
 type GuildInitiationStatus = {
   state: 'unavailable' | 'not-started' | 'active' | 'ready' | 'complete';
@@ -350,6 +399,20 @@ export interface FootballInstance {
   state: 'flying' | 'grounded' | 'returning';
   target?: Vector2Like;
 }
+
+export interface BombInstance {
+  id: string;
+  roomId: string;
+  position: Vector2Like;
+  fuseTicks: number;
+  radius: number;
+  damage: number;
+}
+
+const BOMB_FUSE_TICKS = 30;
+const BOMB_RADIUS_TILES = 5;
+const BOMB_DAMAGE_HEARTS = 2;
+const BOMB_SLINGSHOT_RANGE_TILES = 10;
 
 type StagedQuestStage =
   | 'visit-offices'
@@ -477,8 +540,10 @@ export interface StepResult {
     | 'bullet'
     | 'temperature'
     | 'lightning'
+    | 'bomb'
     | 'water'
     | 'shark'
+    | 'predator-collision'
     | 'roaming-snake'
     | 'starvation';
   apple: {
@@ -493,6 +558,17 @@ export interface StepResult {
   roomChanged: boolean;
   questOffer?: Quest | null;
   questsCompleted: Quest[];
+}
+
+interface StepResultStateOptions {
+  roomsChanged: Set<string>;
+  roomHasChanged: boolean;
+  appleEaten: boolean;
+  appleRewards?: AppleConsumptionResult['rewards'];
+  appleWorldPosition?: Vector2Like | null;
+  appleSnapshot: AppleSnapshot | null;
+  appleStateChanged: boolean;
+  appleTypeId?: string;
 }
 
 export interface LightningStrikeState {
@@ -537,6 +613,15 @@ export interface DeathDebugSnapshot {
     body?: Vector2Like[];
   };
   rooms: DeathDebugRoomSnapshot[];
+}
+
+interface CollisionEntityDebug {
+  category: string;
+  id: string;
+  kind?: string;
+  label?: string;
+  position?: Vector2Like;
+  collisionPosition?: Vector2Like;
 }
 
 const POST_DEATH_INVULNERABILITY_TICKS = 30;
@@ -806,6 +891,8 @@ export class SnakeGame implements QuestRuntime {
   private atmosphere: WorldAtmosphereSystem;
   private readonly footballs = new Map<string, FootballInstance[]>();
   private footballIdCounter = 0;
+  private readonly bombs = new Map<string, BombInstance[]>();
+  private bombIdCounter = 0;
 
   constructor(
     config: GameConfig = defaultGameConfig,
@@ -854,6 +941,19 @@ export class SnakeGame implements QuestRuntime {
     this.inventory = new InventorySystem();
     this.syncPlayerMap();
     this.visitedRooms = new Set([this.snake.currentRoomId]);
+    getDebugBus()?.emit({
+      type: 'game.started',
+      category: 'game',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        roomId: this.snake.currentRoomId,
+        runSeed: this.worldSeed,
+        characterMode: this.characterMode,
+        score: this.getScore(),
+        length: this.getSnakeLength(),
+      },
+    });
   }
 
   reset(options: { preserveRunSeed?: boolean } = {}): void {
@@ -869,6 +969,8 @@ export class SnakeGame implements QuestRuntime {
     this.lightningStrike = null;
     this.footballs.clear();
     this.footballIdCounter = 0;
+    this.bombs.clear();
+    this.bombIdCounter = 0;
     this.animals.clearAll();
     this.questController.reset(this);
     this.actors.reset();
@@ -888,6 +990,17 @@ export class SnakeGame implements QuestRuntime {
     this.wandererHistory.clear();
     this.lastWandererEncounterRoomCount = -999;
     this.visitedRooms.add(this.snake.currentRoomId);
+    getDebugBus()?.emit({
+      type: 'game.restarted',
+      category: 'game',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        roomId: this.snake.currentRoomId,
+        runSeed: this.worldSeed,
+        preserveRunSeed: Boolean(options.preserveRunSeed),
+      },
+    });
     this.powerupState = null;
     resetNormalizationState(this.normalizationState);
     this.normalizationTick = 0;
@@ -923,6 +1036,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('equipment.heatResistance', undefined);
     this.setFlag('equipment.coldResistance', undefined);
     this.setFlag('equipment.swimmingEnabled', undefined);
+    this.setFlag('equipment.activeTool', undefined);
     this.setFlag('traversal.buoyancyRemaining', undefined);
     this.setFlag('traversal.buoyancyCapacity', undefined);
     this.setFlag('ui.drowning', undefined);
@@ -937,6 +1051,14 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('appleStreak', 0);
     this.setFlag('appleStreakMax', 0);
     this.setFlag('lastAppleTimeMs', undefined);
+    this.setFlag('modernRun.state', createModernRunState());
+    this.setFlag('highlightReel.state', createHighlightReelState());
+    this.setFlag('expeditionBoard.state', createExpeditionBoardState());
+    this.setFlag('modernSynergy.state', createModernSynergyState());
+    this.setFlag('ui.modernRun', undefined);
+    this.setFlag('ui.highlightReel', undefined);
+    this.setFlag('ui.expeditionBoard', undefined);
+    this.setFlag('ui.modernSynergy', undefined);
     this.setFlag('npc.randomEncounter', undefined);
     this.setFlag('npc.randomEncounter.prompted', undefined);
     this.setFlag('npc.randomEncounter.triggerAtMs', undefined);
@@ -1047,6 +1169,7 @@ export class SnakeGame implements QuestRuntime {
         this.getAtmosphereForRoom(startingRoom),
       );
     }
+    this.emitRoomReadyDebug(this.snake.currentRoomId, 'initial-run-population');
   }
 
   private reseedFreshRun(): void {
@@ -1073,6 +1196,61 @@ export class SnakeGame implements QuestRuntime {
       rng: this._rng,
     });
     logRunSeed(runSeed, 'reset');
+  }
+
+  private emitRoomReadyDebug(roomId: string, reason: string, transactionId?: string): void {
+    const debug = getDebugBus();
+    if (!debug) return;
+    const room = this.world.getRoom(roomId);
+    const apple = this.apples.getSnapshot(roomId);
+    debug.emitLazy(
+      {
+        type: 'room.ready',
+        category: 'room',
+        verbosity: 'verbose',
+        roomId,
+        transactionId,
+      },
+      () => ({
+        reason,
+        roomId,
+        room: serializeRoomSnapshot(room, { seed: this.worldSeed }),
+        population: {
+          apple: apple
+            ? {
+                typeId: apple.typeId,
+                position: apple.position,
+              }
+            : null,
+          enemies: this.enemies.getEnemiesInRoom(roomId).map((enemy) => ({
+            category: 'enemy',
+            id: enemy.actorId ?? enemy.id,
+            instanceId: enemy.id,
+            kind: enemy.encounterKind ?? 'enemy',
+            position: enemy.position,
+          })),
+          bosses: this.bosses.getBossesInRoom(roomId).map((boss) => ({
+            category: 'boss',
+            id: boss.id,
+            kind: boss.kind,
+            roomId: boss.roomId,
+          })),
+          animals: this.animals.getAnimalsInRoom(roomId).map((animal) => ({
+            category: 'animal',
+            id: animal.id,
+            kind: animal.type,
+            position: animal.position,
+          })),
+          actors: this.actors.getActorsInRoom(roomId).map((actor) => ({
+            category: 'actor',
+            id: actor.id,
+            kind: actor.kind,
+            role: actor.role,
+            displayName: actor.displayName,
+          })),
+        },
+      }),
+    );
   }
 
   private createAppleService(): AppleService {
@@ -1194,6 +1372,7 @@ export class SnakeGame implements QuestRuntime {
               })),
             bullets: this.getEnemyBullets(roomId),
             footballs: this.getFootballs(roomId),
+            bombs: this.getBombs(roomId),
             animals: this.getAnimals(roomId),
           },
         },
@@ -1220,6 +1399,22 @@ export class SnakeGame implements QuestRuntime {
     const itemReward = this.getFlag<{ message?: string }>('ui.itemReward');
     if (itemReward?.message) {
       messages.push(itemReward.message);
+    }
+    const modernRun = this.getFlag<{ messages?: string[] }>('ui.modernRun');
+    if (modernRun?.messages?.length) {
+      messages.push(...modernRun.messages);
+    }
+    const highlightReel = this.getFlag<{ messages?: string[] }>('ui.highlightReel');
+    if (highlightReel?.messages?.length) {
+      messages.push(...highlightReel.messages);
+    }
+    const expeditionBoard = this.getFlag<{ messages?: string[] }>('ui.expeditionBoard');
+    if (expeditionBoard?.messages?.length) {
+      messages.push(...expeditionBoard.messages);
+    }
+    const modernSynergy = this.getFlag<{ messages?: string[] }>('ui.modernSynergy');
+    if (modernSynergy?.messages?.length) {
+      messages.push(...modernSynergy.messages);
     }
     return messages;
   }
@@ -1544,6 +1739,7 @@ export class SnakeGame implements QuestRuntime {
   actionStep(paused: boolean): StepResult {
     const roomsChanged = new Set<string>();
     const previousRoom = this.snake.currentRoomId;
+    const previousHead = this.snake.bodySegments[0] ? { ...this.snake.bodySegments[0] } : undefined;
     const appleBeforeStep = this.apples.getSnapshot(this.snake.currentRoomId);
     if (!paused) {
       this.normalizationTick += 1;
@@ -1577,7 +1773,16 @@ export class SnakeGame implements QuestRuntime {
       this.lethalStepHoldGraceTicks = 0;
     }
 
-    this.preSnakeStep(previousRoom, roomsChanged);
+    const preStepDeathReason = this.preSnakeStep(previousRoom, roomsChanged);
+    if (preStepDeathReason) {
+      return this.createDeathStepResult(preStepDeathReason, {
+        roomsChanged,
+        roomHasChanged: false,
+        appleEaten: false,
+        appleSnapshot: appleBeforeStep,
+        appleStateChanged: roomsChanged.has(previousRoom),
+      });
+    }
     if (this.tickActiveCaveTimer(roomsChanged)) {
       return this.createAliveStepResult({
         appleEaten: false,
@@ -1594,6 +1799,24 @@ export class SnakeGame implements QuestRuntime {
     }
 
     let outcome = this.snakeStep(roomsChanged);
+    const steppedHead = this.snake.bodySegments[0];
+    if (outcome.status === 'alive' && previousHead && steppedHead) {
+      getDebugBus()?.emit({
+        type: 'snake.step',
+        category: 'snake',
+        verbosity: 'trace',
+        roomId: this.snake.currentRoomId,
+        data: {
+          previousPosition: previousHead,
+          newPosition: { x: steppedHead.x, y: steppedHead.y },
+          direction: this.snake.directionVector,
+          snakeLength: this.getSnakeLength(),
+          previousRoomId: previousRoom,
+          roomId: this.snake.currentRoomId,
+          movementSource: 'simulation-step',
+        },
+      });
+    }
     if (outcome.status === 'alive') {
       this.handleCaveTransitionAtHead(previousRoom, roomsChanged);
       this.handleLayerTransitionAtHead(previousRoom, roomsChanged);
@@ -1602,6 +1825,31 @@ export class SnakeGame implements QuestRuntime {
     const roomHasChanged = previousRoom !== this.snake.currentRoomId;
     if (roomHasChanged) {
       const newRoomId = this.snake.currentRoomId;
+      const enteredRoom = this.world.getRoom(newRoomId);
+      getDebugBus()?.emit({
+        type: 'room.exited',
+        category: 'room',
+        verbosity: 'normal',
+        roomId: previousRoom,
+        data: {
+          roomId: previousRoom,
+          nextRoomId: newRoomId,
+          exitDirection: this.snake.directionVector,
+        },
+      });
+      getDebugBus()?.emit({
+        type: 'room.entered',
+        category: 'room',
+        verbosity: 'normal',
+        roomId: newRoomId,
+        data: {
+          roomId: newRoomId,
+          previousRoomId: previousRoom,
+          entranceDirection: this.snake.directionVector,
+          biome: enteredRoom.biomeId,
+          visitedBefore: this.visitedRooms.has(newRoomId),
+        },
+      });
       if (this.getFlag('growth.rootedColossus') && this.getSnakeLength() >= 16) {
         this.triggerProgressionShockwave(1, 4);
         this.setFlag('ui.rootedColossus', {
@@ -1707,6 +1955,8 @@ export class SnakeGame implements QuestRuntime {
       }
       this.handleEquipmentRoomRefund();
       this.handleStagedQuestRoomEntered(newRoomId);
+      this.applyModernRunEvent({ kind: 'room', roomId: newRoomId });
+      this.emitRoomReadyDebug(newRoomId, 'room-entry-population');
     }
 
     if (
@@ -1726,19 +1976,13 @@ export class SnakeGame implements QuestRuntime {
         insultedAngelActive ||
         !this.tryFortitudePhoenix(outcome, roomsChanged, previousRoom)
       ) {
-        return {
-          status: 'dead',
-          deathReason: outcome.reason,
-          apple: {
-            eaten: false,
-            current: appleBeforeStep,
-            stateChanged: roomsChanged.has(previousRoom),
-          },
+        return this.createDeathStepResult(outcome.reason, {
           roomsChanged,
-          roomChanged: roomHasChanged,
-          questOffer: null,
-          questsCompleted: [],
-        };
+          roomHasChanged,
+          appleEaten: false,
+          appleSnapshot: appleBeforeStep,
+          appleStateChanged: roomsChanged.has(previousRoom),
+        });
       }
       outcome = { status: 'alive', reason: undefined, appleEaten: false };
     }
@@ -1837,6 +2081,10 @@ export class SnakeGame implements QuestRuntime {
     let appleTypeId: string | undefined;
 
     if (outcome.appleEaten) {
+      const appleTransactionId = createDebugTransactionId('apple');
+      const scoreBeforeApple = this.getScore();
+      const lengthBeforeApple = this.getSnakeLength();
+      const progressionBeforeApple = getLevelProgressionView(this.levelProgression);
       appleEaten = true;
       const phasePowerupActive = Boolean(
         this.powerupState?.kind === 'phase' && this.powerupState.remaining > 0,
@@ -1876,19 +2124,13 @@ export class SnakeGame implements QuestRuntime {
           });
         } else {
           this.markDeathAtCurrentHead('shielded');
-          return {
-            status: 'dead',
-            deathReason: 'shielded',
-            apple: {
-              eaten: true,
-              current: appleBeforeStep,
-              stateChanged: true,
-            },
+          return this.createDeathStepResult('shielded', {
             roomsChanged,
-            roomChanged: roomHasChanged,
-            questOffer: null,
-            questsCompleted: [],
-          };
+            roomHasChanged,
+            appleEaten: true,
+            appleSnapshot: appleBeforeStep,
+            appleStateChanged: true,
+          });
         }
       }
 
@@ -1910,6 +2152,16 @@ export class SnakeGame implements QuestRuntime {
       this.setFlag('appleStreak', streak);
       this.setFlag('appleStreakMax', best);
       this.setFlag('lastAppleTimeMs', nowMs);
+      this.applyModernRunEvent(
+        {
+          kind: 'apple',
+          appleTypeId,
+          streak,
+          roomId: this.snake.currentRoomId,
+          nowMs,
+        },
+        { roomsChanged },
+      );
 
       if (this.isRaccoonMode()) {
         const weightGain = Math.max(1, consumption.rewards.growth);
@@ -1957,14 +2209,14 @@ export class SnakeGame implements QuestRuntime {
         const baseAppleScore = Math.max(0, consumption.rewards.bonusScore - appleScorePenalty);
         const appleScore = this.applyLengthScoreMultiplier(baseAppleScore, lengthScoreMultiplier);
         if (appleScore > 0) {
-          this.addScore(appleScore * appleScoreMultiplier);
+          this.addScore(appleScore * appleScoreMultiplier, undefined, appleTransactionId);
         }
       }
       const libertyAppleBonus = Number(this.getFlag<number>('liberty.nextAppleBonus') ?? 0);
       if (libertyAppleBonus > 0) {
         this.setFlag('liberty.nextAppleBonus', undefined);
         if (!this.isRaccoonMode()) {
-          this.addScore(libertyAppleBonus);
+          this.addScore(libertyAppleBonus, undefined, appleTransactionId);
           this.setFlag('ui.questInteraction', {
             message: `Liberty sparkle bonus: +${libertyAppleBonus} score.`,
           });
@@ -2007,6 +2259,48 @@ export class SnakeGame implements QuestRuntime {
       this.rechargeTerraShield();
       this.handleFortitudeOnApple();
       this.handleGrowthOnApple(roomsChanged);
+      getDebugBus()?.emit({
+        type: 'apple.consumed',
+        category: 'apple',
+        verbosity: 'normal',
+        roomId: this.snake.currentRoomId,
+        transactionId: appleTransactionId,
+        data: {
+          appleId: appleBeforeStep
+            ? `${appleBeforeStep.roomId}:${appleBeforeStep.position.x},${appleBeforeStep.position.y}:${appleBeforeStep.typeId}`
+            : undefined,
+          appleKind: appleTypeId,
+          position: appleWorldPosition,
+          roomId: this.snake.currentRoomId,
+          scoreBefore: scoreBeforeApple,
+          scoreAfter: this.getScore(),
+          xpBefore: progressionBeforeApple.lifetimeScore,
+          xpAfter: getLevelProgressionView(this.levelProgression).lifetimeScore,
+          snakeLengthBefore: lengthBeforeApple,
+          snakeLengthAfter: this.getSnakeLength(),
+          appliedEffects: appleRewards,
+          scoreAwarded: Math.max(0, this.getScore() - scoreBeforeApple),
+          xpAwarded: Math.max(
+            0,
+            getLevelProgressionView(this.levelProgression).lifetimeScore -
+              progressionBeforeApple.lifetimeScore,
+          ),
+          growth: {
+            requestedGrowth: consumption.rewards.growth,
+            baseGrowthRetainedByStep: this.isRaccoonMode() ? 0 : 1,
+            immediateExtraGrowthApplied: extraGrowth,
+            totalLengthDelta: this.getSnakeLength() - lengthBeforeApple,
+          },
+          rewardTransaction: {
+            transactionId: appleTransactionId,
+            scoreDelta: this.getScore() - scoreBeforeApple,
+            xpDelta:
+              getLevelProgressionView(this.levelProgression).lifetimeScore -
+              progressionBeforeApple.lifetimeScore,
+            lengthDelta: this.getSnakeLength() - lengthBeforeApple,
+          },
+        },
+      });
     }
 
     // Treasure pickup: collect and grant a random item
@@ -2043,6 +2337,7 @@ export class SnakeGame implements QuestRuntime {
           }
           // Score bonus for treasure pickup
           this.addScore(5);
+          this.applyModernRunEvent({ kind: 'treasure', roomId: this.snake.currentRoomId });
           this.world.setTreasure(this.snake.currentRoomId, undefined);
           roomsChanged.add(this.snake.currentRoomId);
           const treasureCount = Number(this.getFlag<number>('treasurePicked') ?? 0);
@@ -2080,6 +2375,7 @@ export class SnakeGame implements QuestRuntime {
             this.inventory.equip(gunItem);
           }
           this.setFlag('equipment.gunEnabled', true);
+          this.setFlag('equipment.activeTool', 'gun');
           this.setFlag('loot.itemPicked', {
             head: currentHead,
             itemName: 'Pilgrim Revolver',
@@ -2150,6 +2446,11 @@ export class SnakeGame implements QuestRuntime {
         }
         const healed = eatenHumanoid ? this.healPlayer(1) : 0;
         this.addScore(eatenHumanoid ? 6 : 3);
+        this.applyModernRunEvent({
+          kind: 'enemy',
+          roomId: this.snake.currentRoomId,
+          humanoid: eatenHumanoid,
+        });
         if (this.isRaccoonMode()) {
           const weightGain = 5;
           const previousWeight = this.raccoonWeight;
@@ -2229,7 +2530,7 @@ export class SnakeGame implements QuestRuntime {
           this.snake.currentRoomId,
           currentHead,
         );
-        if (harmfulEnemy && this.getUnifiedInvulnerabilityTicks() <= 0) {
+        if (harmfulEnemy && !hasCollisionInvulnerability(this.snake.flags)) {
           const deathReason = harmfulEnemy.encounterKind === 'shark' ? 'shark' : 'boss';
           if (
             this.tryFortitudePhoenix(
@@ -2250,21 +2551,15 @@ export class SnakeGame implements QuestRuntime {
             });
           }
           this.markDeathAtCurrentHead(deathReason);
-          return {
-            status: 'dead',
-            deathReason,
-            apple: {
-              eaten: appleEaten,
-              rewards: appleRewards,
-              worldPosition: appleWorldPosition,
-              current: appleSnapshot,
-              stateChanged: appleStateChanged,
-            },
+          return this.createDeathStepResult(deathReason, {
             roomsChanged,
-            roomChanged: roomHasChanged,
-            questOffer: null,
-            questsCompleted: [],
-          };
+            roomHasChanged,
+            appleEaten,
+            appleRewards,
+            appleWorldPosition,
+            appleSnapshot,
+            appleStateChanged,
+          });
         }
       }
     }
@@ -2286,8 +2581,31 @@ export class SnakeGame implements QuestRuntime {
       );
       if (animalResult.damaged) {
         if (!this.isImmortal()) {
+          const damagingAnimal = animalResult.damagingAnimal;
+          const collisionEntity: CollisionEntityDebug = damagingAnimal
+            ? {
+                category: 'animal',
+                id: damagingAnimal.id,
+                kind: damagingAnimal.type,
+                position: damagingAnimal.position,
+                collisionPosition: this.worldToLocal(this.snake.currentRoomId, currentHead),
+              }
+            : {
+                category: 'unknown-creature',
+                id: 'unknown-creature',
+                kind: 'unknown-creature',
+                collisionPosition: this.worldToLocal(this.snake.currentRoomId, currentHead),
+              };
+          this.setFlag('internal.lastCollisionEntity', {
+            ...collisionEntity,
+          });
+          this.markDeathAtCurrentHead('predator-collision');
           if (
-            this.tryFortitudePhoenix({ status: 'dead', reason: 'boss' }, roomsChanged, previousRoom)
+            this.tryFortitudePhoenix(
+              { status: 'dead', reason: 'predator-collision' },
+              roomsChanged,
+              previousRoom,
+            )
           ) {
             return this.createAliveStepResult({
               appleEaten,
@@ -2300,22 +2618,15 @@ export class SnakeGame implements QuestRuntime {
               appleTypeId,
             });
           }
-          this.markDeathAtCurrentHead('boss');
-          return {
-            status: 'dead',
-            deathReason: 'boss',
-            apple: {
-              eaten: appleEaten,
-              rewards: appleRewards,
-              worldPosition: appleWorldPosition,
-              current: appleSnapshot,
-              stateChanged: appleStateChanged,
-            },
+          return this.createDeathStepResult('predator-collision', {
             roomsChanged,
-            roomChanged: roomHasChanged,
-            questOffer: null,
-            questsCompleted: [],
-          };
+            roomHasChanged,
+            appleEaten,
+            appleRewards,
+            appleWorldPosition,
+            appleSnapshot,
+            appleStateChanged,
+          });
         }
       }
       if (animalResult.hunted) {
@@ -2475,7 +2786,7 @@ export class SnakeGame implements QuestRuntime {
       return this.createAliveStepResult(options);
     }
     this.markDeathAtCurrentHead('bullet');
-    return this.createActorDeathStepResult('bullet', options);
+    return this.createDeathStepResult('bullet', options);
   }
 
   hazardClockStep(): StepResult | null {
@@ -2547,27 +2858,21 @@ export class SnakeGame implements QuestRuntime {
     }
     if (
       this.tryFortitudePhoenix(
-        { status: 'dead', reason: 'temperature' },
+        { status: 'dead', reason: 'starvation' },
         options.roomsChanged,
         options.previousRoom,
       )
     ) {
       return this.createAliveStepResult(options);
     }
-    this.markDeathAtCurrentHead('temperature');
-    return {
-      status: 'dead',
-      deathReason: 'starvation',
-      apple: {
-        eaten: false,
-        current: options.appleSnapshot,
-        stateChanged: options.appleStateChanged,
-      },
+    this.markDeathAtCurrentHead('starvation');
+    return this.createDeathStepResult('starvation', {
       roomsChanged: options.roomsChanged,
-      roomChanged: options.roomHasChanged,
-      questOffer: null,
-      questsCompleted: [],
-    };
+      roomHasChanged: options.roomHasChanged,
+      appleEaten: false,
+      appleSnapshot: options.appleSnapshot,
+      appleStateChanged: options.appleStateChanged,
+    });
   }
 
   private createNoopActionStepResult(
@@ -2588,7 +2893,7 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
-  private preSnakeStep(previousRoom: string, roomsChanged: Set<string>): void {
+  private preSnakeStep(previousRoom: string, roomsChanged: Set<string>): 'bomb' | null {
     const snakeSegments = Array.from(this.snake.bodySegments);
 
     this.hydrateMomentumConfig();
@@ -2598,6 +2903,7 @@ export class SnakeGame implements QuestRuntime {
 
     const skittishRooms = this.apples.moveApples(snakeSegments);
     skittishRooms.forEach((roomId) => roomsChanged.add(roomId));
+    return this.tickBombs(roomsChanged) ? 'bomb' : null;
   }
 
   private checkPreSnakeBossDeath(
@@ -2617,19 +2923,13 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('internal.killedByBossKind', bossOnHead.kind);
     this.setFlag('internal.killedByBossName', bossOnHead.name);
     this.markDeathAtCurrentHead('boss');
-    return {
-      status: 'dead',
-      deathReason: 'boss',
-      apple: {
-        eaten: false,
-        current: appleBeforeStep,
-        stateChanged: roomsChanged.has(previousRoom),
-      },
+    return this.createDeathStepResult('boss', {
       roomsChanged,
-      roomChanged: false,
-      questOffer: null,
-      questsCompleted: [],
-    };
+      roomHasChanged: false,
+      appleEaten: false,
+      appleSnapshot: appleBeforeStep,
+      appleStateChanged: roomsChanged.has(previousRoom),
+    });
   }
 
   private snakeStep(roomsChanged: Set<string>): SnakeStepOutcome {
@@ -2939,25 +3239,20 @@ export class SnakeGame implements QuestRuntime {
 
   private canSurviveWallStep(): boolean {
     if (
-      Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0) > 0 ||
-      Number(this.getFlag<number>('traversal.phaseTicks') ?? 0) > 0 ||
+      hasCollisionInvulnerability(this.snake.flags) ||
       this.getFlag<boolean>('equipment.wallSmiteEnabled') ||
       this.getFlag<boolean>('geometry.canEatWalls')
     ) {
       return true;
     }
-    const terraShield = this.getFlag<{ charges?: number }>('geometry.terraShield');
-    const ghostShield = this.getFlag<{ charges?: number }>('traversal.ghostShield');
-    return Number(terraShield?.charges ?? 0) > 0 || Number(ghostShield?.charges ?? 0) > 0;
+    return (
+      getPositiveChargeCount(this.snake.flags, 'geometry.terraShield') > 0 ||
+      getPositiveChargeCount(this.snake.flags, 'traversal.ghostShield') > 0
+    );
   }
 
   private canSurviveWaterStep(): boolean {
-    if (
-      this.getFlag<boolean>('equipment.swimmingEnabled') ||
-      this.getFlag<boolean>('cheat.immortal') ||
-      this.getUnifiedInvulnerabilityTicks() > 0 ||
-      Number(this.getFlag<number>('traversal.phaseTicks') ?? 0) > 0
-    ) {
+    if (canSwimWithoutBreath(this.snake.flags)) {
       return true;
     }
     return (
@@ -3031,8 +3326,7 @@ export class SnakeGame implements QuestRuntime {
   ): boolean {
     if (
       this.isRaccoonMode() ||
-      Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0) > 0 ||
-      Number(this.getFlag<number>('traversal.phaseTicks') ?? 0) > 0 ||
+      canPhaseThroughBody(this.snake.flags) ||
       Number(this.getFlag<number>('jadePeak.koiFlowEnd') ?? 0) >
         Number(this.getFlag<number>('timeMs') ?? 0)
     ) {
@@ -3046,15 +3340,7 @@ export class SnakeGame implements QuestRuntime {
     const collided = body.some((segment) => segment.x === target.x && segment.y === target.y);
     if (!collided) return false;
     const hardened = this.getFlag<{ charges?: number }>('fortitude.hardened');
-    if ((hardened?.charges ?? 0) > 0) {
-      this.setFlag('fortitude.hardened', { ...hardened, charges: (hardened?.charges ?? 0) - 1 });
-      this.removeSafeSnakeLength(2);
-      this.setFlag('ui.hardenedScales', {
-        message: 'HARDENED SCALES - collision blocked; shed 2 tail.',
-      });
-      return false;
-    }
-    return true;
+    return (hardened?.charges ?? 0) <= 0;
   }
 
   private isEnemySnakeBodyCollisionStep(roomId: string, localX: number, localY: number): boolean {
@@ -3667,7 +3953,7 @@ export class SnakeGame implements QuestRuntime {
     this.resolveRivalSnakeHeadCollision(options.roomsChanged);
     if (this.checkRivalSnakeBodyCollision()) {
       this.markDeathAtCurrentHead('roaming-snake');
-      return this.createActorDeathStepResult('roaming-snake', options);
+      return this.createDeathStepResult('roaming-snake', options);
     }
 
     // 3. stepRoamingSnakes (roaming snake movement)
@@ -3679,7 +3965,7 @@ export class SnakeGame implements QuestRuntime {
     // 5. Check: player head on roaming snake body → player dies
     if (this.checkRoamingSnakeBodyCollision()) {
       this.markDeathAtCurrentHead('roaming-snake');
-      return this.createActorDeathStepResult('roaming-snake', options);
+      return this.createDeathStepResult('roaming-snake', options);
     }
 
     const enemyMeleeDamageKills = this.applyBulletDamage(enemyStep.meleeHits, enemyStep.hitStyle);
@@ -3694,7 +3980,7 @@ export class SnakeGame implements QuestRuntime {
         return this.createAliveStepResult(options);
       }
       this.markDeathAtCurrentHead('boss');
-      return this.createActorDeathStepResult('boss', options);
+      return this.createDeathStepResult('boss', options);
     }
 
     if (animalStep.hunted > 0) {
@@ -4274,18 +4560,48 @@ export class SnakeGame implements QuestRuntime {
     });
   }
 
-  private createActorDeathStepResult(
-    deathReason: 'boss' | 'bullet' | 'roaming-snake',
-    options: {
-      roomsChanged: Set<string>;
-      roomHasChanged: boolean;
-      appleEaten: boolean;
-      appleRewards?: AppleConsumptionResult['rewards'];
-      appleWorldPosition?: Vector2Like | null;
-      appleSnapshot: AppleSnapshot | null;
-      appleStateChanged: boolean;
-    },
+  private createDeathStepResult(
+    deathReason: StepResult['deathReason'],
+    options: StepResultStateOptions,
   ): StepResult {
+    const deathPosition = this.getFlag<Record<string, unknown>>('internal.lastDeathPosition');
+    getDebugBus()?.emit({
+      type: 'snake.collision',
+      category: 'snake',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        collisionTarget: deathReason,
+        collisionEntity: this.getCollisionEntityDebug(deathReason),
+        deathReason,
+        roomId: this.snake.currentRoomId,
+        deathPosition,
+      },
+    });
+    getDebugBus()?.emit({
+      type: 'snake.died',
+      category: 'snake',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        reason: deathReason,
+        roomId: this.snake.currentRoomId,
+        snakeLength: this.getSnakeLength(),
+        score: this.getScore(),
+        deathPosition,
+      },
+    });
+    getDebugBus()?.emit({
+      type: 'death.resolution_started',
+      category: 'game',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        reason: deathReason,
+        roomId: this.snake.currentRoomId,
+        collisionEntity: this.getCollisionEntityDebug(deathReason),
+      },
+    });
     return {
       status: 'dead',
       deathReason,
@@ -4301,6 +4617,40 @@ export class SnakeGame implements QuestRuntime {
       questOffer: null,
       questsCompleted: [],
     };
+  }
+
+  private getCollisionEntityDebug(
+    deathReason: StepResult['deathReason'] | string,
+  ): CollisionEntityDebug {
+    const lastCollision = this.getFlag<CollisionEntityDebug>('internal.lastCollisionEntity');
+    if (lastCollision && (deathReason === 'predator-collision' || deathReason === 'shark')) {
+      return lastCollision;
+    }
+    if (deathReason === 'boss') {
+      const bossKind = this.getFlag<string>('internal.killedByBossKind');
+      const bossName = this.getFlag<string>('internal.killedByBossName');
+      return {
+        category: 'boss',
+        id: bossKind ? `boss:${bossKind}` : 'boss:unknown',
+        label: bossName,
+      };
+    }
+    if (deathReason === 'self') return { category: 'snake-body', id: 'player:self' };
+    if (deathReason === 'wall') return { category: 'terrain', id: 'tile:wall' };
+    if (deathReason === 'shielded') return { category: 'apple', id: 'apple:shielded' };
+    if (deathReason === 'temperature') {
+      const hazard = this.getFlag<string>('player.temperatureHazard') ?? 'unknown';
+      return { category: 'hazard', id: `temperature:${hazard}` };
+    }
+    if (deathReason === 'lightning') return { category: 'hazard', id: 'weather:lightning' };
+    if (deathReason === 'shark') return { category: 'enemy', id: 'enemy:shark' };
+    if (deathReason === 'predator-collision') {
+      return { category: 'unknown-creature', id: 'unknown-creature' };
+    }
+    if (deathReason === 'roaming-snake') return { category: 'enemy', id: 'enemy:roaming-snake' };
+    if (deathReason === 'starvation') return { category: 'hazard', id: 'hunger:starvation' };
+    if (deathReason === 'water') return { category: 'hazard', id: 'terrain:water' };
+    return { category: 'unknown', id: `death:${deathReason}` };
   }
 
   private statusStepPhase(options: {
@@ -4363,21 +4713,15 @@ export class SnakeGame implements QuestRuntime {
       return this.createAliveStepResult(options);
     }
     this.markDeathAtCurrentHead('temperature');
-    return {
-      status: 'dead',
-      deathReason: 'temperature',
-      apple: {
-        eaten: options.appleEaten,
-        rewards: options.appleRewards,
-        worldPosition: options.appleWorldPosition,
-        current: options.appleSnapshot,
-        stateChanged: options.appleStateChanged,
-      },
+    return this.createDeathStepResult('temperature', {
       roomsChanged: options.roomsChanged,
-      roomChanged: options.roomHasChanged,
-      questOffer: null,
-      questsCompleted: [],
-    };
+      roomHasChanged: options.roomHasChanged,
+      appleEaten: options.appleEaten,
+      appleRewards: options.appleRewards,
+      appleWorldPosition: options.appleWorldPosition,
+      appleSnapshot: options.appleSnapshot,
+      appleStateChanged: options.appleStateChanged,
+    });
   }
 
   private createLightningDeathOrPhoenixResult(options: {
@@ -4400,21 +4744,15 @@ export class SnakeGame implements QuestRuntime {
       return this.createAliveStepResult(options);
     }
     this.markDeathAtCurrentHead('lightning');
-    return {
-      status: 'dead',
-      deathReason: 'lightning',
-      apple: {
-        eaten: options.appleEaten,
-        rewards: options.appleRewards,
-        worldPosition: options.appleWorldPosition,
-        current: options.appleSnapshot,
-        stateChanged: options.appleStateChanged,
-      },
+    return this.createDeathStepResult('lightning', {
       roomsChanged: options.roomsChanged,
-      roomChanged: options.roomHasChanged,
-      questOffer: null,
-      questsCompleted: [],
-    };
+      roomHasChanged: options.roomHasChanged,
+      appleEaten: options.appleEaten,
+      appleRewards: options.appleRewards,
+      appleWorldPosition: options.appleWorldPosition,
+      appleSnapshot: options.appleSnapshot,
+      appleStateChanged: options.appleStateChanged,
+    });
   }
 
   private revealBiomeIfChanged(roomId: string, room: RoomSnapshot): void {
@@ -4617,6 +4955,171 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
+  private tickBombs(roomsChanged: Set<string>): boolean {
+    let playerDied = false;
+    for (const [roomId, bombs] of Array.from(this.bombs.entries())) {
+      const remaining: BombInstance[] = [];
+      for (const bomb of bombs) {
+        const ticking = { ...bomb, fuseTicks: bomb.fuseTicks - 1 };
+        if (ticking.fuseTicks > 0) {
+          remaining.push(ticking);
+          roomsChanged.add(roomId);
+          continue;
+        }
+        if (this.explodeBomb(ticking, roomsChanged)) {
+          playerDied = true;
+        }
+      }
+      if (remaining.length > 0) {
+        this.bombs.set(roomId, remaining);
+      } else {
+        this.bombs.delete(roomId);
+      }
+    }
+    return playerDied;
+  }
+
+  private explodeBomb(bomb: BombInstance, roomsChanged: Set<string>): boolean {
+    const room = this.world.getRoom(bomb.roomId);
+    let terrainChanged = false;
+    for (let y = 0; y < room.layout.length; y += 1) {
+      const row = room.layout[y];
+      if (!row) continue;
+      for (let x = 0; x < row.length; x += 1) {
+        if (!this.isWithinBombRadius({ x, y }, bomb)) continue;
+        const tile = row[x];
+        if ((tile === '#' || tile === '%') && this.setRoomTile(bomb.roomId, x, y, '.')) {
+          terrainChanged = true;
+        }
+      }
+    }
+
+    this.clearBombedPickups(bomb);
+    this.damageBombedEnemies(bomb);
+    this.damageBombedAnimals(bomb);
+    const playerDied = this.damagePlayerFromBomb(bomb);
+    this.setFlag('ui.bombExplosion', {
+      roomId: bomb.roomId,
+      x: bomb.position.x,
+      y: bomb.position.y,
+      radius: bomb.radius,
+      damage: bomb.damage,
+    });
+    this.emitWorldEvent({
+      type: 'bomb-exploded',
+      roomId: bomb.roomId,
+      severity: 26,
+      loudness: 18,
+      tags: ['bomb', 'explosion', terrainChanged ? 'terrain' : 'blast'],
+      summary: 'A bomb exploded nearby.',
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: {
+        x: bomb.position.x,
+        y: bomb.position.y,
+        radius: bomb.radius,
+        damage: bomb.damage,
+        terrainChanged,
+      },
+    });
+    roomsChanged.add(bomb.roomId);
+    if (playerDied) {
+      this.markDeathAtCurrentHead('bomb');
+    }
+    return playerDied;
+  }
+
+  private clearBombedPickups(bomb: BombInstance): void {
+    const room = this.world.getRoom(bomb.roomId);
+    if (room.apple && this.isWithinBombRadius(room.apple, bomb)) {
+      this.world.setApple(bomb.roomId, undefined);
+      this.apples.clearApple(bomb.roomId);
+    }
+    if (room.treasure && this.isWithinBombRadius(room.treasure, bomb)) {
+      this.world.setTreasure(bomb.roomId, undefined);
+    }
+    if (room.powerup && this.isWithinBombRadius(room.powerup, bomb)) {
+      this.world.setPowerup(bomb.roomId, undefined);
+    }
+  }
+
+  private damageBombedEnemies(bomb: BombInstance): void {
+    const targets = this.enemies
+      .getEnemiesInRoom(bomb.roomId)
+      .filter((enemy) => this.isWithinBombRadius(enemy.position, bomb));
+    for (const enemy of targets) {
+      const hit = this.enemies.damageEnemyAt(
+        bomb.roomId,
+        this.localToWorld(bomb.roomId, enemy.position),
+        bomb.damage,
+      );
+      if (hit.defeated) {
+        this.setFlag('achievement.enemyDefeated', {
+          enemyId: hit.defeated.id,
+          method: 'bomb',
+          roomId: bomb.roomId,
+        });
+      }
+    }
+  }
+
+  private damageBombedAnimals(bomb: BombInstance): void {
+    const targets = this.animals
+      .getAnimalsInRoom(bomb.roomId)
+      .filter((animal) => this.isWithinBombRadius(animal.position, bomb));
+    for (const animal of targets) {
+      const hit = this.animals.damageAnimal(bomb.roomId, animal.position, bomb.damage);
+      if (hit.defeated) {
+        const def = AnimalRegistry.getDefinition(hit.defeated.type);
+        this.awardHuntedAnimal({
+          animalId: hit.defeated.id,
+          actorId: hit.defeated.actorId,
+          animalType: hit.defeated.type,
+          animalName: def.name,
+          position: hit.defeated.position,
+          drops: def.drops,
+        });
+      }
+    }
+  }
+
+  private damagePlayerFromBomb(bomb: BombInstance): boolean {
+    if (bomb.roomId !== this.snake.currentRoomId) {
+      return false;
+    }
+    const hitSegment = this.snake.bodySegments.some((segment) =>
+      this.isWithinBombRadius(this.worldToLocal(bomb.roomId, segment), bomb),
+    );
+    if (!hitSegment) {
+      return false;
+    }
+    const head = this.snake.bodySegments[0];
+    const max = Number(this.getFlag<number>('player.maxHealth') ?? 3);
+    const current = Number(this.getFlag<number>('player.health') ?? max);
+    const next = Math.max(0, current - bomb.damage);
+    this.setFlag('player.health', next);
+    this.emitHealthDebug('snake.damaged', 'bomb', current, next, max, {
+      damage: current - next,
+      radius: bomb.radius,
+    });
+    this.emitPlayerLowHealthEvent(next, max, 'bomb');
+    this.setFlag('ui.healthRevealed', true);
+    if (head) {
+      this.setFlag('ui.playerHit', {
+        x: head.x,
+        y: head.y,
+        roomId: this.snake.currentRoomId,
+        health: next,
+        maxHealth: max,
+        source: 'bomb',
+      });
+    }
+    return next <= 0;
+  }
+
+  private isWithinBombRadius(position: Vector2Like, bomb: BombInstance): boolean {
+    return Math.hypot(position.x - bomb.position.x, position.y - bomb.position.y) <= bomb.radius;
+  }
+
   private isCatchableFootballTile(room: RoomSnapshot, position: Vector2Like): boolean {
     return (
       position.x >= 0 &&
@@ -4676,6 +5179,31 @@ export class SnakeGame implements QuestRuntime {
     this.applyTownRuntimeToRoom(room);
     this.stampQuestActorsIntoRoom(room);
     return room;
+  }
+
+  getDebugSnapshot(): Record<string, unknown> {
+    const room = this.getCurrentRoom();
+    const head = this.snake.bodySegments[0];
+    const progression = getLevelProgressionView(this.levelProgression);
+    return {
+      currentRoom: this.snake.currentRoomId,
+      room: serializeRoomSnapshot(room, { seed: this.worldSeed }),
+      snake: {
+        position: head ? { x: head.x, y: head.y } : null,
+        direction: this.snake.directionVector,
+        length: this.getSnakeLength(),
+      },
+      health: this.getFlag<number>('player.health') ?? null,
+      score: this.getScore(),
+      level: progression.level,
+      xp: progression.lifetimeScore,
+      currentBiome: room.biomeId,
+      activeModifiers: {
+        powerup: this.powerupState,
+        characterMode: this.characterMode,
+      },
+      runSeed: this.worldSeed,
+    };
   }
 
   // === BULLET TRAIN ===
@@ -5619,7 +6147,9 @@ export class SnakeGame implements QuestRuntime {
   private markDeathAtCurrentHead(reason?: StepResult['deathReason'] | string): void {
     const head = this.snake.bodySegments[0] ?? { x: 0, y: 0 };
     const roomId = this.snake.currentRoomId;
-    const [roomX = 0, roomY = 0] = roomId.split(',').map(Number);
+    const address = parseCoordinateRoomId(roomId);
+    const roomX = address?.x ?? 0;
+    const roomY = address?.y ?? 0;
     const local = {
       x: head.x - roomX * this.config.grid.cols,
       y: head.y - roomY * this.config.grid.rows,
@@ -6577,6 +7107,19 @@ export class SnakeGame implements QuestRuntime {
     const state = this.getKarmaState();
     this.setKarmaState({ ...state, value: KARMA_MIN, angelProvoked: true });
     this.setFlag('ui.karmaShift', { amount: KARMA_MIN, reason, extreme: 'bad' });
+    getDebugBus()?.emit({
+      type: 'karma.changed',
+      category: 'game',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        source: reason,
+        previousValue: state.value,
+        newValue: KARMA_MIN,
+        delta: KARMA_MIN - state.value,
+        extreme: 'bad',
+      },
+    });
   }
 
   private getKarmaState(): KarmaState {
@@ -6593,6 +7136,19 @@ export class SnakeGame implements QuestRuntime {
     const next = clampKarma(state.value + amount);
     if (next === state.value) return;
     this.setKarmaState({ ...state, value: next });
+    getDebugBus()?.emit({
+      type: 'karma.changed',
+      category: 'game',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        source: reason,
+        previousValue: state.value,
+        newValue: next,
+        delta: next - state.value,
+        requestedDelta: amount,
+      },
+    });
     if (Math.abs(amount) >= 15) {
       this.setFlag('ui.karmaShift', {
         amount,
@@ -7916,6 +8472,19 @@ export class SnakeGame implements QuestRuntime {
     if (this.maneuvers.hasLearned(offer.id)) {
       this.maneuvers.equip(offer.id);
       this.persistManeuverState();
+      getDebugBus()?.emit({
+        type: 'purchase.completed',
+        category: 'progression',
+        verbosity: 'normal',
+        roomId: this.snake.currentRoomId,
+        data: {
+          kind: 'maneuver-equip-existing',
+          itemId: offer.id,
+          itemName: definition.name,
+          costScore: 0,
+          equipped: true,
+        },
+      });
       return {
         ok: true,
         id: offer.id,
@@ -7938,6 +8507,21 @@ export class SnakeGame implements QuestRuntime {
       this.maneuvers.equip(offer.id);
     }
     this.persistManeuverState();
+    getDebugBus()?.emit({
+      type: 'purchase.completed',
+      category: 'progression',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        kind: 'maneuver-training',
+        itemId: offer.id,
+        itemName: definition.name,
+        trainerId: offer.trainerId,
+        costScore: MANEUVER_PRICE_SCORE,
+        equipped: learned.autoEquipped || equipAfterPurchase,
+        autoEquipped: learned.autoEquipped,
+      },
+    });
     return {
       ok: true,
       id: offer.id,
@@ -7976,7 +8560,9 @@ export class SnakeGame implements QuestRuntime {
     this.snake.score = Math.max(0, Math.floor(Number(score) || 0));
   }
 
-  addScore(amount: number, category?: ScoreCategory): void {
+  addScore(amount: number, category?: ScoreCategory, transactionId?: string): void {
+    const previousScore = this.snake.score;
+    const previousProgression = getLevelProgressionView(this.levelProgression);
     const normalized =
       category === undefined ? amount : normalizeScore(amount, category, this.normalizationState);
     const multiplier = this.getArtifactScoreMultiplier();
@@ -7988,8 +8574,44 @@ export class SnakeGame implements QuestRuntime {
     if (adjusted > 0) {
       const result = addLifetimeScore(this.levelProgression, adjusted);
       this.levelProgression = result.state;
+      const currentProgression = getLevelProgressionView(this.levelProgression);
+      getDebugBus()?.emit({
+        type: 'progression.xp_gained',
+        category: 'progression',
+        verbosity: 'normal',
+        roomId: this.snake.currentRoomId,
+        transactionId,
+        data: {
+          source: category ?? 'score',
+          amount: adjusted,
+          scoreDelta: adjusted,
+          xpDelta: adjusted,
+          previousXP: previousProgression.lifetimeScore,
+          newXP: currentProgression.lifetimeScore,
+          previousLevel: previousProgression.level,
+          newLevel: currentProgression.level,
+          previousScore,
+          newScore: this.snake.score,
+        },
+      });
       if (result.levelUp) {
         this.specialStats.grantUnspentPoints(result.levelUp.levelsGained);
+        getDebugBus()?.emit({
+          type: 'progression.level_up',
+          category: 'progression',
+          verbosity: 'normal',
+          roomId: this.snake.currentRoomId,
+          transactionId,
+          data: {
+            source: category ?? 'score',
+            previousLevel: previousProgression.level,
+            newLevel: result.levelUp.level,
+            levelsGained: result.levelUp.levelsGained,
+            resultingStatChanges: {
+              unspentPointsGained: result.levelUp.levelsGained,
+            },
+          },
+        });
         this.levelUpCallback?.(result.levelUp);
       }
     }
@@ -8132,8 +8754,24 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('player.maxHealth', nextMaxHealth);
     if (currentHealth >= currentMaxHealth && nextMaxHealth > currentMaxHealth) {
       this.setFlag('player.health', nextMaxHealth);
+      this.emitHealthDebug(
+        'snake.health_changed',
+        'max-health-refresh',
+        currentHealth,
+        nextMaxHealth,
+        nextMaxHealth,
+        { previousMaxHealth: currentMaxHealth },
+      );
     } else if (currentHealth > nextMaxHealth) {
       this.setFlag('player.health', nextMaxHealth);
+      this.emitHealthDebug(
+        'snake.health_changed',
+        'max-health-refresh',
+        currentHealth,
+        nextMaxHealth,
+        nextMaxHealth,
+        { previousMaxHealth: currentMaxHealth },
+      );
     }
   }
 
@@ -8563,126 +9201,33 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
-  consumeMcDonaldsFood(itemId: string): {
-    success: boolean;
-    message: string;
-    lengthGained: number;
-    invulnerabilityTicks: number;
-  } {
-    const item = getItem(itemId);
-    if (!item) {
-      return { success: false, message: 'Unknown item.', lengthGained: 0, invulnerabilityTicks: 0 };
-    }
-
-    if (this.inventory.getItemCount(itemId) <= 0) {
-      return {
-        success: false,
-        message: `No ${item.name} remaining.`,
-        lengthGained: 0,
-        invulnerabilityTicks: 0,
-      };
-    }
-
-    let lengthGained = 0;
-    let invulnerabilityTicks = 0;
-
-    switch (itemId) {
-      case 'food-snake-burger':
-      case 'food-snake-fries':
-        lengthGained = 5;
-        invulnerabilityTicks = 600;
-        break;
-      case 'food-snake-nuggets':
-        lengthGained = 2;
-        invulnerabilityTicks = 300;
-        break;
-      default:
-        return {
-          success: false,
-          message: 'Unknown item.',
-          lengthGained: 0,
-          invulnerabilityTicks: 0,
-        };
-    }
-
-    this.inventory.removeItem(itemId, 1);
-
-    this.growSnake(lengthGained);
-
-    const currentInvuln = Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0);
-    const updatedInvuln = Math.max(currentInvuln, invulnerabilityTicks);
-    this.setFlag('fortitude.invulnerabilityTicks', updatedInvuln);
-
-    return {
-      success: true,
-      message: `Delicious! +${lengthGained} length, ${invulnerabilityTicks} ticks of invulnerability.`,
-      lengthGained,
-      invulnerabilityTicks,
-    };
+  consumeMcDonaldsFood(itemId: string): FoodConsumptionResult {
+    return this.consumeRestaurantFood('snake-mcdonalds', itemId);
   }
 
   flushToilet(): void {}
 
-  consumeSnakeCanesFood(itemId: string): {
-    success: boolean;
-    message: string;
-    lengthGained: number;
-    invulnerabilityTicks: number;
-  } {
-    const item = getItem(itemId);
-    if (!item) {
-      return { success: false, message: 'Unknown item.', lengthGained: 0, invulnerabilityTicks: 0 };
-    }
+  consumeSnakeCanesFood(itemId: string): FoodConsumptionResult {
+    return this.consumeRestaurantFood('snake-canes', itemId);
+  }
 
-    if (this.inventory.getItemCount(itemId) <= 0) {
-      return {
-        success: false,
-        message: `No ${item.name} remaining.`,
-        lengthGained: 0,
-        invulnerabilityTicks: 0,
-      };
-    }
-
-    let lengthGained = 0;
-    let invulnerabilityTicks = 0;
-
-    switch (itemId) {
-      case 'food-box-combo-extra-toast':
-      case 'food-box-combo-coleslaw':
-        lengthGained = 7;
-        invulnerabilityTicks = 1200;
-        break;
-      case 'food-three-finger-combo':
-        lengthGained = 5;
-        invulnerabilityTicks = 900;
-        break;
-      case 'food-caniac-combo':
-        lengthGained = 10;
-        invulnerabilityTicks = 1800;
-        break;
-      default:
-        return {
-          success: false,
-          message: 'Unknown item.',
-          lengthGained: 0,
-          invulnerabilityTicks: 0,
-        };
-    }
+  private consumeRestaurantFood(restaurantId: RestaurantId, itemId: string): FoodConsumptionResult {
+    const result = createFoodConsumptionResult(
+      restaurantId,
+      itemId,
+      this.inventory.getItemCount(itemId),
+    );
+    if (!result.success) return result;
 
     this.inventory.removeItem(itemId, 1);
 
-    this.growSnake(lengthGained);
+    this.growSnake(result.lengthGained);
 
     const currentInvuln = Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0);
-    const updatedInvuln = Math.max(currentInvuln, invulnerabilityTicks);
+    const updatedInvuln = Math.max(currentInvuln, result.invulnerabilityTicks);
     this.setFlag('fortitude.invulnerabilityTicks', updatedInvuln);
 
-    return {
-      success: true,
-      message: `Cane\'s sauce hits different! +${lengthGained} length, ${invulnerabilityTicks} ticks of invulnerability.`,
-      lengthGained,
-      invulnerabilityTicks,
-    };
+    return result;
   }
 
   setDirection(x: number, y: number): void {
@@ -10898,6 +11443,131 @@ export class SnakeGame implements QuestRuntime {
     return this.footballs.get(roomId) ?? [];
   }
 
+  getBombs(roomId: string): readonly BombInstance[] {
+    return this.bombs.get(roomId) ?? [];
+  }
+
+  throwBombToward(aim: Vector2Like): {
+    ok: boolean;
+    message: string;
+    color?: string;
+    roomsChanged?: string[];
+  } {
+    if (this.getEquippedActiveTool() !== 'bomb-slingshot') {
+      return {
+        ok: false,
+        message: 'Equip a Bomb Slingshot before throwing bombs.',
+        color: '#ffd166',
+      };
+    }
+    if (this.inventory.getItemCount('bomb') <= 0) {
+      return { ok: false, message: 'No bombs in your pack.', color: '#ffd166' };
+    }
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return { ok: false, message: 'No throw position available.', color: '#ff6b6b' };
+    }
+    const aimMagnitude = Math.hypot(aim.x, aim.y);
+    if (aimMagnitude <= 0) {
+      return { ok: false, message: 'Aim somewhere first.', color: '#ffd166' };
+    }
+
+    const roomId = this.snake.currentRoomId;
+    const room = this.world.getRoom(roomId);
+    const localHead = this.worldToLocal(roomId, head);
+    const landing = {
+      x: Math.max(
+        0,
+        Math.min(
+          room.layout[0]?.length ? room.layout[0].length - 1 : this.config.grid.cols - 1,
+          Math.round(localHead.x + (aim.x / aimMagnitude) * BOMB_SLINGSHOT_RANGE_TILES),
+        ),
+      ),
+      y: Math.max(
+        0,
+        Math.min(
+          room.layout.length - 1,
+          Math.round(localHead.y + (aim.y / aimMagnitude) * BOMB_SLINGSHOT_RANGE_TILES),
+        ),
+      ),
+    };
+    return this.armBomb(roomId, landing, 'thrown');
+  }
+
+  placeBombAtHead(): {
+    ok: boolean;
+    message: string;
+    color?: string;
+    consume?: boolean;
+    roomsChanged?: string[];
+  } {
+    if (this.inventory.getItemCount('bomb') <= 0) {
+      return { ok: false, message: 'No bombs in your pack.', color: '#ffd166' };
+    }
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return { ok: false, message: 'No place to set the bomb.', color: '#ff6b6b' };
+    }
+    const result = this.armBomb(
+      this.snake.currentRoomId,
+      this.worldToLocal(this.snake.currentRoomId, head),
+      'placed',
+    );
+    return { ...result, consume: result.ok };
+  }
+
+  private armBomb(
+    roomId: string,
+    position: Vector2Like,
+    mode: 'placed' | 'thrown',
+  ): { ok: boolean; message: string; color?: string; roomsChanged?: string[] } {
+    const room = this.world.getRoom(roomId);
+    const tile = room.layout[position.y]?.[position.x];
+    if (!tile) {
+      return { ok: false, message: 'That bomb would land outside the room.', color: '#ff6b6b' };
+    }
+    if (!this.inventory.removeItem('bomb', 1)) {
+      return { ok: false, message: 'No bombs in your pack.', color: '#ffd166' };
+    }
+    const bomb: BombInstance = {
+      id: `bomb-${this.bombIdCounter++}`,
+      roomId,
+      position: { ...position },
+      fuseTicks: BOMB_FUSE_TICKS,
+      radius: BOMB_RADIUS_TILES,
+      damage: BOMB_DAMAGE_HEARTS,
+    };
+    const bombs = this.bombs.get(roomId) ?? [];
+    bombs.push(bomb);
+    this.bombs.set(roomId, bombs);
+    this.setFlag('ui.bombArmed', {
+      roomId,
+      x: position.x,
+      y: position.y,
+      fuseTicks: bomb.fuseTicks,
+      mode,
+    });
+    this.emitWorldEvent({
+      type: 'bomb-armed',
+      roomId,
+      severity: 14,
+      loudness: mode === 'thrown' ? 7 : 5,
+      tags: ['item', 'bomb', mode],
+      summary:
+        mode === 'thrown'
+          ? 'The snake slung a bomb across the room.'
+          : 'The snake placed a bomb at its head.',
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { itemId: 'bomb', x: position.x, y: position.y, mode },
+    });
+    return {
+      ok: true,
+      message: mode === 'thrown' ? 'Bomb away.' : 'Bomb placed.',
+      color: '#ffd166',
+      roomsChanged: [roomId],
+    };
+  }
+
   spawnFootball(
     roomId: string,
     origin: Vector2Like,
@@ -11476,6 +12146,21 @@ export class SnakeGame implements QuestRuntime {
     const current = saved[factionId] ?? DEFAULT_FACTION_ALIGNMENT[factionId];
     const next = normalizeAlignment(current + delta);
     this.setFlag('factions.alignment', { ...saved, [factionId]: next.value });
+    getDebugBus()?.emit({
+      type: 'faction.reputation_changed',
+      category: 'game',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        factionId,
+        factionName: getFactionName(factionId),
+        previousAlignment: current,
+        newAlignment: next.value,
+        delta: next.value - current,
+        requestedDelta: delta,
+        standing: next.standing,
+      },
+    });
     return next;
   }
 
@@ -11878,15 +12563,12 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private parseRoomCoordinates(roomId: string): [number, number, number] {
-    if (!this.isCoordinateRoomId(roomId)) {
-      return [0, 0, 0];
-    }
-    const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
-    return [x, y, z];
+    const parsed = parseCoordinateRoomId(roomId);
+    return parsed ? [parsed.x, parsed.y, parsed.z] : [0, 0, 0];
   }
 
   private isCoordinateRoomId(roomId: string): boolean {
-    return /^-?\d+,-?\d+,-?\d+$/.test(roomId);
+    return parseCoordinateRoomId(roomId) !== null;
   }
 
   private distance(a: Vector2Like, b: Vector2Like): number {
@@ -11992,8 +12674,25 @@ export class SnakeGame implements QuestRuntime {
       body.stationary = false;
       body.wanderRadius = Math.max(2, body.wanderRadius);
     }
+    const message = `${name} has stopped being a relationship and started being a consequence.`;
     this.setFlag('ui.questInteraction', {
-      message: `${name} has stopped being a relationship and started being a consequence.`,
+      message,
+    });
+    getDebugBus()?.emit({
+      type: 'npc.hostility_changed',
+      category: 'npc',
+      verbosity: 'normal',
+      roomId,
+      data: {
+        npcId: enemy.actorId,
+        enemyId: enemy.id,
+        relationshipId,
+        name,
+        previousHostility: body?.stationary === false ? 'mobile' : 'relationship',
+        newHostility: 'hostile',
+        position: enemy.position,
+        visibleMessage: message,
+      },
     });
     this.setFlag(`relationships.hostileSpawned.${relationshipId}`, true);
   }
@@ -12107,6 +12806,10 @@ export class SnakeGame implements QuestRuntime {
       return { ok: false, message: 'That item is not in your pack.', color: '#ff6b6b' };
     }
 
+    if (itemId === 'bomb') {
+      return this.placeBombAtHead();
+    }
+
     const effects: Record<
       string,
       { hunger?: number; heal?: number; temperatureRelief?: number; disorientTicks?: number }
@@ -12119,13 +12822,6 @@ export class SnakeGame implements QuestRuntime {
       ramen: { hunger: 999, heal: 1, temperatureRelief: 3500 },
       senbei: { hunger: 30 },
       egg: { hunger: 25 },
-      'food-snake-burger': { hunger: 999 },
-      'food-snake-fries': { hunger: 70 },
-      'food-snake-nuggets': { hunger: 45 },
-      'food-box-combo-extra-toast': { hunger: 999 },
-      'food-box-combo-coleslaw': { hunger: 999 },
-      'food-three-finger-combo': { hunger: 999 },
-      'food-caniac-combo': { hunger: 999 },
       'chicken-fried': { hunger: 55 },
       'healing-potion': { heal: 2 },
       beer: { disorientTicks: 100 },
@@ -12216,7 +12912,8 @@ export class SnakeGame implements QuestRuntime {
       };
     }
 
-    const effect = effects[itemId];
+    const restaurantHunger = getRestaurantFoodHunger(itemId);
+    const effect = restaurantHunger === undefined ? effects[itemId] : { hunger: restaurantHunger };
     if (!effect) {
       return { ok: false, message: `${item.name} cannot be used right now.`, color: '#ffd166' };
     }
@@ -12392,12 +13089,39 @@ export class SnakeGame implements QuestRuntime {
     const next = Math.min(max, current + Math.max(0, Math.floor(amount)));
     this.setFlag('player.health', next);
     this.setFlag('ui.healthRevealed', true);
+    if (next > current) {
+      this.emitHealthDebug('snake.healed', 'healPlayer', current, next, max);
+    }
     if (this.isRaccoonMode() && next > current) {
       this.raccoonHungerTimerMs = 0;
       this.addRaccoonBanditForage();
       this.syncRaccoonFlags();
     }
     return next - current;
+  }
+
+  private emitHealthDebug(
+    type: 'snake.damaged' | 'snake.healed' | 'snake.health_changed',
+    source: string,
+    previousHealth: number,
+    currentHealth: number,
+    maxHealth: number,
+    extra: Record<string, unknown> = {},
+  ): void {
+    getDebugBus()?.emit({
+      type,
+      category: 'snake',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        source,
+        previousHealth,
+        currentHealth,
+        maxHealth,
+        healthDelta: currentHealth - previousHealth,
+        ...extra,
+      },
+    });
   }
 
   private emitPlayerLowHealthEvent(current: number, max: number, source: string): void {
@@ -12804,6 +13528,55 @@ export class SnakeGame implements QuestRuntime {
     }));
   }
 
+  private emitRelationshipChangedDebug(
+    source: string,
+    previous: RelationshipState,
+    next?: RelationshipState,
+    extra: Record<string, unknown> = {},
+  ): void {
+    if (!next) return;
+    getDebugBus()?.emit({
+      type: 'relationship.changed',
+      category: 'npc',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        source,
+        relationshipId: previous.id,
+        displayName: next.displayName,
+        previousStage: previous.stage,
+        newStage: next.stage,
+        deltas: {
+          affection: next.affection - previous.affection,
+          trust: next.trust - previous.trust,
+          jealousy: next.jealousy - previous.jealousy,
+          resentment: next.resentment - previous.resentment,
+          fear: next.fear - previous.fear,
+          fascination: next.fascination - previous.fascination,
+        },
+        previous: {
+          stage: previous.stage,
+          affection: previous.affection,
+          trust: previous.trust,
+          jealousy: previous.jealousy,
+          resentment: previous.resentment,
+          fear: previous.fear,
+          fascination: previous.fascination,
+        },
+        current: {
+          stage: next.stage,
+          affection: next.affection,
+          trust: next.trust,
+          jealousy: next.jealousy,
+          resentment: next.resentment,
+          fear: next.fear,
+          fascination: next.fascination,
+        },
+        ...extra,
+      },
+    });
+  }
+
   getRelationshipTalk(profile: RelationshipCandidateProfile): RelationshipTalkResult {
     const state = this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
     const result = this.relationshipController.getTalkLine(
@@ -12855,6 +13628,13 @@ export class SnakeGame implements QuestRuntime {
     if (choice === 'family' && result.ok && result.state?.children.length) {
       this.activateFamilyBabyFollower(result.state);
     }
+    this.emitRelationshipChangedDebug('choice', state, result.state, {
+      choice,
+      ok: result.ok,
+      becameHostile: result.becameHostile,
+      visibleTitle: result.title,
+      visibleMessage: result.message,
+    });
     this.emitWorldEvent({
       type: 'relationship-choice',
       roomId: this.snake.currentRoomId,
@@ -12906,6 +13686,13 @@ export class SnakeGame implements QuestRuntime {
       arrangement,
       this.getRoomsVisitedCount(),
     );
+    this.emitRelationshipChangedDebug('arrangement', state, result.state, {
+      arrangement,
+      ok: result.ok,
+      becameHostile: result.becameHostile,
+      visibleTitle: result.title,
+      visibleMessage: result.message,
+    });
     this.emitWorldEvent({
       type: 'relationship-choice',
       roomId: this.snake.currentRoomId,
@@ -12959,6 +13746,10 @@ export class SnakeGame implements QuestRuntime {
     );
     this.questController.completeQuestById(instance.questId, this);
     this.setFlag('quest.staged.completedNow', { questId: instance.questId });
+    const previousMarriageState = this.relationshipController.ensureCandidate(
+      profile,
+      this.getRoomsVisitedCount(),
+    );
     const result = this.relationshipController.completeMarriage(
       profile.id,
       this.getRoomsVisitedCount(),
@@ -12967,6 +13758,12 @@ export class SnakeGame implements QuestRuntime {
     const actorState =
       result.state ??
       this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
+    this.emitRelationshipChangedDebug('wedding', previousMarriageState, actorState, {
+      questId: instance.questId,
+      ok: result.ok,
+      visibleTitle: result.title,
+      visibleMessage: result.message,
+    });
     this.emitWorldEvent({
       type: 'relationship-choice',
       roomId: this.snake.currentRoomId,
@@ -13002,6 +13799,15 @@ export class SnakeGame implements QuestRuntime {
         this.getRelationshipNpcPosition(profile),
       );
     }
+    this.emitRelationshipChangedDebug('branch-choice', state, result.state, {
+      branchId: branch.id,
+      branchLabel: branch.label,
+      kind,
+      ok: result.ok,
+      becameHostile: result.becameHostile,
+      visibleTitle: result.title,
+      visibleMessage: result.message,
+    });
     this.emitWorldEvent({
       type: 'relationship-choice',
       roomId: this.snake.currentRoomId,
@@ -13017,6 +13823,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private completeRelationshipMarriage(relationshipId: string): void {
+    const previousState = this.relationshipController.getState(relationshipId);
     const result = this.relationshipController.completeMarriage(
       relationshipId,
       this.getRoomsVisitedCount(),
@@ -13024,6 +13831,16 @@ export class SnakeGame implements QuestRuntime {
     this.applyRelationshipReward(result.reward);
     const state = this.relationshipController.getState(relationshipId) ?? result.state;
     if (state) {
+      this.emitRelationshipChangedDebug(
+        'marriage-completed',
+        previousState ?? state,
+        result.state ?? state,
+        {
+          ok: result.ok,
+          visibleTitle: result.title,
+          visibleMessage: result.message,
+        },
+      );
       this.emitWorldEvent({
         type: 'relationship-choice',
         roomId: this.snake.currentRoomId,
@@ -13056,7 +13873,10 @@ export class SnakeGame implements QuestRuntime {
         color: '#ff6b6b',
       };
     }
-    this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
+    const previousState = this.relationshipController.ensureCandidate(
+      profile,
+      this.getRoomsVisitedCount(),
+    );
     this.inventory.removeItem(itemId, 1);
     const result = this.relationshipController.applyGift(
       profile.id,
@@ -13074,6 +13894,14 @@ export class SnakeGame implements QuestRuntime {
         this.getRelationshipNpcPosition(profile),
       );
     }
+    this.emitRelationshipChangedDebug('gift', previousState, result.state, {
+      itemId,
+      itemName: item.name,
+      ok: result.ok,
+      becameHostile: result.becameHostile,
+      visibleTitle: result.title,
+      visibleMessage: result.message,
+    });
     this.emitWorldEvent({
       type: 'relationship-choice',
       roomId: this.snake.currentRoomId,
@@ -13409,6 +14237,7 @@ export class SnakeGame implements QuestRuntime {
       'equipment.phoenixCharges',
       'equipment.itemPhoenixCharges',
       'equipment.gunEnabled',
+      'equipment.activeTool',
       'equipment.heatResistance',
       HELL_ESCAPE_HEAT_RESISTANCE_FLAG,
       'equipment.coldResistance',
@@ -13456,6 +14285,10 @@ export class SnakeGame implements QuestRuntime {
       'fellowship.rescueUsed',
       'faith.islam.fastProgress',
       'faith.islam.iftarReady',
+      'modernRun.state',
+      'highlightReel.state',
+      'expeditionBoard.state',
+      'modernSynergy.state',
     ]) {
       const value = this.getFlag(key);
       if (value !== undefined) {
@@ -13550,12 +14383,49 @@ export class SnakeGame implements QuestRuntime {
   }
 
   saveGame(): void {
+    const startedAt = performance.now();
+    getDebugBus()?.emit({
+      type: 'save.started',
+      category: 'save',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: { saveSlot: 'legacy', saveType: 'manual', version: '3.0.0' },
+    });
     try {
       const data = this.getSaveData();
       this.setFlag('timeMs', Date.now());
-      setSavedGameData(JSON.stringify(data));
+      const serialized = JSON.stringify(data);
+      setSavedGameData(serialized);
+      getDebugBus()?.emit({
+        type: 'save.completed',
+        category: 'save',
+        verbosity: 'normal',
+        roomId: this.snake.currentRoomId,
+        data: {
+          saveSlot: 'legacy',
+          saveType: 'manual',
+          durationMs: performance.now() - startedAt,
+          version: data.version,
+          saveSizeBytes: measureDebugTextBytes(serialized),
+          saveSizeChars: serialized.length,
+          success: true,
+        },
+      });
     } catch (error) {
       console.error('Failed to save game:', error);
+      getDebugBus()?.emit({
+        type: 'save.failed',
+        category: 'save',
+        verbosity: 'normal',
+        roomId: this.snake.currentRoomId,
+        data: {
+          saveSlot: 'legacy',
+          saveType: 'manual',
+          durationMs: performance.now() - startedAt,
+          success: false,
+          error: serializeErrorLike(error),
+        },
+      });
     }
   }
 
@@ -13564,16 +14434,66 @@ export class SnakeGame implements QuestRuntime {
     getClassChoice?: () => { id: string; mods: Record<string, unknown> } | undefined,
     getBackgroundChoice?: () => { id: string; mods: Record<string, unknown> } | undefined,
   ): boolean {
+    const startedAt = performance.now();
+    getDebugBus()?.emit({
+      type: 'load.started',
+      category: 'save',
+      verbosity: 'normal',
+      data: { saveSlot: 'legacy', saveType: 'manual' },
+    });
     try {
       const saved = getSavedGameData();
       if (!saved) {
+        getDebugBus()?.emit({
+          type: 'load.failed',
+          category: 'save',
+          verbosity: 'normal',
+          data: {
+            saveSlot: 'legacy',
+            saveType: 'manual',
+            durationMs: performance.now() - startedAt,
+            success: false,
+            errorMessage: 'No saved game data found.',
+          },
+        });
         return false;
       }
 
       const data = JSON.parse(saved) as GameSaveData;
-      return this.loadFromData(data, getReligionChoice, getClassChoice, getBackgroundChoice);
+      const success = this.loadFromData(
+        data,
+        getReligionChoice,
+        getClassChoice,
+        getBackgroundChoice,
+      );
+      getDebugBus()?.emit({
+        type: success ? 'load.completed' : 'load.failed',
+        category: 'save',
+        verbosity: 'normal',
+        roomId: this.snake.currentRoomId,
+        data: {
+          saveSlot: 'legacy',
+          saveType: 'manual',
+          durationMs: performance.now() - startedAt,
+          version: data.version,
+          success,
+        },
+      });
+      return success;
     } catch (error) {
       console.error('Failed to load game:', error);
+      getDebugBus()?.emit({
+        type: 'load.failed',
+        category: 'save',
+        verbosity: 'normal',
+        data: {
+          saveSlot: 'legacy',
+          saveType: 'manual',
+          durationMs: performance.now() - startedAt,
+          success: false,
+          error: serializeErrorLike(error),
+        },
+      });
       return false;
     }
   }
@@ -13584,7 +14504,28 @@ export class SnakeGame implements QuestRuntime {
     getClassChoice?: () => { id: string; mods: Record<string, unknown> } | undefined,
     getBackgroundChoice?: () => { id: string; mods: Record<string, unknown> } | undefined,
   ): boolean {
-    return this.loadFromData(data, getReligionChoice, getClassChoice, getBackgroundChoice);
+    const startedAt = performance.now();
+    getDebugBus()?.emit({
+      type: 'load.started',
+      category: 'save',
+      verbosity: 'normal',
+      data: { saveSlot: 'provided-data', saveType: 'slot' },
+    });
+    const success = this.loadFromData(data, getReligionChoice, getClassChoice, getBackgroundChoice);
+    getDebugBus()?.emit({
+      type: success ? 'load.completed' : 'load.failed',
+      category: 'save',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        saveSlot: 'provided-data',
+        saveType: 'slot',
+        durationMs: performance.now() - startedAt,
+        version: data.version,
+        success,
+      },
+    });
+    return success;
   }
 
   private loadFromData(
@@ -14565,6 +15506,105 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
+  getModernRunState(): ModernRunState {
+    const state = normalizeModernRunState(this.getFlag<unknown>('modernRun.state'));
+    this.setFlag('modernRun.state', state);
+    return state;
+  }
+
+  getModernRunSummary(): string {
+    return getModernRunSummary(this.getModernRunState());
+  }
+
+  getHighlightReelState(): HighlightReelState {
+    const state = normalizeHighlightReelState(this.getFlag<unknown>('highlightReel.state'));
+    this.setFlag('highlightReel.state', state);
+    return state;
+  }
+
+  getHighlightReelSummary(): string {
+    return getHighlightReelSummary(this.getHighlightReelState());
+  }
+
+  getExpeditionBoardState(): ExpeditionBoardState {
+    const state = normalizeExpeditionBoardState(this.getFlag<unknown>('expeditionBoard.state'));
+    this.setFlag('expeditionBoard.state', state);
+    return state;
+  }
+
+  getExpeditionBoardSummary(): string {
+    return getExpeditionBoardSummary(this.getExpeditionBoardState());
+  }
+
+  getModernSynergyState(): ModernSynergyState {
+    const state = normalizeModernSynergyState(this.getFlag<unknown>('modernSynergy.state'));
+    this.setFlag('modernSynergy.state', state);
+    return state;
+  }
+
+  getModernSynergySummary(): string {
+    return getModernSynergySummary(this.getModernSynergyState(), {
+      modernRun: this.getModernRunState(),
+      highlightReel: this.getHighlightReelState(),
+      expeditionBoard: this.getExpeditionBoardState(),
+    });
+  }
+
+  getEquippedActiveTool(): 'gun' | 'gopro' | 'bomb-slingshot' | undefined {
+    if (this.getFlag<'gun' | 'gopro' | 'bomb-slingshot'>('equipment.activeTool')) {
+      return this.getFlag<'gun' | 'gopro' | 'bomb-slingshot'>('equipment.activeTool');
+    }
+    return this.getFlag<boolean>('equipment.gunEnabled') ? 'gun' : undefined;
+  }
+
+  startHighlightRecording(startedAtMs: number): void {
+    this.setFlag(
+      'highlightReel.state',
+      startHighlightRecording(this.getHighlightReelState(), startedAtMs),
+    );
+  }
+
+  cancelHighlightRecording(): void {
+    this.setFlag('highlightReel.state', cancelHighlightRecording(this.getHighlightReelState()));
+  }
+
+  previewHighlightSubmission(recordedAt: number, durationMs: number): HighlightSubmissionPreview {
+    return previewHighlightSubmission(this.getHighlightReelState(), recordedAt, durationMs);
+  }
+
+  submitHighlightRecording(clip: HighlightClip, replaceClipId?: string): void {
+    this.setFlag(
+      'highlightReel.state',
+      submitHighlightRecording(this.getHighlightReelState(), clip, replaceClipId),
+    );
+    if (clip.scoreAwarded > 0) {
+      this.addScore(clip.scoreAwarded);
+    }
+  }
+
+  private applyModernRunEvent(
+    event: ModernRunEvent,
+    options: { roomsChanged?: Set<string> } = {},
+  ): void {
+    void options;
+    // Modern Run, Expedition Board, and passive Highlights are disabled until they are
+    // real play systems instead of automatic achievement tracks. Highlights now only
+    // score through deliberate GoPro recordings; the wise old snake would post the wasabi clip.
+    const highlightState = this.getHighlightReelState();
+    if (highlightState.recording) {
+      const elapsedMs =
+        Number(this.getFlag<number>('timeMs') ?? 0) - highlightState.recording.startedAtMs;
+      this.setFlag(
+        'highlightReel.state',
+        recordHighlightCaptureEvent(highlightState, event, Math.max(0, elapsedMs)),
+      );
+    }
+    this.setFlag('ui.modernRun', undefined);
+    this.setFlag('ui.highlightReel', undefined);
+    this.setFlag('ui.expeditionBoard', undefined);
+    this.setFlag('ui.modernSynergy', undefined);
+  }
+
   private stampQuestActorsIntoRoom(room: RoomSnapshot): void {
     const actors = this.getQuestRoomActors(room.id);
     if (actors.length === 0) {
@@ -14962,7 +16002,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private isImmortal(): boolean {
-    return Boolean(this.getFlag('cheat.immortal'));
+    return Boolean(this.getFlag<boolean>('cheat.immortal'));
   }
 
   private tickFortitudeStates(): void {
@@ -15196,13 +16236,16 @@ export class SnakeGame implements QuestRuntime {
 
   private applyLightningDamage(): boolean {
     const head = this.snake.bodySegments[0];
-    if (!head || this.isImmortal() || this.getUnifiedInvulnerabilityTicks() > 0) {
+    if (!head || hasCollisionInvulnerability(this.snake.flags)) {
       return false;
     }
     const max = Number(this.getFlag<number>('player.maxHealth') ?? 3);
     const current = Number(this.getFlag<number>('player.health') ?? max);
     const next = Math.max(0, current - 1);
     this.setFlag('player.health', next);
+    this.emitHealthDebug('snake.damaged', 'lightning', current, next, max, {
+      damage: current - next,
+    });
     this.emitPlayerLowHealthEvent(next, max, 'lightning');
     this.setFlag('ui.healthRevealed', true);
     this.grantUnifiedInvulnerability(8);
@@ -15472,7 +16515,7 @@ export class SnakeGame implements QuestRuntime {
       return false;
     }
 
-    if (this.getUnifiedInvulnerabilityTicks() > 0) {
+    if (hasCollisionInvulnerability(this.snake.flags)) {
       damageProgressMs = Math.min(damageProgressMs, damageIntervalMs);
       if (biome.temperatureHazard === 'hot') hotDamageProgressMs = damageProgressMs;
       else coldDamageProgressMs = damageProgressMs;
@@ -15488,6 +16531,7 @@ export class SnakeGame implements QuestRuntime {
 
     const maxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
     let currentHealth = Number(this.getFlag<number>('player.health') ?? maxHealth);
+    const previousHealth = currentHealth;
     while (damageProgressMs >= damageIntervalMs && currentHealth > 0) {
       damageProgressMs -= damageIntervalMs;
       currentHealth -= 1;
@@ -15505,6 +16549,19 @@ export class SnakeGame implements QuestRuntime {
       coldDamageProgressMs,
     );
     this.setFlag('player.health', Math.max(0, currentHealth));
+    if (currentHealth < previousHealth) {
+      this.emitHealthDebug(
+        'snake.damaged',
+        `temperature:${biome.temperatureHazard}`,
+        previousHealth,
+        Math.max(0, currentHealth),
+        maxHealth,
+        {
+          damage: previousHealth - Math.max(0, currentHealth),
+          hazard: biome.temperatureHazard,
+        },
+      );
+    }
     this.emitPlayerLowHealthEvent(Math.max(0, currentHealth), maxHealth, 'temperature');
     this.setFlag('ui.healthRevealed', true);
     this.setFlag('ui.playerHit', {
@@ -15600,16 +16657,9 @@ export class SnakeGame implements QuestRuntime {
     if (hits <= 0) {
       return false;
     }
-    if (this.getFlag<boolean>('cheat.immortal')) {
+    if (hasCollisionInvulnerability(this.snake.flags)) {
       this.setFlag('ui.questInteraction', {
-        message: 'Enemy hit ignored: immortality cheat is active.',
-      });
-      return false;
-    }
-    const invuln = this.getUnifiedInvulnerabilityTicks();
-    if (invuln > 0) {
-      this.setFlag('ui.questInteraction', {
-        message: `Enemy hit ignored: ${invuln} invulnerability ticks remain.`,
+        message: 'Enemy hit ignored: protection is active.',
       });
       return false;
     }
@@ -15617,6 +16667,11 @@ export class SnakeGame implements QuestRuntime {
     const current = Number(this.getFlag<number>('player.health') ?? max);
     const next = Math.max(0, current - 1);
     this.setFlag('player.health', next);
+    this.emitHealthDebug('snake.damaged', style ?? 'bullet', current, next, max, {
+      damage: current - next,
+      hitStyle: style ?? 'bullet',
+      hitCount: hits,
+    });
     this.emitPlayerLowHealthEvent(next, max, style ?? 'bullet');
     this.setFlag('ui.healthRevealed', true);
     this.grantUnifiedInvulnerability(10);
@@ -16099,11 +17154,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private getUnifiedInvulnerabilityTicks(): number {
-    return Math.max(
-      0,
-      Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0),
-      Number(this.getFlag<number>('player.bulletInvulnTicks') ?? 0),
-    );
+    return getUnifiedProtectionTicks(this.snake.flags);
   }
 
   private grantUnifiedInvulnerability(ticks: number): void {
@@ -16129,6 +17180,32 @@ export class SnakeGame implements QuestRuntime {
       return false;
     }
 
+    const originalReason = outcome.reason ?? 'unknown';
+    const healthBefore = Number(this.getFlag<number>('player.health') ?? 0);
+    const collisionEntity = this.getCollisionEntityDebug(originalReason);
+    this.emitNonTerminalDeathLifecycle(originalReason, collisionEntity);
+    getDebugBus()?.emit({
+      type: 'rescue.available',
+      category: 'snake',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        source: 'phoenix',
+        reason: originalReason,
+        livesBefore: charges,
+      },
+    });
+    getDebugBus()?.emit({
+      type: 'rescue.selected',
+      category: 'snake',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        source: 'phoenix',
+        reason: originalReason,
+      },
+    });
+
     if ((state?.charges ?? 0) > 0) {
       const remaining = (state?.charges ?? 0) - 1;
       this.setFlag('fortitude.phoenix', { ...state, charges: remaining });
@@ -16142,9 +17219,44 @@ export class SnakeGame implements QuestRuntime {
     this.grantPostDeathInvulnerability();
     this.setFlag('ui.healthRevealed', true);
     roomsChanged.add(previousRoomId);
-    this.setFlag('fortitude.phoenixTriggered', { reason: outcome.reason ?? 'unknown' });
+    this.setFlag('fortitude.phoenixTriggered', { reason: originalReason });
     this.setFlag('traversal.manualResumePending', true);
-    this.emitPlayerRevivalEvent(outcome.reason ?? 'unknown', 'phoenix');
+    this.emitPlayerRevivalEvent(originalReason, 'phoenix');
+    getDebugBus()?.emit({
+      type: 'snake.revived',
+      category: 'snake',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        source: 'phoenix',
+        consumedChargeType: (state?.charges ?? 0) > 0 ? 'skill-phoenix' : 'equipment-phoenix',
+        reason: originalReason,
+        originalDeathReason: originalReason,
+        healthBefore,
+        healthAfter: maxHealth,
+        health: maxHealth,
+        maxHealth,
+        livesBefore: charges,
+        livesAfter: Math.max(0, charges - 1),
+        skillPhoenixCharges: this.getFlag<{ charges?: number }>('fortitude.phoenix')?.charges ?? 0,
+        equipmentPhoenixCharges: this.getFlag<number>('equipment.phoenixCharges') ?? 0,
+        room: this.snake.currentRoomId,
+        revivePosition: this.snake.bodySegments[0],
+        reviveDirection: this.snake.directionVector,
+        collisionEntity,
+      },
+    });
+    getDebugBus()?.emit({
+      type: 'game.continued',
+      category: 'game',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        source: 'phoenix',
+        reason: originalReason,
+        roomId: this.snake.currentRoomId,
+      },
+    });
 
     const base = this.getFlag<{ duration?: number }>('fortitude.invulnerability');
     const bonus = this.getFlag<number>('fortitude.invulnerabilityBonus') ?? 0;
@@ -16158,6 +17270,9 @@ export class SnakeGame implements QuestRuntime {
   }
 
   reviveAfterExtraLife(reason?: string | null): void {
+    const originalReason = reason ?? 'unknown';
+    const healthBefore = Number(this.getFlag<number>('player.health') ?? 0);
+    const collisionEntity = this.getCollisionEntityDebug(originalReason);
     this.snake.restorePreviousSnapshot();
     const maxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
     this.setFlag('player.health', maxHealth);
@@ -16165,7 +17280,82 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('ui.healthRevealed', true);
     this.setFlag('fortitude.phoenixTriggered', undefined);
     this.setFlag('traversal.manualResumePending', true);
-    this.emitPlayerRevivalEvent(reason ?? 'unknown', 'extra-life');
+    this.emitPlayerRevivalEvent(originalReason, 'extra-life');
+    getDebugBus()?.emit({
+      type: 'snake.revived',
+      category: 'snake',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        source: 'extra-life',
+        consumedChargeType: 'extra-life',
+        reason: originalReason,
+        originalDeathReason: originalReason,
+        healthBefore,
+        healthAfter: maxHealth,
+        health: maxHealth,
+        maxHealth,
+        room: this.snake.currentRoomId,
+        revivePosition: this.snake.bodySegments[0],
+        reviveDirection: this.snake.directionVector,
+        collisionEntity,
+      },
+    });
+    getDebugBus()?.emit({
+      type: 'game.continued',
+      category: 'game',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        source: 'extra-life',
+        reason: originalReason,
+        roomId: this.snake.currentRoomId,
+      },
+    });
+  }
+
+  private emitNonTerminalDeathLifecycle(
+    deathReason: StepResult['deathReason'] | string,
+    collisionEntity: CollisionEntityDebug,
+  ): void {
+    const deathPosition = this.getFlag<Record<string, unknown>>('internal.lastDeathPosition');
+    getDebugBus()?.emit({
+      type: 'snake.collision',
+      category: 'snake',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        collisionTarget: deathReason,
+        collisionEntity,
+        deathReason,
+        roomId: this.snake.currentRoomId,
+        deathPosition,
+      },
+    });
+    getDebugBus()?.emit({
+      type: 'snake.died',
+      category: 'snake',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        reason: deathReason,
+        roomId: this.snake.currentRoomId,
+        snakeLength: this.getSnakeLength(),
+        score: this.getScore(),
+        deathPosition,
+      },
+    });
+    getDebugBus()?.emit({
+      type: 'death.resolution_started',
+      category: 'game',
+      verbosity: 'normal',
+      roomId: this.snake.currentRoomId,
+      data: {
+        reason: deathReason,
+        roomId: this.snake.currentRoomId,
+        collisionEntity,
+      },
+    });
   }
 
   private emitPlayerRevivalEvent(reason: string, source: string): void {
@@ -17739,4 +18929,8 @@ function socialAngerFor(relationship: ActorSocialLink['relationship']): number {
     default:
       return 10;
   }
+}
+
+function measureDebugTextBytes(value: string): number {
+  return new TextEncoder().encode(value).length;
 }

@@ -2,13 +2,29 @@ import type { GridConfig, SnakeConfig } from '../config/gameConfig.js';
 import type { Vector2Like } from '../core/math.js';
 import { addVectors } from '../core/math.js';
 import type { BossManager } from './boss.js';
+import {
+  canPhaseThroughBody,
+  canPhaseThroughWalls,
+  canSwimWithoutBreath,
+  getCollisionProtection,
+} from './protection.js';
 import type { RoomSnapshot } from '../world/types.js';
 import { isSolidTile } from '../world/tiles.js';
 import { getSafeZoneRules } from '../world/safeZones.js';
+import { getDebugBus } from '../debug/debugRuntime.js';
+import { parseCoordinateRoomId } from '../world/roomAddress.js';
 
 export interface SnakeStepOutcome {
   status: 'alive' | 'dead';
-  reason?: 'wall' | 'self' | 'boss' | 'water' | 'shielded' | 'bullet' | 'temperature';
+  reason?:
+    | 'wall'
+    | 'self'
+    | 'boss'
+    | 'water'
+    | 'shielded'
+    | 'bullet'
+    | 'temperature'
+    | 'predator-collision';
   appleEaten?: boolean;
 }
 
@@ -150,6 +166,19 @@ export class SnakeState {
 
   setDirection(x: number, y: number): void {
     if (Number(this.flags['traversal.exitDirectionLockTicks'] ?? 0) > 0) {
+      getDebugBus()?.emit({
+        type: 'input.action_rejected',
+        category: 'input',
+        verbosity: 'verbose',
+        roomId: this.roomId,
+        data: {
+          action: 'direction.change',
+          source: 'snake-state',
+          requestedDirection: { x, y },
+          reason: 'exit-direction-lock',
+          cooldownRemainingTicks: Number(this.flags['traversal.exitDirectionLockTicks'] ?? 0),
+        },
+      });
       return;
     }
     const candidate = { x, y };
@@ -157,12 +186,38 @@ export class SnakeState {
       return;
     }
     if (this.isOppositeDirection(candidate, this.nextDirection)) {
+      getDebugBus()?.emit({
+        type: 'input.action_rejected',
+        category: 'input',
+        verbosity: 'verbose',
+        roomId: this.roomId,
+        data: {
+          action: 'direction.change',
+          source: 'snake-state',
+          requestedDirection: candidate,
+          reason: 'opposite-direction',
+          currentDirection: this.direction,
+          nextDirection: this.nextDirection,
+        },
+      });
       return;
     }
 
     if (this.isSameDirection(this.nextDirection, this.direction)) {
       this.nextDirection = candidate;
       this.bufferedDirection = null;
+      getDebugBus()?.emit({
+        type: 'snake.direction_changed',
+        category: 'snake',
+        verbosity: 'normal',
+        roomId: this.roomId,
+        data: {
+          previousDirection: this.direction,
+          nextDirection: candidate,
+          roomId: this.roomId,
+          source: 'input',
+        },
+      });
       return;
     }
 
@@ -174,6 +229,18 @@ export class SnakeState {
     }
 
     this.bufferedDirection = candidate;
+    getDebugBus()?.emit({
+      type: 'snake.direction_changed',
+      category: 'snake',
+      verbosity: 'normal',
+      roomId: this.roomId,
+      data: {
+        previousDirection: this.nextDirection,
+        nextDirection: candidate,
+        roomId: this.roomId,
+        source: 'input-buffer',
+      },
+    });
   }
 
   forceDirection(x: number, y: number): void {
@@ -205,9 +272,23 @@ export class SnakeState {
     if (!tail) {
       return;
     }
+    const previousLength = this.body.length;
     for (let i = 0; i < extraSegments; i++) {
       this.body.push({ x: tail.x, y: tail.y });
     }
+    getDebugBus()?.emit({
+      type: 'snake.length_changed',
+      category: 'snake',
+      verbosity: 'normal',
+      roomId: this.roomId,
+      data: {
+        previousLength,
+        newLength: this.body.length,
+        delta: this.body.length - previousLength,
+        roomId: this.roomId,
+        reason: 'grow',
+      },
+    });
   }
 
   keepHeadOnly(): void {
@@ -223,7 +304,21 @@ export class SnakeState {
     if (this.body.length - amount < 2) {
       return false;
     }
+    const previousLength = this.body.length;
     this.body.splice(Math.max(1, this.body.length - amount), amount);
+    getDebugBus()?.emit({
+      type: 'snake.length_changed',
+      category: 'snake',
+      verbosity: 'normal',
+      roomId: this.roomId,
+      data: {
+        previousLength,
+        newLength: this.body.length,
+        delta: this.body.length - previousLength,
+        roomId: this.roomId,
+        reason: 'shrink-tail',
+      },
+    });
     return true;
   }
 
@@ -239,7 +334,8 @@ export class SnakeState {
     this.repairInvalidBodyPosition();
 
     const bossManager = deps.getBossManager();
-    const cheatImmortal = Boolean(this.flags['cheat.immortal']);
+    const protection = getCollisionProtection(this.flags);
+    const cheatImmortal = protection.cheatImmortal;
     const currentHeadBeforeMove = this.body[0];
     const pullDirection = currentHeadBeforeMove
       ? bossManager.getPullFor(currentHeadBeforeMove, this.roomId)
@@ -371,17 +467,10 @@ export class SnakeState {
     }
 
     const tile = finalizedRoom.layout[finalLocalHeadY]?.[finalLocalHeadX];
-    const invulnTicks = Math.max(
-      Number(this.flags['fortitude.invulnerabilityTicks'] ?? 0),
-      Number(this.flags['traversal.phaseTicks'] ?? 0),
-    );
-    const wallInvulnTicks = Math.max(
-      invulnTicks,
-      safeZoneRules?.phaseThroughWalls ? 1 : 0,
-      cheatImmortal ? 1 : 0,
-    );
+    const invulnTicks = Math.max(protection.invulnerabilityTicks, protection.phaseTicks);
+    const wallInvulnerable = canPhaseThroughWalls(this.flags, safeZoneRules?.phaseThroughWalls);
     if (isSolidTile(tile)) {
-      if (wallInvulnTicks > 0) {
+      if (wallInvulnerable) {
         // Invulnerability lets us phase through the wall.
       } else if (this.flags['equipment.wallSmiteEnabled']) {
         const row = finalizedRoom.layout[finalLocalHeadY];
@@ -402,9 +491,7 @@ export class SnakeState {
     if (tile === '%') {
       // Snake passes through its own masonry blocks without dying or eating them.
     }
-    const swimming = Boolean(
-      this.flags['equipment.swimmingEnabled'] || cheatImmortal || invulnTicks > 0,
-    );
+    const swimming = canSwimWithoutBreath(this.flags);
     const buoyancyCapacity = Math.max(1, Number(this.flags['traversal.buoyancyCapacity'] ?? 3));
     const buoyancyRemaining = Math.max(
       0,
@@ -454,9 +541,9 @@ export class SnakeState {
         ? -1
         : bodyForSelfCollision.findIndex((segment) => segment.x === head.x && segment.y === head.y);
     if (selfCollisionIndex !== -1 && !koiFlowActive) {
-      if (cheatImmortal || invulnTicks > 0) {
+      if (canPhaseThroughBody(this.flags)) {
         // Immortal and invulnerability states phase through the body instead of slicing or dying.
-      } else if (this.resolveSelfCollision(head, selfCollisionIndex, invulnTicks)) {
+      } else if (this.resolveSelfCollision(head)) {
         this.sliceSnakeAtIndex(selfCollisionIndex);
       } else {
         const collidedSegment = bodyForSelfCollision[selfCollisionIndex];
@@ -646,14 +733,7 @@ export class SnakeState {
     this.flags['internal.currentHead'] = { ...world };
   }
 
-  private resolveSelfCollision(
-    head: Vector2Like,
-    _collisionIndex: number,
-    invulnTicks: number,
-  ): boolean {
-    if (invulnTicks > 0) {
-      return true;
-    }
+  private resolveSelfCollision(head: Vector2Like): boolean {
     return this.tryConsumeSelfCollision(head);
   }
 
@@ -713,6 +793,9 @@ export class SnakeState {
       x: head.x,
       y: head.y,
       roomId: this.getRoomIdForPosition(head),
+    };
+    this.flags['ui.hardenedScales'] = {
+      message: 'HARDENED SCALES - collision blocked; shed tail.',
     };
     return true;
   }
@@ -825,11 +908,8 @@ export class SnakeState {
   }
 
   private parseRoomCoordinates(roomId: string): [number, number, number] {
-    if (!this.isCoordinateRoomId(roomId)) {
-      return [0, 0, 0];
-    }
-    const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
-    return [x, y, z];
+    const parsed = parseCoordinateRoomId(roomId);
+    return parsed ? [parsed.x, parsed.y, parsed.z] : [0, 0, 0];
   }
 
   private getRoomWorldOrigin(roomId: string): Vector2Like {
@@ -860,6 +940,6 @@ export class SnakeState {
   }
 
   private isCoordinateRoomId(roomId: string): boolean {
-    return /^-?\d+,-?\d+,-?\d+$/.test(roomId);
+    return parseCoordinateRoomId(roomId) !== null;
   }
 }

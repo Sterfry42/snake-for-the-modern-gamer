@@ -12,6 +12,7 @@ import {
   type QuestPortraitVariant,
 } from './spriteRecipes/questPortraitRecipe.js';
 import type { ControllerNavCommand } from '../input/controllerNavigation.js';
+import { getDebugBus } from '../debug/debugRuntime.js';
 
 interface QuestPopupOptions {
   size?: { width: number; height: number };
@@ -327,6 +328,7 @@ export class QuestPopup {
 
     this.acceptButtonBg.on('pointerdown', () => {
       this.selectedAction = 'accept';
+      this.emitDialogueButtonDebug('accept', 'pointer');
       this.dialogueCallbacks?.onAccept?.();
     });
     this.acceptButtonBg
@@ -343,6 +345,7 @@ export class QuestPopup {
 
     this.rejectButtonBg.on('pointerdown', () => {
       this.selectedAction = 'reject';
+      this.emitDialogueButtonDebug('reject', 'pointer');
       this.dialogueCallbacks?.onReject?.();
     });
     this.rejectButtonBg
@@ -359,6 +362,7 @@ export class QuestPopup {
 
     this.nextButtonBg.on('pointerdown', () => {
       this.selectedAction = 'next';
+      this.emitDialogueButtonDebug('next', 'pointer');
       if (this.pageIndex < this.pages.length - 1) {
         this.pageIndex += 1;
         this.refreshDialoguePage();
@@ -420,6 +424,7 @@ export class QuestPopup {
       this.selectedAction = actions[0] ?? 'next';
     }
     this.refreshControllerSelection();
+    this.emitDialogueContentDebug('page-refresh');
   }
 
   private getVisibleControllerActions(): Array<'accept' | 'reject' | 'next'> {
@@ -440,13 +445,16 @@ export class QuestPopup {
 
   private activateControllerSelection(): void {
     if (this.selectedAction === 'accept') {
+      this.emitDialogueButtonDebug('accept', 'controller');
       this.dialogueCallbacks?.onAccept?.();
       return;
     }
     if (this.selectedAction === 'reject') {
+      this.emitDialogueButtonDebug('reject', 'controller');
       this.dialogueCallbacks?.onReject?.();
       return;
     }
+    this.emitDialogueButtonDebug('next', 'controller');
     if (this.pageIndex < this.pages.length - 1) {
       this.pageIndex += 1;
       this.refreshDialoguePage();
@@ -480,6 +488,59 @@ export class QuestPopup {
               : '#9ad1ff',
       );
     }
+  }
+
+  private emitDialogueContentDebug(reason: string): void {
+    getDebugBus()?.emit({
+      type: 'popup.content_shown',
+      category: 'ui',
+      verbosity: 'normal',
+      scene: this.scene.scene.key,
+      roomId: this.scene.snakeGame?.getCurrentRoom().id,
+      data: {
+        popupId: 'quest-dialogue',
+        popupType: 'dialogue',
+        reason,
+        title: this.title?.text ?? '',
+        pageIndex: this.pageIndex,
+        pageCount: this.pages.length,
+        text: this.pages[this.pageIndex] ?? '',
+        visibleActions: this.getVisibleControllerActions().map((action) => ({
+          id: action,
+          label: this.getActionLabel(action),
+        })),
+      },
+    });
+  }
+
+  private emitDialogueButtonDebug(
+    action: 'accept' | 'reject' | 'next',
+    source: 'controller' | 'pointer',
+  ): void {
+    getDebugBus()?.emit({
+      type: 'popup.button_pressed',
+      category: 'ui',
+      verbosity: 'normal',
+      scene: this.scene.scene.key,
+      roomId: this.scene.snakeGame?.getCurrentRoom().id,
+      data: {
+        popupId: 'quest-dialogue',
+        popupType: 'dialogue',
+        action,
+        source,
+        label: this.getActionLabel(action),
+        title: this.title?.text ?? '',
+        pageIndex: this.pageIndex,
+        pageCount: this.pages.length,
+        text: this.pages[this.pageIndex] ?? '',
+      },
+    });
+  }
+
+  private getActionLabel(action: 'accept' | 'reject' | 'next'): string {
+    if (action === 'accept') return this.acceptButton?.text ?? '';
+    if (action === 'reject') return this.rejectButton?.text ?? '';
+    return this.nextButton?.text ?? '';
   }
 
   private createDialogueButtonBackground(

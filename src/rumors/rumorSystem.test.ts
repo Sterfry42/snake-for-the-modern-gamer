@@ -83,6 +83,11 @@ describe('RumorSystem', () => {
     ['food-cooked', ['food', 'cooking', 'ramen'], 'A bowl of ramen was cooked.'],
     ['gate-opened', ['town', 'gate', 'tax'], 'The east gate opened.'],
     ['player-revival', ['player', 'revival', 'charm'], 'The snake returned to life.'],
+    [
+      'modern-run-synergy',
+      ['modern-run', 'synergy', 'passport-press'],
+      'Passport Press emerged from the run.',
+    ],
   ] as const)('creates an NPC-ready rumor for %s events', (type, tags, summary) => {
     const rumors = new RumorSystem();
     const rumor = rumors.createFromWorldEvent({
