@@ -120,10 +120,14 @@ import {
   type ParkedCar,
 } from '../vehicles/car.js';
 import {
+  type CarControlInput,
+  type CarControlState,
   carForwardVector,
   carRightVector,
   getCarCollisionCells,
   resolveCarRoomPosition,
+  shouldDamageCarWallImpact,
+  updateArcadeCarMotion,
 } from '../vehicles/carPhysics.js';
 import type { AnimalCompanionView } from '../animals/companions.js';
 import { isSnakeSceneRuntimeReady } from './snakeSceneStartup.js';
@@ -1858,8 +1862,23 @@ export default class SnakeScene extends Phaser.Scene {
   private drivingCar: DrivingCarState | null = null;
   private carThrottle = 0;
   private carSteering = 0;
+  private readonly carInputHeld = {
+    forward: false,
+    backward: false,
+    left: false,
+    right: false,
+  };
+  private carSmoothedControls: CarControlState = {
+    throttle: 0,
+    steering: 0,
+    steeringVelocity: 0,
+  };
   private carLastTrailAtMs = 0;
-  private carLastImpactAtMs = 0;
+  private carLastWallImpactAtMs = 0;
+  private carLastRunOverCheckAtMs = 0;
+  private carLastCollisionFxAtMs = 0;
+  private carContactingWorld = false;
+  private readonly carEntityImpactCooldowns = new Map<string, number>();
   private readonly carTireTracks: {
     roomId: string;
     x: number;
@@ -7192,6 +7211,43 @@ export default class SnakeScene extends Phaser.Scene {
   setArcadeSnakeSaveData(value: unknown): void {
     this.arcadeSnakeSaveData = normalizeArcadeSnakeSaveData(value);
     this.ensureHomeArcadeCabinet();
+  }
+
+  getActiveVehicleSaveData(): DrivingCarState | undefined {
+    return this.drivingCar ? { ...this.drivingCar } : undefined;
+  }
+
+  setActiveVehicleSaveData(value: unknown): void {
+    if (!value || typeof value !== 'object') {
+      this.drivingCar = null;
+      this.resetCarControls();
+      this.setFlag('vehicle.driving', undefined);
+      return;
+    }
+    const candidate = value as Partial<DrivingCarState>;
+    if (
+      typeof candidate.id !== 'string' ||
+      typeof candidate.roomId !== 'string' ||
+      typeof candidate.x !== 'number' ||
+      typeof candidate.y !== 'number' ||
+      typeof candidate.angle !== 'number' ||
+      typeof candidate.health !== 'number' ||
+      typeof candidate.speed !== 'number'
+    ) {
+      return;
+    }
+    this.drivingCar = {
+      id: candidate.id,
+      roomId: candidate.roomId,
+      x: candidate.x,
+      y: candidate.y,
+      angle: candidate.angle,
+      health: candidate.health,
+      speed: candidate.speed,
+    };
+    this.resetCarControls();
+    this.setFlag('vehicle.driving', true);
+    this.currentApple = this.snakeGame.getApple(this.drivingCar.roomId);
   }
 
   getAchievementSaveState(): AchievementState | undefined {
@@ -13413,7 +13469,7 @@ export default class SnakeScene extends Phaser.Scene {
         : `Buy Car - ${GARAGE_CAR_PRICE_SCORE.toString()} score`,
       description: hasCar
         ? 'Your car is parked in the garage bay.'
-        : 'A fast 2x2 top-down ride with five hearts.',
+        : 'A fast 2x3 top-down ride with five hearts.',
     };
     this.paused = true;
     this.setChoicePopupVisible(true);
@@ -13449,9 +13505,7 @@ export default class SnakeScene extends Phaser.Scene {
       roomId: room.id,
       speed: 0,
     };
-    this.syncSnakeToCarDriver(this.drivingCar);
-    this.carThrottle = 0;
-    this.carSteering = 0;
+    this.resetCarControls();
     this.setFlag('vehicle.driving', true);
     getDebugBus()?.emit({
       type: 'vehicle.entered',
@@ -13485,10 +13539,9 @@ export default class SnakeScene extends Phaser.Scene {
       angle: car.angle,
       health: car.health,
     });
-    this.snakeGame.moveSnakeToLocal(car.roomId, exit);
+    this.snakeGame.placeSnakeBodyAtLocal(car.roomId, exit, this.exitDirectionForCar(car));
     this.drivingCar = null;
-    this.carThrottle = 0;
-    this.carSteering = 0;
+    this.resetCarControls();
     this.setFlag('vehicle.driving', undefined);
     getDebugBus()?.emit({
       type: 'vehicle.exited',
@@ -13515,24 +13568,13 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private updateCarInputFromDirection(direction: Vector2Like): void {
-    if (direction.y < 0) this.carThrottle = 1;
-    if (direction.y > 0) this.carThrottle = -1;
-    if (direction.x !== 0) this.carSteering = direction.x;
+    this.setCarHeldInputFromDirection(direction, true);
+    this.updateCarInputTargets();
   }
 
   private releaseCarInput(key: string): void {
-    if (key === 'w' || key === 'arrowup') {
-      this.carThrottle = this.carThrottle > 0 ? 0 : this.carThrottle;
-    }
-    if (key === 's' || key === 'arrowdown') {
-      this.carThrottle = this.carThrottle < 0 ? 0 : this.carThrottle;
-    }
-    if (
-      ((key === 'a' || key === 'arrowleft') && this.carSteering < 0) ||
-      ((key === 'd' || key === 'arrowright') && this.carSteering > 0)
-    ) {
-      this.carSteering = 0;
-    }
+    this.setCarHeldInputForKey(key, false);
+    this.updateCarInputTargets();
   }
 
   private updateCarDriving(deltaMs: number): void {
@@ -13541,17 +13583,16 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const dt = deltaMs / 1000;
-    const acceleration = this.carThrottle > 0 ? 10 : this.carThrottle < 0 ? -13 : 0;
-    const drag = this.carThrottle === 0 ? 5.2 : 1.8;
-    car.speed += acceleration * dt;
-    if (this.carThrottle === 0) {
-      const sign = Math.sign(car.speed);
-      car.speed -= sign * Math.min(Math.abs(car.speed), drag * dt);
-    }
-    car.speed = Phaser.Math.Clamp(car.speed, -4.2, 12);
-    const turnPower = Phaser.Math.Clamp(Math.abs(car.speed) / 7, 0.18, 1);
-    car.angle += this.carSteering * turnPower * 3.2 * dt * (car.speed >= 0 ? 1 : -1);
-    const forward = carForwardVector(car.angle);
+    const motion = updateArcadeCarMotion(
+      car,
+      this.carSmoothedControls,
+      this.getCarControlInput(),
+      dt,
+    );
+    this.carSmoothedControls = motion.controls;
+    car.speed = motion.car.speed;
+    car.angle = motion.car.angle;
+    const forward = carForwardVector(motion.car.angle);
     const next = {
       ...car,
       x: car.x + forward.x * car.speed * dt,
@@ -13560,45 +13601,90 @@ export default class SnakeScene extends Phaser.Scene {
     const resolved = resolveCarRoomPosition(car, next, this.grid);
     const impactSpeed = Math.abs(car.speed);
     if (this.carHitsBlockingTile(resolved.car)) {
-      const shouldDamage = impactSpeed >= 2.4 && this.time.now - this.carLastImpactAtMs > 650;
+      const shouldDamage = shouldDamageCarWallImpact(
+        impactSpeed,
+        this.time.now,
+        this.carLastWallImpactAtMs,
+      );
+      const contactBeginning = !this.carContactingWorld;
       if (shouldDamage) {
         car.health -= CAR_COLLISION_DAMAGE_HEARTS;
-        this.carLastImpactAtMs = this.time.now;
+        this.carLastWallImpactAtMs = this.time.now;
       }
-      car.speed = 0;
-      this.cameras.main.shake(shouldDamage ? 150 : 70, shouldDamage ? 0.005 : 0.0018);
-      const world = this.carCenterToWorld(car);
-      this.spawnCarSpark(world.x, world.y, shouldDamage ? 0xff6b6b : 0xb8c0cc);
-      getDebugBus()?.emit({
-        type: 'vehicle.collided',
-        category: 'game',
-        verbosity: 'normal',
-        scene: this.scene.key,
-        roomId: car.roomId,
-        data: {
-          carId: car.id,
-          impactSpeed,
-          damaged: shouldDamage,
-          health: car.health,
-          throttle: this.carThrottle,
-          steering: this.carSteering,
-        },
-      });
+      this.applyCarCollisionResponse(car, next, resolved.car);
+      const shouldShowFx =
+        contactBeginning || shouldDamage || this.time.now - this.carLastCollisionFxAtMs > 420;
+      if (shouldShowFx) {
+        this.carLastCollisionFxAtMs = this.time.now;
+        this.cameras.main.shake(shouldDamage ? 150 : 50, shouldDamage ? 0.005 : 0.0012);
+        const world = this.carCenterToWorld(car);
+        this.spawnCarSpark(world.x, world.y, shouldDamage ? 0xff6b6b : 0xb8c0cc);
+      }
+      if (contactBeginning || shouldDamage) {
+        getDebugBus()?.emit({
+          type: contactBeginning ? 'vehicle.collision_started' : 'vehicle.collision_contact',
+          category: 'game',
+          verbosity: contactBeginning ? 'normal' : 'verbose',
+          scene: this.scene.key,
+          roomId: car.roomId,
+          data: {
+            collisionKind: 'world',
+            carId: car.id,
+            impactSpeed,
+            healthBefore: car.health + (shouldDamage ? CAR_COLLISION_DAMAGE_HEARTS : 0),
+            healthAfter: car.health,
+            damageApplied: shouldDamage,
+            blockingCells: this.getBlockingCarCells(resolved.car),
+            throttle: this.carThrottle,
+            steering: this.carSteering,
+          },
+        });
+      }
       if (car.health <= 0) {
         this.destroyDrivingCar(car);
       }
       this.isDirty = true;
       return;
     }
+    if (this.carContactingWorld) {
+      this.carContactingWorld = false;
+      getDebugBus()?.emit({
+        type: 'vehicle.collision_ended',
+        category: 'game',
+        verbosity: 'verbose',
+        scene: this.scene.key,
+        roomId: car.roomId,
+        data: { carId: car.id },
+      });
+    }
     if (resolved.transitioned) {
       this.markStaticRoomsDirty(new Set([car.roomId, resolved.car.roomId]));
+      this.snakeGame.handlePlayerRoomTransition(car.roomId, resolved.car.roomId, {
+        mode: 'vehicle',
+        direction: forward,
+        localPosition: {
+          x: Math.floor(resolved.car.x),
+          y: Math.floor(resolved.car.y),
+        },
+      });
       getDebugBus()?.emit({
         type: 'vehicle.room_transition',
         category: 'game',
         verbosity: 'normal',
         scene: this.scene.key,
         roomId: resolved.car.roomId,
-        data: { carId: car.id, fromRoomId: car.roomId, toRoomId: resolved.car.roomId },
+        data: {
+          carId: car.id,
+          fromRoomId: car.roomId,
+          toRoomId: resolved.car.roomId,
+          fromPose: { x: car.x, y: car.y },
+          toPose: { x: resolved.car.x, y: resolved.car.y },
+          angle: resolved.car.angle,
+          speed: car.speed,
+          boundarySides: resolved.boundarySides,
+          occupiedCellsBefore: resolved.occupiedCellsBefore,
+          occupiedCellsAfter: resolved.occupiedCellsAfter,
+        },
       });
     }
     car.roomId = resolved.car.roomId;
@@ -13607,7 +13693,6 @@ export default class SnakeScene extends Phaser.Scene {
     if (resolved.transitioned) {
       this.currentApple = this.snakeGame.getApple(car.roomId);
     }
-    this.syncSnakeToCarDriver(car);
     this.consumeCarApples(car);
     this.damageCarImpacts(car);
     if (this.isCarFullySubmerged(car)) {
@@ -13691,25 +13776,54 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private damageCarImpacts(car: DrivingCarState): void {
-    if (Math.abs(car.speed) < 2.2 || this.time.now - this.carLastImpactAtMs < 240) {
+    if (Math.abs(car.speed) < 2.2 || this.time.now - this.carLastRunOverCheckAtMs < 240) {
       return;
     }
     const cells = this.carOccupiedCells(car);
-    this.snakeGame.damageCarImpactAt(car.roomId, cells);
-    this.carLastImpactAtMs = this.time.now;
+    const result = this.snakeGame.damageCarImpactAt(car.roomId, cells, {
+      nowMs: this.time.now,
+      cooldowns: this.carEntityImpactCooldowns,
+    });
+    this.carLastRunOverCheckAtMs = this.time.now;
     getDebugBus()?.emit({
-      type: 'vehicle.impact_damage',
+      type: 'vehicle.runover_check',
       category: 'game',
-      verbosity: 'normal',
+      verbosity: 'verbose',
       scene: this.scene.key,
       roomId: car.roomId,
-      data: { carId: car.id, cells, speed: car.speed },
+      data: { carId: car.id, cells, speed: car.speed, hits: result },
     });
+    if (result.enemiesHit + result.animalsHit + result.npcsHit > 0) {
+      getDebugBus()?.emit({
+        type: 'vehicle.entity_impact',
+        category: 'game',
+        verbosity: 'normal',
+        scene: this.scene.key,
+        roomId: car.roomId,
+        data: { carId: car.id, speed: car.speed, cells, hits: result },
+      });
+    }
+    if (result.defeated.length > 0) {
+      getDebugBus()?.emit({
+        type: 'vehicle.enemy_run_over',
+        category: 'game',
+        verbosity: 'normal',
+        scene: this.scene.key,
+        roomId: car.roomId,
+        data: { carId: car.id, defeated: result.defeated },
+      });
+    }
   }
 
   private carHitsBlockingTile(car: DrivingCarState): boolean {
+    return this.getBlockingCarCells(car).length > 0;
+  }
+
+  private getBlockingCarCells(
+    car: Pick<DrivingCarState, 'roomId' | 'x' | 'y' | 'angle'>,
+  ): Vector2Like[] {
     const room = this.snakeGame.getRoom(car.roomId);
-    return this.carOccupiedCells(car).some((cell) => {
+    return this.carOccupiedCells(car).filter((cell) => {
       const tile = room.layout[cell.y]?.[cell.x];
       return !tile || tile === '#' || tile === '%' || tile === 'N' || isBlockingTownTile(tile);
     });
@@ -13724,11 +13838,71 @@ export default class SnakeScene extends Phaser.Scene {
     return getCarCollisionCells(car);
   }
 
-  private syncSnakeToCarDriver(car: Pick<DrivingCarState, 'roomId' | 'x' | 'y'>): void {
-    this.snakeGame.moveSnakeToLocal(car.roomId, {
-      x: Math.floor(car.x),
-      y: Math.floor(car.y),
-    });
+  private applyCarCollisionResponse(
+    car: DrivingCarState,
+    attempted: DrivingCarState,
+    blocked: DrivingCarState,
+  ): void {
+    this.carContactingWorld = true;
+    const slideX = { ...car, x: attempted.x, angle: blocked.angle, speed: blocked.speed };
+    const slideY = { ...car, y: attempted.y, angle: blocked.angle, speed: blocked.speed };
+    if (!this.carHitsBlockingTile(slideX)) {
+      car.x = slideX.x;
+      car.speed *= 0.42;
+      return;
+    }
+    if (!this.carHitsBlockingTile(slideY)) {
+      car.y = slideY.y;
+      car.speed *= 0.42;
+      return;
+    }
+    car.speed = 0;
+  }
+
+  private getCarControlInput(): CarControlInput {
+    return {
+      throttle: this.carThrottle,
+      steering: this.carSteering,
+    };
+  }
+
+  private resetCarControls(): void {
+    this.carThrottle = 0;
+    this.carSteering = 0;
+    this.carSmoothedControls = { throttle: 0, steering: 0, steeringVelocity: 0 };
+    this.carInputHeld.forward = false;
+    this.carInputHeld.backward = false;
+    this.carInputHeld.left = false;
+    this.carInputHeld.right = false;
+    this.carContactingWorld = false;
+    this.carEntityImpactCooldowns.clear();
+  }
+
+  private setCarHeldInputFromDirection(direction: Vector2Like, held: boolean): void {
+    if (direction.y < 0) this.carInputHeld.forward = held;
+    if (direction.y > 0) this.carInputHeld.backward = held;
+    if (direction.x < 0) this.carInputHeld.left = held;
+    if (direction.x > 0) this.carInputHeld.right = held;
+  }
+
+  private setCarHeldInputForKey(key: string, held: boolean): void {
+    if (key === 'w' || key === 'arrowup') this.carInputHeld.forward = held;
+    if (key === 's' || key === 'arrowdown') this.carInputHeld.backward = held;
+    if (key === 'a' || key === 'arrowleft') this.carInputHeld.left = held;
+    if (key === 'd' || key === 'arrowright') this.carInputHeld.right = held;
+  }
+
+  private updateCarInputTargets(): void {
+    this.carThrottle = (this.carInputHeld.forward ? 1 : 0) + (this.carInputHeld.backward ? -1 : 0);
+    this.carSteering = (this.carInputHeld.right ? 1 : 0) + (this.carInputHeld.left ? -1 : 0);
+  }
+
+  private exitDirectionForCar(car: Pick<DrivingCarState, 'angle'>): Vector2Like {
+    const forward = carForwardVector(car.angle);
+    if (Math.abs(forward.x) > Math.abs(forward.y)) {
+      return { x: forward.x >= 0 ? 1 : -1, y: 0 };
+    }
+    return { x: 0, y: forward.y >= 0 ? 1 : -1 };
   }
 
   private findCarExitTile(car: DrivingCarState): Vector2Like | null {
@@ -13838,8 +14012,8 @@ export default class SnakeScene extends Phaser.Scene {
     const height = CAR_HEIGHT_TILES * cell;
     const g = this.graphics;
     const impactPulse =
-      occupied && this.time.now - this.carLastImpactAtMs < 160
-        ? 1 + (160 - (this.time.now - this.carLastImpactAtMs)) / 640
+      occupied && this.time.now - this.carLastWallImpactAtMs < 160
+        ? 1 + (160 - (this.time.now - this.carLastWallImpactAtMs)) / 640
         : 1;
     const bodyColor = car.health <= 2 ? 0xa93a3a : occupied ? 0x2f7fb4 : 0x2f6f9e;
     const hoodColor = car.health <= 2 ? 0x7f2525 : 0x235878;

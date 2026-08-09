@@ -833,6 +833,8 @@ interface SnakeSceneContract {
   getAchievementSaveState?(): unknown;
   getArcadeSnakeSaveData?(): unknown;
   setArcadeSnakeSaveData?(data: unknown): void;
+  getActiveVehicleSaveData?(): unknown;
+  setActiveVehicleSaveData?(data: unknown): void;
 }
 
 export class SnakeGame implements QuestRuntime {
@@ -1833,139 +1835,10 @@ export class SnakeGame implements QuestRuntime {
 
     const roomHasChanged = previousRoom !== this.snake.currentRoomId;
     if (roomHasChanged) {
-      const newRoomId = this.snake.currentRoomId;
-      const enteredRoom = this.world.getRoom(newRoomId);
-      getDebugBus()?.emit({
-        type: 'room.exited',
-        category: 'room',
-        verbosity: 'normal',
-        roomId: previousRoom,
-        data: {
-          roomId: previousRoom,
-          nextRoomId: newRoomId,
-          exitDirection: this.snake.directionVector,
-        },
+      this.handlePlayerRoomTransition(previousRoom, this.snake.currentRoomId, {
+        mode: 'snake',
+        direction: this.snake.directionVector,
       });
-      getDebugBus()?.emit({
-        type: 'room.entered',
-        category: 'room',
-        verbosity: 'normal',
-        roomId: newRoomId,
-        data: {
-          roomId: newRoomId,
-          previousRoomId: previousRoom,
-          entranceDirection: this.snake.directionVector,
-          biome: enteredRoom.biomeId,
-          visitedBefore: this.visitedRooms.has(newRoomId),
-        },
-      });
-      if (this.getFlag('growth.rootedColossus') && this.getSnakeLength() >= 16) {
-        this.triggerProgressionShockwave(1, 4);
-        this.setFlag('ui.rootedColossus', {
-          message: 'ROOTED COLOSSUS - entry shockwave; 4 ward steps.',
-        });
-      }
-      const [, , previousDepth = 0] = this.parseRoomCoordinates(previousRoom);
-      const [, , newDepth = 0] = this.parseRoomCoordinates(newRoomId);
-      if (previousDepth !== newDepth) {
-        this.setFlag('traversal.manualResumePending', true);
-      }
-      if (!this.visitedRooms.has(newRoomId)) {
-        this.visitedRooms.add(newRoomId);
-        // TODO: Make this configurable
-        const newRoom = this.world.getRoom(newRoomId);
-        const newRoomSpawnPolicy = getSpawnPolicy(newRoom);
-        if (newRoomSpawnPolicy.bosses === 'allow' && this._rng() < 0.03) {
-          // 3% chance to spawn Freak Dennis in a new room
-          this.bosses.spawnBoss(newRoomId, 'freak-dennis', newRoom);
-        }
-        if (newRoomSpawnPolicy.bosses === 'allow' && this._rng() < 0.01) {
-          // 1% chance to spawn Freaker Dennis in a new room
-          this.bosses.spawnBoss(newRoomId, 'freaker-dennis', newRoom);
-        }
-        if (
-          newRoomSpawnPolicy.bosses === 'allow' &&
-          newRoom.biomeId === 'sunken-ocean' &&
-          this._rng() < 0.1
-        ) {
-          // 10% chance to spawn Jason Statham in the Sunken Ocean
-          this.bosses.spawnJasonStatham(newRoomId);
-        }
-        if (newRoomSpawnPolicy.enemies === 'allow') {
-          const atmosphere = this.getAtmosphereForRoom(newRoom);
-          this.enemies.ensureEnemy(newRoomId, newRoom, [], atmosphere);
-        }
-        if (newRoomSpawnPolicy.animals === 'allow') {
-          const atmosphere = this.getAtmosphereForRoom(newRoom);
-          this.animals.ensureAnimals(newRoomId, newRoom, [], atmosphere);
-        }
-        if (newRoomSpawnPolicy.enemies === 'allow' || newRoomSpawnPolicy.animals === 'allow') {
-          this.maybeQueueFreakJoeyEncounter(newRoomId);
-        }
-        this.revealBiomeIfChanged(newRoomId, newRoom);
-        if (newRoom.village) {
-          const maxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
-          this.setFlag('player.health', maxHealth);
-          this.addScore(3);
-          this.setFlag('ui.villageReveal', {
-            roomId: newRoomId,
-            name: newRoom.village.name,
-            x: newRoom.village.center.x,
-            y: newRoom.village.center.y,
-          });
-        }
-        if (newRoom.town) {
-          const maxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
-          this.setFlag('player.health', maxHealth);
-          this.addScore(5);
-          this.setFlag('ui.townReveal', {
-            roomId: newRoomId,
-            name: newRoom.town.name,
-            mood: newRoom.town.mood,
-            law: newRoom.town.laws[0]?.description,
-            wantedLevel: newRoom.town.wantedLevel,
-            x: newRoom.town.center.x,
-            y: newRoom.town.center.y,
-          });
-        }
-        this.queueLibertyLandmarkReveal(newRoomId, newRoom);
-        this.handleGoblinCampEntered(newRoomId, newRoom);
-      } else {
-        const newRoom = this.world.getRoom(newRoomId);
-        this.revealBiomeIfChanged(newRoomId, newRoom);
-        this.queueLibertyLandmarkReveal(newRoomId, newRoom);
-        this.handleGoblinCampEntered(newRoomId, newRoom);
-      }
-      const head = this.snake.bodySegments[0];
-      if (head) {
-        const [roomX, roomY] = newRoomId.split(',').map(Number);
-        this.animals.transferTamedAnimals(previousRoom, newRoomId, {
-          x: head.x - roomX * this.config.grid.cols,
-          y: head.y - roomY * this.config.grid.rows,
-        });
-      }
-      const transitionedRoom = this.world.getRoom(newRoomId);
-      if (transitionedRoom.town) {
-        this.applyTownRuntimeToRoom(transitionedRoom);
-        this.maybeMarkTownHostility(transitionedRoom);
-      }
-      this.recordRoomTravelMetrics(previousRoom);
-      this.setFlag('roomsVisited', this.visitedRooms.size);
-      const relationshipTicks = this.relationshipController.tickNeglect(
-        this.getRoomsVisitedCount(),
-      );
-      if (relationshipTicks.length > 0) {
-        const latest = relationshipTicks[relationshipTicks.length - 1];
-        this.setFlag('ui.relationshipEvent', {
-          title: latest.title,
-          message: latest.message,
-          color: latest.color,
-        });
-      }
-      this.handleEquipmentRoomRefund();
-      this.handleStagedQuestRoomEntered(newRoomId);
-      this.applyModernRunEvent({ kind: 'room', roomId: newRoomId });
-      this.emitRoomReadyDebug(newRoomId, 'room-entry-population');
     }
 
     if (
@@ -5231,6 +5104,158 @@ export class SnakeGame implements QuestRuntime {
     this.visitedRooms.add(roomId);
     this.setFlag('roomsVisited', this.visitedRooms.size);
     this.setFlag('traversal.manualResumePending', true);
+  }
+
+  handlePlayerRoomTransition(
+    previousRoomId: string,
+    newRoomId: string,
+    context: {
+      mode: 'snake' | 'vehicle';
+      direction: Vector2Like;
+      localPosition?: Vector2Like;
+    },
+  ): void {
+    if (previousRoomId === newRoomId) {
+      return;
+    }
+    this.world.getRoom(newRoomId);
+    this.snake.currentRoomId = newRoomId;
+    const enteredRoom = this.world.getRoom(newRoomId);
+    getDebugBus()?.emit({
+      type: 'room.exited',
+      category: 'room',
+      verbosity: 'normal',
+      roomId: previousRoomId,
+      data: {
+        roomId: previousRoomId,
+        nextRoomId: newRoomId,
+        exitDirection: context.direction,
+        mode: context.mode,
+      },
+    });
+    getDebugBus()?.emit({
+      type: 'room.entered',
+      category: 'room',
+      verbosity: 'normal',
+      roomId: newRoomId,
+      data: {
+        roomId: newRoomId,
+        previousRoomId,
+        entranceDirection: context.direction,
+        biome: enteredRoom.biomeId,
+        visitedBefore: this.visitedRooms.has(newRoomId),
+        mode: context.mode,
+      },
+    });
+    if (this.getFlag('growth.rootedColossus') && this.getSnakeLength() >= 16) {
+      this.triggerProgressionShockwave(1, 4);
+      this.setFlag('ui.rootedColossus', {
+        message: 'ROOTED COLOSSUS - entry shockwave; 4 ward steps.',
+      });
+    }
+    const [, , previousDepth = 0] = this.parseRoomCoordinates(previousRoomId);
+    const [, , newDepth = 0] = this.parseRoomCoordinates(newRoomId);
+    if (previousDepth !== newDepth) {
+      this.setFlag('traversal.manualResumePending', true);
+    }
+    if (!this.visitedRooms.has(newRoomId)) {
+      this.visitedRooms.add(newRoomId);
+      const newRoom = this.world.getRoom(newRoomId);
+      const newRoomSpawnPolicy = getSpawnPolicy(newRoom);
+      if (newRoomSpawnPolicy.bosses === 'allow' && this._rng() < 0.03) {
+        this.bosses.spawnBoss(newRoomId, 'freak-dennis', newRoom);
+      }
+      if (newRoomSpawnPolicy.bosses === 'allow' && this._rng() < 0.01) {
+        this.bosses.spawnBoss(newRoomId, 'freaker-dennis', newRoom);
+      }
+      if (
+        newRoomSpawnPolicy.bosses === 'allow' &&
+        newRoom.biomeId === 'sunken-ocean' &&
+        this._rng() < 0.1
+      ) {
+        this.bosses.spawnJasonStatham(newRoomId);
+      }
+      if (newRoomSpawnPolicy.enemies === 'allow') {
+        const atmosphere = this.getAtmosphereForRoom(newRoom);
+        this.enemies.ensureEnemy(newRoomId, newRoom, [], atmosphere);
+      }
+      if (newRoomSpawnPolicy.animals === 'allow') {
+        const atmosphere = this.getAtmosphereForRoom(newRoom);
+        this.animals.ensureAnimals(newRoomId, newRoom, [], atmosphere);
+      }
+      if (newRoomSpawnPolicy.enemies === 'allow' || newRoomSpawnPolicy.animals === 'allow') {
+        this.maybeQueueFreakJoeyEncounter(newRoomId);
+      }
+      this.revealBiomeIfChanged(newRoomId, newRoom);
+      if (newRoom.village) {
+        const maxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
+        this.setFlag('player.health', maxHealth);
+        this.addScore(3);
+        this.setFlag('ui.villageReveal', {
+          roomId: newRoomId,
+          name: newRoom.village.name,
+          x: newRoom.village.center.x,
+          y: newRoom.village.center.y,
+        });
+      }
+      if (newRoom.town) {
+        const maxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
+        this.setFlag('player.health', maxHealth);
+        this.addScore(5);
+        this.setFlag('ui.townReveal', {
+          roomId: newRoomId,
+          name: newRoom.town.name,
+          mood: newRoom.town.mood,
+          law: newRoom.town.laws[0]?.description,
+          wantedLevel: newRoom.town.wantedLevel,
+          x: newRoom.town.center.x,
+          y: newRoom.town.center.y,
+        });
+      }
+      this.queueLibertyLandmarkReveal(newRoomId, newRoom);
+      this.handleGoblinCampEntered(newRoomId, newRoom);
+    } else {
+      const newRoom = this.world.getRoom(newRoomId);
+      this.revealBiomeIfChanged(newRoomId, newRoom);
+      this.queueLibertyLandmarkReveal(newRoomId, newRoom);
+      this.handleGoblinCampEntered(newRoomId, newRoom);
+    }
+    const localPosition =
+      context.localPosition ??
+      this.worldToLocal(newRoomId, this.snake.bodySegments[0] ?? { x: 0, y: 0 });
+    this.animals.transferTamedAnimals(previousRoomId, newRoomId, localPosition);
+    const transitionedRoom = this.world.getRoom(newRoomId);
+    if (transitionedRoom.town) {
+      this.applyTownRuntimeToRoom(transitionedRoom);
+      this.maybeMarkTownHostility(transitionedRoom);
+    }
+    this.recordRoomTravelMetrics(previousRoomId);
+    this.setFlag('roomsVisited', this.visitedRooms.size);
+    const relationshipTicks = this.relationshipController.tickNeglect(this.getRoomsVisitedCount());
+    if (relationshipTicks.length > 0) {
+      const latest = relationshipTicks[relationshipTicks.length - 1];
+      this.setFlag('ui.relationshipEvent', {
+        title: latest.title,
+        message: latest.message,
+        color: latest.color,
+      });
+    }
+    this.handleEquipmentRoomRefund();
+    this.handleStagedQuestRoomEntered(newRoomId);
+    this.applyModernRunEvent({ kind: 'room', roomId: newRoomId });
+    this.emitRoomReadyDebug(newRoomId, 'room-entry-population');
+  }
+
+  placeSnakeBodyAtLocal(roomId: string, headLocal: Vector2Like, direction: Vector2Like): void {
+    this.world.getRoom(roomId);
+    const headWorld = this.localToWorld(roomId, headLocal);
+    const length = this.snake.bodySegments.length;
+    const body = Array.from({ length }, (_, index) => ({
+      x: headWorld.x - direction.x * index,
+      y: headWorld.y - direction.y * index,
+    }));
+    this.snake.commitManeuverBody(body, direction, roomId);
+    this.setFlag('roomsVisited', this.visitedRooms.size);
   }
 
   /** Get bullet train destinations for a station room. */
@@ -12173,17 +12198,44 @@ export class SnakeGame implements QuestRuntime {
     return fired;
   }
 
-  damageCarImpactAt(roomId: string, cells: readonly Vector2Like[]): void {
+  damageCarImpactAt(
+    roomId: string,
+    cells: readonly Vector2Like[],
+    options: { nowMs?: number; cooldowns?: Map<string, number> } = {},
+  ): {
+    enemiesHit: number;
+    animalsHit: number;
+    npcsHit: number;
+    defeated: string[];
+  } {
     const room = this.world.getRoom(roomId);
     const hitKeys = new Set(cells.map((cell) => `${cell.x},${cell.y}`));
+    const result = {
+      enemiesHit: 0,
+      animalsHit: 0,
+      npcsHit: 0,
+      defeated: [] as string[],
+    };
+    const canHit = (id: string): boolean => {
+      const nowMs = options.nowMs ?? Number.POSITIVE_INFINITY;
+      const previous = options.cooldowns?.get(id) ?? Number.NEGATIVE_INFINITY;
+      if (nowMs - previous < 650) {
+        return false;
+      }
+      options.cooldowns?.set(id, nowMs);
+      return true;
+    };
     for (const enemy of this.enemies.getEnemiesInRoom(roomId)) {
       if (!hitKeys.has(`${enemy.position.x},${enemy.position.y}`)) continue;
+      if (!canHit(`enemy:${enemy.id}`)) continue;
+      result.enemiesHit += 1;
       const hit = this.enemies.damageEnemyAt(
         roomId,
         this.localToWorld(roomId, enemy.position),
         CAR_IMPACT_DAMAGE_HEARTS,
       );
       if (hit.defeated) {
+        result.defeated.push(hit.defeated.id);
         this.setFlag('achievement.enemyDefeated', {
           enemyId: hit.defeated.id,
           method: 'car',
@@ -12194,16 +12246,21 @@ export class SnakeGame implements QuestRuntime {
     }
     for (const animal of this.animals.getAnimalsInRoom(roomId)) {
       if (!hitKeys.has(`${animal.position.x},${animal.position.y}`)) continue;
+      if (!canHit(`animal:${animal.id}`)) continue;
+      result.animalsHit += 1;
       this.animals.damageAnimal(roomId, animal.position, CAR_IMPACT_DAMAGE_HEARTS);
     }
     for (const candidate of this.collectRoomNpcBodyCandidates(room)) {
       const position = this.getRelationshipNpcBodyPosition(candidate.profile, candidate.position);
       if (!hitKeys.has(`${position.x},${position.y}`)) continue;
+      if (!canHit(`npc:${candidate.profile.id}`)) continue;
+      result.npcsHit += 1;
       for (let i = 0; i < CAR_IMPACT_DAMAGE_HEARTS; i += 1) {
         this.damageVisibleNpcActor(candidate.profile, position);
       }
       this.angerNpc(roomId, 'shot');
     }
+    return result;
   }
 
   private firePlayerBulletAndHandleDefeats(
@@ -14582,6 +14639,9 @@ export class SnakeGame implements QuestRuntime {
     if (this.snakeScene && typeof this.snakeScene.getArcadeSnakeSaveData === 'function') {
       data.arcadeSnake = this.snakeScene.getArcadeSnakeSaveData() as typeof data.arcadeSnake;
     }
+    if (this.snakeScene && typeof this.snakeScene.getActiveVehicleSaveData === 'function') {
+      data.activeVehicle = this.snakeScene.getActiveVehicleSaveData() as typeof data.activeVehicle;
+    }
 
     // Fishing data
     const caughtFish = this.getFlag<Record<string, number>>('fishing.caughtFish');
@@ -14924,6 +14984,9 @@ export class SnakeGame implements QuestRuntime {
       }
       if (this.snakeScene && typeof this.snakeScene.setArcadeSnakeSaveData === 'function') {
         this.snakeScene.setArcadeSnakeSaveData(data.arcadeSnake);
+      }
+      if (this.snakeScene && typeof this.snakeScene.setActiveVehicleSaveData === 'function') {
+        this.snakeScene.setActiveVehicleSaveData(data.activeVehicle);
       }
 
       if (this.getRadiationTimer()) {
