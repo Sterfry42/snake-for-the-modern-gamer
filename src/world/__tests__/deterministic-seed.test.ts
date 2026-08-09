@@ -101,6 +101,14 @@ function snapshotRoom(room: RoomSnapshot): Record<string, unknown> {
           variantId: room.molemanDigSite.variantId,
         }
       : null,
+    garage: room.garage
+      ? {
+          id: room.garage.id,
+          name: room.garage.name,
+          mechanic: room.garage.mechanic,
+          carSpawn: room.garage.carSpawn,
+        }
+      : null,
     temperatureReliefs: room.temperatureReliefs ?? null,
     vegetation: room.vegetation ?? null,
     backgroundColor: room.backgroundColor,
@@ -146,6 +154,7 @@ function roomsMatch(a: RoomSnapshot, b: RoomSnapshot): boolean {
   if (!billboardOracleMatch(a.billboardOracle, b.billboardOracle)) return false;
   if (!roadCrewMatch(a.roadCrew, b.roadCrew)) return false;
   if (!molemanDigSiteMatch(a.molemanDigSite, b.molemanDigSite)) return false;
+  if (!garageMatch(a.garage, b.garage)) return false;
   if (!tempReliefsMatch(a.temperatureReliefs, b.temperatureReliefs)) return false;
   return true;
 }
@@ -424,6 +433,25 @@ function molemanDigSiteMatch(
   )
     return false;
   return true;
+}
+
+function garageMatch(a: RoomSnapshot['garage'], b: RoomSnapshot['garage']): boolean {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  return (
+    a.id === b.id &&
+    a.name === b.name &&
+    a.mechanic.id === b.mechanic.id &&
+    a.mechanic.name === b.mechanic.name &&
+    a.mechanic.x === b.mechanic.x &&
+    a.mechanic.y === b.mechanic.y &&
+    a.carSpawn.x === b.carSpawn.x &&
+    a.carSpawn.y === b.carSpawn.y &&
+    a.bounds.left === b.bounds.left &&
+    a.bounds.top === b.bounds.top &&
+    a.bounds.width === b.bounds.width &&
+    a.bounds.height === b.bounds.height
+  );
 }
 
 function tempReliefsMatch(

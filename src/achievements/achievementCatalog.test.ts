@@ -37,6 +37,7 @@ function snapshot(overrides: Partial<AchievementSnapshot> = {}): AchievementSnap
     cowbellTilesWalked: 0,
     wardDamageTypesHeld: 0,
     trainZonesTraveled: 0,
+    highlightFollowers: 0,
     maxSpecialStat: 5,
     ...overrides,
   };

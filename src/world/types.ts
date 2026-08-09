@@ -15,6 +15,7 @@ import type { LayerEntrance, LayerInstance } from '../layers/layerTypes.js';
 import type { DigSiteVariantId } from '../archaeology/molemanArchaeology.js';
 import type { BulletTrainStation } from './bulletTrainTypes.js';
 import type { RollercoasterStation } from './rollercoasterTypes.js';
+import type { GarageStructure, ParkedCar } from '../vehicles/car.js';
 
 /** A single vegetation instance placed on the room grid. */
 export interface VegetationInstance {
@@ -264,6 +265,8 @@ export interface RoomSnapshot {
     safeArea: { left: number; top: number; width: number; height: number };
     shopkeeper: NpcProfile & { x: number; y: number };
   };
+  garage?: GarageStructure;
+  cars?: ParkedCar[];
   bulletTrainStation?: BulletTrainStation;
   rollercoasterStation?: RollercoasterStation;
   temperatureReliefs?: Array<{ x: number; y: number; kind: 'warm' | 'cool' | 'onsen' }>;

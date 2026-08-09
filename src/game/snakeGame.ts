@@ -182,6 +182,15 @@ import { tryPlaceAllNiteDiner } from '../world/allNiteDiner.js';
 import { tryPlaceFireworkStand } from '../world/fireworkStand.js';
 import { tryPlaceJackalopeLodge } from '../world/jackalopeLodge.js';
 import { tryPlaceMolemanDigSite } from '../world/molemanDigSite.js';
+import { tryPlaceGarage } from '../world/garage.js';
+import {
+  CAR_HEIGHT_TILES,
+  CAR_IMPACT_DAMAGE_HEARTS,
+  CAR_WIDTH_TILES,
+  createParkedCar,
+  GARAGE_CAR_PRICE_SCORE,
+  type ParkedCar,
+} from '../vehicles/car.js';
 import { i18n } from '../i18n/i18nManager.js';
 import {
   DEFAULT_FACTION_ALIGNMENT,
@@ -9511,6 +9520,171 @@ export class SnakeGame implements QuestRuntime {
     return true;
   }
 
+  /** Force-spawn a garage in the current room. */
+  spawnGarage(): boolean {
+    const room = this.getCurrentRoom();
+    const layout2d = this.layoutTo2D(room.layout);
+    const result = tryPlaceGarage(layout2d, this.config.grid, this._rng, {
+      forbiddenCells: new Set(),
+      margin: 5,
+    });
+    if (!result) {
+      return false;
+    }
+    room.layout = this.layoutFrom2D(layout2d);
+    room.garage = result;
+    return true;
+  }
+
+  spawnCarNearSnake(): ParkedCar | null {
+    const room = this.getCurrentRoom();
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return null;
+    }
+    const localHead = this.worldToLocal(this.snake.currentRoomId, head);
+    const candidates: Vector2Like[] = [];
+    for (let radius = 2; radius <= 5; radius += 1) {
+      for (let y = localHead.y - radius; y <= localHead.y + radius; y += 1) {
+        for (let x = localHead.x - radius; x <= localHead.x + radius; x += 1) {
+          if (Math.abs(x - localHead.x) + Math.abs(y - localHead.y) !== radius) continue;
+          candidates.push({ x, y });
+        }
+      }
+    }
+    const spot = candidates.find((candidate) => this.canPlaceCarAt(room, candidate));
+    if (!spot) {
+      return null;
+    }
+    return this.addCarToRoom(this.snake.currentRoomId, spot);
+  }
+
+  buyGarageCar(): { ok: boolean; message: string; car?: ParkedCar } {
+    const room = this.getCurrentRoom();
+    const garage = room.garage;
+    if (!garage) {
+      return { ok: false, message: 'No garage nearby.' };
+    }
+    if (this.getScore() < GARAGE_CAR_PRICE_SCORE) {
+      return { ok: false, message: `A car costs ${GARAGE_CAR_PRICE_SCORE} score.` };
+    }
+    const existing = this.getCars(this.snake.currentRoomId).find(
+      (car) => car.id === `${garage.id}:car`,
+    );
+    if (existing) {
+      return { ok: false, message: 'Your car is already in the garage.', car: existing };
+    }
+    if (!this.canPlaceCarAt(room, garage.carSpawn)) {
+      return { ok: false, message: 'The garage bay is blocked.' };
+    }
+    this.addScore(-GARAGE_CAR_PRICE_SCORE);
+    const car = this.addCarToRoom(this.snake.currentRoomId, garage.carSpawn, `${garage.id}:car`);
+    return { ok: true, message: 'Car purchased.', car };
+  }
+
+  getCars(roomId: string = this.snake.currentRoomId): readonly ParkedCar[] {
+    return this.world.getRoom(roomId).cars ?? [];
+  }
+
+  removeCar(roomId: string, carId: string): void {
+    const room = this.world.getRoom(roomId);
+    room.cars = (room.cars ?? []).filter((car) => car.id !== carId);
+  }
+
+  parkCar(roomId: string, car: ParkedCar): void {
+    const room = this.world.getRoom(roomId);
+    const cars = (room.cars ?? []).filter((entry) => entry.id !== car.id);
+    room.cars = [...cars, { ...car }];
+  }
+
+  explodeCar(roomId: string, position: Vector2Like, radius = 2): void {
+    const roomsChanged = new Set<string>();
+    this.explodeBomb(
+      {
+        id: `car-explosion-${Date.now()}`,
+        roomId,
+        position: { x: Math.round(position.x), y: Math.round(position.y) },
+        fuseTicks: 0,
+        radius,
+        damage: CAR_IMPACT_DAMAGE_HEARTS,
+      },
+      roomsChanged,
+    );
+  }
+
+  consumeAppleAtForVehicle(
+    roomId: string,
+    cells: readonly Vector2Like[],
+    direction: Vector2Like,
+  ): {
+    eaten: boolean;
+    current: AppleSnapshot | null;
+    typeId?: string;
+    rewards?: AppleConsumptionResult['rewards'];
+    worldPosition?: Vector2Like | null;
+    roomsChanged: Set<string>;
+  } {
+    const roomsChanged = new Set<string>();
+    const apple = this.apples.getSnapshot(roomId);
+    if (
+      !apple ||
+      !cells.some((cell) => cell.x === apple.position.x && cell.y === apple.position.y)
+    ) {
+      return { eaten: false, current: apple, roomsChanged };
+    }
+    const consumption = this.apples.handleConsumption(roomId, direction, true, apple.position);
+    if (!consumption.changed) {
+      return { eaten: false, current: this.apples.getSnapshot(roomId), roomsChanged };
+    }
+    roomsChanged.add(roomId);
+    if (!this.isRaccoonMode()) {
+      this.addScore(Math.max(0, consumption.rewards.bonusScore));
+      this.snake.grow(Math.max(0, consumption.rewards.growth));
+    }
+    const spawn = this.apples.spawnApple(
+      roomId,
+      Array.from(this.snake.bodySegments),
+      this.getScore(),
+    );
+    if (spawn.changed) {
+      roomsChanged.add(roomId);
+    }
+    return {
+      eaten: true,
+      current: spawn.snapshot,
+      typeId: consumption.typeId,
+      rewards: consumption.rewards,
+      worldPosition: consumption.worldPosition,
+      roomsChanged,
+    };
+  }
+
+  moveSnakeToLocal(roomId: string, local: Vector2Like): void {
+    this.moveToRoom(roomId, local);
+  }
+
+  canPlaceCarAt(room: RoomSnapshot, position: Vector2Like): boolean {
+    for (let y = Math.floor(position.y); y < Math.floor(position.y) + CAR_HEIGHT_TILES; y += 1) {
+      for (let x = Math.floor(position.x); x < Math.floor(position.x) + CAR_WIDTH_TILES; x += 1) {
+        const tile = room.layout[y]?.[x];
+        if (!tile || tile === '#' || tile === '~' || isBlockingTownTile(tile)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  private addCarToRoom(roomId: string, position: Vector2Like, id?: string): ParkedCar {
+    const room = this.world.getRoom(roomId);
+    const car = createParkedCar(
+      id ?? `car:${roomId}:${Date.now()}:${Math.floor(this._rng() * 9999)}`,
+      position,
+    );
+    room.cars = [...(room.cars ?? []), car];
+    return car;
+  }
+
   /**
    * Force-spawn a motel pool in the current room.
    * This recreates the motel pool ruins archetype layout.
@@ -10221,6 +10395,7 @@ export class SnakeGame implements QuestRuntime {
     results.push({ name: 'firework-stand', ok: this.spawnFireworkStand() });
     results.push({ name: 'jackalope-lodge', ok: this.spawnJackalopeLodge() });
     results.push({ name: 'moleman-dig-site', ok: this.spawnMolemanDigSite() });
+    results.push({ name: 'garage', ok: this.spawnGarage() });
     results.push({ name: 'motel-pool', ok: this.spawnMotelPool() });
     results.push({ name: 'gridiron-yard', ok: this.spawnGridironYard() });
     results.push({ name: 'billboard-oracle', ok: this.spawnBillboardOracle() });
@@ -10273,6 +10448,8 @@ export class SnakeGame implements QuestRuntime {
     room.billboardOracle = undefined;
     room.roadCrew = undefined;
     room.molemanDigSite = undefined;
+    room.garage = undefined;
+    room.cars = undefined;
     room.bulletTrainStation = undefined;
     room.temperatureReliefs = undefined;
     room.caveEntrances = undefined;
@@ -11994,6 +12171,39 @@ export class SnakeGame implements QuestRuntime {
       });
     }
     return fired;
+  }
+
+  damageCarImpactAt(roomId: string, cells: readonly Vector2Like[]): void {
+    const room = this.world.getRoom(roomId);
+    const hitKeys = new Set(cells.map((cell) => `${cell.x},${cell.y}`));
+    for (const enemy of this.enemies.getEnemiesInRoom(roomId)) {
+      if (!hitKeys.has(`${enemy.position.x},${enemy.position.y}`)) continue;
+      const hit = this.enemies.damageEnemyAt(
+        roomId,
+        this.localToWorld(roomId, enemy.position),
+        CAR_IMPACT_DAMAGE_HEARTS,
+      );
+      if (hit.defeated) {
+        this.setFlag('achievement.enemyDefeated', {
+          enemyId: hit.defeated.id,
+          method: 'car',
+          roomId,
+        });
+        this.setFlag('achievement.vehicleEnemyRunOver', { enemyId: hit.defeated.id });
+      }
+    }
+    for (const animal of this.animals.getAnimalsInRoom(roomId)) {
+      if (!hitKeys.has(`${animal.position.x},${animal.position.y}`)) continue;
+      this.animals.damageAnimal(roomId, animal.position, CAR_IMPACT_DAMAGE_HEARTS);
+    }
+    for (const candidate of this.collectRoomNpcBodyCandidates(room)) {
+      const position = this.getRelationshipNpcBodyPosition(candidate.profile, candidate.position);
+      if (!hitKeys.has(`${position.x},${position.y}`)) continue;
+      for (let i = 0; i < CAR_IMPACT_DAMAGE_HEARTS; i += 1) {
+        this.damageVisibleNpcActor(candidate.profile, position);
+      }
+      this.angerNpc(roomId, 'shot');
+    }
   }
 
   private firePlayerBulletAndHandleDefeats(

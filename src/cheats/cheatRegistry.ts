@@ -326,6 +326,22 @@ export const CHEAT_DEFINITIONS: readonly CheatDefinition[] = [
     category: 'structures',
   },
   {
+    name: 'SPAWN GARAGE',
+    code: 'garage',
+    primaryCode: 'garage',
+    description: 'Spawn a garage in the current room.',
+    aliases: ['garage'],
+    category: 'structures',
+  },
+  {
+    name: 'SPAWN CAR',
+    code: 'car / spawncar',
+    primaryCode: 'car',
+    description: 'Spawn a drivable car near the snake.',
+    aliases: ['car', 'spawncar'],
+    category: 'structures',
+  },
+  {
     name: 'SPAWN MOTEL POOL',
     code: 'motelpool',
     primaryCode: 'motelpool',
