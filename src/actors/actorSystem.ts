@@ -84,6 +84,17 @@ export class ActorSystem {
         ),
       );
     }
+    if (room.garage) {
+      actors.push(
+        ...this.syncLooseHumanoids(
+          `garage:${room.id}`,
+          room.id,
+          [{ ...room.garage.mechanic, role: 'shopkeeper' }],
+          'hearthbound-remnant',
+          roomNumber,
+        ),
+      );
+    }
     if (room.goblinCamp) {
       actors.push(
         ...this.syncLooseHumanoids(

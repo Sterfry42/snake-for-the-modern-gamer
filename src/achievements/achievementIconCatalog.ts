@@ -398,6 +398,9 @@ export function ensureAchievementPortrait(
       'arcadeCabinet',
       'blueScreen',
       'specialStat',
+      'car',
+      'streaming',
+      'maneuver',
     ].includes(definition.icon.kind)
   )
     drawSymbol(context, definition.icon.kind, definition.icon.variant);

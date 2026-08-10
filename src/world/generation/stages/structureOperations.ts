@@ -28,6 +28,7 @@ import { tryPlaceJackalopeLodge } from '../../jackalopeLodge.js';
 import { tryPlaceMolemanDigSite } from '../../molemanDigSite.js';
 import { tryPlaceLavenderFarm } from '../../lavenderFarm.js';
 import { tryPlaceCheeseShop } from '../../cheeseShop.js';
+import { tryPlaceGarage } from '../../garage.js';
 import {
   carveEdgeOpening,
   cellsForEdgeRunup,
@@ -59,7 +60,8 @@ type SettlementKind =
   | 'jackalope-lodge'
   | 'moleman-dig-site'
   | 'lavender-farm'
-  | 'cheese-shop';
+  | 'cheese-shop'
+  | 'garage';
 
 const SNAKE_MC_DONALDS_CHANCE = 0.01;
 const SNAKE_CANIES_CHANCE = 0.008;
@@ -74,6 +76,7 @@ const ALL_NITE_DINER_CHANCE = 0.08;
 const FIREWORK_STAND_CHANCE = 0.08;
 const JACKALOPE_LODGE_CHANCE = 0.1;
 const MOLEMAN_DIG_SITE_CHANCE = 0.09;
+const GARAGE_CHANCE = MOLEMAN_DIG_SITE_CHANCE;
 const LAVENDER_FARM_CHANCE = 0.06;
 const CHEESE_SHOP_CHANCE = 0.05;
 const MOTEL_POOL_CHANCE = 0.1;
@@ -90,6 +93,7 @@ const GUARANTEED_SETTLEMENT_KINDS = [
   'firework-stand',
   'jackalope-lodge',
   'moleman-dig-site',
+  'garage',
   'lavender-farm',
   'cheese-shop',
 ] as const;
@@ -143,6 +147,7 @@ export class StructureOperations {
       !context.molemanDigSite &&
       !context.lavenderFarm &&
       !context.cheeseShop &&
+      !context.garage &&
       !this.hasLibertyStructure(context)
     ) {
       this.placeSettlement(context, entranceRunups, shouldGuaranteeStructure);
@@ -162,6 +167,7 @@ export class StructureOperations {
       !context.molemanDigSite &&
       !context.lavenderFarm &&
       !context.cheeseShop &&
+      !context.garage &&
       !this.hasLibertyStructure(context) &&
       (shouldGuaranteeStructure || this.rng() < 0.1)
     ) {
@@ -184,6 +190,7 @@ export class StructureOperations {
       !context.molemanDigSite &&
       !context.lavenderFarm &&
       !context.cheeseShop &&
+      !context.garage &&
       !this.hasLibertyStructure(context)
     ) {
       const koiChance = context.isJadePeak
@@ -216,6 +223,7 @@ export class StructureOperations {
       !context.molemanDigSite &&
       !context.lavenderFarm &&
       !context.cheeseShop &&
+      !context.garage &&
       !this.hasLibertyStructure(context)
     ) {
       context.temperatureReliefs = this.placeTemperatureReliefs(
@@ -324,6 +332,9 @@ export class StructureOperations {
       if (roll < 0.88) {
         return 'moleman-dig-site';
       }
+      if (roll < 0.94) {
+        return 'garage';
+      }
       return 'quest-house';
     }
 
@@ -410,6 +421,10 @@ export class StructureOperations {
     threshold += MOLEMAN_DIG_SITE_CHANCE;
     if (roll < threshold) {
       return 'moleman-dig-site';
+    }
+    threshold += GARAGE_CHANCE;
+    if (roll < threshold) {
+      return 'garage';
     }
     return null;
   }
@@ -598,6 +613,17 @@ export class StructureOperations {
         context.questGiver = shop.shopkeeper;
         return true;
       }
+      case 'garage': {
+        const garage = tryPlaceGarage(context.layout, context.grid, this.rng, {
+          forbiddenCells,
+          margin: 5,
+        });
+        if (!garage) {
+          return false;
+        }
+        context.garage = garage;
+        return true;
+      }
     }
   }
 
@@ -609,6 +635,7 @@ export class StructureOperations {
       context.jackalopeLodge ||
       context.motelPool ||
       context.molemanDigSite ||
+      context.garage ||
       context.snakeCanes,
     );
   }
@@ -653,6 +680,7 @@ export class StructureOperations {
     context.molemanDigSite = undefined;
     context.lavenderFarm = undefined;
     context.cheeseShop = undefined;
+    context.garage = undefined;
   }
 
   private renderTownPerimeter(context: RoomGenerationContext): void {

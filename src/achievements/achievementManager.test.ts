@@ -52,6 +52,7 @@ const snapshot = (score: number): AchievementSnapshot => ({
   cowbellTilesWalked: 0,
   wardDamageTypesHeld: 0,
   trainZonesTraveled: 0,
+  highlightFollowers: 0,
   maxSpecialStat: 5,
 });
 

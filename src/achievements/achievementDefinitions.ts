@@ -22,6 +22,35 @@ const snap = (field: AchievementNumericSnapshotField, target: number) =>
   ({ kind: 'snapshot', field, target }) as const;
 const p = (target: number, label: string) => ({ target, label });
 const d = (definition: AchievementDefinition): AchievementDefinition => definition;
+const DISABLED_ACHIEVEMENT_IDS = new Set<string>([
+  'mutations.firstDiscovery',
+  'mutations.commonCollector',
+  'mutations.tripleThreatUnlocked',
+  'mutations.goldStabilizer',
+  'mutations.ultimateFusion',
+  'mutations.traitMaster',
+  'mutations.allEvolvedApples',
+  'dream.firstDream',
+  'dream.firstNightmare',
+  'dream.shardCollector',
+  'dream.loreHunter',
+  'dream.puzzleSolver',
+  'dream.lucidDreamer',
+  'dream.nightmareConqueror',
+  'dream.dreamShop',
+  'dream.completeDreamer',
+  'archaeology.firstDig',
+  'archaeology.firstFragment',
+  'archaeology.firstFossil',
+  'archaeology.fragmentCollector',
+  'archaeology.depthExplorer',
+  'archaeology.chainMaster',
+  'archaeology.museumFounder',
+  'archaeology.rareFind',
+  'archaeology.legendaryArtifact',
+  'archaeology.museumMaster',
+  'archaeology.researchScholar',
+]);
 
 export const DISCOVERABLE_BIOME_IDS = [
   'verdigris-basin',
@@ -42,7 +71,7 @@ export const TOTAL_CARD_COUNT = CARD_DEFINITIONS.length;
 export const PRACTICAL_RESISTANCE_THRESHOLD = 0.85;
 export const HAZARD_SURVIVAL_TARGET_MS = 60_000;
 
-export const ACHIEVEMENT_DEFINITIONS = [
+const ALL_ACHIEVEMENT_DEFINITIONS = [
   d({
     id: 'core.firstApple',
     name: 'A Classic',
@@ -910,6 +939,55 @@ export const ACHIEVEMENT_DEFINITIONS = [
     progress: p(6, 'zones'),
     archipelago: ap,
   }),
+  d({
+    id: 'streaming.followers20',
+    name: 'SnakeTube Regular',
+    description: 'Reach 20 followers from posted GoPro clips.',
+    category: 'streaming',
+    difficulty: 'easy',
+    prerequisites: ['stats.score500'],
+    tree: { x: 0, y: 1320, section: 'Streaming' },
+    icon: icon('streaming', '20'),
+    criterion: snap('highlightFollowers', 20),
+    progress: p(20, 'followers'),
+    archipelago: ap,
+  }),
+  d({
+    id: 'maneuvers.firstLearned',
+    name: 'Fancy Driving',
+    description: 'Learn your first maneuver.',
+    category: 'skillTree',
+    difficulty: 'easy',
+    prerequisites: ['stats.score500'],
+    tree: { x: 140, y: 1320, section: 'Maneuvers' },
+    icon: icon('maneuver', 'M1'),
+    criterion: event('maneuver:learned'),
+    archipelago: ap,
+  }),
+  d({
+    id: 'maneuvers.allLearned',
+    name: 'Full Maneuver Menu',
+    description: 'Learn every maneuver.',
+    category: 'skillTree',
+    difficulty: 'hard',
+    prerequisites: ['maneuvers.firstLearned'],
+    tree: { x: 280, y: 1320, section: 'Maneuvers' },
+    icon: icon('maneuver', 'ALL'),
+    criterion: event('maneuver:allLearned'),
+    archipelago: ap,
+  }),
+  d({
+    id: 'vehicles.runOverEnemy',
+    name: 'Two Tons of Nope',
+    description: 'Run over an enemy with a car.',
+    category: 'combat',
+    difficulty: 'medium',
+    prerequisites: ['core.bigBite'],
+    tree: { x: 420, y: 1320, section: 'Vehicles' },
+    icon: icon('car', 'CAR'),
+    criterion: event('vehicle:enemyRunOver'),
+    archipelago: ap,
+  }),
   // ── Mutation Achievements ─────────────────────────────────────────────────
   d({
     id: 'mutations.firstDiscovery',
@@ -1253,3 +1331,7 @@ export const ACHIEVEMENT_DEFINITIONS = [
     archipelago: ap,
   }),
 ] as readonly AchievementDefinition[];
+
+export const ACHIEVEMENT_DEFINITIONS = ALL_ACHIEVEMENT_DEFINITIONS.filter(
+  (definition) => !DISABLED_ACHIEVEMENT_IDS.has(definition.id),
+);

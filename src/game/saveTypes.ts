@@ -12,6 +12,7 @@ import type { LevelProgressionState } from '../stats/levelProgression.js';
 import type { ArcadeSnakeSaveData } from '../arcade/arcadeSnakeTypes.js';
 import type { AtmosphereState } from '../world/atmosphereTypes.js';
 import type { DreamSaveData } from '../world/dream/types.js';
+import type { DrivingCarState } from '../vehicles/car.js';
 
 export interface MinecraftBlockEntry {
   roomId: string;
@@ -108,6 +109,7 @@ export interface GameSaveData {
   arcadeSnake?: ArcadeSnakeSaveData;
   atmosphere?: AtmosphereState;
   dreamWorld?: DreamSaveData;
+  activeVehicle?: DrivingCarState;
 }
 
 /** Compare two semver-style version strings. Returns true if `a < b`. */

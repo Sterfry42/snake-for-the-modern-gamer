@@ -6,14 +6,10 @@ const APPENDED_ACHIEVEMENT_IDS = [
   'arcade.blueScreen',
   'stats.special10',
   'exploration.trainSixZones',
-  // Mutation achievements
-  'mutations.firstDiscovery',
-  'mutations.commonCollector',
-  'mutations.tripleThreatUnlocked',
-  'mutations.goldStabilizer',
-  'mutations.ultimateFusion',
-  'mutations.traitMaster',
-  'mutations.allEvolvedApples',
+  'streaming.followers20',
+  'maneuvers.firstLearned',
+  'maneuvers.allLearned',
+  'vehicles.runOverEnemy',
   'divine.snakeOutOfHell',
 ] as const;
 

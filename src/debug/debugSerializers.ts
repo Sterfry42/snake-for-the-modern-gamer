@@ -203,6 +203,7 @@ export function describeDebugRoomPurpose(room: RoomSnapshot): string {
   if (room.shrine) return 'shrine';
   if (room.koiPond) return 'koi-pond';
   if (room.molemanDigSite) return 'archaeology:dig-site';
+  if (room.garage) return 'shop:garage';
   if (room.rollercoasterStation) return 'transit:rollercoaster-station';
   if (room.bulletTrainStation) return 'transit:bullet-train-station';
   if (room.archetypeId) return `archetype:${room.archetypeId}`;
@@ -215,6 +216,7 @@ export function describeDebugRoomRewardTier(room: RoomSnapshot): string {
   if (room.treasure) return room.cave ? 'cave-treasure' : 'treasure';
   if (room.powerup) return `powerup:${room.powerup.kind}`;
   if (room.molemanDigSite) return 'minigame-entry';
+  if (room.garage) return 'vehicle-shop';
   if (room.shrine) return 'service';
   if (room.snakeMcDonalds || room.snakeCanes || room.ramenStand || room.allNiteDiner) {
     return 'shop-or-service';

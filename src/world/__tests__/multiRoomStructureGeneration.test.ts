@@ -464,6 +464,7 @@ describe('multi-room structure generation', () => {
       expect(reverse[index]?.fireworkStand).toEqual(forward[index]?.fireworkStand);
       expect(reverse[index]?.jackalopeLodge).toEqual(forward[index]?.jackalopeLodge);
       expect(reverse[index]?.molemanDigSite).toEqual(forward[index]?.molemanDigSite);
+      expect(reverse[index]?.garage).toEqual(forward[index]?.garage);
     }
   });
 

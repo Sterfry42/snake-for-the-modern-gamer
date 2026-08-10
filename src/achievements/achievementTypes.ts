@@ -20,7 +20,8 @@ export type AchievementCategory =
   | 'caves'
   | 'rivals'
   | 'skillTree'
-  | 'mutations';
+  | 'mutations'
+  | 'streaming';
 
 export type AchievementDifficulty =
   | 'tutorial'
@@ -73,6 +74,9 @@ export interface AchievementIconSpec {
     | 'arcadeCabinet'
     | 'blueScreen'
     | 'specialStat'
+    | 'car'
+    | 'streaming'
+    | 'maneuver'
     | 'mutation'
     | 'dream';
   variant?: string;
@@ -109,6 +113,7 @@ export type AchievementNumericSnapshotField =
   | 'cowbellTilesWalked'
   | 'wardDamageTypesHeld'
   | 'trainZonesTraveled'
+  | 'highlightFollowers'
   | 'maxSpecialStat';
 
 export interface AchievementDefinition {
@@ -132,7 +137,8 @@ export type AchievementEvent =
   | { type: 'mutation:discovered'; mutationId: string; mutationName: string }
   | { type: 'mutation:traitGained'; traitId: string; traitName: string; stacks: number }
   | { type: 'mutation:goldStabilize'; mutationId: string }
-  | { type: 'enemy:defeated'; enemyId: string; method: 'eaten' | 'gun' | 'other' }
+  | { type: 'enemy:defeated'; enemyId: string; method: 'eaten' | 'gun' | 'car' | 'other' }
+  | { type: 'vehicle:enemyRunOver'; enemyId: string }
   | { type: 'town:gateOpened'; townId: string }
   | { type: 'town:entered'; townId: string; name: string }
   | { type: 'town:enteredBigIron'; townId: string }
@@ -173,6 +179,9 @@ export type AchievementEvent =
   | { type: 'arcade:played' }
   | { type: 'arcade:blueScreen' }
   | { type: 'rivalSnake:lengthReached'; enemyId: string; length: number }
+  | { type: 'maneuver:learned'; maneuverId: string; learnedCount: number; totalCount: number }
+  | { type: 'maneuver:allLearned'; learnedCount: number; totalCount: number }
+  | { type: 'streaming:followersReached'; followers: number }
   // Dream World events
   | { type: 'dream:entered' }
   | { type: 'dream:nightmareEntered' }
@@ -206,6 +215,7 @@ export interface AchievementSnapshot {
   cowbellTilesWalked: number;
   wardDamageTypesHeld: number;
   trainZonesTraveled: number;
+  highlightFollowers: number;
   maxSpecialStat: number;
 }
 

@@ -145,6 +145,7 @@ export class RoomGenerator {
       molemanDigSite: townRoom ? undefined : context.molemanDigSite,
       lavenderFarm: townRoom ? undefined : context.lavenderFarm,
       cheeseShop: townRoom ? undefined : context.cheeseShop,
+      garage: townRoom ? undefined : context.garage,
       bulletTrainStation: context.bulletTrainStation,
       rollercoasterStation: context.rollercoasterStation,
       temperatureReliefs: townRoom ? undefined : context.temperatureReliefs,

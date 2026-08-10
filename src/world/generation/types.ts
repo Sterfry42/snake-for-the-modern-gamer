@@ -96,6 +96,7 @@ export interface RoomGenerationContext {
   molemanDigSite?: RoomSnapshot['molemanDigSite'];
   lavenderFarm?: RoomSnapshot['lavenderFarm'];
   cheeseShop?: RoomSnapshot['cheeseShop'];
+  garage?: RoomSnapshot['garage'];
   temperatureReliefs?: RoomSnapshot['temperatureReliefs'];
   bulletTrainStation?: BulletTrainStation;
   rollercoasterStation?: RollercoasterStation;

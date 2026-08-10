@@ -51,6 +51,7 @@ const KNOWN_STRUCTURE_CODES: ReadonlySet<string> = new Set([
   'fireworks',
   'jackalope',
   'moleman',
+  'garage',
   'motelpool',
   'gridiron',
   'billboard',
