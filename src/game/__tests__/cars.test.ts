@@ -100,6 +100,57 @@ describe('vehicle runtime', () => {
     ]);
   });
 
+  it('keeps the hidden driver anchor with the vehicle across multiple rooms before exit', () => {
+    const game = new SnakeGame(defaultGameConfig, new QuestRegistry(), {});
+    game.reset();
+    while (game.getSnakeLength() < 4) {
+      game.growSnake(1);
+    }
+
+    game.handlePlayerRoomTransition('0,0,0', '1,0,0', {
+      mode: 'vehicle',
+      direction: { x: 1, y: 0 },
+      localPosition: { x: 2, y: 10 },
+    });
+    game.syncVehicleDriverToLocal('1,0,0', { x: 2.8, y: 10.2 }, { x: 1, y: 0 });
+    game.handlePlayerRoomTransition('1,0,0', '2,0,0', {
+      mode: 'vehicle',
+      direction: { x: 1, y: 0 },
+      localPosition: { x: 4, y: 12 },
+    });
+    game.syncVehicleDriverToLocal('2,0,0', { x: 4.9, y: 12.1 }, { x: 1, y: 0 });
+
+    game.placeSnakeBodyAtLocal('2,0,0', { x: 3, y: 12 }, { x: 1, y: 0 });
+
+    const roomWidth = defaultGameConfig.grid.cols;
+    expect(game.getCurrentRoom().id).toBe('2,0,0');
+    expect(game.getSnakeBody()).toEqual([
+      { x: roomWidth * 2 + 3, y: 12 },
+      { x: roomWidth * 2 + 2, y: 12 },
+      { x: roomWidth * 2 + 1, y: 12 },
+      { x: roomWidth * 2, y: 12 },
+    ]);
+  });
+
+  it('registers a garage mechanic as a normal shopkeeper NPC with talk and shop verbs', () => {
+    const game = new SnakeGame(defaultGameConfig, new QuestRegistry(), {});
+    game.reset();
+    const startRoom = game.getCurrentRoom();
+    startRoom.layout = startRoom.layout.map((row) => '.'.repeat(row.length));
+
+    expect(game.spawnGarage()).toBe(true);
+    const room = game.getCurrentRoom();
+    expect(room.garage).toBeDefined();
+
+    const garage = room.garage!;
+    const actorId = game.getGarageMechanicActorId(room.id, garage.mechanic.id);
+    const menu = game.getActorInteractionMenu(actorId);
+
+    expect(game.getActorRole(actorId)).toBe('shopkeeper');
+    expect(menu?.options.some((option) => option.id === 'talk')).toBe(true);
+    expect(menu?.options.some((option) => option.id === 'shop')).toBe(true);
+  });
+
   it('returns empty vehicle impact telemetry when no entity was hit', () => {
     const game = new SnakeGame(defaultGameConfig, new QuestRegistry(), {});
     game.reset();

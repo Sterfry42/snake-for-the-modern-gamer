@@ -5258,6 +5258,15 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('roomsVisited', this.visitedRooms.size);
   }
 
+  syncVehicleDriverToLocal(roomId: string, driverLocal: Vector2Like, direction: Vector2Like): void {
+    this.world.getRoom(roomId);
+    const driver = {
+      x: Math.max(0, Math.min(this.config.grid.cols - 1, Math.floor(driverLocal.x))),
+      y: Math.max(0, Math.min(this.config.grid.rows - 1, Math.floor(driverLocal.y))),
+    };
+    this.placeSnakeBodyAtLocal(roomId, driver, direction);
+  }
+
   /** Get bullet train destinations for a station room. */
   getBulletTrainDestinations(stationId: string): Array<{
     roomId: string;
@@ -6258,6 +6267,14 @@ export class SnakeGame implements QuestRuntime {
 
   getVillageActorId(roomId: string, npcId: string, role: string): string {
     return this.actors.getStableTownResidentActorId(`village:${roomId}`, npcId, role);
+  }
+
+  getGarageMechanicActorId(roomId: string, mechanicId: string): string {
+    return this.actors.getStableTownResidentActorId(`garage:${roomId}`, mechanicId, 'shopkeeper');
+  }
+
+  getGarageMechanicRelationshipId(roomId: string, mechanicId: string): string {
+    return `resident:${roomId}:${mechanicId}`;
   }
 
   getGoblinCampActorId(campId: string, npcId: string, role: string): string {
@@ -7917,6 +7934,20 @@ export class SnakeGame implements QuestRuntime {
         stationary: true,
       });
     }
+    if (room.garage) {
+      addCandidate({
+        profile: {
+          id: this.getGarageMechanicRelationshipId(room.id, room.garage.mechanic.id),
+          actorId: this.getGarageMechanicActorId(room.id, room.garage.mechanic.id),
+          displayName: `${room.garage.mechanic.name} the Mechanic`,
+          species: 'human',
+          homeRoomId: room.id,
+          factionId: 'hearthbound-remnant',
+        },
+        position: { x: room.garage.mechanic.x, y: room.garage.mechanic.y },
+        stationary: true,
+      });
+    }
     if (room.town) {
       for (const resident of townResidentsForRoom(room.town, room.id)) {
         const relationshipId = this.getTownResidentRelationshipId(room.town.id, resident.id);
@@ -9558,6 +9589,7 @@ export class SnakeGame implements QuestRuntime {
     }
     room.layout = this.layoutFrom2D(layout2d);
     room.garage = result;
+    this.syncActorsForRoom(room);
     return true;
   }
 

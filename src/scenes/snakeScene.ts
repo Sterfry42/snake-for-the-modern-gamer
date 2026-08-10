@@ -120,10 +120,19 @@ import {
   type ParkedCar,
 } from '../vehicles/car.js';
 import {
+  createCarHeldInputState,
+  resetCarHeldInputState,
+  updateCarHeldInputFromDirection,
+  updateCarHeldInputFromKey,
+  type CarHeldInputState,
+  type CarInputUpdate,
+} from '../vehicles/carInput.js';
+import {
   type CarControlInput,
   type CarControlState,
   carForwardVector,
   carRightVector,
+  findNearestValidCarPose,
   getCarCollisionCells,
   resolveCarRoomPosition,
   shouldDamageCarWallImpact,
@@ -1862,12 +1871,7 @@ export default class SnakeScene extends Phaser.Scene {
   private drivingCar: DrivingCarState | null = null;
   private carThrottle = 0;
   private carSteering = 0;
-  private readonly carInputHeld = {
-    forward: false,
-    backward: false,
-    left: false,
-    right: false,
-  };
+  private carInputHeld: CarHeldInputState = createCarHeldInputState();
   private carSmoothedControls: CarControlState = {
     throttle: 0,
     steering: 0,
@@ -2853,6 +2857,13 @@ export default class SnakeScene extends Phaser.Scene {
       }
     });
 
+    this.input.keyboard?.on('keyup', (event: KeyboardEvent) => {
+      this.emitRawKeyboardDebug(event, 'up');
+      if (this.drivingCar) {
+        this.releaseCarInput(event.key.toLowerCase());
+      }
+    });
+
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       this.markPointerInputMode(pointer);
       if (this.deathCutscene) {
@@ -3276,7 +3287,6 @@ export default class SnakeScene extends Phaser.Scene {
       playerId: this.snakeGame.getLocalPlayerId(),
     });
     if (this.tryEnterCar()) return;
-    if (this.tryInteractGarageMechanic()) return;
     if (this.tryInteractQuestTarget()) return;
     if (this.tryInteractArcadeCabinet()) return;
     if (this.tryInteractMcDonaldsCashier()) return;
@@ -3288,6 +3298,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.tryInteractLibertyStructure()) return;
     if (this.tryInteractMolemanDigSite()) return;
     if (this.tryInteractRelationshipNpc()) return;
+    if (this.tryInteractGarageMechanic()) return;
     if (this.tryInteractVillageShopkeeper()) return;
     if (this.tryInteractGoblinShopkeeper()) return;
     if (this.tryInteractQuestGiver()) return;
@@ -13461,6 +13472,17 @@ export default class SnakeScene extends Phaser.Scene {
     if (!garage || this.distanceFromHeadToLocal(garage.mechanic) > 1) {
       return false;
     }
+    this.showGarageMechanicShop();
+    return true;
+  }
+
+  private showGarageMechanicShop(): void {
+    const room = this.snakeGame.getCurrentRoom();
+    const garage = room.garage;
+    if (!garage) {
+      this.showQuestHintPopup('No garage nearby.', '#ff6b6b');
+      return;
+    }
     const hasCar = this.snakeGame.getCars(room.id).some((car) => car.id === `${garage.id}:car`);
     const option: ChoiceOption = {
       id: 'buy-car',
@@ -13487,7 +13509,6 @@ export default class SnakeScene extends Phaser.Scene {
       this.setChoicePopupVisible(false);
       this.isDirty = true;
     });
-    return true;
   }
 
   private tryEnterCar(): boolean {
@@ -13499,12 +13520,20 @@ export default class SnakeScene extends Phaser.Scene {
       return false;
     }
     const room = this.snakeGame.getCurrentRoom();
-    this.snakeGame.removeCar(room.id, car.id);
-    this.drivingCar = {
+    const repaired = this.findValidCarRestPose({
       ...car,
       roomId: room.id,
       speed: 0,
+    });
+    if (!repaired) {
+      this.showQuestHintPopup('The car is blocked in.', '#ff6b6b');
+      return true;
+    }
+    this.snakeGame.removeCar(room.id, car.id);
+    this.drivingCar = {
+      ...repaired,
     };
+    this.syncVehicleDriverAnchor(this.drivingCar);
     this.resetCarControls();
     this.setFlag('vehicle.driving', true);
     getDebugBus()?.emit({
@@ -13527,19 +13556,24 @@ export default class SnakeScene extends Phaser.Scene {
     if (!car) {
       return;
     }
-    const exit = this.findCarExitTile(car);
+    const parked = this.findValidCarRestPose(car);
+    if (!parked) {
+      this.showQuestHintPopup('No room to exit the car.', '#ff6b6b');
+      return;
+    }
+    const exit = this.findCarExitTile(parked);
     if (!exit) {
       this.showQuestHintPopup('No room to exit the car.', '#ff6b6b');
       return;
     }
-    this.snakeGame.parkCar(car.roomId, {
-      id: car.id,
-      x: car.x,
-      y: car.y,
-      angle: car.angle,
-      health: car.health,
+    this.snakeGame.parkCar(parked.roomId, {
+      id: parked.id,
+      x: parked.x,
+      y: parked.y,
+      angle: parked.angle,
+      health: parked.health,
     });
-    this.snakeGame.placeSnakeBodyAtLocal(car.roomId, exit, this.exitDirectionForCar(car));
+    this.snakeGame.placeSnakeBodyAtLocal(parked.roomId, exit, this.exitDirectionForCar(parked));
     this.drivingCar = null;
     this.resetCarControls();
     this.setFlag('vehicle.driving', undefined);
@@ -13548,8 +13582,8 @@ export default class SnakeScene extends Phaser.Scene {
       category: 'game',
       verbosity: 'normal',
       scene: this.scene.key,
-      roomId: car.roomId,
-      data: { carId: car.id, x: car.x, y: car.y, exit },
+      roomId: parked.roomId,
+      data: { carId: parked.id, x: parked.x, y: parked.y, exit },
     });
     this.cameras.main.shake(70, 0.0012);
     this.isDirty = true;
@@ -13568,13 +13602,17 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private updateCarInputFromDirection(direction: Vector2Like): void {
-    this.setCarHeldInputFromDirection(direction, true);
-    this.updateCarInputTargets();
+    this.applyCarInputUpdate(updateCarHeldInputFromDirection(this.carInputHeld, direction, true), {
+      phase: 'down',
+      key: this.directionToCarInputKey(direction),
+    });
   }
 
   private releaseCarInput(key: string): void {
-    this.setCarHeldInputForKey(key, false);
-    this.updateCarInputTargets();
+    this.applyCarInputUpdate(updateCarHeldInputFromKey(this.carInputHeld, key, false), {
+      phase: 'up',
+      key,
+    });
   }
 
   private updateCarDriving(deltaMs: number): void {
@@ -13690,6 +13728,7 @@ export default class SnakeScene extends Phaser.Scene {
     car.roomId = resolved.car.roomId;
     car.x = resolved.car.x;
     car.y = resolved.car.y;
+    this.syncVehicleDriverAnchor(car);
     if (resolved.transitioned) {
       this.currentApple = this.snakeGame.getApple(car.roomId);
     }
@@ -13729,8 +13768,7 @@ export default class SnakeScene extends Phaser.Scene {
       y: car.y + CAR_HEIGHT_TILES / 2,
     });
     this.drivingCar = null;
-    this.carThrottle = 0;
-    this.carSteering = 0;
+    this.resetCarControls();
     this.setFlag('vehicle.driving', undefined);
     getDebugBus()?.emit({
       type: 'vehicle.destroyed',
@@ -13822,11 +13860,32 @@ export default class SnakeScene extends Phaser.Scene {
   private getBlockingCarCells(
     car: Pick<DrivingCarState, 'roomId' | 'x' | 'y' | 'angle'>,
   ): Vector2Like[] {
-    const room = this.snakeGame.getRoom(car.roomId);
     return this.carOccupiedCells(car).filter((cell) => {
-      const tile = room.layout[cell.y]?.[cell.x];
-      return !tile || tile === '#' || tile === '%' || tile === 'N' || isBlockingTownTile(tile);
+      return this.isBlockingCarCell(car.roomId, cell);
     });
+  }
+
+  private isBlockingCarCell(roomId: string, cell: Vector2Like): boolean {
+    const room = this.snakeGame.getRoom(roomId);
+    const tile = room.layout[cell.y]?.[cell.x];
+    return !tile || tile === '#' || tile === '%' || tile === 'N' || isBlockingTownTile(tile);
+  }
+
+  private findValidCarRestPose(car: DrivingCarState): DrivingCarState | null {
+    return findNearestValidCarPose(car, this.grid, (cell) =>
+      this.isBlockingCarCell(car.roomId, cell),
+    );
+  }
+
+  private syncVehicleDriverAnchor(car: DrivingCarState): void {
+    this.snakeGame.syncVehicleDriverToLocal(
+      car.roomId,
+      {
+        x: car.x,
+        y: car.y,
+      },
+      this.exitDirectionForCar(car),
+    );
   }
 
   private isCarFullySubmerged(car: DrivingCarState): boolean {
@@ -13867,34 +13926,49 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private resetCarControls(): void {
-    this.carThrottle = 0;
-    this.carSteering = 0;
+    const update = resetCarHeldInputState(this.carInputHeld);
+    this.carInputHeld = update.held;
+    this.carThrottle = update.throttle;
+    this.carSteering = update.steering;
     this.carSmoothedControls = { throttle: 0, steering: 0, steeringVelocity: 0 };
-    this.carInputHeld.forward = false;
-    this.carInputHeld.backward = false;
-    this.carInputHeld.left = false;
-    this.carInputHeld.right = false;
     this.carContactingWorld = false;
     this.carEntityImpactCooldowns.clear();
   }
 
-  private setCarHeldInputFromDirection(direction: Vector2Like, held: boolean): void {
-    if (direction.y < 0) this.carInputHeld.forward = held;
-    if (direction.y > 0) this.carInputHeld.backward = held;
-    if (direction.x < 0) this.carInputHeld.left = held;
-    if (direction.x > 0) this.carInputHeld.right = held;
+  private applyCarInputUpdate(
+    update: CarInputUpdate,
+    event: { key: string; phase: 'down' | 'up' },
+  ): void {
+    this.carInputHeld = update.held;
+    this.carThrottle = update.throttle;
+    this.carSteering = update.steering;
+    if (!update.changed) {
+      return;
+    }
+    getDebugBus()?.emit({
+      type: 'vehicle.input_changed',
+      category: 'input',
+      verbosity: 'verbose',
+      scene: this.scene.key,
+      roomId: this.drivingCar?.roomId ?? this.snakeGame.getCurrentRoom().id,
+      data: {
+        key: event.key,
+        phase: event.phase,
+        held: update.held,
+        throttle: update.throttle,
+        steering: update.steering,
+        smoothedThrottle: this.carSmoothedControls.throttle,
+        smoothedSteering: this.carSmoothedControls.steering,
+      },
+    });
   }
 
-  private setCarHeldInputForKey(key: string, held: boolean): void {
-    if (key === 'w' || key === 'arrowup') this.carInputHeld.forward = held;
-    if (key === 's' || key === 'arrowdown') this.carInputHeld.backward = held;
-    if (key === 'a' || key === 'arrowleft') this.carInputHeld.left = held;
-    if (key === 'd' || key === 'arrowright') this.carInputHeld.right = held;
-  }
-
-  private updateCarInputTargets(): void {
-    this.carThrottle = (this.carInputHeld.forward ? 1 : 0) + (this.carInputHeld.backward ? -1 : 0);
-    this.carSteering = (this.carInputHeld.right ? 1 : 0) + (this.carInputHeld.left ? -1 : 0);
+  private directionToCarInputKey(direction: Vector2Like): string {
+    if (direction.y < 0) return 'w';
+    if (direction.y > 0) return 's';
+    if (direction.x < 0) return 'a';
+    if (direction.x > 0) return 'd';
+    return 'unknown';
   }
 
   private exitDirectionForCar(car: Pick<DrivingCarState, 'angle'>): Vector2Like {
@@ -13915,7 +13989,7 @@ export default class SnakeScene extends Phaser.Scene {
       { x: Math.floor(car.x), y: Math.floor(car.y) - 1 },
       { x: Math.floor(car.x), y: Math.floor(car.y) + 2 },
     ];
-    const room = this.snakeGame.getCurrentRoom();
+    const room = this.snakeGame.getRoom(car.roomId);
     return (
       candidates.find((candidate) => {
         const tile = room.layout[candidate.y]?.[candidate.x];
@@ -14374,12 +14448,6 @@ export default class SnakeScene extends Phaser.Scene {
         const result = this.snakeGame.resolveCurrentTownGuildJob(jobId, success);
         this.showQuestHintPopup(result.message, result.ok && success ? '#b6ff6a' : '#fff3a8');
         this.showTownGuild(result.town ?? freshTown);
-      }
-    });
-    this.input.keyboard?.on('keyup', (event: KeyboardEvent) => {
-      this.emitRawKeyboardDebug(event, 'up');
-      if (this.drivingCar) {
-        this.releaseCarInput(event.key.toLowerCase());
       }
     });
   }
@@ -19558,6 +19626,23 @@ export default class SnakeScene extends Phaser.Scene {
         ),
       });
     }
+    if (room.garage) {
+      const profile: RelationshipCandidateProfile = {
+        id: this.snakeGame.getGarageMechanicRelationshipId(room.id, room.garage.mechanic.id),
+        actorId: this.snakeGame.getGarageMechanicActorId(room.id, room.garage.mechanic.id),
+        displayName: `${room.garage.mechanic.name} the Mechanic`,
+        species: 'human' as RelationshipSpecies,
+        homeRoomId: room.id,
+        factionId: 'hearthbound-remnant' as const,
+      };
+      candidates.push({
+        ...profile,
+        ...this.snakeGame.getRelationshipNpcBodyPosition(profile, {
+          x: room.garage.mechanic.x,
+          y: room.garage.mechanic.y,
+        }),
+      });
+    }
     if (room.molemanDigSite) {
       const foreman = room.molemanDigSite.foreman;
       candidates.push({
@@ -19887,6 +19972,10 @@ export default class SnakeScene extends Phaser.Scene {
             );
             return;
           }
+          if (this.isGarageMechanicProfile(profile)) {
+            this.showGarageMechanicShop();
+            return;
+          }
           if (profile.species === 'goblin') {
             this.showGoblinShopRoot(profile.displayName);
           } else {
@@ -19910,6 +19999,15 @@ export default class SnakeScene extends Phaser.Scene {
         }
         this.showDatingScene(profile);
       },
+    );
+  }
+
+  private isGarageMechanicProfile(profile: RelationshipCandidateProfile): boolean {
+    const room = this.snakeGame.getCurrentRoom();
+    return Boolean(
+      room.garage &&
+      profile.id ===
+        this.snakeGame.getGarageMechanicRelationshipId(room.id, room.garage.mechanic.id),
     );
   }
 
@@ -22309,6 +22407,7 @@ export default class SnakeScene extends Phaser.Scene {
         : [];
     const residents = [
       ...(room.village ? [...room.village.residents, room.village.shopkeeper] : []),
+      ...(room.garage ? [room.garage.mechanic] : []),
       ...(room.town
         ? this.snakeGame.isTownHostileForRoom(room.town, room.id)
           ? []
@@ -22325,34 +22424,43 @@ export default class SnakeScene extends Phaser.Scene {
       const isGoblin = room.goblinCamp
         ? goblinResidents.some((goblin) => goblin.id === resident.id)
         : false;
-      const isTownResident = Boolean(room.town && !isGoblin);
-      const relationshipId = isTownResident
-        ? this.snakeGame.getTownResidentRelationshipId(room.town!.id, resident.id)
-        : `resident:${room.id}:${resident.id}`;
+      const isGarageMechanic = Boolean(room.garage && room.garage.mechanic.id === resident.id);
+      const isTownResident = Boolean(room.town && !isGoblin && !isGarageMechanic);
+      const relationshipId = isGarageMechanic
+        ? this.snakeGame.getGarageMechanicRelationshipId(room.id, resident.id)
+        : isTownResident
+          ? this.snakeGame.getTownResidentRelationshipId(room.town!.id, resident.id)
+          : `resident:${room.id}:${resident.id}`;
+      const portraitId =
+        'portraitId' in resident && typeof resident.portraitId === 'string'
+          ? resident.portraitId
+          : undefined;
       const relationshipProfile: RelationshipCandidateProfile = {
         id: relationshipId,
-        actorId: isGoblin
-          ? this.snakeGame.getGoblinCampActorId(
-              room.goblinCamp!.id,
-              resident.id,
-              resident.id === room.goblinCamp!.shopkeeper.id ? 'shopkeeper' : 'guard',
-            )
-          : room.town
-            ? 'actorId' in resident && typeof resident.actorId === 'string'
-              ? resident.actorId
-              : this.snakeGame.getTownResidentActorId(
-                  room.town.id,
-                  resident.id,
-                  (resident as { role?: string }).role ?? 'resident',
-                )
-            : this.snakeGame.getVillageActorId(
-                room.id,
+        actorId: isGarageMechanic
+          ? this.snakeGame.getGarageMechanicActorId(room.id, resident.id)
+          : isGoblin
+            ? this.snakeGame.getGoblinCampActorId(
+                room.goblinCamp!.id,
                 resident.id,
-                room.village?.shopkeeper.id === resident.id ? 'shopkeeper' : 'resident',
-              ),
-        displayName: resident.name,
+                resident.id === room.goblinCamp!.shopkeeper.id ? 'shopkeeper' : 'guard',
+              )
+            : room.town
+              ? 'actorId' in resident && typeof resident.actorId === 'string'
+                ? resident.actorId
+                : this.snakeGame.getTownResidentActorId(
+                    room.town.id,
+                    resident.id,
+                    (resident as { role?: string }).role ?? 'resident',
+                  )
+              : this.snakeGame.getVillageActorId(
+                  room.id,
+                  resident.id,
+                  room.village?.shopkeeper.id === resident.id ? 'shopkeeper' : 'resident',
+                ),
+        displayName: isGarageMechanic ? `${resident.name} the Mechanic` : resident.name,
         species: (isGoblin ? 'goblin' : 'human') as RelationshipSpecies,
-        portraitId: isGoblin ? 'goblin-neutral' : resident.portraitId,
+        portraitId: isGoblin ? 'goblin-neutral' : portraitId,
         homeRoomId: room.id,
         factionId: isGoblin
           ? 'goblin-camps'

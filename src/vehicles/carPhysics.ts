@@ -38,6 +38,8 @@ export const CAR_MAX_FORWARD_SPEED = 10.5;
 export const CAR_MAX_REVERSE_SPEED = 3.6;
 export const CAR_WALL_DAMAGE_SPEED = CAR_MAX_FORWARD_SPEED * 0.23;
 export const CAR_WALL_DAMAGE_COOLDOWN_MS = 650;
+const CAR_EDGE_EPSILON = 0.001;
+const CAR_INTERSECTION_EPSILON = 0.000001;
 
 export function carForwardVector(angle: number): Vector2Like {
   return { x: Math.sin(angle), y: -Math.cos(angle) };
@@ -232,6 +234,63 @@ export function shouldDamageCarWallImpact(
   );
 }
 
+export function getInvalidCarCollisionCells(
+  car: Pick<CarPhysicsState, 'x' | 'y' | 'angle'>,
+  grid: Pick<GridConfig, 'cols' | 'rows'>,
+): Vector2Like[] {
+  return getCarCollisionCells(car).filter(
+    (cell) => cell.x < 0 || cell.x >= grid.cols || cell.y < 0 || cell.y >= grid.rows,
+  );
+}
+
+export function isCarPoseInsideGrid(
+  car: Pick<CarPhysicsState, 'x' | 'y' | 'angle'>,
+  grid: Pick<GridConfig, 'cols' | 'rows'>,
+): boolean {
+  return getInvalidCarCollisionCells(car, grid).length === 0;
+}
+
+export function findNearestValidCarPose<T extends CarPhysicsState>(
+  car: T,
+  grid: Pick<GridConfig, 'cols' | 'rows'>,
+  isBlockingCell: (cell: Vector2Like) => boolean,
+  options: { maxRadius?: number; step?: number } = {},
+): T | null {
+  const step = options.step ?? 0.25;
+  const maxRadius = options.maxRadius ?? 2;
+  const contained = containCarPoseInRoom(car, grid);
+  if (isValidCarPose(contained, grid, isBlockingCell)) {
+    return contained;
+  }
+  let best: T | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (let radius = step; radius <= maxRadius + CAR_INTERSECTION_EPSILON; radius += step) {
+    for (let dx = -radius; dx <= radius + CAR_INTERSECTION_EPSILON; dx += step) {
+      for (let dy = -radius; dy <= radius + CAR_INTERSECTION_EPSILON; dy += step) {
+        if (
+          Math.abs(dx) < radius - CAR_INTERSECTION_EPSILON &&
+          Math.abs(dy) < radius - CAR_INTERSECTION_EPSILON
+        ) {
+          continue;
+        }
+        const candidate = containCarPoseInRoom({ ...car, x: car.x + dx, y: car.y + dy }, grid);
+        if (!isValidCarPose(candidate, grid, isBlockingCell)) {
+          continue;
+        }
+        const distance = Math.hypot(candidate.x - car.x, candidate.y - car.y);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          best = candidate;
+        }
+      }
+    }
+    if (best) {
+      return best;
+    }
+  }
+  return null;
+}
+
 function containCarPoseInRoom<T extends CarPhysicsState>(
   car: T,
   grid: Pick<GridConfig, 'cols' | 'rows'>,
@@ -239,18 +298,29 @@ function containCarPoseInRoom<T extends CarPhysicsState>(
   let x = car.x;
   let y = car.y;
   let bounds = getCarBounds({ ...car, x, y });
-  if (bounds.minX < 0) {
-    x += -bounds.minX;
-  } else if (bounds.maxX > grid.cols) {
-    x -= bounds.maxX - grid.cols;
+  if (bounds.minX < CAR_EDGE_EPSILON) {
+    x += CAR_EDGE_EPSILON - bounds.minX;
+  } else if (bounds.maxX > grid.cols - CAR_EDGE_EPSILON) {
+    x -= bounds.maxX - (grid.cols - CAR_EDGE_EPSILON);
   }
   bounds = getCarBounds({ ...car, x, y });
-  if (bounds.minY < 0) {
-    y += -bounds.minY;
-  } else if (bounds.maxY > grid.rows) {
-    y -= bounds.maxY - grid.rows;
+  if (bounds.minY < CAR_EDGE_EPSILON) {
+    y += CAR_EDGE_EPSILON - bounds.minY;
+  } else if (bounds.maxY > grid.rows - CAR_EDGE_EPSILON) {
+    y -= bounds.maxY - (grid.rows - CAR_EDGE_EPSILON);
   }
   return { ...car, x, y };
+}
+
+function isValidCarPose(
+  car: CarPhysicsState,
+  grid: Pick<GridConfig, 'cols' | 'rows'>,
+  isBlockingCell: (cell: Vector2Like) => boolean,
+): boolean {
+  if (!isCarPoseInsideGrid(car, grid)) {
+    return false;
+  }
+  return !getCarCollisionCells(car).some(isBlockingCell);
 }
 
 function carIntersectsTile(
@@ -268,12 +338,12 @@ function carIntersectsTile(
   const carY = Math.abs(dot(delta, forward));
   const tileProjectedOnRight = tileHalf * Math.abs(right.x) + tileHalf * Math.abs(right.y);
   const tileProjectedOnForward = tileHalf * Math.abs(forward.x) + tileHalf * Math.abs(forward.y);
-  if (carX >= halfWidth + tileProjectedOnRight) return false;
-  if (carY >= halfHeight + tileProjectedOnForward) return false;
+  if (carX >= halfWidth + tileProjectedOnRight - CAR_INTERSECTION_EPSILON) return false;
+  if (carY >= halfHeight + tileProjectedOnForward - CAR_INTERSECTION_EPSILON) return false;
   const worldXProjection = halfWidth * Math.abs(right.x) + halfHeight * Math.abs(forward.x);
   const worldYProjection = halfWidth * Math.abs(right.y) + halfHeight * Math.abs(forward.y);
-  if (Math.abs(delta.x) >= tileHalf + worldXProjection) return false;
-  if (Math.abs(delta.y) >= tileHalf + worldYProjection) return false;
+  if (Math.abs(delta.x) >= tileHalf + worldXProjection - CAR_INTERSECTION_EPSILON) return false;
+  if (Math.abs(delta.y) >= tileHalf + worldYProjection - CAR_INTERSECTION_EPSILON) return false;
   return true;
 }
 

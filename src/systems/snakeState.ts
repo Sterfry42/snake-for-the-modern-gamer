@@ -149,6 +149,7 @@ export class SnakeState {
     this.bufferedDirection = null;
     this.flags['internal.currentHead'] = { ...this.body[0] };
     delete this.flags['internal.lastRemovedTail'];
+    delete this.flags['internal.previousSnapshot'];
   }
 
   commitQueuedDirectionWithoutMoving(): void {

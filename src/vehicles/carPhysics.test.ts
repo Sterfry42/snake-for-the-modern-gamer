@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { CAR_HEIGHT_TILES, CAR_WIDTH_TILES } from './car.js';
 import {
   CAR_WALL_DAMAGE_SPEED,
+  findNearestValidCarPose,
   carForwardVector,
+  getInvalidCarCollisionCells,
   getCarBounds,
   getCarCollisionCells,
   resolveCarRoomPosition,
@@ -12,6 +14,15 @@ import {
 
 describe('car physics helpers', () => {
   const grid = { cols: 60, rows: 34 };
+
+  function expectCellsInsideGrid(cells: readonly { x: number; y: number }[]): void {
+    for (const cell of cells) {
+      expect(cell.x).toBeGreaterThanOrEqual(0);
+      expect(cell.x).toBeLessThan(grid.cols);
+      expect(cell.y).toBeGreaterThanOrEqual(0);
+      expect(cell.y).toBeLessThan(grid.rows);
+    }
+  }
 
   it('hands cars to neighboring coordinate rooms using the rotated hull', () => {
     const right = resolveCarRoomPosition(
@@ -67,6 +78,7 @@ describe('car physics helpers', () => {
       expect(bounds.minY).toBeGreaterThanOrEqual(-0.000001);
       expect(bounds.maxX).toBeLessThanOrEqual(grid.cols + 0.000001);
       expect(bounds.maxY).toBeLessThanOrEqual(grid.rows + 0.000001);
+      expectCellsInsideGrid(resolved.occupiedCellsAfter);
     }
   });
 
@@ -79,6 +91,7 @@ describe('car physics helpers', () => {
     expect(diagonal.transitioned).toBe(true);
     expect(diagonal.car.roomId).toBe('1,-1,0');
     expect(diagonal.boundarySides).toEqual(['east', 'north']);
+    expectCellsInsideGrid(diagonal.occupiedCellsAfter);
 
     const near = resolveCarRoomPosition(
       { roomId: '0,0,0', x: 10, y: 1.75, angle: 0 },
@@ -87,6 +100,48 @@ describe('car physics helpers', () => {
     );
     expect(near.transitioned).toBe(false);
     expect(near.car.roomId).toBe('0,0,0');
+  });
+
+  it('keeps rotated transition destination cells inside the destination room', () => {
+    const cases = [
+      { x: 19, y: 0.037, angle: 0.43, dx: 0, dy: -0.7, roomId: '1,-1,0' },
+      { x: 19, y: 30.7, angle: 0.75, dx: 0, dy: 0.7, roomId: '1,1,0' },
+      { x: 57.6, y: 12, angle: 1.16, dx: 0.8, dy: 0, roomId: '2,0,0' },
+      { x: 0.2, y: 12, angle: 2.14, dx: -0.8, dy: 0, roomId: '0,0,0' },
+      { x: 57.7, y: 0.2, angle: 0.75, dx: 0.9, dy: -0.9, roomId: '2,-1,0' },
+    ];
+    for (const testCase of cases) {
+      const current = {
+        roomId: '1,0,0',
+        x: testCase.x,
+        y: testCase.y,
+        angle: testCase.angle,
+      };
+      const resolved = resolveCarRoomPosition(
+        current,
+        {
+          ...current,
+          x: current.x + testCase.dx,
+          y: current.y + testCase.dy,
+        },
+        grid,
+      );
+      expect(resolved.transitioned).toBe(true);
+      expect(resolved.car.roomId).toBe(testCase.roomId);
+      expect(getInvalidCarCollisionCells(resolved.car, grid)).toEqual([]);
+      expectCellsInsideGrid(resolved.occupiedCellsAfter);
+    }
+  });
+
+  it('does not include impossible cells for exact destination edge contact', () => {
+    const resolved = resolveCarRoomPosition(
+      { roomId: '0,0,0', x: 19, y: 0.037, angle: 0.43 },
+      { roomId: '0,0,0', x: 19, y: -0.7, angle: 0.43 },
+      grid,
+    );
+    expect(resolved.transitioned).toBe(true);
+    expect(resolved.occupiedCellsAfter).not.toContainEqual({ x: 19, y: grid.rows });
+    expect(getInvalidCarCollisionCells(resolved.car, grid)).toEqual([]);
   });
 
   it('keeps a traditional car footprint two wide and three tall when facing up', () => {
@@ -135,5 +190,21 @@ describe('car physics helpers', () => {
     expect(shouldDamageCarWallImpact(CAR_WALL_DAMAGE_SPEED - 0.1, 2000, 0)).toBe(false);
     expect(shouldDamageCarWallImpact(CAR_WALL_DAMAGE_SPEED + 0.1, 1200, 1000)).toBe(false);
     expect(shouldDamageCarWallImpact(CAR_WALL_DAMAGE_SPEED + 0.1, 1700, 1000)).toBe(true);
+  });
+
+  it('repairs invalid parked poses to the nearest nonblocking footprint', () => {
+    const blocked = new Set(['10,10', '11,10', '10,11', '11,11']);
+    const repaired = findNearestValidCarPose(
+      { roomId: '0,0,0', x: 10, y: 10, angle: 0 },
+      grid,
+      (cell) => blocked.has(`${cell.x},${cell.y}`),
+      { maxRadius: 3, step: 0.5 },
+    );
+    expect(repaired).not.toBeNull();
+    expect(repaired!.angle).toBe(0);
+    expect(getInvalidCarCollisionCells(repaired!, grid)).toEqual([]);
+    expect(getCarCollisionCells(repaired!).some((cell) => blocked.has(`${cell.x},${cell.y}`))).toBe(
+      false,
+    );
   });
 });
