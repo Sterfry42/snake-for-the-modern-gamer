@@ -1,7 +1,7 @@
 /**
  * Actor Brains
  */
-import type { Vector2Like } from '../core/math.js';
+import { CARDINAL_DIRECTIONS, manhattanDistance, shuffle, type Vector2Like } from '../core/math.js';
 import type { Actor, ActorMemory, ActorRole } from './actorTypes.js';
 import { isStationaryTownRole, isTownGuardRole } from '../world/townRoles.js';
 
@@ -46,12 +46,6 @@ export interface ActorBrainDecision {
 }
 
 const HOLD: Vector2Like = { x: 0, y: 0 };
-const CARDINAL_DIRECTIONS: Vector2Like[] = [
-  { x: 1, y: 0 },
-  { x: -1, y: 0 },
-  { x: 0, y: 1 },
-  { x: 0, y: -1 },
-];
 
 export function decideActorBrain(context: ActorBrainContext): ActorBrainDecision {
   const actor = context.actor;
@@ -111,7 +105,7 @@ export function decideActorBrain(context: ActorBrainContext): ActorBrainDecision
 
   return {
     kind: 'wander',
-    preferredDirections: shuffleDirections([HOLD, ...CARDINAL_DIRECTIONS], context.random),
+    preferredDirections: shuffle(context.random, [HOLD, ...CARDINAL_DIRECTIONS]),
     moveCooldown: isHostile
       ? 2 + Math.floor(context.random() * 2)
       : 5 + Math.floor(context.random() * 7),
@@ -182,18 +176,4 @@ function directionsToward(position: Vector2Like, target: Vector2Like): Vector2Li
       return aDistance - bDistance;
     })
     .concat(HOLD);
-}
-
-function shuffleDirections(
-  directions: readonly Vector2Like[],
-  random: () => number,
-): Vector2Like[] {
-  return directions
-    .map((direction) => ({ direction, roll: random() }))
-    .sort((a, b) => a.roll - b.roll)
-    .map((entry) => entry.direction);
-}
-
-function manhattanDistance(a: Vector2Like, b: Vector2Like): number {
-  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 }

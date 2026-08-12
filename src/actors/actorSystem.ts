@@ -11,8 +11,10 @@ import type {
   RelationshipState,
 } from '../relationships/relationshipTypes.js';
 import type { EnemyInstance } from '../systems/enemies.js';
+import { stableStringHash32 } from '../core/math.js';
 import type { RoomSnapshot } from '../world/types.js';
 import { townResidentsForRoom, type TownStructure } from '../world/town.js';
+import type { TownResidentRole } from '../world/townRoles.js';
 import { ActorRegistry } from './actorRegistry.js';
 import type {
   Actor,
@@ -65,8 +67,10 @@ export class ActorSystem {
           `village:${room.id}`,
           room.id,
           [
-            ...room.village.residents.map((resident) => ({ ...resident, role: 'resident' })),
-            { ...room.village.shopkeeper, role: 'shopkeeper' },
+            ...room.village.residents.map((resident) =>
+              withLooseHumanoidRole(resident, 'resident'),
+            ),
+            withLooseHumanoidRole(room.village.shopkeeper, 'shopkeeper'),
           ],
           'hearthbound-remnant',
           roomNumber,
@@ -78,7 +82,7 @@ export class ActorSystem {
         ...this.syncLooseHumanoids(
           `quest:${room.id}`,
           room.id,
-          [{ ...room.questGiver, role: 'questGiver' }],
+          [withLooseHumanoidRole(room.questGiver, 'questGiver')],
           'hearthbound-remnant',
           roomNumber,
         ),
@@ -89,7 +93,7 @@ export class ActorSystem {
         ...this.syncLooseHumanoids(
           `garage:${room.id}`,
           room.id,
-          [{ ...room.garage.mechanic, role: 'shopkeeper' }],
+          [withLooseHumanoidRole(room.garage.mechanic, 'shopkeeper')],
           'hearthbound-remnant',
           roomNumber,
         ),
@@ -101,8 +105,8 @@ export class ActorSystem {
           room.goblinCamp.id,
           room.id,
           [
-            { ...room.goblinCamp.shopkeeper, role: 'shopkeeper' },
-            ...room.goblinCamp.guards.map((guard) => ({ ...guard, role: 'guard' })),
+            withLooseHumanoidRole(room.goblinCamp.shopkeeper, 'shopkeeper'),
+            ...room.goblinCamp.guards.map((guard) => withLooseHumanoidRole(guard, 'guard')),
           ],
           'goblin-camps',
           roomNumber,
@@ -149,6 +153,7 @@ export class ActorSystem {
           relationshipId: relationship.id,
           displayName: relationship.displayName,
           species: relationship.species,
+          personality: relationship.personality,
           factionId: relationship.factionId,
           homeRoomId: relationship.homeRoomId,
           portraitId: relationship.portraitId,
@@ -165,6 +170,7 @@ export class ActorSystem {
           relationshipId: profile.id,
           displayName: profile.displayName,
           species: profile.species,
+          personality: profile.personality,
           factionId: profile.factionId,
           homeRoomId: profile.homeRoomId,
           portraitId: profile.portraitId,
@@ -202,7 +208,7 @@ export class ActorSystem {
     residents: Array<{
       id: string;
       name: string;
-      role: string;
+      role: TownResidentRole;
       x: number;
       y: number;
       portraitId?: string;
@@ -253,7 +259,7 @@ export class ActorSystem {
     return event;
   }
 
-  getStableTownResidentActorId(townId: string, residentId: string, role: string): string {
+  getStableTownResidentActorId(townId: string, residentId: string, role: TownResidentRole): string {
     return actorIdForTownResident(townId, residentId, role);
   }
 
@@ -358,19 +364,11 @@ export class ActorSystem {
 }
 
 function socialRelationshipFor(actorId: string, targetId: string): ActorSocialLink['relationship'] {
-  const roll = Math.abs(hashString(`${actorId}->${targetId}`)) % 5;
+  const roll = Math.abs(stableStringHash32(`${actorId}->${targetId}`)) % 5;
   if (roll === 0) return 'family';
   if (roll === 1) return 'rival';
   if (roll === 2) return 'creditor';
   return 'friend';
-}
-
-function hashString(value: string): number {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 31 + value.charCodeAt(index)) | 0;
-  }
-  return hash;
 }
 
 function applyEventConsequences(
@@ -508,6 +506,13 @@ function updateOpinion(
 
 function shift(value: number, delta: number): number {
   return Math.max(-100, Math.min(100, Math.round(value + delta)));
+}
+
+function withLooseHumanoidRole<T extends { id: string; name: string; x: number; y: number }>(
+  profile: T,
+  role: TownResidentRole,
+): T & { role: TownResidentRole } {
+  return { ...profile, role };
 }
 
 function addMemory(actor: Actor, memory: ActorMemory): ActorMemory[] {

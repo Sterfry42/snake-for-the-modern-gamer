@@ -236,6 +236,37 @@ describe('ActorSystem', () => {
     expect(relationshipActor.flags.relationshipId).toBe('resident:0,0,0:marta');
   });
 
+  it('maps every relationship species to an actor species without degrading molemen', () => {
+    const actors = new ActorSystem();
+
+    const relationshipActor = actors.registry.ensureRelationshipActor({
+      relationshipId: 'relationship:moleman:date',
+      displayName: 'Moleman Date',
+      species: 'moleman',
+      personality: 'sharp',
+      homeRoomId: '0,0,0',
+      stage: 'crush',
+    });
+
+    expect(relationshipActor.species).toBe('moleman');
+    expect(relationshipActor.kind).toBe('civilian');
+    expect(relationshipActor.personality).toEqual(['romantic', 'sentimental', 'sharp']);
+  });
+
+  it('maps specialized town roles without degrading them to resident', () => {
+    const actors = new ActorSystem();
+
+    const blackMarketActor = actors.registry.ensureTownResidentActor({
+      residentId: 'shade',
+      name: 'Shade',
+      role: 'blackMarketMerchant',
+      townId: 'eastmere',
+    });
+
+    expect(blackMarketActor.role).toBe('blackMarketMerchant');
+    expect(blackMarketActor.kind).toBe('shopkeeper');
+  });
+
   it('selects memory-aware actor voice before generic lines', () => {
     const actors = new ActorSystem();
     const shopkeeper = actors.registry.ensureTownResidentActor({

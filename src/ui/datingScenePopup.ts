@@ -95,7 +95,7 @@ export class DatingScenePopup {
     );
     this.lineText?.setText(options.lineIsNarration ? options.line : `"${options.line}"`);
     const resultMessage = this.formatResultMessage(
-      options.result?.message ?? '',
+      options.result,
       options.line,
       profile.displayName,
     );
@@ -164,7 +164,16 @@ export class DatingScenePopup {
     return false;
   }
 
-  private formatResultMessage(message: string, visibleLine: string, displayName: string): string {
+  private formatResultMessage(
+    result: RelationshipEventResult | undefined,
+    visibleLine: string,
+    displayName: string,
+  ): string {
+    const message = result?.message ?? '';
+    const outcome = result?.outcome;
+    if (outcome?.tier && outcome.summary === visibleLine) {
+      return `${displayName} ${outcome.tier} that.`;
+    }
     const match = message.match(/^(Loved|Liked|Neutral|Disliked|Hated):\s*[^"]*"([^"]+)"\s*$/i);
     if (!match) return message;
     const tier = match[1] ?? '';
@@ -225,6 +234,7 @@ export class DatingScenePopup {
     state?: RelationshipState,
     result?: RelationshipEventResult,
   ): DatingPortraitMood {
+    if (result?.outcome?.mood) return result.outcome.mood;
     const message = result?.message ?? '';
     if (/Hated|Disliked|hostile|murderous|knife|cruel|already married/i.test(message))
       return 'angry';

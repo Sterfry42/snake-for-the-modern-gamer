@@ -11,6 +11,7 @@ export type TileTag =
 
 const TILE_TAGS = new Map<string, ReadonlySet<TileTag>>([
   ['#', tags('solid', 'townBlocking', 'destructible')],
+  ['%', tags('solid', 'destructible')],
   ['x', tags('solid', 'townBlocking', 'door', 'structure')],
   ['h', tags('solid', 'townBlocking', 'door', 'structure')],
   ['u', tags('solid', 'townBlocking', 'door', 'structure')],
@@ -29,6 +30,10 @@ const TILE_TAGS = new Map<string, ReadonlySet<TileTag>>([
 
 export function isSolidTile(tile: string | undefined): boolean {
   return tileHasTag(tile, 'solid');
+}
+
+export function isDestructibleTile(tile: string | undefined): boolean {
+  return tileHasTag(tile, 'destructible');
 }
 
 export function tileHasTag(tile: string | undefined, tag: TileTag): boolean {

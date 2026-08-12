@@ -3,7 +3,12 @@
  */
 import type { AnimalType } from '../animals/types.js';
 import type { FactionId } from '../factions/factions.js';
-import type { RelationshipStage } from '../relationships/relationshipTypes.js';
+import type {
+  RelationshipPersonality,
+  RelationshipSpecies,
+  RelationshipStage,
+} from '../relationships/relationshipTypes.js';
+import type { TownResidentRole } from '../world/townRoles.js';
 
 export type ActorKind =
   | 'civilian'
@@ -58,6 +63,7 @@ export type ActorSpecies =
   | 'goblin'
   | 'angel'
   | 'goblinAngel'
+  | 'moleman'
   | 'animal'
   | 'beast'
   | 'snake'
@@ -303,7 +309,7 @@ export interface EnsureTownResidentActorArgs {
   actorId?: string;
   residentId: string;
   name: string;
-  role: string;
+  role: TownResidentRole;
   factionId?: string;
   townId: string;
   currentRoomId?: string;
@@ -340,7 +346,8 @@ export interface EnsureRelationshipActorArgs {
   actorId?: string;
   relationshipId: string;
   displayName: string;
-  species: string;
+  species: RelationshipSpecies;
+  personality?: RelationshipPersonality;
   factionId?: string;
   homeRoomId?: string;
   portraitId?: string;

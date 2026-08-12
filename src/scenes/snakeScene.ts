@@ -71,7 +71,12 @@ import { PauseUI } from '../ui/pauseUI.js';
 import { SaveLoadMenu } from '../ui/saveLoadMenu.js';
 import { saveManagerV2, type GameSaveData } from '../game/saveManagerV2.js';
 import { AtmosphereAudioManager } from './atmosphereAudioManager.js';
-import { isTownCriminalRole, isTownShopRole } from '../world/townRoles.js';
+import {
+  isTownCriminalRole,
+  isTownResidentRole,
+  isTownShopRole,
+  type TownResidentRole,
+} from '../world/townRoles.js';
 import type { FactionId } from '../factions/factions.js';
 import {
   DatingScenePopup,
@@ -22451,7 +22456,7 @@ export default class SnakeScene extends Phaser.Scene {
                 : this.snakeGame.getTownResidentActorId(
                     room.town.id,
                     resident.id,
-                    (resident as { role?: string }).role ?? 'resident',
+                    townResidentRoleFromMixedProfile(resident),
                   )
               : this.snakeGame.getVillageActorId(
                   room.id,
@@ -23117,6 +23122,12 @@ export default class SnakeScene extends Phaser.Scene {
       color: '#5dd6a2',
     };
   }
+}
+
+function townResidentRoleFromMixedProfile(profile: unknown): TownResidentRole {
+  const role =
+    typeof profile === 'object' && profile !== null && 'role' in profile ? profile.role : undefined;
+  return typeof role === 'string' && isTownResidentRole(role) ? role : 'resident';
 }
 
 function actorInteractionDescription(id: string): string {

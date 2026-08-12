@@ -23,6 +23,34 @@ export function manhattanDistance(a: Vector2Like, b: Vector2Like): number {
   return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 }
 
+export function isWithinEuclideanRadius(
+  point: Vector2Like,
+  center: Vector2Like,
+  radius: number,
+): boolean {
+  return Math.hypot(point.x - center.x, point.y - center.y) <= radius;
+}
+
+export function stableStringHash32(value: string): number {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) | 0;
+  }
+  return hash;
+}
+
+export function stableStringHashPositive(value: string): number {
+  return Math.abs(stableStringHash32(value));
+}
+
+export function stableStringHashUnsigned(value: string): number {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+  return hash;
+}
+
 export function withinBounds(vec: Vector2Like, width: number, height: number): boolean {
   return vec.x >= 0 && vec.x < width && vec.y >= 0 && vec.y < height;
 }

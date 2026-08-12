@@ -83,6 +83,7 @@ import {
 } from '../maneuvers/maneuverCatalog.js';
 import type { ManeuverId, ManeuverSaveState } from '../maneuvers/maneuverTypes.js';
 import { SpotifyPanel } from './spotify/spotifyPanel.js';
+import { YouTubePanel } from './youtube/youtubePanel.js';
 
 interface SkillTreeOverlayOptions {
   width?: number;
@@ -193,6 +194,7 @@ type TabId =
   | 'controls'
   | 'cheats'
   | 'spotify'
+  | 'youtube'
   | 'info';
 
 interface TabDefinition {
@@ -241,6 +243,7 @@ const TAB_DEFINITIONS: readonly TabDefinition[] = [
     group: 'system',
   },
   { id: 'spotify', i18nKey: 'tabInfo', label: 'Spotify', group: 'system' },
+  { id: 'youtube', i18nKey: 'tabInfo', label: 'YouTube', group: 'system' },
   { id: 'info', i18nKey: 'tabInfo', group: 'system' },
 ];
 
@@ -279,6 +282,7 @@ const TAB_ICON_KEYS: Record<TabId, string> = {
   controls: uiTabIconKeys.info,
   cheats: uiTabIconKeys.cheats,
   spotify: uiTabIconKeys.info,
+  youtube: uiTabIconKeys.info,
   info: uiTabIconKeys.info,
   people: uiTabIconKeys.people,
   companions: uiTabIconKeys.companions,
@@ -444,6 +448,7 @@ export class SkillTreeOverlay {
     ticker?: Phaser.Time.TimerEvent;
   };
   private readonly spotifyPanel: SpotifyPanel | null;
+  private readonly youtubePanel: YouTubePanel | null;
 
   constructor(
     private readonly scene: SnakeScene,
@@ -485,7 +490,17 @@ export class SkillTreeOverlay {
             canvas: this.scene.game.canvas,
           })
         : null;
-    this.scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.spotifyPanel?.destroy());
+    this.youtubePanel =
+      typeof document !== 'undefined'
+        ? new YouTubePanel({
+            document,
+            canvas: this.scene.game.canvas,
+          })
+        : null;
+    this.scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.spotifyPanel?.destroy();
+      this.youtubePanel?.destroy();
+    });
 
     this.background = this.scene.add
       .rectangle(0, 0, this.options.width, this.options.height, 0x071019, 0.94)
@@ -2982,6 +2997,14 @@ export class SkillTreeOverlay {
           )
           .setVisible(true);
         break;
+      case 'youtube':
+        this.detailTitle.setText('YouTube').setVisible(true);
+        this.detailSubtitle.setText('Top-Right Video').setVisible(true);
+        this.detailRankText.setText('').setVisible(false);
+        this.detailBody
+          .setText('Load a YouTube URL here, then resume to keep the video above the game UI.')
+          .setVisible(true);
+        break;
       case 'info':
         this.buildLineCards(renderRect, 'SYSTEM INFO', [
           'Growth manages skills, SPECIAL, and spells.',
@@ -5137,6 +5160,7 @@ export class SkillTreeOverlay {
     this.hoveredPerkId = null;
     this.refresh();
     this.updateSpotifyPanelVisibility();
+    this.updateYouTubePanelVisibility();
     // Start background glints
     this.glintTimer?.remove(false);
     this.glintTimer = this.scene.time.addEvent({
@@ -5190,6 +5214,29 @@ export class SkillTreeOverlay {
     });
   }
 
+  private updateYouTubePanelVisibility(): void {
+    if (!this.youtubePanel) {
+      return;
+    }
+    if (!this.visible) {
+      this.youtubePanel.showForGameplay();
+      return;
+    }
+    if (this.activeTab !== 'youtube') {
+      this.youtubePanel.hideForPauseMenu();
+      return;
+    }
+    const layout = this.getPauseMenuLayout();
+    this.youtubePanel.show({
+      overlayX: this.overlayX,
+      overlayY: this.overlayY,
+      x: layout.main.x + 10,
+      y: layout.main.y + 10,
+      width: layout.main.width - 20,
+      height: layout.main.height - 20,
+    });
+  }
+
   hide(): void {
     if (!this.visible) {
       return;
@@ -5215,6 +5262,7 @@ export class SkillTreeOverlay {
     this.hideHoverTip();
     this.clearCustomizationHover();
     this.updateSpotifyPanelVisibility();
+    this.updateYouTubePanelVisibility();
   }
 
   toggle(force?: boolean): void {
@@ -5995,6 +6043,7 @@ export class SkillTreeOverlay {
       tab === 'artifacts' ||
       tab === 'controls' ||
       tab === 'spotify' ||
+      tab === 'youtube' ||
       tab === 'info' ||
       tab === 'cheats' ||
       tab === 'cosmetics'
@@ -6794,6 +6843,7 @@ export class SkillTreeOverlay {
     const achievementsActive = this.activeTab === 'achievements';
     const controlsActive = this.activeTab === 'controls';
     const spotifyActive = this.activeTab === 'spotify';
+    const youtubeActive = this.activeTab === 'youtube';
     const structuredActive =
       inventoryActive ||
       equipmentActive ||
@@ -6810,6 +6860,7 @@ export class SkillTreeOverlay {
       artifactsActive ||
       controlsActive ||
       spotifyActive ||
+      youtubeActive ||
       infoActive ||
       cheatsActive ||
       cosmeticsActive;
@@ -6829,6 +6880,7 @@ export class SkillTreeOverlay {
     this.factionContainer.setVisible(factionsActive);
     this.structuredContainer.setVisible(structuredActive);
     this.updateSpotifyPanelVisibility();
+    this.updateYouTubePanelVisibility();
     this.styleContainer.setVisible(false);
     this.achievementTree?.setVisible(achievementsActive);
     if (
@@ -7009,6 +7061,7 @@ export class SkillTreeOverlay {
           controls: 'Controls: browse canonical actions and defaults by input mode.',
           cheats: 'Cheats: click to view codes, then type and apply.',
           spotify: 'Spotify: paste a link and use the embedded player controls.',
+          youtube: 'YouTube: paste a link, then resume to watch it top-right.',
           info: 'Browse grouped menu systems and current run tools.',
         };
         this.hintText.setText(
@@ -8846,7 +8899,7 @@ export class SkillTreeOverlay {
 
   private updateDefaultHint(stats: SkillTreeStats): void {
     this.hintText.setVisible(false);
-    if (this.activeTab === 'spotify') {
+    if (this.activeTab === 'spotify' || this.activeTab === 'youtube') {
       this.setFooterHints([
         { key: this.currentInputMode === 'controller' ? 'Touch' : 'Click', label: 'Load URL' },
         { key: this.cancelKeyLabel(), label: 'Resume' },

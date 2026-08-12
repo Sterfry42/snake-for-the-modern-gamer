@@ -8,7 +8,7 @@ import {
   type PowerupKind,
 } from '../config/gameConfig.js';
 import { defaultRoamingSnakeConfig } from '../config/roamingSnakeConfig.js';
-import type { Vector2Like } from '../core/math.js';
+import { isWithinEuclideanRadius, type Vector2Like } from '../core/math.js';
 import { createRng, type RandomGenerator } from '../core/rng.js';
 import { AppleService, type AppleConsumptionResult } from '../apples/appleService.js';
 import type { AppleSnapshot } from '../apples/types.js';
@@ -162,11 +162,13 @@ import {
   type TownRoomKind,
   type TownStructure,
 } from '../world/town.js';
+import { isDestructibleTile } from '../world/tiles.js';
 import {
   isStationaryTownRole,
   isTownCriminalRole,
   isTownGuardRole,
   isTownShopRole,
+  type TownResidentRole,
 } from '../world/townRoles.js';
 import { tryPlaceVillage } from '../world/village.js';
 import { tryPlaceGoblinCamp } from '../world/goblinCamp.js';
@@ -4870,7 +4872,7 @@ export class SnakeGame implements QuestRuntime {
       for (let x = 0; x < row.length; x += 1) {
         if (!this.isWithinBombRadius({ x, y }, bomb)) continue;
         const tile = row[x];
-        if ((tile === '#' || tile === '%') && this.setRoomTile(bomb.roomId, x, y, '.')) {
+        if (isDestructibleTile(tile) && this.setRoomTile(bomb.roomId, x, y, '.')) {
           terrainChanged = true;
         }
       }
@@ -4999,7 +5001,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private isWithinBombRadius(position: Vector2Like, bomb: BombInstance): boolean {
-    return Math.hypot(position.x - bomb.position.x, position.y - bomb.position.y) <= bomb.radius;
+    return isWithinEuclideanRadius(position, bomb.position, bomb.radius);
   }
 
   private isCatchableFootballTile(room: RoomSnapshot, position: Vector2Like): boolean {
@@ -6257,7 +6259,7 @@ export class SnakeGame implements QuestRuntime {
     return this.actors.getActor(actorId)?.role;
   }
 
-  getTownResidentActorId(townId: string, residentId: string, role: string): string {
+  getTownResidentActorId(townId: string, residentId: string, role: TownResidentRole): string {
     return this.actors.getStableTownResidentActorId(townId, residentId, role);
   }
 
@@ -6265,7 +6267,7 @@ export class SnakeGame implements QuestRuntime {
     return `resident:${townId}:${residentId}`;
   }
 
-  getVillageActorId(roomId: string, npcId: string, role: string): string {
+  getVillageActorId(roomId: string, npcId: string, role: TownResidentRole): string {
     return this.actors.getStableTownResidentActorId(`village:${roomId}`, npcId, role);
   }
 
@@ -6277,7 +6279,7 @@ export class SnakeGame implements QuestRuntime {
     return `resident:${roomId}:${mechanicId}`;
   }
 
-  getGoblinCampActorId(campId: string, npcId: string, role: string): string {
+  getGoblinCampActorId(campId: string, npcId: string, role: TownResidentRole): string {
     return this.actors.getStableTownResidentActorId(campId, npcId, role);
   }
 

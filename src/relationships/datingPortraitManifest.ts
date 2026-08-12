@@ -1,4 +1,5 @@
 import type { RelationshipCandidateProfile, RelationshipSpecies } from './relationshipTypes.js';
+import { stableStringHashUnsigned } from '../core/math.js';
 
 export type DatingPortraitMood = 'happy' | 'neutral' | 'sad' | 'angry';
 
@@ -333,17 +334,9 @@ function portraitKeysForGoblin(portraitId?: string): readonly string[] {
 }
 
 function pick(id: string, keys: readonly string[]): DatingPortraitAsset | null {
-  return getAsset(keys[hash(id) % keys.length] ?? keys[0] ?? '');
+  return getAsset(keys[stableStringHashUnsigned(id) % keys.length] ?? keys[0] ?? '');
 }
 
 function getAsset(key: string): DatingPortraitAsset | null {
   return DATING_PORTRAIT_ASSETS.find((asset) => asset.key === key) ?? null;
-}
-
-function hash(value: string): number {
-  let total = 0;
-  for (let i = 0; i < value.length; i += 1) {
-    total = (total * 31 + value.charCodeAt(i)) >>> 0;
-  }
-  return total;
 }

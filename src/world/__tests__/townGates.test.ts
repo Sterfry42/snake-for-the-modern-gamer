@@ -7,7 +7,7 @@ import {
   TOWN_GATE_WIDTH,
   townResidentsForRoom,
 } from '../town.js';
-import { isSolidTile } from '../tiles.js';
+import { isDestructibleTile, isSolidTile } from '../tiles.js';
 
 const grid: GridConfig = { cols: 32, rows: 24, cell: 16 };
 const districtRoomIds = {
@@ -87,6 +87,9 @@ describe('town gates', () => {
     expect(openLayout[1]?.join('')).not.toContain('x');
     expect(openLayout[1]?.join('')).not.toContain('o');
     expect(isSolidTile('o')).toBe(false);
+    expect(isDestructibleTile('#')).toBe(true);
+    expect(isDestructibleTile('%')).toBe(true);
+    expect(isDestructibleTile('x')).toBe(false);
   });
 
   it('uses explicit resolver gate sides for corner exits instead of the first exterior side', () => {
