@@ -92,6 +92,11 @@ import {
   molemanSpriteRecipe,
   type MolemanSpritePalette,
 } from '../ui/spriteRecipes/molemanRecipe.js';
+import { getActorActivityProp } from '../actors/actorActivityProps.js';
+import {
+  actorActivityPropRecipe,
+  type ActorActivityPropPalette,
+} from '../ui/spriteRecipes/actorActivityPropRecipe.js';
 import { getQuestDialogue } from '../quests/questDialogue.js';
 import { i18n } from '../i18n/i18nManager.js';
 import { AVAILABLE_LANGUAGES } from '../i18n/types.js';
@@ -1986,6 +1991,8 @@ export default class SnakeScene extends Phaser.Scene {
   private readonly choicePopups = new Set<ChoicePopup>();
   private readonly villageResidentSprites: Phaser.GameObjects.Sprite[] = [];
   private readonly villageResidentIndicatorTexts: Phaser.GameObjects.Text[] = [];
+  private readonly villageResidentSpeechTexts: Phaser.GameObjects.Text[] = [];
+  private readonly villageResidentActivityPropSprites: Phaser.GameObjects.Sprite[] = [];
   private runtimeSpriteFactory!: RuntimeSpriteFactory;
   private houseRestCounter = 0;
   private jasonDefeatCount = 0;
@@ -10019,6 +10026,8 @@ export default class SnakeScene extends Phaser.Scene {
       this.wandererSprite?.setVisible(false);
       this.villageResidentSprites.forEach((sprite) => sprite.setVisible(false));
       this.villageResidentIndicatorTexts.forEach((text) => text.setVisible(false));
+      this.villageResidentSpeechTexts.forEach((text) => text.setVisible(false));
+      this.villageResidentActivityPropSprites.forEach((sprite) => sprite.setVisible(false));
       this.isDirty = false;
       return;
     }
@@ -22095,7 +22104,13 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const encounter = this.snakeGame.getFlag<
-      WandererEncounter & { roomId: string; x: number; y: number; statsNote: string }
+      WandererEncounter & {
+        roomId: string;
+        x: number;
+        y: number;
+        statsNote: string;
+        actorId?: string;
+      }
     >('npc.randomEncounter');
     if (!encounter || encounter.roomId !== this.currentRoomId) {
       return;
@@ -22220,6 +22235,43 @@ export default class SnakeScene extends Phaser.Scene {
     return text;
   }
 
+  private ensureVillageResidentSpeechText(index: number): Phaser.GameObjects.Text {
+    let text = this.villageResidentSpeechTexts[index];
+    if (text) {
+      return text;
+    }
+    text = this.add
+      .text(0, 0, '', {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: `${Math.max(6, Math.floor(this.grid.cell * 0.15))}px`,
+        color: '#f8fff2',
+        backgroundColor: 'rgba(18, 18, 24, 0.78)',
+        padding: { x: 4, y: 3 },
+        align: 'center',
+        wordWrap: { width: Math.max(90, this.grid.cell * 3.8), useAdvancedWrap: true },
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(31)
+      .setVisible(false);
+    this.villageResidentSpeechTexts[index] = text;
+    return text;
+  }
+
+  private ensureVillageResidentActivityPropSprite(index: number): Phaser.GameObjects.Sprite {
+    let sprite = this.villageResidentActivityPropSprites[index];
+    if (sprite) {
+      return sprite;
+    }
+    const textures = this.runtimeSpriteFactory.ensureRecipe(
+      actorActivityPropRecipe,
+      Math.max(8, Math.floor(this.grid.cell * 0.5)),
+      this.actorActivityPropPalette(),
+    );
+    sprite = this.add.sprite(0, 0, textures.sword).setDepth(29).setVisible(false);
+    this.villageResidentActivityPropSprites[index] = sprite;
+    return sprite;
+  }
+
   private getDefaultNpcTextures(size: number): Record<'idle' | 'blink', string> {
     const palette: QuestGiverSpritePalette = {
       robeColor: '#2f7f5f',
@@ -22332,7 +22384,13 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const encounter = this.snakeGame.getFlag<
-      WandererEncounter & { roomId: string; x: number; y: number; statsNote: string }
+      WandererEncounter & {
+        roomId: string;
+        x: number;
+        y: number;
+        statsNote: string;
+        actorId?: string;
+      }
     >('npc.randomEncounter');
     if (!encounter || encounter.roomId !== this.currentRoomId || this.questPopup.isVisible()) {
       this.wandererSprite.setVisible(false);
@@ -22369,9 +22427,15 @@ export default class SnakeScene extends Phaser.Scene {
     );
     const nowMs = Number(this.getFlag<number>('timeMs') ?? triggerAtMs);
     const head = this.snakeGame.getSnakeBody()[0];
-    let renderLocal = { x: encounter.x, y: encounter.y };
+    const actor = encounter.actorId
+      ? this.snakeGame.getActorSystem().getActor(encounter.actorId)
+      : undefined;
+    let renderLocal =
+      actor?.presence?.roomId === this.currentRoomId && actor.presence.materialized
+        ? { ...actor.presence.position }
+        : { x: encounter.x, y: encounter.y };
     let flipX = false;
-    if (head && triggerAtMs > revealAtMs) {
+    if (!actor?.presence?.materialized && head && triggerAtMs > revealAtMs) {
       const [roomX, roomY] = this.parseRoomCoordinates(this.currentRoomId);
       const headLocal = {
         x: head.x - roomX * this.grid.cols,
@@ -22401,6 +22465,8 @@ export default class SnakeScene extends Phaser.Scene {
   private updateVillageResidentSprites(): void {
     this.villageResidentSprites.forEach((sprite) => sprite.setVisible(false));
     this.villageResidentIndicatorTexts.forEach((text) => text.setVisible(false));
+    this.villageResidentSpeechTexts.forEach((text) => text.setVisible(false));
+    this.villageResidentActivityPropSprites.forEach((sprite) => sprite.setVisible(false));
     if (!this.snakeGame) {
       return;
     }
@@ -22426,6 +22492,8 @@ export default class SnakeScene extends Phaser.Scene {
     residents.forEach((resident, index) => {
       const sprite = this.ensureVillageResidentSprite(index);
       const indicator = this.ensureVillageResidentIndicatorText(index);
+      const speechText = this.ensureVillageResidentSpeechText(index);
+      const activityPropSprite = this.ensureVillageResidentActivityPropSprite(index);
       const isGoblin = room.goblinCamp
         ? goblinResidents.some((goblin) => goblin.id === resident.id)
         : false;
@@ -22481,6 +22549,7 @@ export default class SnakeScene extends Phaser.Scene {
       ) {
         sprite.setVisible(false);
         indicator.setVisible(false);
+        speechText.setVisible(false);
         return;
       }
       const palette = isGoblin
@@ -22513,11 +22582,42 @@ export default class SnakeScene extends Phaser.Scene {
       const actorMenu = relationshipProfile.actorId
         ? this.snakeGame.getActorInteractionMenu(relationshipProfile.actorId)
         : null;
+      const actor = relationshipProfile.actorId
+        ? this.snakeGame.getActorSystem().getActor(relationshipProfile.actorId)
+        : undefined;
+      const activityProp = actor ? getActorActivityProp(actor) : null;
       const glyphs = actorMenu?.indicators.map((entry) => entry.glyph).join(' ');
       indicator
         .setText(glyphs ?? '')
         .setPosition(world.x, world.y - this.grid.cell * 0.58 + bobOffset)
         .setVisible(Boolean(glyphs));
+      const speech = actor?.speech;
+      const roomNumber = Number(this.snakeGame.getFlag<number>('roomsVisited') ?? 0);
+      const speechVisible = Boolean(
+        speech?.text && (!speech.expiresAtRoomNumber || speech.expiresAtRoomNumber >= roomNumber),
+      );
+      speechText
+        .setText(speechVisible ? speech!.text : '')
+        .setPosition(world.x, world.y - this.grid.cell * 0.78 + bobOffset)
+        .setVisible(speechVisible);
+      if (activityProp) {
+        const propSize = Math.max(8, Math.floor(this.grid.cell * activityProp.maxTileWidth));
+        const propTextures = this.runtimeSpriteFactory.ensureRecipe(
+          actorActivityPropRecipe,
+          propSize,
+          this.actorActivityPropPalette(),
+        );
+        activityPropSprite
+          .setTexture(propTextures[activityProp.kind])
+          .setPosition(world.x + this.grid.cell * 0.28, world.y + this.grid.cell * 0.24 + bobOffset)
+          .setDisplaySize(
+            propSize,
+            Math.max(8, Math.floor(this.grid.cell * activityProp.maxTileHeight)),
+          )
+          .setVisible(true);
+      } else {
+        activityPropSprite.setVisible(false);
+      }
       if (sprite.anims.currentAnim?.key !== animKey) {
         sprite.play(animKey);
       }
@@ -22532,6 +22632,16 @@ export default class SnakeScene extends Phaser.Scene {
         );
       }
     });
+  }
+
+  private actorActivityPropPalette(): ActorActivityPropPalette {
+    return {
+      outlineColor: '#1b1024',
+      metalColor: '#f0f6ff',
+      leatherColor: '#8a5638',
+      clothColor: '#4f7fb8',
+      accentColor: '#ffd166',
+    };
   }
 
   private tickVillageJuice(): void {

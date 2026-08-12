@@ -1,5 +1,12 @@
 import { AnimalRegistry } from '../animals/animalRegistry.js';
-import type { Actor, ActorPromotionReason, ActorSaveData } from './actorTypes.js';
+import type {
+  Actor,
+  ActorActivity,
+  ActorGoal,
+  ActorPresence,
+  ActorPromotionReason,
+  ActorSaveData,
+} from './actorTypes.js';
 import type {
   EnsureAnimalActorArgs,
   EnsureEnemyActorArgs,
@@ -80,6 +87,39 @@ export class ActorRegistry {
 
   getByFaction(factionId: string): Actor[] {
     return this.getAll().filter((actor) => actor.factionId === factionId);
+  }
+
+  setPresence(actorId: string, presence: ActorPresence): Actor | undefined {
+    return this.update(actorId, (actor) => ({
+      ...actor,
+      currentRoomId: presence.roomId,
+      presence,
+    }));
+  }
+
+  setGoal(actorId: string, goal: ActorGoal, interrupt = false): Actor | undefined {
+    return this.update(actorId, (actor) => ({
+      ...actor,
+      goal,
+      goalStack:
+        interrupt && actor.goal ? [...(actor.goalStack ?? []), actor.goal] : actor.goalStack,
+    }));
+  }
+
+  resumeInterruptedGoal(actorId: string): Actor | undefined {
+    return this.update(actorId, (actor) => {
+      const stack = actor.goalStack ?? [];
+      const goal = stack[stack.length - 1] ?? actor.goal;
+      return {
+        ...actor,
+        goal,
+        goalStack: stack.slice(0, -1),
+      };
+    });
+  }
+
+  setActivity(actorId: string, activity: ActorActivity): Actor | undefined {
+    return this.update(actorId, (actor) => ({ ...actor, activity }));
   }
 
   getKnownActors(): Actor[] {
@@ -230,6 +270,12 @@ function mergeActor(existing: Actor, incoming: Actor): Actor {
       : incomingHostile
         ? incoming.hostility
         : (existing.hostility ?? incoming.hostility),
+    currentRoomId: existing.currentRoomId ?? incoming.currentRoomId,
+    presence: existing.presence,
+    goal: existing.goal ?? incoming.goal,
+    goalStack: existing.goalStack ?? incoming.goalStack,
+    activity: existing.activity ?? incoming.activity,
+    speech: existing.speech ?? incoming.speech,
     soul: existing.soul ?? incoming.soul,
     lore: existing.lore ?? incoming.lore,
     flags: { ...incoming.flags, ...existing.flags },

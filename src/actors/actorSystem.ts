@@ -1,5 +1,6 @@
 import { AnimalRegistry } from '../animals/animalRegistry.js';
 import type { AnimalInstance } from '../animals/types.js';
+import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
 import type {
   CreateWorldEventInput,
   WorldEvent,
@@ -29,7 +30,17 @@ import {
   actorIdForEnemy,
   actorIdForRelationship,
   actorIdForTownResident,
+  actorIdForWanderer,
 } from './actorFactory.js';
+import {
+  selectActorEnvironmentReaction,
+  type ActorEnvironmentContext,
+} from './actorEnvironment.js';
+import {
+  advanceOffscreenActorTravel,
+  findFactionConflictGoals,
+  selectScheduleGoal,
+} from './actorPresence.js';
 
 export interface ActorSystemSaveData {
   actors: ActorSaveData;
@@ -43,6 +54,11 @@ export interface ActorSystemSyncContext {
   relationships?: readonly RelationshipState[];
   relationshipCandidates?: readonly RelationshipCandidateProfile[];
   roomNumber?: number;
+}
+
+export interface ActorScheduleUpdateContext {
+  roomNumber: number;
+  atmosphere?: ResolvedAtmosphereView;
 }
 
 export class ActorSystem {
@@ -193,7 +209,7 @@ export class ActorSystem {
         townId: town.id,
         currentRoomId: roomId,
         homeRoomId: resident.homeRoomId,
-        workRoomId: resident.workRoomId,
+        workRoomId: interiorWorkRoomIdForResident(town, resident.id) ?? resident.workRoomId,
         portraitId: resident.portraitId,
         createdAtRoomNumber: roomNumber,
       }),
@@ -243,6 +259,106 @@ export class ActorSystem {
     return this.registry.get(actorId);
   }
 
+  applyScheduleGoals(context: number | ActorScheduleUpdateContext): void {
+    const updateContext = typeof context === 'number' ? { roomNumber: context } : context;
+    for (const actor of this.registry.getAll()) {
+      if (actor.health?.state === 'dead' || actor.hostility === 'dead') {
+        continue;
+      }
+      const goal = selectScheduleGoal(actor, {
+        roomNumber: updateContext.roomNumber,
+        dayPhase: updateContext.atmosphere?.state.dayPhase,
+      });
+      const currentPriority = actor.goal?.priority ?? 0;
+      if (
+        !actor.goal ||
+        goal.priority >= currentPriority ||
+        actor.goal.reason?.includes('schedule')
+      ) {
+        this.registry.setGoal(actor.id, goal);
+      }
+    }
+    if (updateContext.atmosphere) {
+      this.applyEnvironmentReactions({
+        roomNumber: updateContext.roomNumber,
+        atmosphere: updateContext.atmosphere.state,
+        sheltered: updateContext.atmosphere.sheltered,
+        effects: updateContext.atmosphere.effects,
+      });
+    }
+  }
+
+  private applyEnvironmentReactions(context: ActorEnvironmentContext): void {
+    for (const actor of this.registry.getAll()) {
+      const reaction = selectActorEnvironmentReaction(actor, context);
+      if (!reaction) {
+        continue;
+      }
+      const applyDeltas = actor.flags.lastEnvironmentReactionKey !== reaction.environmentKey;
+      const currentPriority = actor.goal?.priority ?? 0;
+      const nextGoal =
+        reaction.goal &&
+        (reaction.goal.priority >= currentPriority ||
+          actor.goal?.reason?.includes('schedule') ||
+          actor.goal?.reason?.includes('shelter'))
+          ? reaction.goal
+          : actor.goal;
+      this.registry.update(actor.id, (current) => ({
+        ...current,
+        goal: nextGoal,
+        activity: reaction.activity ?? current.activity,
+        speech: reaction.speech ?? current.speech,
+        mood: {
+          ...current.mood,
+          fear: shift(current.mood.fear, applyDeltas ? (reaction.moodDelta?.fear ?? 0) : 0),
+          stress: shift(current.mood.stress, applyDeltas ? (reaction.moodDelta?.stress ?? 0) : 0),
+          curiosity: shift(
+            current.mood.curiosity,
+            applyDeltas ? (reaction.moodDelta?.curiosity ?? 0) : 0,
+          ),
+          hunger: shift(current.mood.hunger, applyDeltas ? (reaction.moodDelta?.hunger ?? 0) : 0),
+        },
+        needs: {
+          ...current.needs,
+          safety: shift(current.needs.safety, applyDeltas ? (reaction.needsDelta?.safety ?? 0) : 0),
+          rest: shift(current.needs.rest, applyDeltas ? (reaction.needsDelta?.rest ?? 0) : 0),
+          social: shift(current.needs.social, applyDeltas ? (reaction.needsDelta?.social ?? 0) : 0),
+          duty: shift(current.needs.duty, applyDeltas ? (reaction.needsDelta?.duty ?? 0) : 0),
+        },
+        flags: {
+          ...current.flags,
+          lastEnvironmentReactionKey: reaction.environmentKey,
+        },
+      }));
+    }
+  }
+
+  advanceOffscreenTravel(loadedRoomId: string, roomNumber: number): void {
+    for (const actor of this.registry.getAll()) {
+      const traveled = advanceOffscreenActorTravel({ actor, loadedRoomId, roomNumber });
+      if (traveled) {
+        this.registry.update(actor.id, () => traveled);
+      }
+    }
+  }
+
+  resolveFactionConflicts(roomId: string): void {
+    const updates = findFactionConflictGoals(this.getActorsInRoom(roomId));
+    for (const update of updates) {
+      this.registry.update(update.actorId, (actor) => ({
+        ...actor,
+        hostility: actor.hostility === 'dead' ? 'dead' : 'hostile',
+        goal: update.goal,
+        activity: update.activity,
+        mood: {
+          ...actor.mood,
+          anger: Math.min(100, actor.mood.anger + 18),
+          stress: Math.min(100, actor.mood.stress + 8),
+        },
+      }));
+    }
+  }
+
   emitWorldEvent(input: CreateWorldEventInput): WorldEvent {
     const witnessActorIds =
       input.witnessActorIds ??
@@ -273,6 +389,10 @@ export class ActorSystem {
 
   getStableRelationshipActorId(relationshipId: string): string {
     return actorIdForRelationship(relationshipId);
+  }
+
+  getStableWandererActorId(encounterId: string): string {
+    return actorIdForWanderer(encounterId);
   }
 
   toSaveData(): ActorSystemSaveData {
@@ -369,6 +489,16 @@ function socialRelationshipFor(actorId: string, targetId: string): ActorSocialLi
   if (roll === 1) return 'rival';
   if (roll === 2) return 'creditor';
   return 'friend';
+}
+
+function interiorWorkRoomIdForResident(
+  town: TownStructure,
+  residentId: string,
+): string | undefined {
+  const building = (town.buildings ?? []).find(
+    (entry) => entry.enterable && entry.templateId && entry.ownerResidentId === residentId,
+  );
+  return building?.templateId ? `layer:townInterior:${town.id}:${building.templateId}` : undefined;
 }
 
 function applyEventConsequences(

@@ -108,6 +108,12 @@ export function createBaseActor(args: {
     health: args.health,
     combat: args.combat,
     hostility: args.hostility,
+    goal: { kind: 'wander', priority: 1, roomId: args.currentRoomId, reason: 'created' },
+    activity: {
+      kind: args.hostility === 'dead' ? 'dead' : 'idle',
+      source: 'system',
+      startedAtRoomNumber: args.createdAtRoomNumber,
+    },
     soul: createSoulProfile(args.id, args.role, args.species, personality),
     lore: createLoreProfile(args.id, args.role, args.species, args.townId),
     brainId: args.brainId,

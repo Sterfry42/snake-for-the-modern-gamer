@@ -28,7 +28,14 @@ interface SnakeGamePrivate {
   };
   npcBodies: Map<
     string,
-    { position: Vector2Like; anchor: Vector2Like; wanderRadius: number; moveCooldown: number }
+    {
+      actorId?: string;
+      roomId: string;
+      position: Vector2Like;
+      anchor: Vector2Like;
+      wanderRadius: number;
+      moveCooldown: number;
+    }
   >;
   calculateAppleLengthScoreMultiplier(): number;
   applyLengthScoreMultiplier(baseScore: number, multiplier: number): number;
@@ -813,6 +820,62 @@ describe('actor conversations', () => {
 });
 
 describe('actor room brains', () => {
+  it('materializes active wanderer encounters as actor-owned bodies that seek the player', () => {
+    const game = createGame();
+    const room = game.getCurrentRoom();
+    room.layout = Array.from({ length: defaultGameConfig.grid.rows }, () =>
+      '.'.repeat(defaultGameConfig.grid.cols),
+    );
+    const actorId = game.getActorSystem().getStableWandererActorId('road-scribe');
+    game.getActorSystem().registry.ensureWandererActor({
+      actorId,
+      encounterId: 'road-scribe',
+      displayName: 'Road Scribe',
+      roomId: room.id,
+      portraitId: 'sage-1',
+      createdAtRoomNumber: 1,
+    });
+    game.getActorSystem().registry.setGoal(actorId, {
+      kind: 'seekPlayer',
+      priority: 55,
+      roomId: room.id,
+      targetPosition: { x: 1, y: 1 },
+      reason: 'wanderer-encounter',
+    });
+    game.setFlag('npc.randomEncounter', {
+      id: 'road-scribe',
+      kind: 'flavor',
+      name: 'Road Scribe',
+      pages: ['A road scribe waves you over.'],
+      roomId: room.id,
+      x: 10,
+      y: 10,
+      statsNote: 'Wanderer',
+      actorId,
+      portraitId: 'sage-1',
+    });
+
+    (game as unknown as SnakeGamePrivate).syncActorsForRoom(room);
+    const body = (game as unknown as SnakeGamePrivate).npcBodies.get('wanderer:road-scribe');
+
+    expect(body?.actorId).toBe(actorId);
+    expect(game.getActorSystem().getActor(actorId)?.presence).toMatchObject({
+      roomId: room.id,
+      materialized: true,
+      position: { x: 10, y: 10 },
+    });
+
+    const before = { ...body!.position };
+    body!.moveCooldown = 0;
+    (game as unknown as SnakeGamePrivate).tickNpcBodies(room);
+
+    const after = (game as unknown as SnakeGamePrivate).npcBodies.get('wanderer:road-scribe');
+    const updatedActor = game.getActorSystem().getActor(actorId);
+    expect(after).toBeDefined();
+    expect(after!.position).not.toEqual(before);
+    expect(updatedActor?.activity?.kind).toBe('walking');
+  });
+
   it('moves threatened civilians away from active room danger', () => {
     const game = createGame();
     const room = game.getCurrentRoom();
