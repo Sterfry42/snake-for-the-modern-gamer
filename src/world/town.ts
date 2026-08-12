@@ -13,7 +13,11 @@ import {
 } from '../layers/layerTypes.js';
 import type { BiomeId } from './biomes.js';
 import { tileHasTag } from './tiles.js';
-import { selectPrimaryTownMerchant, shopKindForTownRole } from './townRoles.js';
+import {
+  selectPrimaryTownMerchant,
+  shopKindForTownRole,
+  type TownResidentRole,
+} from './townRoles.js';
 import type { RoomArea, RoomSnapshot } from './types.js';
 
 export type WantedLevel = 0 | 1 | 2 | 3 | 4 | 5;
@@ -238,20 +242,7 @@ export interface TownResident extends Omit<NpcProfile, 'role'> {
   actorId?: string;
   x: number;
   y: number;
-  role:
-    | 'shopkeeper'
-    | 'equipmentMerchant'
-    | 'potionMaker'
-    | 'butcher'
-    | 'cardDealer'
-    | 'bartender'
-    | 'physicalTrainer'
-    | 'guard'
-    | 'resident'
-    | 'thiefContact'
-    | 'thief'
-    | 'scribe'
-    | 'questGiver';
+  role: TownResidentRole;
   homeRoomId?: string;
   workRoomId?: string;
   townId: string;

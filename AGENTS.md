@@ -107,6 +107,12 @@ Historical wise old snake references from commit `41f279f3dc6fd88bab79419480dff3
 
 **NEVER use `@ts-expect-error` to work around TypeScript errors.** If you encounter a TypeScript error, fix the root cause — don't suppress it. Unused variables should be removed, not commented out.
 
+## Snake Encyclopedia
+
+Before implementing functionality, search `docs/core/Snake Encyclopedia.md` for existing reusable systems, helpers, UI surfaces, registries, and consolidation notes. Prefer targeted `rg` queries against that file instead of loading the whole encyclopedia into context.
+
+When you finish a reusable feature, helper, integration, or consolidation pass, update the encyclopedia with the canonical place to reuse it. If a consolidation target or candidate has been resolved in code, remove that resolved line from the encyclopedia's **Consolidation Targets** section and update the normal entry that now owns the behavior. Do not delete navigation hazard lines unless the underlying trap is actually gone.
+
 All agents working on this project **MUST** run the following **before considering a task complete**:
 
 - `npm run format` — fix any formatting issues and rerun until clean.

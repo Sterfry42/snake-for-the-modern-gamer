@@ -1,3 +1,21 @@
+export type TownResidentRole =
+  | 'resident'
+  | 'shopkeeper'
+  | 'equipmentMerchant'
+  | 'potionMaker'
+  | 'butcher'
+  | 'cardDealer'
+  | 'bartender'
+  | 'physicalTrainer'
+  | 'guard'
+  | 'gateGuard'
+  | 'thiefContact'
+  | 'thief'
+  | 'guildContact'
+  | 'blackMarketMerchant'
+  | 'scribe'
+  | 'questGiver';
+
 export type TownMerchantRole =
   | 'shopkeeper'
   | 'equipmentMerchant'
@@ -56,23 +74,42 @@ const TOWN_CRIMINAL_ROLES = new Set<string>([
   'blackMarketMerchant',
 ]);
 
-export function isTownMerchantRole(role: string): boolean {
+const TOWN_RESIDENT_ROLES = new Set<string>([
+  'resident',
+  ...TOWN_MERCHANT_ROLES,
+  'guard',
+  'gateGuard',
+  'thiefContact',
+  'thief',
+  'guildContact',
+  'blackMarketMerchant',
+  'scribe',
+  'questGiver',
+]);
+
+export function isTownResidentRole(role: string): role is TownResidentRole {
+  return TOWN_RESIDENT_ROLES.has(role);
+}
+
+export function isTownMerchantRole(role: string): role is TownMerchantRole {
   return TOWN_MERCHANT_ROLES.has(role);
 }
 
-export function isTownShopRole(role: string): boolean {
+export function isTownShopRole(role: string): role is TownMerchantRole | 'blackMarketMerchant' {
   return TOWN_SHOP_ROLES.has(role);
 }
 
-export function isStationaryTownRole(role: string): boolean {
+export function isStationaryTownRole(role: string): role is TownResidentRole {
   return STATIONARY_TOWN_ROLES.has(role);
 }
 
-export function isTownGuardRole(role: string): boolean {
+export function isTownGuardRole(role: string): role is 'guard' | 'gateGuard' {
   return TOWN_GUARD_ROLES.has(role);
 }
 
-export function isTownCriminalRole(role: string): boolean {
+export function isTownCriminalRole(
+  role: string,
+): role is 'thief' | 'thiefContact' | 'guildContact' | 'blackMarketMerchant' {
   return TOWN_CRIMINAL_ROLES.has(role);
 }
 

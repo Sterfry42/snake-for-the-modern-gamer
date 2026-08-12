@@ -39,6 +39,7 @@ function makeState(
     rejectedDates: overrides.rejectedDates ?? 0,
     ignoredEncounters: overrides.ignoredEncounters ?? 0,
     romanceOptIn: overrides.romanceOptIn ?? false,
+    personality: overrides.personality ?? 'deadpan',
     conflictStyle: overrides.conflictStyle ?? 'withdrawn',
     exclusivityPreference: overrides.exclusivityPreference ?? 'jealous',
     memories: overrides.memories ?? [],
@@ -181,5 +182,69 @@ describe('RelationshipController', () => {
       'hostility',
       'apology',
     ]);
+  });
+
+  it('returns structured outcome metadata for dating branches and gifts', () => {
+    const { flags, controller } = createRuntime();
+    flags['relationships.states'] = {
+      marta: makeState({
+        id: 'marta',
+        displayName: 'Marta',
+        stage: 'friendly',
+        affection: 40,
+        trust: 30,
+      }),
+    };
+
+    const branchResult = controller.applyBranchChoice(
+      'marta',
+      {
+        id: 'honest-answer',
+        label: 'Honest Answer',
+        line: 'Tell the truth.',
+        tags: ['honesty'],
+        targetTier: 'loved',
+        outcomeLines: { loved: 'Marta says, "Finally, the truth arrives dressed correctly."' },
+      },
+      12,
+      'talk',
+    );
+    expect(branchResult.outcome).toEqual({
+      tier: 'loved',
+      mood: 'happy',
+      summary: 'Marta says, "Finally, the truth arrives dressed correctly."',
+    });
+
+    const giftResult = controller.applyGift('marta', 'stale-bread', 'Stale Bread', ['ledger'], 13);
+    expect(giftResult.outcome).toEqual({ tier: 'neutral', mood: 'neutral' });
+  });
+
+  it('persists authored relationship personality as the runtime source of truth', () => {
+    const { flags, controller } = createRuntime();
+
+    const created = controller.ensureCandidate(
+      {
+        id: 'poetic-candidate',
+        displayName: 'Poet',
+        species: 'human',
+        personality: 'poetic',
+      },
+      4,
+    );
+    expect(created.personality).toBe('poetic');
+    expect(created.conflictStyle).toBe('heartbroken');
+    expect(created.exclusivityPreference).toBe('devotional');
+
+    flags['relationships.states'] = {
+      legacy: {
+        ...makeState({
+          id: 'legacy',
+          displayName: 'Legacy',
+          species: 'goblin',
+        }),
+        personality: undefined,
+      },
+    };
+    expect(controller.getState('legacy')?.personality).toBe('sharp');
   });
 });

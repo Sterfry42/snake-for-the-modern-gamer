@@ -1,11 +1,19 @@
 import type { AnimalDefinition, AnimalInstance } from '../animals/types.js';
 import type { EnemyInstance } from '../systems/enemies.js';
 import type { TownResident, TownStructure } from '../world/town.js';
-import { isTownCriminalRole, isTownGuardRole, isTownShopRole } from '../world/townRoles.js';
+import {
+  isTownCriminalRole,
+  isTownGuardRole,
+  isTownShopRole,
+  type TownResidentRole,
+} from '../world/townRoles.js';
 import type {
   RelationshipCandidateProfile,
+  RelationshipPersonality,
+  RelationshipSpecies,
   RelationshipState,
 } from '../relationships/relationshipTypes.js';
+import { stableStringHashPositive } from '../core/math.js';
 import type {
   Actor,
   ActorBrainId,
@@ -117,7 +125,7 @@ function createSoulProfile(
   if (species === 'animal' || species === 'beast' || species === 'shark' || role === 'boss') {
     return undefined;
   }
-  const seed = hashString(id);
+  const seed = stableStringHashPositive(id);
   const wounds = [
     'They once abandoned a friend at a gate and still count every hinge.',
     'They survived a winter by lying to someone kinder than them.',
@@ -175,7 +183,7 @@ function createLoreProfile(
   if (species === 'animal' || species === 'beast' || species === 'shark') {
     return undefined;
   }
-  const seed = hashString(id);
+  const seed = stableStringHashPositive(id);
   const kingOpinionOptions: NonNullable<ActorLoreProfile['kingOpinion']>[] = [
     'loyal',
     'afraid',
@@ -224,15 +232,11 @@ function pick<T>(items: readonly T[], seed: number): T {
   return items[Math.abs(seed) % items.length]!;
 }
 
-function hashString(value: string): number {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 31 + value.charCodeAt(index)) | 0;
-  }
-  return Math.abs(hash);
-}
-
-export function actorIdForTownResident(townId: string, residentId: string, role: string): string {
+export function actorIdForTownResident(
+  townId: string,
+  residentId: string,
+  role: TownResidentRole,
+): string {
   const actorRole =
     role === 'shopkeeper'
       ? 'shopkeeper'
@@ -441,6 +445,7 @@ export function createActorFromEnemyEntity(
 
 export function createActorFromRelationship(args: EnsureRelationshipActorArgs): Actor {
   const species = mapRelationshipSpecies(args.species);
+  const personality = relationshipPersonalityTags(args.personality);
   return createBaseActor({
     id: args.actorId ?? actorIdForRelationship(args.relationshipId),
     kind:
@@ -453,7 +458,7 @@ export function createActorFromRelationship(args: EnsureRelationshipActorArgs): 
     species,
     thickness: args.stage === 'married' || args.stage === 'lover' ? 'thick' : 'medium',
     displayName: args.displayName,
-    personality: ['romantic', 'sentimental'],
+    personality,
     factionId: args.factionId,
     currentRoomId: args.homeRoomId,
     homeRoomId: args.homeRoomId,
@@ -474,6 +479,7 @@ export function createActorFromRelationshipState(
     relationshipId: relationship.id,
     displayName: relationship.displayName,
     species: relationship.species,
+    personality: relationship.personality,
     factionId: relationship.factionId,
     homeRoomId: relationship.homeRoomId,
     portraitId: relationship.portraitId,
@@ -491,6 +497,7 @@ export function createActorFromRelationshipCandidate(
     relationshipId: profile.id,
     displayName: profile.displayName,
     species: profile.species,
+    personality: profile.personality,
     factionId: profile.factionId,
     homeRoomId: profile.homeRoomId,
     portraitId: profile.portraitId,
@@ -515,7 +522,7 @@ export function createActorFromWanderer(args: EnsureWandererActorArgs): Actor {
   });
 }
 
-function mapTownResidentRole(role: string): ActorRole {
+function mapTownResidentRole(role: TownResidentRole): ActorRole {
   switch (role) {
     case 'shopkeeper':
       return 'shopkeeper';
@@ -533,15 +540,20 @@ function mapTownResidentRole(role: string): ActorRole {
       return 'bartender';
     case 'guard':
       return 'guard';
+    case 'gateGuard':
+      return 'gateGuard';
     case 'questGiver':
       return 'questGiver';
     case 'thiefContact':
       return 'thiefContact';
+    case 'guildContact':
+      return 'guildContact';
+    case 'blackMarketMerchant':
+      return 'blackMarketMerchant';
     case 'thief':
       return 'thief';
     case 'scribe':
-      return 'resident';
-    default:
+    case 'resident':
       return 'resident';
   }
 }
@@ -597,7 +609,7 @@ function personalityForTownRole(role: ActorRole, species: ActorSpecies): ActorPe
   }
 }
 
-function mapRelationshipSpecies(species: string): ActorSpecies {
+function mapRelationshipSpecies(species: RelationshipSpecies): ActorSpecies {
   switch (species) {
     case 'goblin':
       return 'goblin';
@@ -605,9 +617,19 @@ function mapRelationshipSpecies(species: string): ActorSpecies {
       return 'angel';
     case 'goblin-angel':
       return 'goblinAngel';
+    case 'moleman':
+      return 'moleman';
     case 'human':
       return 'human';
-    default:
-      return 'unknown';
   }
+}
+
+function relationshipPersonalityTags(
+  personality: RelationshipPersonality | undefined,
+): ActorPersonalityTag[] {
+  const tags: ActorPersonalityTag[] = ['romantic', 'sentimental'];
+  if (personality && !tags.includes(personality)) {
+    tags.push(personality);
+  }
+  return tags;
 }

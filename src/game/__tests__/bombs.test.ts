@@ -61,13 +61,15 @@ describe('bombs', () => {
     expect(game.getBombs(game.getCurrentRoom().id)).toHaveLength(0);
   });
 
-  it('throws bombs diagonally with the slingshot and breaks walls in the blast radius', () => {
+  it('throws bombs diagonally with the slingshot and breaks destructible tiles in the blast radius', () => {
     const game = createGame();
     const room = game.getCurrentRoom();
     const head = game.getSnakeBody()[0]!;
     const landing = { x: head.x + 7, y: head.y + 7 };
+    const masonry = { x: landing.x + 1, y: landing.y };
     const rows = room.layout.map((row) => row.split(''));
     rows[landing.y]![landing.x] = '#';
+    rows[masonry.y]![masonry.x] = '%';
     room.layout = rows.map((row) => row.join(''));
     game.addItem('weapon-bomb-slingshot', 1);
     game.addItem('bomb', 1);
@@ -83,6 +85,7 @@ describe('bombs', () => {
     tickBombFuse(game);
 
     expect(room.layout[landing.y]?.[landing.x]).toBe('.');
+    expect(room.layout[masonry.y]?.[masonry.x]).toBe('.');
   });
 
   it('deals two hearts of damage to enemies caught in the explosion', () => {

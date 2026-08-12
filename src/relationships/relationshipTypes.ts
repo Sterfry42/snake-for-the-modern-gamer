@@ -73,6 +73,12 @@ export type RelationshipTag =
 
 export type RelationshipOutcomeTier = 'loved' | 'liked' | 'neutral' | 'disliked' | 'hated';
 
+export interface RelationshipEventOutcome {
+  tier?: RelationshipOutcomeTier;
+  mood?: 'happy' | 'neutral' | 'sad' | 'angry';
+  summary?: string;
+}
+
 export type ConflictStyle =
   | 'heartbroken'
   | 'withdrawn'
@@ -213,6 +219,7 @@ export interface RelationshipState {
   rejectedDates: number;
   ignoredEncounters: number;
   romanceOptIn: boolean;
+  personality: RelationshipPersonality;
   conflictStyle: ConflictStyle;
   exclusivityPreference: ExclusivityPreference;
   memories: RelationshipMemory[];
@@ -234,7 +241,7 @@ export interface DatingCandidateView {
   fascination: number;
   lastSeenRoomsAgo: number;
   likes: string[];
-  personality?: string;
+  personality?: RelationshipPersonality;
   personalityDescription?: string;
   warning?: string;
   memories?: RelationshipMemory[];
@@ -246,6 +253,7 @@ export interface RelationshipEventResult {
   title: string;
   message: string;
   color: string;
+  outcome?: RelationshipEventOutcome;
   state?: RelationshipState;
   rewardItemId?: string;
   rewardScore?: number;
