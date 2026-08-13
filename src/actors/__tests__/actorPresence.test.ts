@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { createBaseActor } from '../actorFactory.js';
 import { getActorActivityProp } from '../actorActivityProps.js';
-import { selectActorEnvironmentReaction } from '../actorEnvironment.js';
+import { selectActorEnvironmentReaction, selectActorRadiantBark } from '../actorEnvironment.js';
+import { findActorGridPath } from '../actorNavigation.js';
+import { decideActorBrain } from '../actorBrains.js';
 import {
   ActorOccupancyResolver,
   actorExitTargetForRoom,
@@ -13,6 +15,7 @@ import {
   inferActorActivity,
   selectScheduleGoal,
 } from '../actorPresence.js';
+import { ActorRegistry } from '../actorRegistry.js';
 import type { Actor } from '../actorTypes.js';
 import type { AtmosphereState } from '../../world/atmosphereTypes.js';
 import type { RoomSnapshot } from '../../world/types.js';
@@ -95,7 +98,7 @@ describe('actor presence simulation', () => {
     });
   });
 
-  it('reacts to exposed storm weather by sheltering civilians and warning through speech', () => {
+  it('reacts to exposed storm weather by sheltering civilians without forcing mass speech', () => {
     const resident = actor('actor:resident', 'hearthbound-remnant');
     resident.homeRoomId = 'home-room';
 
@@ -112,7 +115,7 @@ describe('actor presence simulation', () => {
       reason: 'storm-shelter',
     });
     expect(reaction?.activity?.kind).toBe('sheltering');
-    expect(reaction?.speech?.text).toBe('I am getting under a roof.');
+    expect(reaction?.speech).toBeUndefined();
   });
 
   it('reacts to night differently for guards than ordinary residents', () => {
@@ -129,6 +132,105 @@ describe('actor presence simulation', () => {
 
     expect(selectActorEnvironmentReaction(guard, context)?.needsDelta?.duty).toBeGreaterThan(0);
     expect(selectActorEnvironmentReaction(resident, context)?.needsDelta?.rest).toBeGreaterThan(0);
+  });
+
+  it('selects radiant barks separately from direct environment reactions', () => {
+    const resident = actor('actor:barker', 'hearthbound-remnant');
+    resident.flags.radiantBarkChance = 1;
+
+    const bark = selectActorRadiantBark(resident, {
+      roomNumber: 12,
+      atmosphere: atmosphere({ dayPhase: 'dawn', globalWeather: 'clear' }),
+      nowMs: 500,
+      random: () => 0,
+    });
+
+    expect(bark).toMatchObject({
+      category: 'ambient',
+      text: 'Dawn makes everybody look innocent.',
+      createdAtMs: 500,
+    });
+    expect(bark?.expiresAtMs).toBeGreaterThan(2_000);
+  });
+
+  it('queries materialized room membership from actor presence rather than authored room', () => {
+    const registry = new ActorRegistry();
+    const resident = actor('actor:alice', 'hearthbound-remnant');
+    resident.currentRoomId = 'market-square';
+    resident.presence = createActorPresence({
+      roomId: 'back-alley',
+      position: { x: 4, y: 5 },
+    });
+
+    registry.upsert(resident);
+
+    expect(registry.getByRoom('market-square')).toEqual([]);
+    expect(registry.getByRoom('back-alley').map((entry) => entry.id)).toEqual(['actor:alice']);
+  });
+
+  it('lets stationary actors choose adjacent bonded social behavior instead of holding early', () => {
+    const guard = actor('actor:guard', 'hearthbound-remnant');
+    guard.role = 'gateGuard';
+    guard.relationships = [{ actorId: 'actor:sibling', relationship: 'family', strength: 90 }];
+    const decision = decideActorBrain({
+      actor: guard,
+      body: {
+        relationshipId: 'guard',
+        actorId: guard.id,
+        position: { x: 5, y: 5 },
+        anchor: { x: 5, y: 5 },
+        stationary: true,
+        wanderRadius: 0,
+      },
+      threats: [],
+      socialTargets: [
+        {
+          actorId: 'actor:sibling',
+          position: { x: 6, y: 5 },
+          relationship: 'family',
+          strength: 90,
+        },
+      ],
+      random: () => 0,
+    });
+
+    expect(decision.kind).toBe('approachSocialLink');
+    expect(decision.preferredDirections).toEqual([{ x: 0, y: 0 }]);
+  });
+
+  it('keeps permanent-duty guards assigned to their post at night', () => {
+    const guard = actor('actor:gate', 'hearthbound-remnant');
+    guard.role = 'gateGuard';
+    guard.schedule = {
+      permanentDuty: true,
+      fixedPostRoomId: 'gate-room',
+      fixedPostPosition: { x: 2, y: 8 },
+    };
+
+    expect(selectScheduleGoal(guard, { roomNumber: 23, dayPhase: 'night' })).toMatchObject({
+      kind: 'defendArea',
+      roomId: 'gate-room',
+      targetPosition: { x: 2, y: 8 },
+      reason: 'permanent-duty-schedule',
+    });
+  });
+
+  it('finds a reusable grid path around blocking tiles', () => {
+    const blocked = new Set(['1,0', '1,1']);
+    const path = findActorGridPath({
+      start: { x: 0, y: 0 },
+      goals: [{ x: 2, y: 0 }],
+      canStandAt: (position) =>
+        position.x >= 0 &&
+        position.y >= 0 &&
+        position.x <= 3 &&
+        position.y <= 3 &&
+        !blocked.has(`${position.x},${position.y}`),
+    });
+
+    expect(path?.path[path.path.length - 1]).toEqual({ x: 2, y: 0 });
+    expect(path?.path.some((position) => blocked.has(`${position.x},${position.y}`))).toBe(false);
+    expect(path!.path.length).toBeGreaterThan(3);
   });
 
   it('selects real activity props from canonical actor activity', () => {

@@ -215,6 +215,9 @@ export interface ActorSchedule {
   workRoomId?: string;
   sleepRoomId?: string;
   patrolRoomIds?: string[];
+  fixedPostRoomId?: string;
+  fixedPostPosition?: { x: number; y: number };
+  permanentDuty?: boolean;
 }
 
 export type ActorActivityKind =
@@ -273,9 +276,12 @@ export interface ActorPresence {
 
 export interface ActorSpeechBubble {
   text: string;
+  category?: 'ambient' | 'reactive' | 'social';
   targetActorId?: string;
   createdAtRoomNumber?: number;
   expiresAtRoomNumber?: number;
+  createdAtMs?: number;
+  expiresAtMs?: number;
 }
 
 export type ActorSoulRevealKey =
@@ -383,6 +389,7 @@ export interface EnsureTownResidentActorArgs {
   currentRoomId?: string;
   homeRoomId?: string;
   workRoomId?: string;
+  postPosition?: { x: number; y: number };
   portraitId?: string;
   createdAtRoomNumber?: number;
 }

@@ -80,6 +80,7 @@ export function createBaseActor(args: {
   health?: Actor['health'];
   combat?: ActorCombatProfile;
   hostility?: Actor['hostility'];
+  schedule?: Actor['schedule'];
   brainId?: ActorBrainId;
   flags?: Record<string, unknown>;
   createdAtRoomNumber?: number;
@@ -116,6 +117,7 @@ export function createBaseActor(args: {
     },
     soul: createSoulProfile(args.id, args.role, args.species, personality),
     lore: createLoreProfile(args.id, args.role, args.species, args.townId),
+    schedule: args.schedule,
     brainId: args.brainId,
     flags: args.flags ?? {},
     createdAtRoomNumber: args.createdAtRoomNumber,
@@ -311,6 +313,15 @@ export function createActorFromTownResident(args: EnsureTownResidentActorArgs): 
     },
     hostility: 'neutral',
     brainId: brainForRole(role),
+    schedule:
+      role === 'gateGuard' || role === 'guard'
+        ? {
+            fixedPostRoomId: args.workRoomId ?? args.currentRoomId,
+            fixedPostPosition: args.postPosition ? { ...args.postPosition } : undefined,
+            patrolRoomIds: args.workRoomId ? [args.workRoomId] : undefined,
+            permanentDuty: role === 'gateGuard',
+          }
+        : undefined,
     flags: { source: 'townResident', residentId: args.residentId },
     createdAtRoomNumber: args.createdAtRoomNumber,
   });

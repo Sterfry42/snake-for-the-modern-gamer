@@ -1951,7 +1951,6 @@ export default class SnakeScene extends Phaser.Scene {
   private performanceHud: Phaser.GameObjects.Text | null = null;
   private questGiverSprite!: Phaser.GameObjects.Sprite;
   private starforgedEnvoySprite: Phaser.GameObjects.Sprite | null = null;
-  private wandererSprite!: Phaser.GameObjects.Sprite;
   private archaeologySession: MolemanArchaeologySession | null = null;
   private archaeologyOverlay: Phaser.GameObjects.Container | null = null;
   private archaeologyBoardGraphics: Phaser.GameObjects.Graphics | null = null;
@@ -2029,7 +2028,6 @@ export default class SnakeScene extends Phaser.Scene {
   };
   private pendingFlags: Record<string, unknown> = {};
   private readonly flagsProxy: Record<string, unknown>;
-  private activeWandererTextureKey: string | null = null;
   private lastVisibleLifeCharges = 0;
   private lastJuicedScore = 0;
   private lastJuicedLength = 0;
@@ -2464,7 +2462,6 @@ export default class SnakeScene extends Phaser.Scene {
       .setVisible(false);
 
     this.initQuestGiverSprite();
-    this.initWandererSprite();
 
     // Initialize fishing registry and minigame
     this.fishingRegistry = new FishingRegistry({
@@ -10023,7 +10020,6 @@ export default class SnakeScene extends Phaser.Scene {
       this.minimapRenderer?.setVisible(false);
       this.drowningOverlay?.setVisible(false);
       this.questGiverSprite?.setVisible(false);
-      this.wandererSprite?.setVisible(false);
       this.villageResidentSprites.forEach((sprite) => sprite.setVisible(false));
       this.villageResidentIndicatorTexts.forEach((text) => text.setVisible(false));
       this.villageResidentSpeechTexts.forEach((text) => text.setVisible(false));
@@ -10045,7 +10041,6 @@ export default class SnakeScene extends Phaser.Scene {
     }
     this.updateSimulation(delta);
     this.updatePerformanceHud(delta);
-    this.updateWandererSprite();
     this.updateVillageResidentSprites();
     this.tickVillageJuice();
     this.tickBiomeHazardJuice();
@@ -22118,17 +22113,29 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.snakeGame.getFlag<boolean>('npc.randomEncounter.prompted')) {
       return;
     }
-    const triggerAtMs = Number(
-      this.snakeGame.getFlag<number>('npc.randomEncounter.triggerAtMs') ?? 0,
-    );
-    const nowMs = Number(this.getFlag<number>('timeMs') ?? 0);
-    if (nowMs < triggerAtMs) {
+    const actor = encounter.actorId
+      ? this.snakeGame.getActorSystem().getActor(encounter.actorId)
+      : undefined;
+    const head = this.snakeGame.getSnakeBody()[0];
+    if (!actor?.presence || actor.presence.roomId !== this.currentRoomId || !head) {
+      return;
+    }
+    const [roomX, roomY] = this.parseRoomCoordinates(this.currentRoomId);
+    const headLocal = {
+      x: head.x - roomX * this.grid.cols,
+      y: head.y - roomY * this.grid.rows,
+    };
+    if (
+      Math.abs(actor.presence.position.x - headLocal.x) +
+        Math.abs(actor.presence.position.y - headLocal.y) >
+      1
+    ) {
       return;
     }
     this.snakeGame.setFlag('npc.randomEncounter.prompted', true);
     this.juice.wandererApproach(
-      this.tileToWorldInRoom({ x: encounter.x, y: encounter.y }, encounter.roomId).x,
-      this.tileToWorldInRoom({ x: encounter.x, y: encounter.y }, encounter.roomId).y,
+      this.tileToWorldInRoom(actor.presence.position, encounter.roomId).x,
+      this.tileToWorldInRoom(actor.presence.position, encounter.roomId).y,
     );
     this.showQuestDialogue(
       encounter.name,
@@ -22136,10 +22143,7 @@ export default class SnakeScene extends Phaser.Scene {
       {
         onAccept: () => {
           const result = this.snakeGame.resolveRandomEncounter(true);
-          const world = this.tileToWorldInRoom(
-            { x: encounter.x, y: encounter.y },
-            encounter.roomId,
-          );
+          const world = this.tileToWorldInRoom(actor.presence!.position, encounter.roomId);
           if (result.kind === 'duel' && result.accepted) {
             this.juice.duelAccepted(world.x, world.y);
           }
@@ -22197,11 +22201,6 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.questGiverSprite = this.add.sprite(0, 0, textures.idle).setDepth(25).setVisible(false);
     this.questGiverSprite.play('quest-giver-idle');
-  }
-
-  private initWandererSprite(): void {
-    const textures = this.getDefaultNpcTextures(Math.max(19, Math.floor(this.grid.cell * 0.98)));
-    this.wandererSprite = this.add.sprite(0, 0, textures.idle).setDepth(25).setVisible(false);
   }
 
   private ensureVillageResidentSprite(index: number): Phaser.GameObjects.Sprite {
@@ -22379,89 +22378,6 @@ export default class SnakeScene extends Phaser.Scene {
       .setVisible(true);
   }
 
-  private updateWandererSprite(): void {
-    if (!this.wandererSprite || !this.snakeGame) {
-      return;
-    }
-    const encounter = this.snakeGame.getFlag<
-      WandererEncounter & {
-        roomId: string;
-        x: number;
-        y: number;
-        statsNote: string;
-        actorId?: string;
-      }
-    >('npc.randomEncounter');
-    if (!encounter || encounter.roomId !== this.currentRoomId || this.questPopup.isVisible()) {
-      this.wandererSprite.setVisible(false);
-      return;
-    }
-    const palette = this.paletteForEncounter(encounter.id);
-    const textures = this.runtimeSpriteFactory.ensureRecipe(
-      questGiverSpriteRecipe,
-      Math.max(19, Math.floor(this.grid.cell * 0.98)),
-      palette,
-    );
-    const animKey = `wanderer-${encounter.id}-idle`;
-    if (!this.anims.exists(animKey)) {
-      this.anims.create({
-        key: animKey,
-        frames: [{ key: textures.idle }, { key: textures.blink }],
-        frameRate: 2,
-        repeat: -1,
-      });
-    }
-    const texture = textures.idle;
-    if (this.activeWandererTextureKey !== texture) {
-      this.wandererSprite.setTexture(texture);
-      this.activeWandererTextureKey = texture;
-    }
-    if (this.wandererSprite.anims.currentAnim?.key !== animKey) {
-      this.wandererSprite.play(animKey);
-    }
-    const revealAtMs = Number(
-      this.snakeGame.getFlag<number>('npc.randomEncounter.revealAtMs') ?? 0,
-    );
-    const triggerAtMs = Number(
-      this.snakeGame.getFlag<number>('npc.randomEncounter.triggerAtMs') ?? revealAtMs + 1,
-    );
-    const nowMs = Number(this.getFlag<number>('timeMs') ?? triggerAtMs);
-    const head = this.snakeGame.getSnakeBody()[0];
-    const actor = encounter.actorId
-      ? this.snakeGame.getActorSystem().getActor(encounter.actorId)
-      : undefined;
-    let renderLocal =
-      actor?.presence?.roomId === this.currentRoomId && actor.presence.materialized
-        ? { ...actor.presence.position }
-        : { x: encounter.x, y: encounter.y };
-    let flipX = false;
-    if (!actor?.presence?.materialized && head && triggerAtMs > revealAtMs) {
-      const [roomX, roomY] = this.parseRoomCoordinates(this.currentRoomId);
-      const headLocal = {
-        x: head.x - roomX * this.grid.cols,
-        y: head.y - roomY * this.grid.rows,
-      };
-      const progress = Phaser.Math.Clamp((nowMs - revealAtMs) / (triggerAtMs - revealAtMs), 0, 1);
-      const approach = Math.min(0.72, progress * 0.82);
-      renderLocal = {
-        x: Phaser.Math.Linear(encounter.x, headLocal.x, approach),
-        y: Phaser.Math.Linear(encounter.y, headLocal.y, approach),
-      };
-      if (Math.abs(headLocal.x - renderLocal.x) > 0.1) {
-        flipX = headLocal.x < renderLocal.x;
-      }
-    }
-    const world = this.tileToWorldLocalInRoom(renderLocal);
-    const bobOffset = Math.sin(this.time.now / 210) * 2.4;
-    this.wandererSprite
-      .setPosition(world.x, world.y - 3 + bobOffset)
-      .setFlipX(flipX)
-      .setVisible(true);
-    if (this.random() < 0.08) {
-      this.juice.wandererAura(world.x, world.y - 6, palette.trimColor);
-    }
-  }
-
   private updateVillageResidentSprites(): void {
     this.villageResidentSprites.forEach((sprite) => sprite.setVisible(false));
     this.villageResidentIndicatorTexts.forEach((text) => text.setVisible(false));
@@ -22476,6 +22392,39 @@ export default class SnakeScene extends Phaser.Scene {
       room.goblinCamp && goblinStanding !== 'violent'
         ? [room.goblinCamp.shopkeeper, ...room.goblinCamp.guards]
         : [];
+    const encounter = this.snakeGame.getFlag<
+      WandererEncounter & {
+        roomId: string;
+        id: string;
+        name: string;
+        x: number;
+        y: number;
+        actorId?: string;
+        portraitId?: string;
+        relationshipId?: string;
+      }
+    >('npc.randomEncounter');
+    const encounterActor = encounter?.actorId
+      ? this.snakeGame.getActorSystem().getActor(encounter.actorId)
+      : undefined;
+    const activeWanderer =
+      encounter &&
+      encounter.roomId === room.id &&
+      encounterActor?.presence?.roomId === room.id &&
+      encounterActor.presence.materialized
+        ? [
+            {
+              id: `wanderer:${encounter.id}`,
+              name: encounter.name,
+              x: encounterActor.presence.position.x,
+              y: encounterActor.presence.position.y,
+              actorId: encounterActor.id,
+              portraitId: encounter.portraitId,
+              relationshipId: encounter.relationshipId,
+              wandererEncounterId: encounter.id,
+            },
+          ]
+        : [];
     const residents = [
       ...(room.village ? [...room.village.residents, room.village.shopkeeper] : []),
       ...(room.garage ? [room.garage.mechanic] : []),
@@ -22485,6 +22434,7 @@ export default class SnakeScene extends Phaser.Scene {
           : townResidentsForRoom(room.town, room.id)
         : []),
       ...goblinResidents,
+      ...activeWanderer,
     ];
     if (residents.length === 0 || this.questPopup.isVisible()) {
       return;
@@ -22497,40 +22447,47 @@ export default class SnakeScene extends Phaser.Scene {
       const isGoblin = room.goblinCamp
         ? goblinResidents.some((goblin) => goblin.id === resident.id)
         : false;
+      const isWanderer = 'wandererEncounterId' in resident;
       const isGarageMechanic = Boolean(room.garage && room.garage.mechanic.id === resident.id);
-      const isTownResident = Boolean(room.town && !isGoblin && !isGarageMechanic);
+      const isTownResident = Boolean(room.town && !isGoblin && !isGarageMechanic && !isWanderer);
       const relationshipId = isGarageMechanic
         ? this.snakeGame.getGarageMechanicRelationshipId(room.id, resident.id)
-        : isTownResident
-          ? this.snakeGame.getTownResidentRelationshipId(room.town!.id, resident.id)
-          : `resident:${room.id}:${resident.id}`;
+        : isWanderer
+          ? ((resident as { relationshipId?: string }).relationshipId ?? resident.id)
+          : isTownResident
+            ? this.snakeGame.getTownResidentRelationshipId(room.town!.id, resident.id)
+            : `resident:${room.id}:${resident.id}`;
       const portraitId =
         'portraitId' in resident && typeof resident.portraitId === 'string'
           ? resident.portraitId
           : undefined;
       const relationshipProfile: RelationshipCandidateProfile = {
         id: relationshipId,
-        actorId: isGarageMechanic
-          ? this.snakeGame.getGarageMechanicActorId(room.id, resident.id)
-          : isGoblin
-            ? this.snakeGame.getGoblinCampActorId(
-                room.goblinCamp!.id,
-                resident.id,
-                resident.id === room.goblinCamp!.shopkeeper.id ? 'shopkeeper' : 'guard',
-              )
-            : room.town
-              ? 'actorId' in resident && typeof resident.actorId === 'string'
-                ? resident.actorId
-                : this.snakeGame.getTownResidentActorId(
-                    room.town.id,
-                    resident.id,
-                    townResidentRoleFromMixedProfile(resident),
-                  )
-              : this.snakeGame.getVillageActorId(
-                  room.id,
+        actorId: isWanderer
+          ? 'actorId' in resident && typeof resident.actorId === 'string'
+            ? resident.actorId
+            : undefined
+          : isGarageMechanic
+            ? this.snakeGame.getGarageMechanicActorId(room.id, resident.id)
+            : isGoblin
+              ? this.snakeGame.getGoblinCampActorId(
+                  room.goblinCamp!.id,
                   resident.id,
-                  room.village?.shopkeeper.id === resident.id ? 'shopkeeper' : 'resident',
-                ),
+                  resident.id === room.goblinCamp!.shopkeeper.id ? 'shopkeeper' : 'guard',
+                )
+              : room.town
+                ? 'actorId' in resident && typeof resident.actorId === 'string'
+                  ? resident.actorId
+                  : this.snakeGame.getTownResidentActorId(
+                      room.town.id,
+                      resident.id,
+                      townResidentRoleFromMixedProfile(resident),
+                    )
+                : this.snakeGame.getVillageActorId(
+                    room.id,
+                    resident.id,
+                    room.village?.shopkeeper.id === resident.id ? 'shopkeeper' : 'resident',
+                  ),
         displayName: isGarageMechanic ? `${resident.name} the Mechanic` : resident.name,
         species: (isGoblin ? 'goblin' : 'human') as RelationshipSpecies,
         portraitId: isGoblin ? 'goblin-neutral' : portraitId,
@@ -22592,9 +22549,13 @@ export default class SnakeScene extends Phaser.Scene {
         .setPosition(world.x, world.y - this.grid.cell * 0.58 + bobOffset)
         .setVisible(Boolean(glyphs));
       const speech = actor?.speech;
+      const nowMs = Number(this.snakeGame.getFlag<number>('timeMs') ?? 0);
       const roomNumber = Number(this.snakeGame.getFlag<number>('roomsVisited') ?? 0);
       const speechVisible = Boolean(
-        speech?.text && (!speech.expiresAtRoomNumber || speech.expiresAtRoomNumber >= roomNumber),
+        speech?.text &&
+        (speech.expiresAtMs !== undefined
+          ? speech.expiresAtMs > nowMs
+          : !speech.expiresAtRoomNumber || speech.expiresAtRoomNumber >= roomNumber),
       );
       speechText
         .setText(speechVisible ? speech!.text : '')
@@ -22965,109 +22926,6 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (tags.has('spore-motes') || tags.has('petals')) {
       this.juice.notice(nearHead.x, nearHead.y - 4, tags.has('petals') ? 0xffa6c8 : 0xf2a8ff);
-    }
-  }
-
-  private paletteForEncounter(encounterId: string): QuestGiverSpritePalette {
-    switch (encounterId) {
-      case 'freak-joey':
-        return {
-          robeColor: '#7a2430',
-          trimColor: '#f4b46a',
-          outlineColor: '#23060a',
-          eyeColor: '#fff0d4',
-        };
-      case 'lindsey-wanderer':
-        return {
-          robeColor: '#466fb7',
-          trimColor: '#cde4ff',
-          outlineColor: '#142239',
-          eyeColor: '#f7fbff',
-        };
-      case 'ryan-wanderer':
-        return {
-          robeColor: '#7b6c52',
-          trimColor: '#d9c2a0',
-          outlineColor: '#2d2417',
-          eyeColor: '#fff2dd',
-        };
-      case 'aurex-wanderer':
-        return {
-          robeColor: '#6d8f63',
-          trimColor: '#d7efba',
-          outlineColor: '#1f311d',
-          eyeColor: '#fbfff4',
-        };
-      case 'belisar-wanderer':
-        return {
-          robeColor: '#5d3d7d',
-          trimColor: '#f0da8a',
-          outlineColor: '#1c1026',
-          eyeColor: '#fff8e2',
-        };
-      case 'cyrene-wanderer':
-        return {
-          robeColor: '#2f7c77',
-          trimColor: '#a5f0ea',
-          outlineColor: '#0d2a28',
-          eyeColor: '#f1fffd',
-        };
-      case 'shrine-maiden-miko':
-        return {
-          robeColor: '#e8e0f0',
-          trimColor: '#c41e3a',
-          outlineColor: '#1a1020',
-          eyeColor: '#f5e6d0',
-        };
-      case 'yokai-chef':
-        return {
-          robeColor: '#2c2c3e',
-          trimColor: '#ff6b35',
-          outlineColor: '#1a1a28',
-          eyeColor: '#ffe4b5',
-        };
-      case 'kappa-duel':
-        return {
-          robeColor: '#4a7c59',
-          trimColor: '#8bc34a',
-          outlineColor: '#1e3a28',
-          eyeColor: '#fff8dc',
-        };
-      case 'tanuki-shenanigans':
-        return {
-          robeColor: '#8b6f47',
-          trimColor: '#d4a76a',
-          outlineColor: '#3d2b1a',
-          eyeColor: '#f0e0c8',
-        };
-      case 'ronin-wanderer':
-        return {
-          robeColor: '#3a3a4a',
-          trimColor: '#8a8a9a',
-          outlineColor: '#1a1a24',
-          eyeColor: '#e8d8c8',
-        };
-      case 'tengu-encounter':
-        return {
-          robeColor: '#4a2c2c',
-          trimColor: '#ff4500',
-          outlineColor: '#1a0a0a',
-          eyeColor: '#ffd700',
-        };
-      case 'sterling-fisher':
-        return {
-          robeColor: '#2a7a8a',
-          trimColor: '#7ad4e0',
-          outlineColor: '#1a3a4a',
-          eyeColor: '#e0f8ff',
-        };
-      default:
-        return {
-          robeColor: '#2f7f5f',
-          trimColor: '#5dd6a2',
-          outlineColor: '#1e3a2d',
-          eyeColor: '#e8ffe8',
-        };
     }
   }
 

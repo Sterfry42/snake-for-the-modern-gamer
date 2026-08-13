@@ -78,7 +78,12 @@ export class ActorRegistry {
   }
 
   getByRoom(roomId: string): Actor[] {
-    return this.getAll().filter((actor) => actor.currentRoomId === roomId);
+    return this.getAll().filter(
+      (actor) =>
+        (actor.presence?.roomId ?? actor.currentRoomId) === roomId &&
+        actor.health?.state !== 'dead' &&
+        actor.hostility !== 'dead',
+    );
   }
 
   getByTown(townId: string): Actor[] {

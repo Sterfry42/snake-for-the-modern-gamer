@@ -8,7 +8,12 @@ import {
   type PowerupKind,
 } from '../config/gameConfig.js';
 import { defaultRoamingSnakeConfig } from '../config/roamingSnakeConfig.js';
-import { isWithinEuclideanRadius, manhattanDistance, type Vector2Like } from '../core/math.js';
+import {
+  isWithinEuclideanRadius,
+  manhattanDistance,
+  vectorKey,
+  type Vector2Like,
+} from '../core/math.js';
 import { createRng, type RandomGenerator } from '../core/rng.js';
 import { AppleService, type AppleConsumptionResult } from '../apples/appleService.js';
 import type { AppleSnapshot } from '../apples/types.js';
@@ -232,14 +237,20 @@ import { ActorSystem, type ActorSystemSaveData } from '../actors/actorSystem.js'
 import type {
   Actor,
   ActorMemory,
+  ActorSpeechBubble,
   ActorSocialLink,
   ActorSoulRevealKey,
 } from '../actors/actorTypes.js';
-import { decideActorBrain, type ActorBrainSocialTarget } from '../actors/actorBrains.js';
+import {
+  chooseShareableMemory,
+  decideActorBrain,
+  type ActorBrainSocialTarget,
+} from '../actors/actorBrains.js';
 import {
   buildActorInteractionMenu,
   type ActorInteractionMenuModel,
 } from '../actors/actorInteractions.js';
+import { selectActorRadiantBark } from '../actors/actorEnvironment.js';
 import { selectActorConversation } from '../actors/voice/voiceSelector.js';
 import type {
   ActorConversationBucket,
@@ -248,12 +259,12 @@ import type {
   ActorFactionConversationState,
 } from '../actors/voice/voiceTypes.js';
 import { selectActorVoiceLine } from '../actors/actorVoice.js';
+import { directionsFromPathOrFallback } from '../actors/actorNavigation.js';
 import {
   ActorOccupancyResolver,
   actorExitTargetForRoom,
   actorsAreAdjacent,
   createActorPresence,
-  directionsTowardPosition,
   inferActorActivity,
   shouldDematerializeForActorGoal,
 } from '../actors/actorPresence.js';
@@ -407,6 +418,15 @@ interface RoomNpcBodyCandidate {
   profile: RelationshipCandidateProfile;
   position: Vector2Like;
   stationary: boolean;
+}
+
+interface ActorConversationRuntime {
+  id: string;
+  partnerId: string;
+  lines: Array<{ speakerId: string; text: string }>;
+  nextLineIndex: number;
+  nextLineAtMs: number;
+  endsAtMs: number;
 }
 
 export interface FootballInstance {
@@ -1083,7 +1103,6 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('ui.modernSynergy', undefined);
     this.setFlag('npc.randomEncounter', undefined);
     this.setFlag('npc.randomEncounter.prompted', undefined);
-    this.setFlag('npc.randomEncounter.triggerAtMs', undefined);
     this.setFlag('npc.randomEncounter.revealAtMs', undefined);
     this.setFlag('ui.wandererReveal', undefined);
     this.setFlag('ui.playerShot', undefined);
@@ -7866,31 +7885,48 @@ export class SnakeGame implements QuestRuntime {
       roomNumber,
     });
     this.actors.applyScheduleGoals({ roomNumber, atmosphere });
-    this.actors.advanceOffscreenTravel(room.id, roomNumber);
+    this.advanceActorsOffscreenTowardGoals(room.id, roomNumber);
+    this.clearExpiredActorSpeech();
     this.syncNpcBodiesForRoom(room);
-    for (const body of this.npcBodies.values()) {
-      if (body.roomId !== room.id || !body.actorId) {
-        continue;
-      }
-      this.actors.registry.setPresence(
-        body.actorId,
-        createActorPresence({
-          roomId: body.roomId,
-          position: body.position,
-          anchor: body.anchor,
-          wanderRadius: body.wanderRadius,
-          stationary: body.stationary,
-        }),
-      );
-    }
     this.actors.resolveFactionConflicts(room.id);
   }
 
   private syncNpcBodiesForRoom(room: RoomSnapshot): void {
     const candidates = this.collectRoomNpcBodyCandidates(room);
-    const activeIds = new Set(candidates.map((candidate) => candidate.profile.id));
+    const candidatesByActorId = new Map(
+      candidates.flatMap((candidate) =>
+        candidate.profile.actorId ? [[candidate.profile.actorId, candidate] as const] : [],
+      ),
+    );
+    const activeIds = new Set<string>();
     for (const candidate of candidates) {
-      this.ensureNpcBody(candidate.profile, candidate.position, candidate.stationary);
+      const actor = candidate.profile.actorId
+        ? this.actors.getActor(candidate.profile.actorId)
+        : undefined;
+      if (!actor?.presence || actor.presence.roomId === room.id) {
+        const body = this.ensureNpcBody(
+          candidate.profile,
+          candidate.position,
+          candidate.stationary,
+          room.id,
+        );
+        activeIds.add(body.relationshipId);
+      }
+    }
+    for (const actor of this.actors.registry.getAll()) {
+      if (!this.shouldMaterializeActorInRoom(actor, room.id)) {
+        continue;
+      }
+      const candidate = candidatesByActorId.get(actor.id);
+      const profile = candidate?.profile ?? this.createActorBodyProfile(actor, room.id);
+      const stationary = candidate?.stationary ?? actor.presence?.stationary ?? false;
+      const body = this.ensureNpcBody(
+        profile,
+        actor.presence?.position ?? { x: 3, y: 3 },
+        stationary,
+        room.id,
+      );
+      activeIds.add(body.relationshipId);
     }
     for (const [id, body] of this.npcBodies) {
       if (body.roomId === room.id && !activeIds.has(id)) {
@@ -8076,31 +8112,81 @@ export class SnakeGame implements QuestRuntime {
     return candidates;
   }
 
+  private shouldMaterializeActorInRoom(actor: Actor, roomId: string): boolean {
+    return Boolean(
+      actor.presence?.roomId === roomId &&
+      (actor.species === 'human' || actor.species === 'goblin') &&
+      actor.health?.state !== 'dead' &&
+      actor.hostility !== 'dead' &&
+      actor.flags.dead !== true &&
+      actor.flags.eaten !== true,
+    );
+  }
+
+  private createActorBodyProfile(actor: Actor, roomId: string): RelationshipCandidateProfile {
+    const relationshipId =
+      typeof actor.flags.relationshipId === 'string' ? actor.flags.relationshipId : actor.id;
+    return {
+      id: relationshipId,
+      actorId: actor.id,
+      displayName: actor.displayName,
+      species: actor.species === 'goblin' ? 'goblin' : 'human',
+      portraitId: actor.portraitId,
+      homeRoomId: roomId,
+      factionId: actor.factionId as FactionId | undefined,
+    };
+  }
+
   private ensureNpcBody(
     profile: RelationshipCandidateProfile,
     anchor: Vector2Like,
     stationary: boolean,
+    roomId?: string,
   ): NpcBodyState {
+    const actor = profile.actorId ? this.actors.getActor(profile.actorId) : undefined;
+    const bodyRoomId =
+      roomId ?? actor?.presence?.roomId ?? profile.homeRoomId ?? this.snake.currentRoomId;
+    const actorPresence = actor?.presence?.roomId === bodyRoomId ? actor.presence : undefined;
     const existing = this.npcBodies.get(profile.id);
     if (existing) {
       existing.actorId = profile.actorId ?? existing.actorId;
-      existing.roomId = profile.homeRoomId ?? existing.roomId;
-      existing.anchor = { ...anchor };
-      existing.stationary = stationary;
-      existing.wanderRadius = stationary ? 0 : Math.max(1, existing.wanderRadius);
+      existing.roomId = bodyRoomId;
+      existing.position = actorPresence ? { ...actorPresence.position } : existing.position;
+      existing.anchor = actorPresence?.anchor ? { ...actorPresence.anchor } : { ...anchor };
+      existing.stationary = actorPresence?.stationary ?? stationary;
+      existing.wanderRadius =
+        actorPresence?.wanderRadius ??
+        (existing.stationary ? 0 : Math.max(1, existing.wanderRadius));
+      if (actorPresence && !actorPresence.materialized && profile.actorId) {
+        this.actors.registry.setPresence(profile.actorId, { ...actorPresence, materialized: true });
+      }
       return existing;
     }
     const body: NpcBodyState = {
       relationshipId: profile.id,
       actorId: profile.actorId,
-      roomId: profile.homeRoomId ?? this.snake.currentRoomId,
-      position: { ...anchor },
-      anchor: { ...anchor },
-      wanderRadius: stationary ? 0 : 2,
+      roomId: bodyRoomId,
+      position: actorPresence ? { ...actorPresence.position } : { ...anchor },
+      anchor: actorPresence?.anchor ? { ...actorPresence.anchor } : { ...anchor },
+      wanderRadius: actorPresence?.wanderRadius ?? (stationary ? 0 : 2),
       moveCooldown: stationary ? 999 : 15 + Math.floor(this._rng() * 18),
       stationary,
     };
     this.npcBodies.set(profile.id, body);
+    if (profile.actorId && actorPresence && !actorPresence.materialized) {
+      this.actors.registry.setPresence(profile.actorId, { ...actorPresence, materialized: true });
+    } else if (profile.actorId && actor && !actor.presence) {
+      this.actors.registry.setPresence(
+        profile.actorId,
+        createActorPresence({
+          roomId: body.roomId,
+          position: body.position,
+          anchor: body.anchor,
+          wanderRadius: body.wanderRadius,
+          stationary,
+        }),
+      );
+    }
     return body;
   }
 
@@ -8108,6 +8194,12 @@ export class SnakeGame implements QuestRuntime {
     profile: RelationshipCandidateProfile,
     fallback?: Vector2Like,
   ): Vector2Like {
+    if (profile.actorId) {
+      const actor = this.actors.getActor(profile.actorId);
+      if (actor?.presence?.materialized) {
+        return { ...actor.presence.position };
+      }
+    }
     const body =
       this.npcBodies.get(profile.id) ??
       this.ensureNpcBody(profile, fallback ?? { x: 3, y: 3 }, true);
@@ -8115,6 +8207,8 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private tickNpcBodies(room: RoomSnapshot): void {
+    this.clearExpiredActorSpeech();
+    this.advanceActorConversations(room.id);
     const bodies = [...this.npcBodies.values()].filter((body) => body.roomId === room.id);
     if (bodies.length === 0) {
       return;
@@ -8133,6 +8227,7 @@ export class SnakeGame implements QuestRuntime {
     const socialTargetsByActorId = this.buildNpcBodySocialTargets(bodies);
     const head = this.snake.bodySegments[0];
     const playerHeadLocal = head ? this.worldToLocalInRoom(room.id, head) : undefined;
+    const atmosphere = this.getAtmosphereState();
     const occupancy = new ActorOccupancyResolver([
       ...enemies.map((enemy) => ({
         id: `enemy:${enemy.id}`,
@@ -8159,6 +8254,25 @@ export class SnakeGame implements QuestRuntime {
       const state = this.relationshipController.getState(body.relationshipId);
       const isHostile = state?.stage === 'hostile' || state?.stage === 'murderous';
       const actor = body.actorId ? this.actors.getActor(body.actorId) : undefined;
+      const actorConversation = actor ? this.getActorConversationRuntime(actor) : undefined;
+      if (actor && actorConversation?.endsAtMs) {
+        this.actors.registry.setActivity(actor.id, {
+          kind: 'talking',
+          source: 'social',
+          targetActorId: actorConversation.partnerId,
+          startedAtRoomNumber: this.getRoomsVisitedCount(),
+        });
+        continue;
+      }
+      if (actor && playerHeadLocal) {
+        this.maybeTriggerRadiantActorBark(
+          actor,
+          room.id,
+          body.position,
+          playerHeadLocal,
+          atmosphere,
+        );
+      }
       if (actor?.flags.raidShelter === true) {
         body.wanderRadius = Math.max(body.wanderRadius, 4);
       }
@@ -8170,20 +8284,18 @@ export class SnakeGame implements QuestRuntime {
         roomDangerActive,
         random: this._rng,
       });
+      const travelTarget = actor
+        ? this.getActorLoadedTravelTarget(actor, room, playerHeadLocal)
+        : undefined;
       if (
-        decision.kind === 'shareRumor' &&
-        actor &&
-        decision.targetActorId &&
-        decision.memoryToShare
+        actor?.goal?.kind === 'attackActor' &&
+        actor.goal.targetActorId &&
+        travelTarget &&
+        manhattanDistance(body.position, travelTarget) <= 1
       ) {
-        this.shareActorGossip(room, actor, decision.targetActorId, decision.memoryToShare);
+        this.resolveActorVsActorAttack(actor, actor.goal.targetActorId, room.id);
+        continue;
       }
-      const travelTarget =
-        actor?.goal?.kind === 'seekPlayer' && playerHeadLocal
-          ? playerHeadLocal
-          : actor
-            ? actorExitTargetForRoom(room, actor)
-            : undefined;
       if (
         actor &&
         actor.goal?.kind === 'seekPlayer' &&
@@ -8198,12 +8310,7 @@ export class SnakeGame implements QuestRuntime {
             targetAdjacent: true,
             roomNumber: this.getRoomsVisitedCount(),
           }),
-          speech: {
-            text: 'There you are.',
-            targetActorId: 'player',
-            createdAtRoomNumber: this.getRoomsVisitedCount(),
-            expiresAtRoomNumber: this.getRoomsVisitedCount() + 1,
-          },
+          speech: this.createActorSpeech('There you are.', 'reactive', 'player'),
         }));
         continue;
       }
@@ -8211,25 +8318,14 @@ export class SnakeGame implements QuestRuntime {
         ? this.actors.getActor(decision.targetActorId)
         : undefined;
       const targetAdjacent = actorsAreAdjacent(actor?.presence, targetActor?.presence);
-      if (targetAdjacent && actor && decision.targetActorId) {
-        this.actors.registry.update(actor.id, (current) => ({
-          ...current,
-          activity: inferActorActivity({
-            actor: current,
-            decision,
-            targetAdjacent,
-            roomNumber: this.getRoomsVisitedCount(),
-          }),
-          speech:
-            decision.kind === 'approachSocialLink'
-              ? {
-                  text: 'Heard anything strange lately?',
-                  targetActorId: decision.targetActorId,
-                  createdAtRoomNumber: this.getRoomsVisitedCount(),
-                  expiresAtRoomNumber: this.getRoomsVisitedCount() + 1,
-                }
-              : current.speech,
-        }));
+      if (
+        targetAdjacent &&
+        actor &&
+        targetActor &&
+        decision.targetActorId &&
+        this.canStartCasualActorConversation(room.id, actor, targetActor)
+      ) {
+        this.startActorConversation(room, actor, targetActor, decision.memoryToShare);
         continue;
       }
       if (body.stationary && !travelTarget && !isHostile && decision.kind === 'hold') {
@@ -8257,7 +8353,11 @@ export class SnakeGame implements QuestRuntime {
           ? Math.max(15, decision.moveCooldown * 3)
           : decision.moveCooldown;
       const preferredDirections = travelTarget
-        ? directionsTowardPosition(body.position, travelTarget)
+        ? directionsFromPathOrFallback({
+            start: body.position,
+            target: travelTarget,
+            canStandAt: (position) => this.canNpcBodyStandAt(room, body, position),
+          })
         : decision.preferredDirections;
       const resolution = occupancy.resolveMove({
         actorId: body.actorId ?? body.relationshipId,
@@ -8273,6 +8373,7 @@ export class SnakeGame implements QuestRuntime {
         shouldDematerializeForActorGoal(actor, room, body.position)
       ) {
         const goalRoomId = actor.goal.roomId;
+        const arrival = this.resolveActorTransitionArrival(room, goalRoomId, body.position);
         this.npcBodies.delete(body.relationshipId);
         this.actors.registry.update(actor.id, (current) => ({
           ...current,
@@ -8281,12 +8382,14 @@ export class SnakeGame implements QuestRuntime {
             ? {
                 ...current.presence,
                 roomId: goalRoomId,
-                position: { ...body.position },
+                position: arrival,
+                anchor: arrival,
                 materialized: false,
               }
             : createActorPresence({
                 roomId: goalRoomId,
-                position: body.position,
+                position: arrival,
+                anchor: arrival,
                 materialized: false,
               }),
           activity: inferActorActivity({
@@ -8299,16 +8402,15 @@ export class SnakeGame implements QuestRuntime {
         continue;
       }
       if (actor) {
-        this.actors.registry.setPresence(
-          actor.id,
-          createActorPresence({
-            roomId: body.roomId,
-            position: body.position,
-            anchor: body.anchor,
-            wanderRadius: body.wanderRadius,
-            stationary: body.stationary,
-          }),
-        );
+        const nextPresence = createActorPresence({
+          roomId: body.roomId,
+          position: body.position,
+          anchor: body.anchor,
+          wanderRadius: body.wanderRadius,
+          stationary: body.stationary,
+        });
+        this.actors.registry.setPresence(actor.id, nextPresence);
+        body.position = { ...nextPresence.position };
         const updated = this.actors.getActor(actor.id) ?? actor;
         this.actors.registry.setActivity(
           actor.id,
@@ -8346,12 +8448,637 @@ export class SnakeGame implements QuestRuntime {
               actorId: candidate.actor.id,
               position: { ...candidate.body.position },
               relationship: link?.relationship ?? 'unknown',
+              strength: link?.strength ?? 0,
+              hasRumorOpportunity: this.hasActorRumorOpportunity(entry.actor, candidate.actor),
               knownToPlayer: link?.knownToPlayer,
             };
           }),
       );
     }
     return targets;
+  }
+
+  private hasActorRumorOpportunity(source: Actor, target: Actor): boolean {
+    const memory = chooseShareableMemory(source);
+    if (!memory) {
+      return false;
+    }
+    return !target.memory.some(
+      (entry) =>
+        entry.summary === memory.summary &&
+        (entry.source === 'heard' || entry.source === 'rumor' || entry.tags.includes('gossip')),
+    );
+  }
+
+  private advanceActorsOffscreenTowardGoals(loadedRoomId: string, roomNumber: number): void {
+    for (const actor of this.actors.registry.getAll()) {
+      const goalRoomId = actor.goal?.roomId;
+      if (
+        !goalRoomId ||
+        goalRoomId === actor.currentRoomId ||
+        actor.currentRoomId === loadedRoomId ||
+        actor.health?.state === 'dead' ||
+        actor.hostility === 'dead'
+      ) {
+        continue;
+      }
+      const currentRoomId = actor.currentRoomId;
+      if (!currentRoomId) {
+        continue;
+      }
+      const currentRoom = this.world.getRoom(currentRoomId);
+      const nextRoomId = this.selectNextActorTravelRoom(currentRoom, goalRoomId);
+      const arrival = this.resolveActorTransitionArrival(
+        currentRoom,
+        nextRoomId,
+        actor.presence?.position,
+      );
+      this.actors.registry.update(actor.id, (current) => ({
+        ...current,
+        currentRoomId: nextRoomId,
+        presence: current.presence
+          ? {
+              ...current.presence,
+              roomId: nextRoomId,
+              position: arrival,
+              anchor: arrival,
+              materialized: false,
+            }
+          : createActorPresence({
+              roomId: nextRoomId,
+              position: arrival,
+              anchor: arrival,
+              materialized: false,
+            }),
+        activity: {
+          kind: 'walking',
+          source: 'schedule',
+          startedAtRoomNumber: roomNumber,
+        },
+      }));
+    }
+  }
+
+  private selectNextActorTravelRoom(currentRoom: RoomSnapshot, goalRoomId: string): string {
+    if (currentRoom.id === goalRoomId) {
+      return currentRoom.id;
+    }
+    if (currentRoom.layer?.parentRoomId) {
+      return currentRoom.layer.parentRoomId;
+    }
+    const layerEntrance = currentRoom.layerEntrances?.find((entry) => entry.layerId === goalRoomId);
+    if (layerEntrance) {
+      return this.world.ensureLayerInstance(layerEntrance).id;
+    }
+    const portal = currentRoom.portals.find((entry) => entry.destRoomId === goalRoomId);
+    if (portal) {
+      return portal.destRoomId;
+    }
+    const neighbor = this.getNeighborRoomIds(currentRoom.id)
+      .filter((roomId) => this.isCoordinateRoomId(roomId) && this.isCoordinateRoomId(goalRoomId))
+      .sort((a, b) => this.roomIdDistance(a, goalRoomId) - this.roomIdDistance(b, goalRoomId))[0];
+    if (neighbor) {
+      return neighbor;
+    }
+    return goalRoomId.startsWith('layer:') ? currentRoom.id : goalRoomId;
+  }
+
+  private resolveActorTransitionArrival(
+    sourceRoom: RoomSnapshot,
+    destinationRoomId: string,
+    sourcePosition?: Vector2Like,
+  ): Vector2Like {
+    const layerEntrance = sourceRoom.layerEntrances?.find(
+      (entry) => entry.layerId === destinationRoomId,
+    );
+    const resolvedDestinationRoomId = layerEntrance
+      ? this.world.ensureLayerInstance(layerEntrance).id
+      : destinationRoomId;
+    const destinationRoom = this.world.getRoom(resolvedDestinationRoomId);
+    if (layerEntrance && destinationRoom.layer?.spawn) {
+      return this.nearestValidActorArrival(destinationRoom, destinationRoom.layer.spawn);
+    }
+    if (sourceRoom.layer?.parentRoomId === resolvedDestinationRoomId) {
+      return this.nearestValidActorArrival(destinationRoom, sourceRoom.layer.returnPosition);
+    }
+    const portal = sourceRoom.portals.find(
+      (entry) => entry.destRoomId === resolvedDestinationRoomId,
+    );
+    if (portal) {
+      return this.nearestValidActorArrival(destinationRoom, { x: portal.destX, y: portal.destY });
+    }
+    return this.nearestValidActorArrival(
+      destinationRoom,
+      this.edgeArrivalForNeighbor(sourceRoom.id, destinationRoomId, sourcePosition) ??
+        destinationRoom.layer?.spawn ?? {
+          x: Math.floor(this.config.grid.cols / 2),
+          y: Math.floor(this.config.grid.rows / 2),
+        },
+    );
+  }
+
+  private nearestValidActorArrival(room: RoomSnapshot, desired: Vector2Like): Vector2Like {
+    if (this.isWalkableUnoccupiedActorTile(room, desired)) {
+      return { ...desired };
+    }
+    const queue: Vector2Like[] = [{ ...desired }];
+    const seen = new Set<string>([vectorKey(desired)]);
+    for (let index = 0; index < queue.length && index < 256; index += 1) {
+      const current = queue[index]!;
+      for (const direction of [
+        { x: 1, y: 0 },
+        { x: -1, y: 0 },
+        { x: 0, y: 1 },
+        { x: 0, y: -1 },
+      ]) {
+        const next = { x: current.x + direction.x, y: current.y + direction.y };
+        const key = vectorKey(next);
+        if (seen.has(key)) {
+          continue;
+        }
+        seen.add(key);
+        if (this.isWalkableUnoccupiedActorTile(room, next)) {
+          return next;
+        }
+        if (
+          next.x >= 0 &&
+          next.x < this.config.grid.cols &&
+          next.y >= 0 &&
+          next.y < this.config.grid.rows
+        ) {
+          queue.push(next);
+        }
+      }
+    }
+    return {
+      x: Math.max(1, Math.min(this.config.grid.cols - 2, desired.x)),
+      y: Math.max(1, Math.min(this.config.grid.rows - 2, desired.y)),
+    };
+  }
+
+  private isWalkableUnoccupiedActorTile(room: RoomSnapshot, position: Vector2Like): boolean {
+    if (
+      position.x < 0 ||
+      position.x >= this.config.grid.cols ||
+      position.y < 0 ||
+      position.y >= this.config.grid.rows
+    ) {
+      return false;
+    }
+    const tile = room.layout[position.y]?.[position.x];
+    if (!tile || tile === '#' || tile === '~' || tile === 'S' || isBlockingTownTile(tile)) {
+      return false;
+    }
+    return !this.actors.registry
+      .getAll()
+      .some(
+        (actor) =>
+          actor.presence?.roomId === room.id &&
+          actor.presence.position.x === position.x &&
+          actor.presence.position.y === position.y &&
+          actor.health?.state !== 'dead' &&
+          actor.hostility !== 'dead',
+      );
+  }
+
+  private edgeArrivalForNeighbor(
+    sourceRoomId: string,
+    destinationRoomId: string,
+    sourcePosition?: Vector2Like,
+  ): Vector2Like | undefined {
+    if (!this.isCoordinateRoomId(sourceRoomId) || !this.isCoordinateRoomId(destinationRoomId)) {
+      return undefined;
+    }
+    const [sourceX, sourceY, sourceZ] = this.parseRoomCoordinates(sourceRoomId);
+    const [destX, destY, destZ] = this.parseRoomCoordinates(destinationRoomId);
+    if (sourceZ !== destZ) {
+      return undefined;
+    }
+    const x = sourcePosition?.x ?? Math.floor(this.config.grid.cols / 2);
+    const y = sourcePosition?.y ?? Math.floor(this.config.grid.rows / 2);
+    if (destX > sourceX) return { x: 1, y };
+    if (destX < sourceX) return { x: this.config.grid.cols - 2, y };
+    if (destY > sourceY) return { x, y: 1 };
+    if (destY < sourceY) return { x, y: this.config.grid.rows - 2 };
+    return undefined;
+  }
+
+  private roomIdDistance(a: string, b: string): number {
+    const [ax, ay, az] = this.parseRoomCoordinates(a);
+    const [bx, by, bz] = this.parseRoomCoordinates(b);
+    return Math.abs(ax - bx) + Math.abs(ay - by) + Math.abs(az - bz);
+  }
+
+  private getActorLoadedTravelTarget(
+    actor: Actor,
+    room: RoomSnapshot,
+    playerHeadLocal: Vector2Like | undefined,
+  ): Vector2Like | undefined {
+    if (actor.goal?.kind === 'attackActor' && actor.goal.targetActorId) {
+      return this.actors.getActor(actor.goal.targetActorId)?.presence?.position;
+    }
+    if (actor.goal?.targetPosition && actor.goal.roomId === room.id) {
+      return actor.goal.targetPosition;
+    }
+    if (actor.goal?.kind === 'seekPlayer' && playerHeadLocal) {
+      return playerHeadLocal;
+    }
+    return actorExitTargetForRoom(room, actor);
+  }
+
+  private resolveActorVsActorAttack(source: Actor, targetActorId: string, roomId: string): void {
+    const nowRoom = this.getRoomsVisitedCount();
+    const cooldownUntil = Number(source.flags.actorAttackCooldownUntilRoom ?? 0);
+    if (cooldownUntil > nowRoom) {
+      return;
+    }
+    const target = this.actors.getActor(targetActorId);
+    if (!target || target.currentRoomId !== roomId || target.health?.state === 'dead') {
+      this.actors.registry.resumeInterruptedGoal(source.id);
+      return;
+    }
+    const max = Math.max(1, target.health?.max ?? 1);
+    const nextCurrent = Math.max(0, (target.health?.current ?? max) - 1);
+    this.actors.registry.update(source.id, (actor) => ({
+      ...actor,
+      activity: {
+        kind: actor.combat?.ranged ? 'combat-ranged' : 'combat-melee',
+        source: 'combat',
+        targetActorId,
+        startedAtRoomNumber: nowRoom,
+      },
+      flags: {
+        ...actor.flags,
+        actorAttackCooldownUntilRoom: nowRoom + 1,
+      },
+    }));
+    this.actors.registry.update(target.id, (actor) => ({
+      ...actor,
+      health: {
+        current: nextCurrent,
+        max,
+        state: nextCurrent <= 0 ? 'dead' : 'wounded',
+      },
+      hostility: nextCurrent <= 0 ? 'dead' : actor.hostility,
+      activity:
+        nextCurrent <= 0
+          ? { kind: 'dead', source: 'combat', startedAtRoomNumber: nowRoom }
+          : actor.activity,
+      speech:
+        nextCurrent <= 0
+          ? actor.speech
+          : this.createActorSpeech('Help!', 'reactive', source.id, 2_000),
+    }));
+    if (nextCurrent <= 0) {
+      this.actors.registry.resumeInterruptedGoal(source.id);
+      this.actors.emitWorldEvent({
+        type: 'enemy-defeated',
+        roomId,
+        sourceActorId: source.id,
+        targetActorIds: [target.id],
+        severity: 42,
+        loudness: 20,
+        tags: ['combat', 'actor-vs-actor', 'faction'],
+        summary: `${source.displayName} defeated ${target.displayName}.`,
+        createdAtRoomNumber: nowRoom,
+      });
+    }
+  }
+
+  private canStartCasualActorConversation(roomId: string, a: Actor, b: Actor): boolean {
+    const nowMs = Number(this.getFlag<number>('timeMs') ?? 0);
+    if (this.getActorConversationRuntime(a) || this.getActorConversationRuntime(b)) {
+      return false;
+    }
+    if (Number(a.flags.socialCooldownUntilMs ?? 0) > nowMs) {
+      return false;
+    }
+    if (Number(b.flags.socialCooldownUntilMs ?? 0) > nowMs) {
+      return false;
+    }
+    if (this.isConversationTooClose(roomId, a.presence?.position)) {
+      return false;
+    }
+    return (
+      Number(a.flags.socialCooldownUntilRoom ?? 0) <= this.getRoomsVisitedCount() &&
+      Number(b.flags.socialCooldownUntilRoom ?? 0) <= this.getRoomsVisitedCount()
+    );
+  }
+
+  private markCasualActorConversation(
+    roomId: string,
+    actorId: string,
+    targetActorId: string,
+  ): void {
+    const nowMs = Number(this.getFlag<number>('timeMs') ?? 0);
+    const until = this.getRoomsVisitedCount() + 2;
+    this.setFlag(`actors.casualConversationUntil.${roomId}`, until);
+    const hotspotKey = `actors.casualConversationHotspots.${roomId}`;
+    const existingHotspots =
+      this.getFlag<Array<{ x: number; y: number; expiresAtMs: number }>>(hotspotKey) ?? [];
+    const position = this.actors.getActor(actorId)?.presence?.position;
+    this.setFlag(hotspotKey, [
+      ...existingHotspots.filter((hotspot) => hotspot.expiresAtMs > nowMs),
+      {
+        x: position?.x ?? 0,
+        y: position?.y ?? 0,
+        expiresAtMs: nowMs + 12_000,
+      },
+    ]);
+    for (const id of [actorId, targetActorId]) {
+      this.actors.registry.update(id, (actor) => ({
+        ...actor,
+        flags: {
+          ...actor.flags,
+          socialCooldownUntilRoom: this.getRoomsVisitedCount() + 8,
+          socialCooldownUntilMs: nowMs + 28_000,
+        },
+      }));
+    }
+  }
+
+  private startActorConversation(
+    room: RoomSnapshot,
+    source: Actor,
+    target: Actor,
+    memoryToShare?: ActorMemory,
+  ): void {
+    const nowMs = Number(this.getFlag<number>('timeMs') ?? 0);
+    const memory = memoryToShare ?? chooseShareableMemory(source);
+    const lines = memory
+      ? [
+          { speakerId: source.id, text: `Did you hear that ${memory.summary}?` },
+          { speakerId: target.id, text: this.actorRumorResponse(target, memory) },
+          { speakerId: source.id, text: 'Okay, bye.' },
+        ]
+      : this.casualConversationLines(source, target);
+    const id = `conversation:${source.id}:${target.id}:${nowMs}`;
+    const runtime = (partnerId: string): ActorConversationRuntime => ({
+      id,
+      partnerId,
+      lines,
+      nextLineIndex: 1,
+      nextLineAtMs: nowMs + 1_900,
+      endsAtMs: nowMs + lines.length * 2_000 + 800,
+    });
+    this.markCasualActorConversation(room.id, source.id, target.id);
+    if (memory) {
+      this.shareActorGossip(room, source, target.id, memory);
+    }
+    this.actors.registry.update(source.id, (actor) => ({
+      ...actor,
+      activity: {
+        kind: 'talking',
+        source: 'social',
+        targetActorId: target.id,
+        startedAtRoomNumber: this.getRoomsVisitedCount(),
+      },
+      speech: this.createActorSpeech(lines[0]!.text, 'social', target.id, 1_700),
+      flags: {
+        ...actor.flags,
+        actorConversation: runtime(target.id),
+      },
+    }));
+    this.actors.registry.update(target.id, (actor) => ({
+      ...actor,
+      activity: {
+        kind: 'talking',
+        source: 'social',
+        targetActorId: source.id,
+        startedAtRoomNumber: this.getRoomsVisitedCount(),
+      },
+      flags: {
+        ...actor.flags,
+        actorConversation: runtime(source.id),
+      },
+    }));
+  }
+
+  private advanceActorConversations(roomId: string): void {
+    const nowMs = Number(this.getFlag<number>('timeMs') ?? 0);
+    for (const actor of this.actors.registry.getAll()) {
+      if (actor.presence?.roomId !== roomId) {
+        continue;
+      }
+      const conversation = this.getActorConversationRuntime(actor);
+      if (!conversation) {
+        continue;
+      }
+      if (
+        conversation.endsAtMs <= nowMs ||
+        conversation.nextLineIndex >= conversation.lines.length
+      ) {
+        this.finishActorConversation(actor.id);
+        continue;
+      }
+      if (conversation.nextLineAtMs > nowMs) {
+        continue;
+      }
+      const line = conversation.lines[conversation.nextLineIndex];
+      if (!line) {
+        this.finishActorConversation(actor.id);
+        continue;
+      }
+      for (const participantId of [actor.id, conversation.partnerId]) {
+        this.actors.registry.update(participantId, (participant) => {
+          const currentConversation = this.getActorConversationRuntime(participant);
+          if (!currentConversation || currentConversation.id !== conversation.id) {
+            return participant;
+          }
+          return {
+            ...participant,
+            speech:
+              participant.id === line.speakerId
+                ? this.createActorSpeech(line.text, 'social', currentConversation.partnerId, 1_700)
+                : undefined,
+            activity: {
+              kind: 'talking',
+              source: 'social',
+              targetActorId: currentConversation.partnerId,
+              startedAtRoomNumber: this.getRoomsVisitedCount(),
+            },
+            flags: {
+              ...participant.flags,
+              actorConversation: {
+                ...currentConversation,
+                nextLineIndex: currentConversation.nextLineIndex + 1,
+                nextLineAtMs: nowMs + 1_900,
+              },
+            },
+          };
+        });
+      }
+    }
+  }
+
+  private finishActorConversation(actorId: string): void {
+    this.actors.registry.update(actorId, (actor) => {
+      const flags = { ...actor.flags };
+      delete flags.actorConversation;
+      return {
+        ...actor,
+        flags,
+        speech: actor.speech?.category === 'social' ? undefined : actor.speech,
+      };
+    });
+    this.actors.registry.resumeInterruptedGoal(actorId);
+  }
+
+  private getActorConversationRuntime(actor: Actor): ActorConversationRuntime | undefined {
+    const value = actor.flags.actorConversation;
+    if (!value || typeof value !== 'object') {
+      return undefined;
+    }
+    const candidate = value as Partial<ActorConversationRuntime>;
+    if (
+      typeof candidate.id === 'string' &&
+      typeof candidate.partnerId === 'string' &&
+      Array.isArray(candidate.lines) &&
+      typeof candidate.nextLineIndex === 'number' &&
+      typeof candidate.nextLineAtMs === 'number' &&
+      typeof candidate.endsAtMs === 'number'
+    ) {
+      return candidate as ActorConversationRuntime;
+    }
+    return undefined;
+  }
+
+  private casualConversationLines(
+    source: Actor,
+    target: Actor,
+  ): Array<{ speakerId: string; text: string }> {
+    const link = source.relationships.find((entry) => entry.actorId === target.id);
+    if (link?.relationship === 'family') {
+      return [
+        { speakerId: source.id, text: 'Morning, family.' },
+        { speakerId: target.id, text: 'Morning.' },
+      ];
+    }
+    if ((link?.strength ?? 0) >= 50) {
+      return [
+        { speakerId: source.id, text: 'Busy today?' },
+        { speakerId: target.id, text: 'Always.' },
+      ];
+    }
+    return [
+      { speakerId: source.id, text: 'Morning.' },
+      { speakerId: target.id, text: 'Morning.' },
+    ];
+  }
+
+  private actorRumorResponse(actor: Actor, memory: ActorMemory): string {
+    if (actor.memory.some((entry) => entry.summary === memory.summary)) {
+      return 'I heard.';
+    }
+    if (actor.mood.fear >= 35 || memory.tags.includes('crime') || memory.tags.includes('raid')) {
+      return 'Oh no.';
+    }
+    if (actor.mood.anger >= 35) {
+      return 'Figures.';
+    }
+    return this._rng() < 0.5 ? "You're kidding." : 'Who told you?';
+  }
+
+  private isConversationTooClose(roomId: string, position: Vector2Like | undefined): boolean {
+    if (!position) {
+      return false;
+    }
+    const nowMs = Number(this.getFlag<number>('timeMs') ?? 0);
+    const key = `actors.casualConversationHotspots.${roomId}`;
+    const hotspots = this.getFlag<Array<{ x: number; y: number; expiresAtMs: number }>>(key) ?? [];
+    const liveHotspots = hotspots.filter((hotspot) => hotspot.expiresAtMs > nowMs);
+    if (liveHotspots.length !== hotspots.length) {
+      this.setFlag(key, liveHotspots.length > 0 ? liveHotspots : undefined);
+    }
+    return liveHotspots.some(
+      (hotspot) => manhattanDistance(position, { x: hotspot.x, y: hotspot.y }) <= 7,
+    );
+  }
+
+  private createActorSpeech(
+    text: string,
+    category: ActorSpeechBubble['category'],
+    targetActorId?: string,
+    durationMs?: number,
+  ): ActorSpeechBubble {
+    const nowMs = Number(this.getFlag<number>('timeMs') ?? 0);
+    const lifetime = durationMs ?? Math.max(2_000, Math.min(4_000, 1_600 + text.length * 35));
+    return {
+      text,
+      category,
+      targetActorId,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      expiresAtRoomNumber: this.getRoomsVisitedCount() + 1,
+      createdAtMs: nowMs,
+      expiresAtMs: nowMs + lifetime,
+    };
+  }
+
+  private clearExpiredActorSpeech(): void {
+    const nowMs = Number(this.getFlag<number>('timeMs') ?? 0);
+    for (const actor of this.actors.registry.getAll()) {
+      if (actor.speech?.expiresAtMs !== undefined && actor.speech.expiresAtMs <= nowMs) {
+        this.actors.registry.update(actor.id, (current) => ({
+          ...current,
+          speech: undefined,
+        }));
+      }
+    }
+  }
+
+  private maybeTriggerRadiantActorBark(
+    actor: Actor,
+    roomId: string,
+    actorPosition: Vector2Like,
+    playerPosition: Vector2Like,
+    atmosphere: AtmosphereState,
+  ): void {
+    if (actor.speech?.category && actor.speech.category !== 'ambient') {
+      return;
+    }
+    const nowMs = Number(this.getFlag<number>('timeMs') ?? 0);
+    const distance = manhattanDistance(actorPosition, playerPosition);
+    const inRange = distance <= 4;
+    const wasInRange = actor.flags.ambientBarkPlayerNearby === true;
+    if (!inRange) {
+      if (wasInRange) {
+        this.actors.registry.update(actor.id, (current) => ({
+          ...current,
+          flags: { ...current.flags, ambientBarkPlayerNearby: false },
+        }));
+      }
+      return;
+    }
+    if (wasInRange) {
+      return;
+    }
+    const actorCooldown = Number(actor.flags.ambientBarkCooldownUntilMs ?? 0);
+    const roomCooldown = Number(this.getFlag<number>(`actors.ambientBarkCooldown.${roomId}`) ?? 0);
+    if (actorCooldown > nowMs || roomCooldown > nowMs) {
+      this.actors.registry.update(actor.id, (current) => ({
+        ...current,
+        flags: { ...current.flags, ambientBarkPlayerNearby: true },
+      }));
+      return;
+    }
+    const bark = selectActorRadiantBark(actor, {
+      roomNumber: this.getRoomsVisitedCount(),
+      atmosphere,
+      nowMs,
+      random: this._rng,
+    });
+    this.actors.registry.update(actor.id, (current) => ({
+      ...current,
+      speech: bark ?? current.speech,
+      flags: {
+        ...current.flags,
+        ambientBarkPlayerNearby: true,
+        ambientBarkCooldownUntilMs: bark ? nowMs + 45_000 : nowMs + 8_000,
+      },
+    }));
+    if (bark) {
+      this.setFlag(`actors.ambientBarkCooldown.${roomId}`, nowMs + 6_000);
+    }
   }
 
   private shareActorGossip(
@@ -12147,7 +12874,6 @@ export class SnakeGame implements QuestRuntime {
     this.creditKarmaConversation(`wanderer:${encounter.id}`);
     this.setFlag('npc.randomEncounter', undefined);
     this.setFlag('npc.randomEncounter.prompted', undefined);
-    this.setFlag('npc.randomEncounter.triggerAtMs', undefined);
     this.setFlag('npc.randomEncounter.revealAtMs', undefined);
     if (encounter.actorId) {
       this.npcBodies.delete(encounter.relationshipId ?? `wanderer:${encounter.id}`);
@@ -17367,7 +18093,6 @@ export class SnakeGame implements QuestRuntime {
     });
     const revealAtMs = Number(this.getFlag<number>('timeMs') ?? 0);
     this.setFlag('npc.randomEncounter.revealAtMs', revealAtMs);
-    this.setFlag('npc.randomEncounter.triggerAtMs', revealAtMs + 2200);
     this.setFlag('ui.wandererReveal', {
       x: spawn.x,
       y: spawn.y,
@@ -17456,7 +18181,6 @@ export class SnakeGame implements QuestRuntime {
     });
     const revealAtMs = Number(this.getFlag<number>('timeMs') ?? 0);
     this.setFlag('npc.randomEncounter.revealAtMs', revealAtMs);
-    this.setFlag('npc.randomEncounter.triggerAtMs', revealAtMs + 2200);
     this.setFlag('ui.wandererReveal', {
       x: spawn.x,
       y: spawn.y,

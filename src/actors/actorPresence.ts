@@ -165,6 +165,15 @@ export function selectScheduleGoal(
 ): ActorGoal {
   const scheduleContext = typeof context === 'number' ? { roomNumber: context } : context;
   const dayPhase = scheduleContext.dayPhase ?? fallbackDayPhase(scheduleContext.roomNumber);
+  if (actor.schedule?.permanentDuty && actor.schedule.fixedPostRoomId) {
+    return {
+      kind: 'defendArea',
+      priority: 24,
+      roomId: actor.schedule.fixedPostRoomId,
+      targetPosition: actor.schedule.fixedPostPosition,
+      reason: 'permanent-duty-schedule',
+    };
+  }
   if (dayPhase === 'night') {
     return {
       kind: actor.schedule?.sleepRoomId || actor.homeRoomId ? 'goHome' : 'sleep',

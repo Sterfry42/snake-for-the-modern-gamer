@@ -28,6 +28,13 @@ export interface ActorEnvironmentReaction {
   environmentKey: string;
 }
 
+export interface ActorRadiantBarkContext {
+  roomNumber: number;
+  atmosphere: AtmosphereState;
+  nowMs?: number;
+  random(): number;
+}
+
 const WEATHER_SHELTER_PRIORITY = 23;
 
 export function selectActorEnvironmentReaction(
@@ -40,15 +47,12 @@ export function selectActorEnvironmentReaction(
   const weather = context.atmosphere.globalWeather;
   const dayPhase = context.atmosphere.dayPhase;
   const environmentKey = `${dayPhase}:${weather}:${context.sheltered ? 'sheltered' : 'exposed'}:${context.atmosphere.skyEvent?.current ?? 'none'}`;
-  const canReactWithSpeech = actor.flags.lastEnvironmentReactionKey !== environmentKey;
 
   if (context.atmosphere.skyEvent?.current === 'bloodMoon' && !context.sheltered) {
     return {
       goal: actor.hostility === 'hostile' ? undefined : shelterGoal(actor, 'blood-moon-shelter'),
       activity: actor.hostility === 'hostile' ? undefined : shelterActivity(context.roomNumber),
-      speech: canReactWithSpeech
-        ? speech('That moon has teeth tonight.', context.roomNumber)
-        : undefined,
+      speech: undefined,
       moodDelta: { fear: 10, stress: 8 },
       needsDelta: { safety: 10 },
       environmentKey,
@@ -65,14 +69,7 @@ export function selectActorEnvironmentReaction(
         actor.role === 'guard' || actor.role === 'gateGuard'
           ? guardingActivity(context.roomNumber)
           : shelterActivity(context.roomNumber),
-      speech: canReactWithSpeech
-        ? speech(
-            actor.role === 'guard' || actor.role === 'gateGuard'
-              ? 'Storm watch. Keep moving.'
-              : 'I am getting under a roof.',
-            context.roomNumber,
-          )
-        : undefined,
+      speech: undefined,
       moodDelta: { fear: 5, stress: 10 },
       needsDelta: { safety: 8, duty: actor.role === 'guard' ? 4 : 0 },
       environmentKey,
@@ -83,7 +80,7 @@ export function selectActorEnvironmentReaction(
     return {
       goal: shelterGoal(actor, 'heat-shelter'),
       activity: shelterActivity(context.roomNumber),
-      speech: canReactWithSpeech ? speech('Too hot to loiter.', context.roomNumber) : undefined,
+      speech: undefined,
       moodDelta: { stress: 7, hunger: 3 },
       needsDelta: { safety: 4, rest: 6 },
       environmentKey,
@@ -94,9 +91,7 @@ export function selectActorEnvironmentReaction(
     return {
       goal: shelterGoal(actor, 'cold-shelter'),
       activity: shelterActivity(context.roomNumber),
-      speech: canReactWithSpeech
-        ? speech('Cold like this keeps receipts.', context.roomNumber)
-        : undefined,
+      speech: undefined,
       moodDelta: { stress: 6 },
       needsDelta: { safety: 5, rest: 5 },
       environmentKey,
@@ -109,12 +104,7 @@ export function selectActorEnvironmentReaction(
         actor.role === 'guard' || actor.role === 'gateGuard'
           ? undefined
           : softShelterGoal(actor, `${weather}-errand-route`),
-      speech: canReactWithSpeech
-        ? speech(
-            weather === 'fog' ? 'Fog makes liars useful.' : 'Rain changes where people talk.',
-            context.roomNumber,
-          )
-        : undefined,
+      speech: undefined,
       moodDelta: { stress: weather === 'fog' ? 4 : 2, curiosity: weather === 'fog' ? 3 : 1 },
       needsDelta: { social: weather === 'rain' ? 2 : 0 },
       environmentKey,
@@ -123,7 +113,7 @@ export function selectActorEnvironmentReaction(
 
   if (dayPhase === 'night') {
     return {
-      speech: canReactWithSpeech ? speech(nightSpeech(actor), context.roomNumber) : undefined,
+      speech: undefined,
       moodDelta:
         actor.role === 'guard' || actor.role === 'gateGuard' ? { stress: 3 } : { stress: 1 },
       needsDelta: actor.role === 'guard' || actor.role === 'gateGuard' ? { duty: 4 } : { rest: 4 },
@@ -133,9 +123,7 @@ export function selectActorEnvironmentReaction(
 
   if (dayPhase === 'dawn') {
     return {
-      speech: canReactWithSpeech
-        ? speech('Dawn makes everybody look innocent.', context.roomNumber)
-        : undefined,
+      speech: undefined,
       moodDelta: { curiosity: 2, stress: -1 },
       needsDelta: { rest: -2 },
       environmentKey,
@@ -146,6 +134,42 @@ export function selectActorEnvironmentReaction(
     moodDelta: { stress: -1 },
     environmentKey,
   };
+}
+
+export function selectActorRadiantBark(
+  actor: Actor,
+  context: ActorRadiantBarkContext,
+): ActorSpeechBubble | undefined {
+  const chance = radiantBarkChance(actor);
+  if (chance <= 0 || context.random() > chance) {
+    return undefined;
+  }
+  const text = radiantBarkText(actor, context.atmosphere);
+  return {
+    text,
+    category: 'ambient',
+    createdAtRoomNumber: context.roomNumber,
+    expiresAtRoomNumber: context.roomNumber + 1,
+    createdAtMs: context.nowMs,
+    expiresAtMs:
+      context.nowMs === undefined ? undefined : context.nowMs + speechDurationMs(text.length),
+  };
+}
+
+function speechDurationMs(length: number): number {
+  return Math.max(2_000, Math.min(4_000, 1_700 + length * 35));
+}
+
+export function radiantBarkChance(actor: Actor): number {
+  const explicit = actor.flags.radiantBarkChance;
+  if (typeof explicit === 'number') {
+    return Math.max(0, Math.min(1, explicit));
+  }
+  if (actor.role === 'gateGuard' || actor.role === 'guard') return 0.18;
+  if (isTownShopRole(actor.role)) return 0.12;
+  if (actor.role === 'questGiver') return 0.08;
+  if (actor.kind === 'wanderer') return 0.28;
+  return 0.1;
 }
 
 function shelterGoal(actor: Actor, reason: string): ActorGoal {
@@ -189,12 +213,19 @@ function guardingActivity(roomNumber: number): ActorActivity {
   return { kind: 'guarding', source: 'schedule', startedAtRoomNumber: roomNumber };
 }
 
-function speech(text: string, roomNumber: number): ActorSpeechBubble {
-  return {
-    text,
-    createdAtRoomNumber: roomNumber,
-    expiresAtRoomNumber: roomNumber + 1,
-  };
+function radiantBarkText(actor: Actor, atmosphere: AtmosphereState): string {
+  if (atmosphere.globalWeather === 'storm') {
+    return actor.role === 'guard' || actor.role === 'gateGuard'
+      ? 'Storm watch. Keep moving.'
+      : 'I am getting under a roof.';
+  }
+  if (atmosphere.globalWeather === 'fog') return 'Fog makes liars useful.';
+  if (atmosphere.globalWeather === 'rain') return 'Rain changes where people talk.';
+  if (atmosphere.globalWeather === 'heatwave') return 'Too hot to loiter.';
+  if (atmosphere.globalWeather === 'coldfront') return 'Cold like this keeps receipts.';
+  if (atmosphere.dayPhase === 'dawn') return 'Dawn makes everybody look innocent.';
+  if (atmosphere.dayPhase === 'night') return nightSpeech(actor);
+  return 'Town is quiet. That never lasts.';
 }
 
 function nightSpeech(actor: Actor): string {

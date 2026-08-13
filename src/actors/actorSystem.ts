@@ -210,6 +210,7 @@ export class ActorSystem {
         currentRoomId: roomId,
         homeRoomId: resident.homeRoomId,
         workRoomId: interiorWorkRoomIdForResident(town, resident.id) ?? resident.workRoomId,
+        postPosition: { x: resident.x, y: resident.y },
         portraitId: resident.portraitId,
         createdAtRoomNumber: roomNumber,
       }),
@@ -243,6 +244,7 @@ export class ActorSystem {
         currentRoomId: roomId,
         homeRoomId: roomId,
         workRoomId: roomId,
+        postPosition: { x: resident.x, y: resident.y },
         portraitId: resident.portraitId,
         createdAtRoomNumber: roomNumber,
       }),
@@ -347,7 +349,6 @@ export class ActorSystem {
     for (const update of updates) {
       this.registry.update(update.actorId, (actor) => ({
         ...actor,
-        hostility: actor.hostility === 'dead' ? 'dead' : 'hostile',
         goal: update.goal,
         activity: update.activity,
         mood: {
