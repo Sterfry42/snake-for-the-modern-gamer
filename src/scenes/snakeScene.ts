@@ -22498,6 +22498,25 @@ export default class SnakeScene extends Phaser.Scene {
             ? ((resident as { factionId?: FactionId }).factionId ?? 'hearthbound-remnant')
             : 'hearthbound-remnant',
       };
+      const actor = relationshipProfile.actorId
+        ? this.snakeGame.getActorSystem().getActor(relationshipProfile.actorId)
+        : undefined;
+      const actorPresence = actor?.presence;
+      if (
+        !actor ||
+        actorPresence?.roomId !== room.id ||
+        !actorPresence.materialized ||
+        actor.health?.state === 'dead' ||
+        actor.hostility === 'dead' ||
+        actor.flags.dead === true ||
+        actor.flags.eaten === true
+      ) {
+        sprite.setVisible(false);
+        indicator.setVisible(false);
+        speechText.setVisible(false);
+        activityPropSprite.setVisible(false);
+        return;
+      }
       const relationshipState = this.snakeGame.getRelationshipState(relationshipProfile);
       if (
         relationshipState?.stage === 'dead' ||
@@ -22507,6 +22526,7 @@ export default class SnakeScene extends Phaser.Scene {
         sprite.setVisible(false);
         indicator.setVisible(false);
         speechText.setVisible(false);
+        activityPropSprite.setVisible(false);
         return;
       }
       const palette = isGoblin
@@ -22526,11 +22546,7 @@ export default class SnakeScene extends Phaser.Scene {
           repeat: -1,
         });
       }
-      const bodyPosition = this.snakeGame.getRelationshipNpcBodyPosition(relationshipProfile, {
-        x: resident.x,
-        y: resident.y,
-      });
-      const world = this.tileToWorldLocalInRoom(bodyPosition);
+      const world = this.tileToWorldLocalInRoom(actorPresence.position);
       const bobOffset = Math.sin(this.time.now / (220 + index * 17)) * 1.8;
       sprite
         .setTexture(textures.idle)
@@ -22539,9 +22555,6 @@ export default class SnakeScene extends Phaser.Scene {
       const actorMenu = relationshipProfile.actorId
         ? this.snakeGame.getActorInteractionMenu(relationshipProfile.actorId)
         : null;
-      const actor = relationshipProfile.actorId
-        ? this.snakeGame.getActorSystem().getActor(relationshipProfile.actorId)
-        : undefined;
       const activityProp = actor ? getActorActivityProp(actor) : null;
       const glyphs = actorMenu?.indicators.map((entry) => entry.glyph).join(' ');
       indicator

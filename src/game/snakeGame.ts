@@ -8375,6 +8375,16 @@ export class SnakeGame implements QuestRuntime {
       const actor = body.actorId ? this.actors.getActor(body.actorId) : undefined;
       const actorConversation = actor ? this.getActorConversationRuntime(actor) : undefined;
       if (actor && actorConversation?.endsAtMs) {
+        if (!this.canActorCasuallySocialize(actor)) {
+          this.finishActorConversation(actor.id, 'conversation-interrupted');
+          const updated = this.actors.getActor(actor.id) ?? actor;
+          this.actors.setActivity(
+            actor.id,
+            inferActorActivity({ actor: updated, roomNumber: this.getRoomsVisitedCount() }),
+            'conversation-interrupted',
+          );
+          continue;
+        }
         this.actors.setActivity(
           actor.id,
           {
@@ -9106,6 +9116,9 @@ export class SnakeGame implements QuestRuntime {
 
   private canStartCasualActorConversation(roomId: string, a: Actor, b: Actor): boolean {
     const nowMs = Number(this.getFlag<number>('timeMs') ?? 0);
+    if (!this.canActorCasuallySocialize(a) || !this.canActorCasuallySocialize(b)) {
+      return false;
+    }
     if (this.getActorConversationRuntime(a) || this.getActorConversationRuntime(b)) {
       return false;
     }
@@ -9122,6 +9135,27 @@ export class SnakeGame implements QuestRuntime {
       Number(a.flags.socialCooldownUntilRoom ?? 0) <= this.getRoomsVisitedCount() &&
       Number(b.flags.socialCooldownUntilRoom ?? 0) <= this.getRoomsVisitedCount()
     );
+  }
+
+  private canActorCasuallySocialize(actor: Actor): boolean {
+    if (
+      actor.health?.state === 'dead' ||
+      actor.health?.state === 'downed' ||
+      actor.hostility === 'dead' ||
+      actor.hostility === 'downed' ||
+      actor.hostility === 'fleeing'
+    ) {
+      return false;
+    }
+    if (
+      actor.goal?.kind === 'sleep' ||
+      actor.goal?.kind === 'attackActor' ||
+      actor.goal?.kind === 'flee' ||
+      actor.goal?.reason?.includes('shelter')
+    ) {
+      return false;
+    }
+    return actor.activity?.kind !== 'sleeping' && actor.activity?.kind !== 'sheltering';
   }
 
   private markCasualActorConversation(
@@ -9241,11 +9275,19 @@ export class SnakeGame implements QuestRuntime {
       if (!conversation) {
         continue;
       }
+      const partner = this.actors.getActor(conversation.partnerId);
+      if (
+        !this.canActorCasuallySocialize(actor) ||
+        (partner && !this.canActorCasuallySocialize(partner))
+      ) {
+        this.finishActorConversation(actor.id, 'conversation-interrupted');
+        continue;
+      }
       if (
         conversation.endsAtMs <= nowMs ||
         conversation.nextLineIndex >= conversation.lines.length
       ) {
-        this.finishActorConversation(actor.id);
+        this.finishActorConversation(actor.id, 'conversation-ended');
         continue;
       }
       if (conversation.nextLineAtMs > nowMs) {
@@ -9253,7 +9295,7 @@ export class SnakeGame implements QuestRuntime {
       }
       const line = conversation.lines[conversation.nextLineIndex];
       if (!line) {
-        this.finishActorConversation(actor.id);
+        this.finishActorConversation(actor.id, 'conversation-ended');
         continue;
       }
       for (const participantId of [actor.id, conversation.partnerId]) {
@@ -9296,23 +9338,33 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
-  private finishActorConversation(actorId: string): void {
+  private finishActorConversation(actorId: string, reason = 'conversation-ended'): void {
     const actor = this.actors.getActor(actorId);
     const conversation = actor ? this.getActorConversationRuntime(actor) : undefined;
-    this.actors.registry.update(actorId, (actor) => {
-      const flags = { ...actor.flags };
-      delete flags.actorConversation;
-      return {
-        ...actor,
-        flags,
-        speech: actor.speech?.category === 'social' ? undefined : actor.speech,
-      };
-    });
-    this.actors.recordActorTelemetry('actor.conversation_ended', actorId, 'conversation-ended', {
-      conversationId: conversation?.id,
-      partnerId: conversation?.partnerId,
-    });
-    this.actors.resumeGoal(actorId);
+    const participantIds = conversation ? [actorId, conversation.partnerId] : [actorId];
+    for (const participantId of participantIds) {
+      const participant = this.actors.getActor(participantId);
+      const participantConversation = participant
+        ? this.getActorConversationRuntime(participant)
+        : undefined;
+      if (conversation && participantConversation?.id !== conversation.id) {
+        continue;
+      }
+      this.actors.registry.update(participantId, (actor) => {
+        const flags = { ...actor.flags };
+        delete flags.actorConversation;
+        return {
+          ...actor,
+          flags,
+          speech: actor.speech?.category === 'social' ? undefined : actor.speech,
+        };
+      });
+      this.actors.recordActorTelemetry('actor.conversation_ended', participantId, reason, {
+        conversationId: conversation?.id,
+        partnerId: participantId === actorId ? conversation?.partnerId : actorId,
+      });
+      this.actors.resumeGoal(participantId);
+    }
   }
 
   private getActorConversationRuntime(actor: Actor): ActorConversationRuntime | undefined {

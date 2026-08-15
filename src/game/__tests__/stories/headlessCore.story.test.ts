@@ -149,6 +149,57 @@ describe('Headless user-story harness', () => {
     scenario.assertWorldIntegrity();
   });
 
+  it('adjacent sleeping residents stay quiet without casual conversations', async () => {
+    const scenario = createHeadlessScenario({ seed: 'story-sleep-is-quiet' });
+    const roomId = scenario.currentRoom().id;
+    const first = firstWalkableTile(scenario, roomId);
+    const second = adjacentWalkableTile(scenario.currentRoom(), first);
+    const alice = ensureScenarioActor(scenario, {
+      id: 'quiet-sleeper-alice',
+      name: 'Quiet Sleeper Alice',
+      role: 'resident',
+      roomId,
+      position: first,
+    });
+    const bob = ensureScenarioActor(scenario, {
+      id: 'quiet-sleeper-bob',
+      name: 'Quiet Sleeper Bob',
+      role: 'resident',
+      roomId,
+      position: second,
+    });
+    for (const actor of [alice, bob]) {
+      const position = scenario.actor(actor.id).presence?.position;
+      expect(position).toBeDefined();
+      if (!position) {
+        throw new Error(`Sleeping Actor ${actor.id} has no presence.`);
+      }
+      scenario.setActorGoal(actor.id, {
+        kind: 'sleep',
+        priority: 20,
+        roomId,
+        targetPosition: position,
+        reason: 'story-sleep-is-quiet',
+      });
+      scenario.game.getActorSystem().setActivity(
+        actor.id,
+        {
+          kind: 'sleeping',
+          source: 'schedule',
+        },
+        'story-sleep-is-quiet',
+      );
+    }
+
+    await scenario.advanceSeconds(30, { assertIntegrityEveryMs: 5_000 });
+
+    expect(scenario.actor(alice.id).activity?.kind).toBe('sleeping');
+    expect(scenario.actor(bob.id).activity?.kind).toBe('sleeping');
+    expect(scenario.actor(alice.id).flags.actorConversation).toBeUndefined();
+    expect(scenario.actor(bob.id).flags.actorConversation).toBeUndefined();
+    scenario.assertWorldIntegrity();
+  });
+
   it('a stationary shopkeeper can leave the post when the schedule changes', async () => {
     const scenario = createHeadlessScenario({ seed: 'story-stationary-worker-leaves-post' });
     const workRoomId = scenario.currentRoom().id;

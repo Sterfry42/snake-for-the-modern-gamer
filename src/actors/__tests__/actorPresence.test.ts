@@ -272,6 +272,12 @@ describe('actor presence simulation', () => {
       maxTileWidth: 0.5,
       maxTileHeight: 0.5,
     });
+
+    merchant.activity = { kind: 'sleeping', source: 'schedule' };
+    expect(getActorActivityProp(merchant)).toMatchObject({
+      kind: 'sleep-zzz',
+      label: 'Sleeping',
+    });
   });
 
   it('advances offscreen actors to their scheduled goal room without materializing them', () => {

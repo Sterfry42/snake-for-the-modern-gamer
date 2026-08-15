@@ -17,6 +17,7 @@ const VARIANTS: readonly ActorActivityPropVariant[] = [
   'merchant-bag',
   'shield',
   'fishing-rod',
+  'sleep-zzz',
 ];
 
 export const actorActivityPropRecipe: RuntimeSpriteRecipe<
@@ -56,6 +57,9 @@ export const actorActivityPropRecipe: RuntimeSpriteRecipe<
         break;
       case 'fishing-rod':
         drawFishingRod(context, size, palette);
+        break;
+      case 'sleep-zzz':
+        drawSleepZzz(context, size, palette);
         break;
     }
 
@@ -165,4 +169,25 @@ function drawFishingRod(
   context.moveTo(size * 0.72, size * 0.22);
   context.quadraticCurveTo(size * 0.86, size * 0.48, size * 0.62, size * 0.62);
   context.stroke();
+}
+
+function drawSleepZzz(
+  context: CanvasRenderingContext2D,
+  size: number,
+  palette: ActorActivityPropPalette,
+): void {
+  context.font = `bold ${Math.floor(size * 0.38)}px sans-serif`;
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.lineWidth = Math.max(2, size * 0.08);
+  context.strokeStyle = palette.outlineColor;
+  context.fillStyle = palette.accentColor;
+  context.strokeText('Z', size * 0.34, size * 0.7);
+  context.fillText('Z', size * 0.34, size * 0.7);
+  context.font = `bold ${Math.floor(size * 0.28)}px sans-serif`;
+  context.strokeText('z', size * 0.58, size * 0.48);
+  context.fillText('z', size * 0.58, size * 0.48);
+  context.font = `bold ${Math.floor(size * 0.2)}px sans-serif`;
+  context.strokeText('z', size * 0.76, size * 0.28);
+  context.fillText('z', size * 0.76, size * 0.28);
 }
