@@ -1,5 +1,6 @@
 import { AnimalRegistry } from '../animals/animalRegistry.js';
 import type { AnimalInstance } from '../animals/types.js';
+import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
 import type {
   CreateWorldEventInput,
   WorldEvent,
@@ -18,18 +19,39 @@ import type { TownResidentRole } from '../world/townRoles.js';
 import { ActorRegistry } from './actorRegistry.js';
 import type {
   Actor,
+  ActorActivity,
+  ActorGoal,
   ActorMemory,
   ActorMood,
   ActorOpinion,
+  ActorPlayerHostility,
+  ActorPresence,
   ActorSaveData,
   ActorSocialLink,
+  ActorTargetThreat,
 } from './actorTypes.js';
 import {
   actorIdForAnimal,
   actorIdForEnemy,
   actorIdForRelationship,
   actorIdForTownResident,
+  actorIdForWanderer,
 } from './actorFactory.js';
+import {
+  selectActorEnvironmentReaction,
+  type ActorEnvironmentContext,
+} from './actorEnvironment.js';
+import { findFactionConflictGoals, selectScheduleGoal } from './actorPresence.js';
+import {
+  compactActorActivity,
+  compactActorGoal,
+  compactActorPresence,
+  compactActorThreat,
+  compactPlayerHostility,
+  type ActorTelemetryEvent,
+  type ActorTelemetryEventType,
+  type ActorTelemetrySink,
+} from './actorTelemetry.js';
 
 export interface ActorSystemSaveData {
   actors: ActorSaveData;
@@ -43,23 +65,72 @@ export interface ActorSystemSyncContext {
   relationships?: readonly RelationshipState[];
   relationshipCandidates?: readonly RelationshipCandidateProfile[];
   roomNumber?: number;
+  atmosphere?: ResolvedAtmosphereView;
+}
+
+export interface ActorScheduleUpdateContext {
+  roomNumber: number;
+  atmosphere?: ResolvedAtmosphereView;
+}
+
+export interface ActorTickWorkMetrics {
+  brainsProcessed?: number;
+  pathsRequested?: number;
+  actorsMoved?: number;
+  conversationsProcessed?: number;
+  combatInteractions?: number;
+  materializations?: number;
+}
+
+export interface ActorTickContext {
+  nowMs: number;
+  deltaMs: number;
+  loadedRoomId: string;
+  roomNumber: number;
+  atmosphere?: ResolvedAtmosphereView;
+  materializeLoadedActors?: () => number;
+  processLoadedActors?: () => ActorTickWorkMetrics;
+  advanceOffscreenActors?: () => number;
+}
+
+export interface ActorTickMetrics extends Required<ActorTickWorkMetrics> {
+  durationMs: number;
+  totalActors: number;
+  activeActors: number;
+  loadedRoomActors: number;
+  schedulesEvaluated: number;
+  registryMutations: number;
+  tickCount: number;
 }
 
 export class ActorSystem {
   readonly registry = new ActorRegistry();
   readonly events = new WorldEventLog();
+  private telemetrySink: ActorTelemetrySink | undefined;
+  private readonly scheduleDirtyActors = new Set<string>();
+  private lastScheduleDayPhase: string | undefined;
+  private tickCount = 0;
+  private lastSlowTickTelemetryAtMs = Number.NEGATIVE_INFINITY;
+
+  setTelemetrySink(sink: ActorTelemetrySink | undefined): void {
+    this.telemetrySink = sink;
+  }
 
   reset(): void {
     this.registry.clear();
     this.events.clear();
+    this.scheduleDirtyActors.clear();
+    this.lastScheduleDayPhase = undefined;
+    this.tickCount = 0;
+    this.lastSlowTickTelemetryAtMs = Number.NEGATIVE_INFINITY;
   }
 
-  syncRoom(context: ActorSystemSyncContext): Actor[] {
+  ensureActorsFromRoomContent(context: ActorSystemSyncContext): Actor[] {
     const actors: Actor[] = [];
     const { room, roomNumber } = context;
 
     if (room.town) {
-      actors.push(...this.syncTown(room.town, room.id, roomNumber));
+      actors.push(...this.syncTown(room.town, room.id, roomNumber, context.atmosphere));
     }
     if (room.village) {
       actors.push(
@@ -179,10 +250,21 @@ export class ActorSystem {
       );
     }
 
+    for (const actor of actors) {
+      if (actor.schedule && !actor.scheduleGoal) {
+        this.scheduleDirtyActors.add(actor.id);
+      }
+    }
+    this.processDirtySchedules({ roomNumber: roomNumber ?? 0, atmosphere: context.atmosphere });
     return actors;
   }
 
-  syncTown(town: TownStructure, roomId: string, roomNumber?: number): Actor[] {
+  syncTown(
+    town: TownStructure,
+    roomId: string,
+    roomNumber?: number,
+    atmosphere?: ResolvedAtmosphereView,
+  ): Actor[] {
     const actors = townResidentsForRoom(town, roomId).map((resident) =>
       this.registry.ensureTownResidentActor({
         actorId: resident.actorId,
@@ -193,12 +275,19 @@ export class ActorSystem {
         townId: town.id,
         currentRoomId: roomId,
         homeRoomId: resident.homeRoomId,
-        workRoomId: resident.workRoomId,
+        workRoomId: interiorWorkRoomIdForResident(town, resident.id) ?? resident.workRoomId,
+        postPosition: { x: resident.x, y: resident.y },
         portraitId: resident.portraitId,
         createdAtRoomNumber: roomNumber,
       }),
     );
     this.ensureLocalSocialLinks(actors);
+    for (const actor of actors) {
+      if (actor.schedule && !actor.scheduleGoal) {
+        this.scheduleDirtyActors.add(actor.id);
+      }
+    }
+    this.processDirtySchedules({ roomNumber: roomNumber ?? 0, atmosphere });
     return actors;
   }
 
@@ -227,6 +316,7 @@ export class ActorSystem {
         currentRoomId: roomId,
         homeRoomId: roomId,
         workRoomId: roomId,
+        postPosition: { x: resident.x, y: resident.y },
         portraitId: resident.portraitId,
         createdAtRoomNumber: roomNumber,
       }),
@@ -241,6 +331,433 @@ export class ActorSystem {
 
   getActor(actorId: string): Actor | undefined {
     return this.registry.get(actorId);
+  }
+
+  requestGoal(
+    actorId: string,
+    goal: ActorGoal,
+    options?: { interrupt?: boolean; replaceLowerPriority?: boolean },
+  ): Actor | undefined {
+    const previous = this.registry.get(actorId);
+    if (
+      previous?.goal &&
+      options?.interrupt !== true &&
+      options?.replaceLowerPriority !== true &&
+      goal.priority < (previous.goal.priority ?? 0)
+    ) {
+      return previous;
+    }
+    const mutationsBefore = this.registry.getMutationCount();
+    const next = this.registry.setGoal(actorId, goal, options?.interrupt ?? false);
+    if (!next) {
+      return undefined;
+    }
+    if (this.registry.getMutationCount() === mutationsBefore) {
+      return next;
+    }
+    const reason = goal.reason ?? 'goal-request';
+    if (options?.interrupt && previous?.goal) {
+      this.emitActorTelemetry('actor.goal_interrupted', next, reason, {
+        previousGoal: compactActorGoal(previous.goal),
+        nextGoal: compactActorGoal(next.goal),
+      });
+    }
+    this.emitActorTelemetry('actor.goal_changed', next, reason, {
+      previousGoal: compactActorGoal(previous?.goal),
+      nextGoal: compactActorGoal(next.goal),
+      priority: goal.priority,
+    });
+    return next;
+  }
+
+  resumeGoal(actorId: string, reason = 'resume-interrupted-goal'): Actor | undefined {
+    const previous = this.registry.get(actorId);
+    const mutationsBefore = this.registry.getMutationCount();
+    const next = this.registry.resumeInterruptedGoal(actorId);
+    if (!next) {
+      return undefined;
+    }
+    if (this.registry.getMutationCount() === mutationsBefore) {
+      return next;
+    }
+    this.emitActorTelemetry('actor.goal_resumed', next, reason, {
+      previousGoal: compactActorGoal(previous?.goal),
+      nextGoal: compactActorGoal(next.goal),
+    });
+    return next;
+  }
+
+  setPresence(actorId: string, presence: ActorPresence, reason: string): Actor | undefined {
+    const previous = this.registry.get(actorId);
+    const mutationsBefore = this.registry.getMutationCount();
+    const next = this.registry.setPresence(actorId, presence);
+    if (!next) {
+      return undefined;
+    }
+    if (this.registry.getMutationCount() === mutationsBefore) {
+      return next;
+    }
+    this.emitActorTelemetry('actor.presence_changed', next, reason, {
+      previousPresence: compactActorPresence(previous?.presence),
+      nextPresence: compactActorPresence(next.presence),
+      fromRoomId: previous?.presence?.roomId ?? previous?.currentRoomId,
+      toRoomId: presence.roomId,
+      fromPosition: previous?.presence?.position ? { ...previous.presence.position } : undefined,
+      toPosition: { ...presence.position },
+    });
+    if (previous?.presence?.materialized !== presence.materialized) {
+      this.emitActorTelemetry(
+        presence.materialized ? 'actor.materialized' : 'actor.dematerialized',
+        next,
+        reason,
+        {
+          previousPresence: compactActorPresence(previous?.presence),
+          nextPresence: compactActorPresence(next.presence),
+        },
+      );
+    }
+    return next;
+  }
+
+  setActivity(actorId: string, activity: ActorActivity, reason: string): Actor | undefined {
+    const previous = this.registry.get(actorId);
+    const mutationsBefore = this.registry.getMutationCount();
+    const next = this.registry.setActivity(actorId, activity);
+    if (!next) {
+      return undefined;
+    }
+    if (this.registry.getMutationCount() === mutationsBefore) {
+      return next;
+    }
+    this.emitActorTelemetry('actor.activity_changed', next, reason, {
+      previousActivity: compactActorActivity(previous?.activity),
+      nextActivity: compactActorActivity(next.activity),
+    });
+    return next;
+  }
+
+  setTargetThreat(
+    actorId: string,
+    threat: ActorTargetThreat | undefined,
+    reason: string,
+  ): Actor | undefined {
+    const previous = this.registry.get(actorId);
+    if (actorThreatEquals(previous?.targetedThreat, threat)) {
+      return previous;
+    }
+    const next = this.registry.update(actorId, (actor) => ({
+      ...actor,
+      targetedThreat: threat,
+    }));
+    if (!next) {
+      return undefined;
+    }
+    this.emitActorTelemetry('actor.threat_changed', next, reason, {
+      previousThreatState: compactActorThreat(previous?.targetedThreat),
+      nextThreatState: compactActorThreat(next.targetedThreat),
+      targetActorId: threat?.targetActorId,
+    });
+    return next;
+  }
+
+  setPlayerHostility(
+    actorId: string,
+    state: ActorPlayerHostility['state'],
+    reason: string,
+    roomNumber?: number,
+  ): Actor | undefined {
+    const previous = this.registry.get(actorId);
+    const playerHostility: ActorPlayerHostility = {
+      state,
+      reason,
+      startedAtRoomNumber: roomNumber,
+    };
+    if (
+      previous?.playerHostility?.state === playerHostility.state &&
+      previous.playerHostility.reason === playerHostility.reason
+    ) {
+      return previous;
+    }
+    const next = this.registry.update(actorId, (actor) => ({
+      ...actor,
+      hostility:
+        actor.hostility === 'dead'
+          ? 'dead'
+          : state === 'hostile'
+            ? 'hostile'
+            : state === 'suspicious'
+              ? 'suspicious'
+              : state,
+      playerHostility,
+    }));
+    if (!next) {
+      return undefined;
+    }
+    this.emitActorTelemetry('actor.player_hostility_changed', next, reason, {
+      previous: compactPlayerHostility(previous?.playerHostility),
+      next: compactPlayerHostility(next.playerHostility),
+    });
+    return next;
+  }
+
+  recordActorTelemetry(
+    type: ActorTelemetryEventType,
+    actorId: string,
+    reason: string,
+    data: Record<string, unknown> = {},
+  ): void {
+    const actor = this.registry.get(actorId);
+    if (!actor) {
+      return;
+    }
+    this.emitActorTelemetry(type, actor, reason, data);
+  }
+
+  markSchedulesDirty(actorIds?: readonly string[]): void {
+    if (actorIds) {
+      for (const actorId of actorIds) {
+        if (this.registry.get(actorId)?.schedule) {
+          this.scheduleDirtyActors.add(actorId);
+        }
+      }
+      return;
+    }
+    for (const actor of this.registry.getAll()) {
+      if (actor.schedule) {
+        this.scheduleDirtyActors.add(actor.id);
+      }
+    }
+  }
+
+  applyScheduleGoals(context: number | ActorScheduleUpdateContext): void {
+    const updateContext = typeof context === 'number' ? { roomNumber: context } : context;
+    this.markSchedulesDirty();
+    this.processDirtySchedules(updateContext);
+    if (updateContext.atmosphere) {
+      this.applyEnvironmentReactions({
+        roomNumber: updateContext.roomNumber,
+        atmosphere: updateContext.atmosphere.state,
+        sheltered: updateContext.atmosphere.sheltered,
+        effects: updateContext.atmosphere.effects,
+      });
+    }
+  }
+
+  tick(context: ActorTickContext): ActorTickMetrics {
+    const startedAt = performance.now();
+    const mutationsBefore = this.registry.getMutationCount();
+    this.tickCount += 1;
+    const dayPhase = context.atmosphere?.state.dayPhase;
+    if (dayPhase !== this.lastScheduleDayPhase) {
+      this.lastScheduleDayPhase = dayPhase;
+      this.markSchedulesDirty();
+    }
+    const schedulesEvaluated = this.processDirtySchedules({
+      roomNumber: context.roomNumber,
+      atmosphere: context.atmosphere,
+    });
+    if (context.atmosphere) {
+      this.applyEnvironmentReactions(
+        {
+          roomNumber: context.roomNumber,
+          atmosphere: context.atmosphere.state,
+          sheltered: context.atmosphere.sheltered,
+          effects: context.atmosphere.effects,
+        },
+        context.loadedRoomId,
+      );
+    }
+    const materializations = context.materializeLoadedActors?.() ?? 0;
+    const loadedWork = context.processLoadedActors?.() ?? {};
+    const combatInteractions =
+      (loadedWork.combatInteractions ?? 0) + this.resolveFactionConflicts(context.loadedRoomId);
+    const offscreenMoves = context.advanceOffscreenActors?.() ?? 0;
+    this.expireSpeech(context.nowMs, context.roomNumber);
+    const allActors = this.registry.getAll();
+    const loadedRoomActors = this.getActorsInRoom(context.loadedRoomId).length;
+    const metrics: ActorTickMetrics = {
+      durationMs: Math.max(0, performance.now() - startedAt),
+      totalActors: allActors.length,
+      activeActors: allActors.filter(
+        (actor) => actor.health?.state !== 'dead' && actor.hostility !== 'dead',
+      ).length,
+      loadedRoomActors,
+      brainsProcessed: loadedWork.brainsProcessed ?? loadedRoomActors,
+      schedulesEvaluated,
+      pathsRequested: loadedWork.pathsRequested ?? 0,
+      actorsMoved: (loadedWork.actorsMoved ?? 0) + offscreenMoves,
+      conversationsProcessed: loadedWork.conversationsProcessed ?? 0,
+      combatInteractions,
+      materializations: materializations + (loadedWork.materializations ?? 0),
+      registryMutations: this.registry.getMutationCount() - mutationsBefore,
+      tickCount: this.tickCount,
+    };
+    this.emitSystemTelemetry('actor.tick', 'actor-clock', metrics);
+    if (metrics.durationMs > 16 && context.nowMs - this.lastSlowTickTelemetryAtMs >= 1_000) {
+      this.lastSlowTickTelemetryAtMs = context.nowMs;
+      this.emitSystemTelemetry('actor.tick_slow', 'actor-tick-over-16ms', metrics);
+    }
+    return metrics;
+  }
+
+  getTickCount(): number {
+    return this.tickCount;
+  }
+
+  private processDirtySchedules(updateContext: ActorScheduleUpdateContext): number {
+    let evaluated = 0;
+    const dirtyActorIds = [...this.scheduleDirtyActors];
+    this.scheduleDirtyActors.clear();
+    for (const actorId of dirtyActorIds) {
+      const actor = this.registry.get(actorId);
+      if (!actor?.schedule) {
+        continue;
+      }
+      if (actor.health?.state === 'dead' || actor.hostility === 'dead') {
+        continue;
+      }
+      evaluated += 1;
+      const goal = selectScheduleGoal(actor, {
+        roomNumber: updateContext.roomNumber,
+        dayPhase: updateContext.atmosphere?.state.dayPhase,
+      });
+      const previousScheduleGoal = actor.scheduleGoal;
+      const currentPriority = actor.goal?.priority ?? 0;
+      const accepted =
+        !actor.goal ||
+        goal.priority >= currentPriority ||
+        actor.goal.reason?.includes('schedule') ||
+        actor.goal.kind === actor.scheduleGoal?.kind;
+      const scheduleChanged = !actorGoalEquals(previousScheduleGoal, goal);
+      const scheduled = scheduleChanged
+        ? this.registry.update(actor.id, (current) => ({ ...current, scheduleGoal: goal }))
+        : actor;
+      if (scheduled && scheduleChanged) {
+        this.emitActorTelemetry('actor.schedule_changed', scheduled, goal.reason ?? 'schedule', {
+          dayPhase: updateContext.atmosphere?.state.dayPhase,
+          schedulePolicy: actor.schedule
+            ? {
+                policyId: actor.schedule.policyId,
+                preferredBehavior:
+                  actor.schedule.routines?.[updateContext.atmosphere?.state.dayPhase ?? 'day']
+                    ?.behavior,
+                permanentDuty: actor.schedule.permanentDuty,
+                fixedPostRoomId: actor.schedule.fixedPostRoomId,
+              }
+            : null,
+          previousBaseGoal: compactActorGoal(previousScheduleGoal),
+          scheduleGoal: compactActorGoal(goal),
+          accepted,
+        });
+      }
+      if (accepted) {
+        this.requestGoal(actor.id, goal, { replaceLowerPriority: true });
+      }
+    }
+    return evaluated;
+  }
+
+  private applyEnvironmentReactions(context: ActorEnvironmentContext, roomId?: string): void {
+    const actors = roomId ? this.registry.getByRoom(roomId) : this.registry.getAll();
+    for (const actor of actors) {
+      const reaction = selectActorEnvironmentReaction(actor, context);
+      if (!reaction) {
+        continue;
+      }
+      const applyDeltas = actor.flags.lastEnvironmentReactionKey !== reaction.environmentKey;
+      if (!applyDeltas) {
+        continue;
+      }
+      const currentPriority = actor.goal?.priority ?? 0;
+      const nextGoal =
+        reaction.goal && (!actor.goal || reaction.goal.priority >= currentPriority)
+          ? reaction.goal
+          : actor.goal;
+      this.registry.update(actor.id, (current) => ({
+        ...current,
+        goal: nextGoal,
+        activity: reaction.activity ?? current.activity,
+        speech: reaction.speech ?? current.speech,
+        mood: {
+          ...current.mood,
+          fear: shift(current.mood.fear, applyDeltas ? (reaction.moodDelta?.fear ?? 0) : 0),
+          stress: shift(current.mood.stress, applyDeltas ? (reaction.moodDelta?.stress ?? 0) : 0),
+          curiosity: shift(
+            current.mood.curiosity,
+            applyDeltas ? (reaction.moodDelta?.curiosity ?? 0) : 0,
+          ),
+          hunger: shift(current.mood.hunger, applyDeltas ? (reaction.moodDelta?.hunger ?? 0) : 0),
+        },
+        needs: {
+          ...current.needs,
+          safety: shift(current.needs.safety, applyDeltas ? (reaction.needsDelta?.safety ?? 0) : 0),
+          rest: shift(current.needs.rest, applyDeltas ? (reaction.needsDelta?.rest ?? 0) : 0),
+          social: shift(current.needs.social, applyDeltas ? (reaction.needsDelta?.social ?? 0) : 0),
+          duty: shift(current.needs.duty, applyDeltas ? (reaction.needsDelta?.duty ?? 0) : 0),
+        },
+        flags: {
+          ...current.flags,
+          lastEnvironmentReactionKey: reaction.environmentKey,
+        },
+      }));
+    }
+  }
+
+  resolveFactionConflicts(roomId: string): number {
+    const updates = findFactionConflictGoals(this.getActorsInRoom(roomId));
+    let interactions = 0;
+    for (const update of updates) {
+      const actor = this.registry.get(update.actorId);
+      if (!actor) {
+        continue;
+      }
+      const alreadyTargeting = actor.targetedThreat?.targetActorId === update.threat.targetActorId;
+      if (alreadyTargeting) {
+        continue;
+      }
+      interactions += 1;
+      this.setTargetThreat(
+        update.actorId,
+        { ...update.threat, startedAtRoomNumber: actor.targetedThreat?.startedAtRoomNumber },
+        'faction-conflict',
+      );
+      this.requestGoal(update.actorId, update.goal, {
+        interrupt:
+          actor.goal?.kind !== 'attackActor' ||
+          actor.goal.targetActorId !== update.goal.targetActorId,
+      });
+      this.setActivity(update.actorId, update.activity, 'faction-conflict');
+      const next = this.registry.update(update.actorId, (current) => ({
+        ...current,
+        mood: {
+          ...current.mood,
+          anger: Math.min(100, current.mood.anger + 18),
+          stress: Math.min(100, current.mood.stress + 8),
+        },
+      }));
+      if (next && !alreadyTargeting) {
+        this.emitActorTelemetry('actor.combat_started', next, 'faction-conflict', {
+          sourceActorId: update.actorId,
+          targetActorId: update.threat.targetActorId,
+        });
+      }
+    }
+    return interactions;
+  }
+
+  private expireSpeech(nowMs: number, roomNumber: number): void {
+    for (const actor of this.registry.getAll()) {
+      const expiredByTime =
+        actor.speech?.expiresAtMs !== undefined && actor.speech.expiresAtMs <= nowMs;
+      const expiredByRoom =
+        actor.speech?.expiresAtMs === undefined &&
+        actor.speech?.expiresAtRoomNumber !== undefined &&
+        actor.speech.expiresAtRoomNumber <= roomNumber;
+      if (!expiredByTime && !expiredByRoom) {
+        continue;
+      }
+      this.registry.update(actor.id, (current) => ({ ...current, speech: undefined }));
+    }
   }
 
   emitWorldEvent(input: CreateWorldEventInput): WorldEvent {
@@ -275,6 +792,10 @@ export class ActorSystem {
     return actorIdForRelationship(relationshipId);
   }
 
+  getStableWandererActorId(encounterId: string): string {
+    return actorIdForWanderer(encounterId);
+  }
+
   toSaveData(): ActorSystemSaveData {
     return {
       actors: this.registry.toSaveData(),
@@ -290,9 +811,11 @@ export class ActorSystem {
     if ('actors' in data && 'events' in data) {
       this.registry.loadSaveData(data.actors);
       this.events.loadSaveData(data.events);
+      this.markSchedulesDirty();
       return;
     }
     this.registry.loadSaveData(data);
+    this.markSchedulesDirty();
   }
 
   private applyEventMemory(event: WorldEvent): void {
@@ -361,6 +884,65 @@ export class ActorSystem {
       }));
     });
   }
+
+  private emitActorTelemetry(
+    type: ActorTelemetryEventType,
+    actor: Actor,
+    reason: string,
+    data: Record<string, unknown>,
+  ): void {
+    if (!this.telemetrySink) {
+      return;
+    }
+    const event: ActorTelemetryEvent = {
+      type,
+      actorId: actor.id,
+      actorName: actor.displayName,
+      roomId: actor.presence?.roomId ?? actor.currentRoomId,
+      reason,
+      data: {
+        actorId: actor.id,
+        actorName: actor.displayName,
+        reason,
+        ...data,
+      },
+    };
+    this.telemetrySink(event);
+  }
+
+  private emitSystemTelemetry(
+    type: 'actor.tick' | 'actor.tick_slow',
+    reason: string,
+    data: ActorTickMetrics,
+  ): void {
+    this.telemetrySink?.({ type, reason, data: { ...data } });
+  }
+}
+
+function actorGoalEquals(left: ActorGoal | undefined, right: ActorGoal | undefined): boolean {
+  return (
+    left === right ||
+    (left?.kind === right?.kind &&
+      left?.priority === right?.priority &&
+      left?.roomId === right?.roomId &&
+      left?.targetActorId === right?.targetActorId &&
+      left?.targetPosition?.x === right?.targetPosition?.x &&
+      left?.targetPosition?.y === right?.targetPosition?.y &&
+      left?.reason === right?.reason)
+  );
+}
+
+function actorThreatEquals(
+  left: ActorTargetThreat | undefined,
+  right: ActorTargetThreat | undefined,
+): boolean {
+  return (
+    left === right ||
+    (left?.targetActorId === right?.targetActorId &&
+      left?.source === right?.source &&
+      left?.reason === right?.reason &&
+      left?.startedAtRoomNumber === right?.startedAtRoomNumber)
+  );
 }
 
 function socialRelationshipFor(actorId: string, targetId: string): ActorSocialLink['relationship'] {
@@ -369,6 +951,16 @@ function socialRelationshipFor(actorId: string, targetId: string): ActorSocialLi
   if (roll === 1) return 'rival';
   if (roll === 2) return 'creditor';
   return 'friend';
+}
+
+function interiorWorkRoomIdForResident(
+  town: TownStructure,
+  residentId: string,
+): string | undefined {
+  const building = (town.buildings ?? []).find(
+    (entry) => entry.enterable && entry.templateId && entry.ownerResidentId === residentId,
+  );
+  return building?.templateId ? `layer:townInterior:${town.id}:${building.templateId}` : undefined;
 }
 
 function applyEventConsequences(

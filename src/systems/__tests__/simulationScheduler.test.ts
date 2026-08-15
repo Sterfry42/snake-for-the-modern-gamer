@@ -136,4 +136,26 @@ describe('SimulationScheduler', () => {
     expect(action?.droppedStepsLastUpdate).toBe(22);
     expect(action?.accumulatorMs).toBe(0);
   });
+
+  it('keeps Actor clock work tied to elapsed time instead of render frequency', () => {
+    const countActorSteps = (frameDeltaMs: number, frameCount: number): number => {
+      let actorSteps = 0;
+      const scheduler = new SimulationScheduler([
+        {
+          id: 'actor',
+          intervalMs: 100,
+          step: () => {
+            actorSteps += 1;
+          },
+        },
+      ]);
+      for (let frame = 0; frame < frameCount; frame += 1) {
+        scheduler.update(frameDeltaMs, { actor: true });
+      }
+      return actorSteps;
+    };
+
+    expect(countActorSteps(20, 50)).toBe(10);
+    expect(countActorSteps(5, 200)).toBe(10);
+  });
 });

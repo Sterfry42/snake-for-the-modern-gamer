@@ -5,6 +5,27 @@ import { getActorIndicators } from '../actorIndicators.js';
 import { selectActorVoiceLine } from '../actorVoice.js';
 import type { TownStructure } from '../../world/town.js';
 import type { RoomSnapshot } from '../../world/types.js';
+import { createActorPresence } from '../actorPresence.js';
+import type { ActorTelemetryEvent } from '../actorTelemetry.js';
+import { getBiomeDefinition } from '../../world/biomes.js';
+import { resolveBiomeAtmosphere } from '../../world/atmosphereResolver.js';
+import type { AtmosphereState, DayPhase, GlobalWeather } from '../../world/atmosphereTypes.js';
+
+function resolvedAtmosphere(dayPhase: DayPhase, globalWeather: GlobalWeather = 'clear') {
+  const state: AtmosphereState = {
+    worldDay: 0,
+    season: 'spring',
+    dayPhase,
+    phaseProgress: 0,
+    globalWeather,
+    weatherIntensity: 0,
+    remainingWeatherPhaseTicks: 2,
+    weatherSeed: 1,
+    weatherTransitionProgress: 1,
+    skyEvent: { current: 'none', remainingPhaseTicks: 0, intensity: 0, seed: 1 },
+  };
+  return resolveBiomeAtmosphere(getBiomeDefinition('verdigris-basin'), state);
+}
 
 describe('ActorSystem', () => {
   it('creates stable town resident actors and room indexes', () => {
@@ -68,7 +89,7 @@ describe('ActorSystem', () => {
 
   it('syncs villages, questgivers, and goblin camps as room actors', () => {
     const actors = new ActorSystem();
-    actors.syncRoom({
+    actors.ensureActorsFromRoomContent({
       room: {
         id: '0,0,0',
         village: {
@@ -91,6 +112,26 @@ describe('ActorSystem', () => {
     expect(actors.getActor('town:gobcamp:shopkeeper:gobshop')?.factionId).toBe('goblin-camps');
     expect(actors.getActor('town:gobcamp:guard:gobguard')?.combat?.armed).toBe(true);
     expect(actors.getActorsInRoom('0,0,0')).toHaveLength(5);
+  });
+
+  it('initializes promoted actor schedules from canonical atmosphere instead of room count', () => {
+    const actors = new ActorSystem();
+    actors.ensureActorsFromRoomContent({
+      room: {
+        id: '0,0,0',
+        village: {
+          residents: [],
+          shopkeeper: { id: 'shop', name: 'Rook', x: 3, y: 2, portraitId: 'shopkeeper-1' },
+        },
+      } as unknown as RoomSnapshot,
+      roomNumber: 7,
+      atmosphere: resolvedAtmosphere('day'),
+    });
+
+    expect(actors.getActor('town:village:0,0,0:shopkeeper:shop')?.scheduleGoal).toMatchObject({
+      kind: 'work',
+      reason: 'day-schedule',
+    });
   });
 
   it('keeps resident identity when a town resident becomes a hostile enemy', () => {
@@ -206,6 +247,27 @@ describe('ActorSystem', () => {
       canPickpocket: true,
     });
     expect(initiationMenu.options.find((option) => option.id === 'pickpocket')?.enabled).toBe(true);
+
+    actors.registry.update(shopkeeper.id, (actor) => ({
+      ...actor,
+      goal: { kind: 'sleep', priority: 20, reason: 'test-sleep' },
+      activity: { kind: 'sleeping', source: 'schedule' },
+    }));
+    const sleepingMenu = buildActorInteractionMenu(actors.getActor(shopkeeper.id) ?? shopkeeper);
+    expect(sleepingMenu.options.map((option) => option.id)).toEqual(['wake', 'leave']);
+
+    actors.registry.update(shopkeeper.id, (actor) => ({
+      ...actor,
+      role: 'butcher',
+      flags: { ...actor.flags, sleepInterrupted: true },
+      activity: { kind: 'idle', source: 'social' },
+    }));
+    const interruptedMenu = buildActorInteractionMenu(actors.getActor(shopkeeper.id) ?? shopkeeper);
+    const shop = interruptedMenu.options.find((option) => option.id === 'shop');
+    expect(shop).toMatchObject({
+      enabled: false,
+      reason: 'Closed: let them sleep',
+    });
   });
 
   it('enriches resident actors with relationship state without replacing their role', () => {
@@ -487,5 +549,392 @@ describe('ActorSystem', () => {
 
     expect(actors.getActor(target.id)?.health?.state).toBe('dead');
     expect(actors.getActor(target.id)?.hostility).toBe('dead');
+  });
+
+  it('targets hostile-faction actors without making guards hostile to the player', () => {
+    const events: ActorTelemetryEvent[] = [];
+    const actors = new ActorSystem();
+    actors.setTelemetrySink((event) => events.push(event));
+    const guard = actors.registry.ensureTownResidentActor({
+      residentId: 'nina',
+      name: 'Nina',
+      role: 'guard',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: '0,0,0',
+    });
+    const thief = actors.registry.ensureTownResidentActor({
+      residentId: 'shade',
+      name: 'Shade',
+      role: 'thief',
+      factionId: 'thieves-guild',
+      townId: 'eastmere',
+      currentRoomId: '0,0,0',
+    });
+
+    actors.resolveFactionConflicts('0,0,0');
+
+    const updatedGuard = actors.getActor(guard.id);
+    expect(updatedGuard?.goal).toMatchObject({
+      kind: 'attackActor',
+      targetActorId: thief.id,
+      reason: 'faction-conflict',
+    });
+    expect(updatedGuard?.targetedThreat).toMatchObject({
+      targetActorId: thief.id,
+      reason: 'faction-conflict',
+      source: 'faction',
+    });
+    expect(updatedGuard?.hostility).not.toBe('hostile');
+    expect(updatedGuard?.playerHostility?.state).not.toBe('hostile');
+    expect(events.some((event) => event.type === 'actor.player_hostility_changed')).toBe(false);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'actor.threat_changed',
+        actorId: guard.id,
+        reason: 'faction-conflict',
+        data: expect.objectContaining({ targetActorId: thief.id }),
+      }),
+    );
+  });
+
+  it('keeps schedules as base intent while urgent faction combat interrupts and resumes', () => {
+    const actors = new ActorSystem();
+    const guard = actors.registry.ensureTownResidentActor({
+      residentId: 'gate',
+      name: 'Gate Guard',
+      role: 'gateGuard',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: '0,0,0',
+      postPosition: { x: 2, y: 8 },
+    });
+    actors.registry.update(guard.id, (actor) => ({
+      ...actor,
+      schedule: {
+        permanentDuty: true,
+        fixedPostRoomId: '0,0,0',
+        fixedPostPosition: { x: 2, y: 8 },
+      },
+    }));
+    actors.applyScheduleGoals({ roomNumber: 1 });
+    const scheduled = actors.getActor(guard.id);
+    expect(scheduled?.scheduleGoal).toMatchObject({ kind: 'defendArea' });
+    expect(scheduled?.goal).toMatchObject({ kind: 'defendArea' });
+
+    const bandit = actors.registry.ensureTownResidentActor({
+      residentId: 'bandit',
+      name: 'Bandit',
+      role: 'thief',
+      factionId: 'bandits',
+      townId: 'raiders',
+      currentRoomId: '0,0,0',
+    });
+    actors.resolveFactionConflicts('0,0,0');
+    expect(actors.getActor(guard.id)?.goal).toMatchObject({
+      kind: 'attackActor',
+      targetActorId: bandit.id,
+    });
+
+    actors.registry.update(bandit.id, (actor) => ({
+      ...actor,
+      health: { current: 0, max: 3, state: 'dead' },
+      hostility: 'dead',
+    }));
+    actors.resumeGoal(guard.id);
+
+    expect(actors.getActor(guard.id)?.goal).toMatchObject({ kind: 'defendArea' });
+  });
+
+  it('updates merchant schedule goals across day phases without room reload', () => {
+    const actors = new ActorSystem();
+    const merchant = actors.registry.ensureTownResidentActor({
+      residentId: 'marta',
+      name: 'Marta',
+      role: 'shopkeeper',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: '0,0,0',
+      homeRoomId: 'home-room',
+      workRoomId: 'shop-room',
+    });
+
+    actors.applyScheduleGoals({ roomNumber: 12, atmosphere: resolvedAtmosphere('day') });
+    expect(actors.getActor(merchant.id)?.scheduleGoal).toMatchObject({
+      kind: 'work',
+      roomId: 'shop-room',
+    });
+
+    actors.applyScheduleGoals({ roomNumber: 23, atmosphere: resolvedAtmosphere('night') });
+
+    expect(actors.getActor(merchant.id)?.scheduleGoal).toMatchObject({
+      kind: 'sleep',
+      roomId: 'home-room',
+    });
+  });
+
+  it('does not let mild weather errands override higher-priority sleep schedules', () => {
+    const actors = new ActorSystem();
+    const merchant = actors.registry.ensureTownResidentActor({
+      residentId: 'hale',
+      name: 'Hale',
+      role: 'butcher',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: 'market-street',
+      homeRoomId: 'home-room',
+      workRoomId: 'butcher-room',
+    });
+
+    actors.applyScheduleGoals({ roomNumber: 12, atmosphere: resolvedAtmosphere('night') });
+    expect(actors.getActor(merchant.id)?.goal).toMatchObject({
+      kind: 'sleep',
+      priority: 20,
+      roomId: 'home-room',
+    });
+
+    actors.applyScheduleGoals({ roomNumber: 13, atmosphere: resolvedAtmosphere('night', 'fog') });
+
+    expect(actors.getActor(merchant.id)?.goal).toMatchObject({
+      kind: 'sleep',
+      priority: 20,
+      roomId: 'home-room',
+    });
+  });
+
+  it('treats actor presence as authoritative after authored resync', () => {
+    const actors = new ActorSystem();
+    const resident = actors.registry.ensureTownResidentActor({
+      residentId: 'alice',
+      name: 'Alice',
+      role: 'resident',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: 'market',
+    });
+    actors.setPresence(
+      resident.id,
+      createActorPresence({ roomId: 'home', position: { x: 6, y: 5 } }),
+      'test-move',
+    );
+
+    actors.registry.ensureTownResidentActor({
+      residentId: 'alice',
+      name: 'Alice',
+      role: 'resident',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: 'market',
+    });
+
+    expect(actors.getActor(resident.id)?.presence).toMatchObject({
+      roomId: 'home',
+      position: { x: 6, y: 5 },
+    });
+    expect(actors.getActorsInRoom('market')).toEqual([]);
+    expect(actors.getActorsInRoom('home').map((actor) => actor.id)).toEqual([resident.id]);
+  });
+
+  it('emits copied from/to positions for presence telemetry', () => {
+    const events: ActorTelemetryEvent[] = [];
+    const actors = new ActorSystem();
+    actors.setTelemetrySink((event) => events.push(event));
+    const resident = actors.registry.ensureTownResidentActor({
+      residentId: 'telemetry-resident',
+      name: 'Telemetry Resident',
+      role: 'resident',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: 'market',
+    });
+
+    actors.setPresence(
+      resident.id,
+      createActorPresence({ roomId: 'market', position: { x: 4, y: 5 } }),
+      'first-place',
+    );
+    actors.setPresence(
+      resident.id,
+      createActorPresence({ roomId: 'home', position: { x: 7, y: 8 } }),
+      'test-move',
+    );
+
+    const event = events.find(
+      (entry) => entry.type === 'actor.presence_changed' && entry.reason === 'test-move',
+    );
+    expect(event?.data).toMatchObject({
+      fromPosition: { x: 4, y: 5 },
+      toPosition: { x: 7, y: 8 },
+    });
+    expect(event?.data.fromPosition).not.toBe(event?.data.toPosition);
+  });
+
+  it('logs exact reasons for player-hostility changes', () => {
+    const events: ActorTelemetryEvent[] = [];
+    const actors = new ActorSystem();
+    actors.setTelemetrySink((event) => events.push(event));
+    const guard = actors.registry.ensureTownResidentActor({
+      residentId: 'nina',
+      name: 'Nina',
+      role: 'guard',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: '0,0,0',
+    });
+
+    actors.setPlayerHostility(guard.id, 'hostile', 'player-attacked-actor', 7);
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'actor.player_hostility_changed',
+        actorId: guard.id,
+        reason: 'player-attacked-actor',
+        data: expect.objectContaining({
+          reason: 'player-attacked-actor',
+          next: expect.objectContaining({ state: 'hostile' }),
+        }),
+      }),
+    );
+  });
+
+  it('does not mutate or log when an equivalent goal is requested', () => {
+    const events: ActorTelemetryEvent[] = [];
+    const actors = new ActorSystem();
+    actors.setTelemetrySink((event) => events.push(event));
+    const resident = actors.registry.ensureTownResidentActor({
+      residentId: 'bob',
+      name: 'Bob',
+      role: 'resident',
+      townId: 'eastmere',
+      currentRoomId: '0,0,0',
+    });
+    const goal = { kind: 'wander', priority: 8, reason: 'daily-roam-schedule' } as const;
+
+    actors.requestGoal(resident.id, goal);
+    const mutationsAfterChange = actors.registry.getMutationCount();
+    const goalEventsAfterChange = events.filter(
+      (event) => event.type === 'actor.goal_changed',
+    ).length;
+    actors.requestGoal(resident.id, { ...goal });
+
+    expect(actors.registry.getMutationCount()).toBe(mutationsAfterChange);
+    expect(events.filter((event) => event.type === 'actor.goal_changed')).toHaveLength(
+      goalEventsAfterChange,
+    );
+  });
+
+  it('evaluates configured civilian, animal, and enemy schedules once per phase', () => {
+    const actors = new ActorSystem();
+    actors.registry.ensureTownResidentActor({
+      residentId: 'marta',
+      name: 'Marta',
+      role: 'shopkeeper',
+      townId: 'eastmere',
+      currentRoomId: '0,0,0',
+      homeRoomId: 'home',
+      workRoomId: 'shop',
+    });
+    const rabbit = actors.registry.ensureAnimalActor({
+      animalId: 'rabbit-1',
+      animalType: 'rabbit',
+      animalName: 'Rabbit',
+      roomId: '0,0,0',
+    });
+    const bandit = actors.registry.ensureEnemyActor({
+      enemyId: 'bandit-1',
+      roomId: '0,0,0',
+      name: 'Bandit',
+      encounterKind: 'npc-hostile',
+    });
+    const first = actors.tick({
+      nowMs: 100,
+      deltaMs: 100,
+      loadedRoomId: '0,0,0',
+      roomNumber: 1,
+      atmosphere: resolvedAtmosphere('day'),
+    });
+    const second = actors.tick({
+      nowMs: 200,
+      deltaMs: 100,
+      loadedRoomId: '0,0,0',
+      roomNumber: 1,
+      atmosphere: resolvedAtmosphere('day'),
+    });
+    const dusk = actors.tick({
+      nowMs: 300,
+      deltaMs: 100,
+      loadedRoomId: '0,0,0',
+      roomNumber: 1,
+      atmosphere: resolvedAtmosphere('dusk'),
+    });
+    const duskAgain = actors.tick({
+      nowMs: 400,
+      deltaMs: 100,
+      loadedRoomId: '0,0,0',
+      roomNumber: 1,
+      atmosphere: resolvedAtmosphere('dusk'),
+    });
+
+    expect(first.schedulesEvaluated).toBe(3);
+    expect(second.schedulesEvaluated).toBe(0);
+    expect(dusk.schedulesEvaluated).toBe(3);
+    expect(duskAgain.schedulesEvaluated).toBe(0);
+    expect(actors.getActor(rabbit.id)?.scheduleGoal).toMatchObject({
+      kind: 'wander',
+      reason: 'schedule:seekDen',
+    });
+    expect(actors.getActor(bandit.id)?.scheduleGoal).toMatchObject({
+      kind: 'defendArea',
+      reason: 'schedule:patrol',
+    });
+    expect(actors.getTickCount()).toBe(4);
+  });
+
+  it('keeps actor queries and serialization byte-equivalent', () => {
+    const actors = new ActorSystem();
+    actors.registry.ensureTownResidentActor({
+      residentId: 'nina',
+      name: 'Nina',
+      role: 'guard',
+      townId: 'eastmere',
+      currentRoomId: '0,0,0',
+    });
+    const before = JSON.stringify(actors.toSaveData());
+
+    for (let index = 0; index < 100; index += 1) {
+      actors.getActor('town:eastmere:guard:nina');
+      actors.getActorsInRoom('0,0,0');
+      actors.toSaveData();
+    }
+
+    expect(JSON.stringify(actors.toSaveData())).toBe(before);
+  });
+
+  it('emits one compact aggregate telemetry event per Actor tick', () => {
+    const events: ActorTelemetryEvent[] = [];
+    const actors = new ActorSystem();
+    actors.setTelemetrySink((event) => events.push(event));
+    actors.registry.ensureTownResidentActor({
+      residentId: 'nina',
+      name: 'Nina',
+      role: 'guard',
+      townId: 'eastmere',
+      currentRoomId: '0,0,0',
+    });
+
+    actors.tick({
+      nowMs: 100,
+      deltaMs: 100,
+      loadedRoomId: '0,0,0',
+      roomNumber: 1,
+    });
+
+    const tickEvents = events.filter((event) => event.type === 'actor.tick');
+    expect(tickEvents).toHaveLength(1);
+    expect(tickEvents[0]?.data).toMatchObject({
+      totalActors: 1,
+      loadedRoomActors: 1,
+      tickCount: 1,
+    });
   });
 });

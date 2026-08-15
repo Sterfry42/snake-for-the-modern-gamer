@@ -28,11 +28,21 @@ interface SnakeGamePrivate {
   };
   npcBodies: Map<
     string,
-    { position: Vector2Like; anchor: Vector2Like; wanderRadius: number; moveCooldown: number }
+    {
+      actorId?: string;
+      roomId: string;
+      position: Vector2Like;
+      anchor: Vector2Like;
+      wanderRadius: number;
+      moveCooldown: number;
+    }
   >;
   calculateAppleLengthScoreMultiplier(): number;
   applyLengthScoreMultiplier(baseScore: number, multiplier: number): number;
-  syncActorsForRoom(room: RoomSnapshot): void;
+  ensureActorsFromRoomContent(room: RoomSnapshot): void;
+  findEncounterSpawn(roomId: string): Vector2Like | null;
+  materializeActorsForRoom(room: RoomSnapshot): number;
+  maybeMarkTownHostility(room: RoomSnapshot): void;
   noteBanditRaidDefeat(enemy: EnemyInstance, eaten: boolean): void;
   tickFactionRaidGameplay(): void;
   tickNpcBodies(room: RoomSnapshot): void;
@@ -477,6 +487,55 @@ describe('town and guild hostility split', () => {
     expect(game.isTownHostileForRoom(town, '0,0,0')).toBe(false);
     expect(game.isTownHostileForRoom(town, '1,0,0')).toBe(true);
   });
+
+  it('does not spawn guard hostile shells from non-open wanted suspicion alone', () => {
+    const game = createGame();
+    const room = {
+      id: '0,0,0',
+      layout: ['..........', '..........', '..N.......', '..........'],
+      town: {
+        id: 'guard-town',
+        name: 'Guard Town',
+        wantedLevel: 1,
+        suspicion: 20,
+        reputation: 0,
+        center: { x: 5, y: 5 },
+        residents: [
+          {
+            id: 'guard-1',
+            actorId: 'town:guard-town:guard:guard-1',
+            name: 'Nina',
+            role: 'guard',
+            factionId: 'hearthbound-remnant',
+            townId: 'guard-town',
+            x: 2,
+            y: 2,
+            homeRoomId: '0,0,0',
+            workRoomId: '0,0,0',
+          },
+        ],
+        districtByRoomId: { '0,0,0': 'gate' },
+      },
+    } as unknown as RoomSnapshot;
+
+    game.getActorSystem().registry.ensureTownResidentActor({
+      residentId: 'guard-1',
+      actorId: 'town:guard-town:guard:guard-1',
+      name: 'Nina',
+      role: 'guard',
+      factionId: 'hearthbound-remnant',
+      townId: 'guard-town',
+      currentRoomId: '0,0,0',
+    });
+    (game as unknown as SnakeGamePrivate).maybeMarkTownHostility(room);
+
+    expect(
+      game.getEnemies('0,0,0').filter((enemy) => enemy.encounterKind === 'npc-hostile'),
+    ).toEqual([]);
+    expect(
+      game.getActorSystem().getActor('town:guard-town:guard:guard-1')?.playerHostility,
+    ).toBeUndefined();
+  });
 });
 
 describe('actor conversations', () => {
@@ -701,7 +760,8 @@ describe('actor conversations', () => {
       residents: [{ id: 'marta', name: 'Marta', x: 7, y: 7, portraitId: 'sage-1' }],
       shopkeeper: { id: 'shop', name: 'Rook', x: 10, y: 7, portraitId: 'sage-2' },
     } as unknown as never;
-    (game as unknown as SnakeGamePrivate).syncActorsForRoom(room);
+    (game as unknown as SnakeGamePrivate).ensureActorsFromRoomContent(room);
+    (game as unknown as SnakeGamePrivate).materializeActorsForRoom(room);
     const actorId = game.getVillageActorId(room.id, 'marta', 'resident');
 
     for (let index = 0; index < 5; index += 1) {
@@ -813,6 +873,140 @@ describe('actor conversations', () => {
 });
 
 describe('actor room brains', () => {
+  it('materializes active wanderer encounters as actor-owned bodies that seek the player', () => {
+    const game = createGame();
+    const room = game.getCurrentRoom();
+    room.layout = Array.from({ length: defaultGameConfig.grid.rows }, () =>
+      '.'.repeat(defaultGameConfig.grid.cols),
+    );
+    const actorId = game.getActorSystem().getStableWandererActorId('road-scribe');
+    game.getActorSystem().registry.ensureWandererActor({
+      actorId,
+      encounterId: 'road-scribe',
+      displayName: 'Road Scribe',
+      roomId: room.id,
+      portraitId: 'sage-1',
+      createdAtRoomNumber: 1,
+    });
+    game.getActorSystem().registry.setGoal(actorId, {
+      kind: 'seekPlayer',
+      priority: 55,
+      roomId: room.id,
+      targetPosition: { x: 1, y: 1 },
+      reason: 'wanderer-encounter',
+    });
+    game.setFlag('npc.randomEncounter', {
+      id: 'road-scribe',
+      kind: 'flavor',
+      name: 'Road Scribe',
+      pages: ['A road scribe waves you over.'],
+      roomId: room.id,
+      x: 10,
+      y: 10,
+      statsNote: 'Wanderer',
+      actorId,
+      portraitId: 'sage-1',
+    });
+
+    (game as unknown as SnakeGamePrivate).ensureActorsFromRoomContent(room);
+    (game as unknown as SnakeGamePrivate).materializeActorsForRoom(room);
+    const body = (game as unknown as SnakeGamePrivate).npcBodies.get('wanderer:road-scribe');
+
+    expect(body?.actorId).toBe(actorId);
+    expect(game.getActorSystem().getActor(actorId)?.presence).toMatchObject({
+      roomId: room.id,
+      materialized: true,
+      position: { x: 10, y: 10 },
+    });
+
+    const before = { ...body!.position };
+    body!.moveCooldown = 0;
+    (game as unknown as SnakeGamePrivate).tickNpcBodies(room);
+
+    const after = (game as unknown as SnakeGamePrivate).npcBodies.get('wanderer:road-scribe');
+    const updatedActor = game.getActorSystem().getActor(actorId);
+    expect(after).toBeDefined();
+    expect(after!.position).not.toEqual(before);
+    expect(updatedActor?.activity?.kind).toBe('walking');
+  });
+
+  it('spawns wanderers on legal actor tiles and pursues the current player-adjacent tile', () => {
+    const game = createGame();
+    const room = game.getCurrentRoom();
+    room.layout = Array.from({ length: defaultGameConfig.grid.rows }, () =>
+      '.'.repeat(defaultGameConfig.grid.cols),
+    );
+    game.placeSnakeBodyAtLocal(
+      room.id,
+      { x: defaultGameConfig.grid.cols - 1, y: 17 },
+      { x: 1, y: 0 },
+    );
+
+    const spawn = (game as unknown as SnakeGamePrivate).findEncounterSpawn(room.id);
+
+    expect(spawn).toBeTruthy();
+    expect(spawn!.x).toBeGreaterThan(0);
+    expect(spawn!.x).toBeLessThan(defaultGameConfig.grid.cols - 1);
+    expect(spawn!.y).toBeGreaterThan(0);
+    expect(spawn!.y).toBeLessThan(defaultGameConfig.grid.rows - 1);
+
+    const actorId = game.getActorSystem().getStableWandererActorId('edge-scribe');
+    game.getActorSystem().registry.ensureWandererActor({
+      actorId,
+      encounterId: 'edge-scribe',
+      displayName: 'Edge Scribe',
+      roomId: room.id,
+      portraitId: 'sage-1',
+      createdAtRoomNumber: 1,
+    });
+    game.getActorSystem().setPresence(
+      actorId,
+      {
+        roomId: room.id,
+        position: spawn!,
+        anchor: spawn!,
+        materialized: true,
+        wanderRadius: Math.max(defaultGameConfig.grid.cols, defaultGameConfig.grid.rows),
+      },
+      'test-wanderer-spawn',
+    );
+    game.getActorSystem().requestGoal(actorId, {
+      kind: 'seekPlayer',
+      priority: 55,
+      roomId: room.id,
+      targetPosition: { x: defaultGameConfig.grid.cols - 1, y: 17 },
+      reason: 'legacy-stale-target',
+    });
+    game.setFlag('npc.randomEncounter', {
+      id: 'edge-scribe',
+      kind: 'flavor',
+      name: 'Edge Scribe',
+      pages: ['An edge scribe approaches.'],
+      roomId: room.id,
+      x: spawn!.x,
+      y: spawn!.y,
+      statsNote: 'Wanderer',
+      actorId,
+      portraitId: 'sage-1',
+    });
+    (game as unknown as SnakeGamePrivate).materializeActorsForRoom(room);
+    game.placeSnakeBodyAtLocal(room.id, { x: 20, y: 10 }, { x: 1, y: 0 });
+
+    for (let index = 0; index < 80; index += 1) {
+      const body = (game as unknown as SnakeGamePrivate).npcBodies.get('wanderer:edge-scribe');
+      if (body) {
+        body.moveCooldown = 0;
+      }
+      (game as unknown as SnakeGamePrivate).tickNpcBodies(room);
+    }
+
+    const actor = game.getActorSystem().getActor(actorId);
+    const position = actor?.presence?.position;
+    expect(position).toBeDefined();
+    expect(position).not.toEqual({ x: defaultGameConfig.grid.cols - 1, y: 17 });
+    expect(Math.abs(position!.x - 20) + Math.abs(position!.y - 10)).toBeLessThanOrEqual(1);
+  });
+
   it('moves threatened civilians away from active room danger', () => {
     const game = createGame();
     const room = game.getCurrentRoom();
@@ -825,7 +1019,8 @@ describe('actor room brains', () => {
       residents: [{ id: 'marta', name: 'Marta', x: 7, y: 7, portraitId: 'sage-1' }],
       shopkeeper: { id: 'shop', name: 'Rook', x: 10, y: 7, portraitId: 'sage-2' },
     } as unknown as never;
-    (game as unknown as SnakeGamePrivate).syncActorsForRoom(room);
+    (game as unknown as SnakeGamePrivate).ensureActorsFromRoomContent(room);
+    (game as unknown as SnakeGamePrivate).materializeActorsForRoom(room);
     const actorId = game.getVillageActorId(room.id, 'marta', 'resident');
     const relationshipId = `resident:${room.id}:marta`;
     const body = (game as unknown as SnakeGamePrivate).npcBodies.get(relationshipId)!;
@@ -866,7 +1061,8 @@ describe('actor room brains', () => {
       ],
       shopkeeper: { id: 'shop', name: 'Rook', x: 10, y: 7, portraitId: 'sage-3' },
     } as unknown as never;
-    (game as unknown as SnakeGamePrivate).syncActorsForRoom(room);
+    (game as unknown as SnakeGamePrivate).ensureActorsFromRoomContent(room);
+    (game as unknown as SnakeGamePrivate).materializeActorsForRoom(room);
     const sourceActorId = game.getVillageActorId(room.id, 'marta', 'resident');
     const targetActorId = game.getVillageActorId(room.id, 'nina', 'resident');
     game.getActorSystem().registry.update(sourceActorId, (actor) => ({

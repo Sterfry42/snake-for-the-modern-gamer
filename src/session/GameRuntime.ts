@@ -17,7 +17,7 @@ export interface LocalAuthoritativeRuntime extends CommandHandler {
     onEvent?: (event: import('../systems/boss.js').BossEvent) => void,
     stepMs?: number,
   ): void;
-  actorClockStep(): Promise<StepResult | null>;
+  actorClockStep(stepMs?: number): Promise<StepResult | null>;
   hazardClockStep(): StepResult | null;
   bulletClockStep(): StepResult | null;
   getSnapshot(): GameSnapshot;

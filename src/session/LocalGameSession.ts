@@ -96,8 +96,8 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
     this.emitSnapshot();
   }
 
-  async actorClockStep(): Promise<StepResult | null> {
-    return this.runAsyncClockStep(() => this.game.actorClockStep());
+  async actorClockStep(stepMs?: number): Promise<StepResult | null> {
+    return this.runAsyncClockStep(() => this.game.actorClockStep(stepMs));
   }
 
   hazardClockStep(): StepResult | null {

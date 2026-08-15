@@ -1,5 +1,12 @@
 import { AnimalRegistry } from '../animals/animalRegistry.js';
-import type { Actor, ActorPromotionReason, ActorSaveData } from './actorTypes.js';
+import type {
+  Actor,
+  ActorActivity,
+  ActorGoal,
+  ActorPresence,
+  ActorPromotionReason,
+  ActorSaveData,
+} from './actorTypes.js';
 import type {
   EnsureAnimalActorArgs,
   EnsureEnemyActorArgs,
@@ -21,6 +28,7 @@ export class ActorRegistry {
   private readonly actors = new Map<string, Actor>();
   private readonly promotedActorIds = new Set<string>();
   private readonly deadActorIds = new Set<string>();
+  private mutationCount = 0;
 
   get(actorId: string): Actor | undefined {
     return this.actors.get(actorId);
@@ -34,6 +42,7 @@ export class ActorRegistry {
     const existing = this.actors.get(actor.id);
     const next = existing ? mergeActor(existing, actor) : actor;
     this.actors.set(actor.id, next);
+    this.mutationCount += 1;
     if (next.knownToPlayer) {
       next.knownToPlayer = true;
     }
@@ -49,7 +58,11 @@ export class ActorRegistry {
       return undefined;
     }
     const next = updater(current);
+    if (next === current) {
+      return current;
+    }
     this.actors.set(actorId, next);
+    this.mutationCount += 1;
     if (next.health?.state === 'dead' || next.hostility === 'dead') {
       this.deadActorIds.add(next.id);
     }
@@ -57,21 +70,33 @@ export class ActorRegistry {
   }
 
   remove(actorId: string): void {
-    this.actors.delete(actorId);
+    if (this.actors.delete(actorId)) {
+      this.mutationCount += 1;
+    }
   }
 
   clear(): void {
     this.actors.clear();
     this.promotedActorIds.clear();
     this.deadActorIds.clear();
+    this.mutationCount = 0;
   }
 
   getAll(): Actor[] {
     return [...this.actors.values()];
   }
 
+  getMutationCount(): number {
+    return this.mutationCount;
+  }
+
   getByRoom(roomId: string): Actor[] {
-    return this.getAll().filter((actor) => actor.currentRoomId === roomId);
+    return this.getAll().filter(
+      (actor) =>
+        (actor.presence?.roomId ?? actor.currentRoomId) === roomId &&
+        actor.health?.state !== 'dead' &&
+        actor.hostility !== 'dead',
+    );
   }
 
   getByTown(townId: string): Actor[] {
@@ -82,21 +107,107 @@ export class ActorRegistry {
     return this.getAll().filter((actor) => actor.factionId === factionId);
   }
 
+  setPresence(actorId: string, presence: ActorPresence): Actor | undefined {
+    return this.update(actorId, (actor) =>
+      actorPresenceEquals(actor.presence, presence)
+        ? actor
+        : {
+            ...actor,
+            currentRoomId: presence.roomId,
+            presence,
+          },
+    );
+  }
+
+  setGoal(actorId: string, goal: ActorGoal, interrupt = false): Actor | undefined {
+    return this.update(actorId, (actor) =>
+      actorGoalEquals(actor.goal, goal)
+        ? actor
+        : {
+            ...actor,
+            goal,
+            goalStack:
+              interrupt && actor.goal ? [...(actor.goalStack ?? []), actor.goal] : actor.goalStack,
+          },
+    );
+  }
+
+  resumeInterruptedGoal(actorId: string): Actor | undefined {
+    return this.update(actorId, (actor) => {
+      const stack = actor.goalStack ?? [];
+      if (stack.length === 0) {
+        return actor;
+      }
+      const goal = stack[stack.length - 1] ?? actor.goal;
+      return {
+        ...actor,
+        goal,
+        goalStack: stack.slice(0, -1),
+      };
+    });
+  }
+
+  setActivity(actorId: string, activity: ActorActivity): Actor | undefined {
+    return this.update(actorId, (actor) =>
+      actorActivityEquals(actor.activity, activity) ? actor : { ...actor, activity },
+    );
+  }
+
   getKnownActors(): Actor[] {
     return this.getAll().filter((actor) => actor.knownToPlayer);
   }
 
   ensureTownResidentActor(args: EnsureTownResidentActorArgs): Actor {
-    return this.upsert(createActorFromTownResident(args));
+    const incoming = createActorFromTownResident(args);
+    const existing = this.actors.get(incoming.id);
+    if (!existing) {
+      return this.upsert(incoming);
+    }
+    if (!existing.schedule && incoming.schedule) {
+      return (
+        this.update(existing.id, (actor) => ({
+          ...actor,
+          homeRoomId: actor.homeRoomId ?? incoming.homeRoomId,
+          workRoomId: actor.workRoomId ?? incoming.workRoomId,
+          schedule: incoming.schedule,
+        })) ?? existing
+      );
+    }
+    return existing;
   }
 
   ensureAnimalActor(args: EnsureAnimalActorArgs): Actor {
     const definition = AnimalRegistry.getDefinition(args.animalType);
-    return this.upsert(createActorFromAnimal(args, definition));
+    const incoming = createActorFromAnimal(args, definition);
+    const existing = this.actors.get(incoming.id);
+    if (
+      existing &&
+      existing.health?.current === incoming.health?.current &&
+      existing.health?.max === incoming.health?.max &&
+      existing.health?.state === incoming.health?.state &&
+      existing.kind === incoming.kind &&
+      existing.schedule
+    ) {
+      return existing;
+    }
+    return this.upsert(incoming);
   }
 
   ensureEnemyActor(args: EnsureEnemyActorArgs): Actor {
-    return this.upsert(createActorFromEnemy(args));
+    const incoming = createActorFromEnemy(args);
+    const existing = this.actors.get(incoming.id);
+    if (
+      existing &&
+      (existing.health?.state === 'dead' ||
+        (existing.health?.current === incoming.health?.current &&
+          existing.health?.max === incoming.health?.max &&
+          existing.health?.state === incoming.health?.state &&
+          existing.flags.enemyId === incoming.flags.enemyId &&
+          existing.schedule))
+    ) {
+      return existing;
+    }
+    return this.upsert(incoming);
   }
 
   ensureRelationshipActor(args: EnsureRelationshipActorArgs): Actor {
@@ -124,6 +235,14 @@ export class ActorRegistry {
             : args.stage === 'hostile' || args.stage === 'murderous'
               ? 'hostile'
               : existing.hostility,
+          playerHostility:
+            args.stage === 'hostile' || args.stage === 'murderous'
+              ? {
+                  state: 'hostile',
+                  reason: 'relationship-stage-hostile',
+                  startedAtRoomNumber: args.createdAtRoomNumber,
+                }
+              : existing.playerHostility,
           flags: {
             ...existing.flags,
             relationshipId: args.relationshipId,
@@ -131,7 +250,20 @@ export class ActorRegistry {
             romanceCandidate: true,
           },
         };
+        if (
+          existing.flags.relationshipStage === next.flags.relationshipStage &&
+          existing.health?.state === next.health?.state &&
+          existing.thickness === next.thickness &&
+          existing.hostility === next.hostility &&
+          existing.portraitId === next.portraitId &&
+          existing.homeRoomId === next.homeRoomId &&
+          existing.factionId === next.factionId &&
+          existing.brainId === next.brainId
+        ) {
+          return existing;
+        }
         this.actors.set(existing.id, next);
+        this.mutationCount += 1;
         if (relationshipDead) {
           this.deadActorIds.add(existing.id);
         }
@@ -142,7 +274,8 @@ export class ActorRegistry {
   }
 
   ensureWandererActor(args: EnsureWandererActorArgs): Actor {
-    return this.upsert(createActorFromWanderer(args));
+    const incoming = createActorFromWanderer(args);
+    return this.actors.get(incoming.id) ?? this.upsert(incoming);
   }
 
   promote(actorId: string, reason: ActorPromotionReason): Actor | undefined {
@@ -202,6 +335,51 @@ export class ActorRegistry {
   }
 }
 
+function actorGoalEquals(left: ActorGoal | undefined, right: ActorGoal | undefined): boolean {
+  return (
+    left === right ||
+    (left?.kind === right?.kind &&
+      left?.priority === right?.priority &&
+      left?.roomId === right?.roomId &&
+      left?.targetActorId === right?.targetActorId &&
+      left?.targetPosition?.x === right?.targetPosition?.x &&
+      left?.targetPosition?.y === right?.targetPosition?.y &&
+      left?.reason === right?.reason)
+  );
+}
+
+function actorPresenceEquals(
+  left: ActorPresence | undefined,
+  right: ActorPresence | undefined,
+): boolean {
+  return (
+    left === right ||
+    (left?.roomId === right?.roomId &&
+      left?.position.x === right?.position.x &&
+      left?.position.y === right?.position.y &&
+      left?.materialized === right?.materialized &&
+      left?.anchor?.x === right?.anchor?.x &&
+      left?.anchor?.y === right?.anchor?.y &&
+      left?.wanderRadius === right?.wanderRadius &&
+      left?.stationary === right?.stationary)
+  );
+}
+
+function actorActivityEquals(
+  left: ActorActivity | undefined,
+  right: ActorActivity | undefined,
+): boolean {
+  return (
+    left === right ||
+    (left?.kind === right?.kind &&
+      left?.source === right?.source &&
+      left?.targetActorId === right?.targetActorId &&
+      left?.label === right?.label &&
+      left?.startedAtRoomNumber === right?.startedAtRoomNumber &&
+      left?.endsAtRoomNumber === right?.endsAtRoomNumber)
+  );
+}
+
 function mergeActor(existing: Actor, incoming: Actor): Actor {
   const existingDead = existing.health?.state === 'dead' || existing.hostility === 'dead';
   const incomingHostile =
@@ -230,6 +408,15 @@ function mergeActor(existing: Actor, incoming: Actor): Actor {
       : incomingHostile
         ? incoming.hostility
         : (existing.hostility ?? incoming.hostility),
+    playerHostility: incoming.playerHostility ?? existing.playerHostility,
+    targetedThreat: existing.targetedThreat ?? incoming.targetedThreat,
+    currentRoomId: existing.currentRoomId ?? incoming.currentRoomId,
+    presence: existing.presence,
+    scheduleGoal: existing.scheduleGoal ?? incoming.scheduleGoal,
+    goal: existing.goal ?? incoming.goal,
+    goalStack: existing.goalStack ?? incoming.goalStack,
+    activity: existing.activity ?? incoming.activity,
+    speech: existing.speech ?? incoming.speech,
     soul: existing.soul ?? incoming.soul,
     lore: existing.lore ?? incoming.lore,
     flags: { ...incoming.flags, ...existing.flags },

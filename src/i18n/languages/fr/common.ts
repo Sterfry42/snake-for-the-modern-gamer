@@ -148,6 +148,7 @@ export const COMMON_FR: CommonTranslations = {
   },
   actorInteractions: {
     inspect: 'Inspecter',
+    wake: 'Reveiller',
     talk: 'Parler',
     takeQuest: 'Accepter la quête',
     askAround: 'Demander autour',
@@ -162,7 +163,9 @@ export const COMMON_FR: CommonTranslations = {
     eat: 'Manger',
     spare: 'Épargner',
     leave: 'Partir',
+    leaveAlone: 'Laisser dormir',
     tooHostile: 'Trop hostile',
+    shopClosedSleep: 'Ferme : laissez-les dormir',
     findThievesGuildTest: 'Trouver le test de la guilde des voleurs',
     notHostile: 'Pas hostile',
     targetNotHostile: "La cible n'est pas hostile",
