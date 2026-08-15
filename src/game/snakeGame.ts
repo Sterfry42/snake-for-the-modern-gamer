@@ -9,6 +9,7 @@ import {
 } from '../config/gameConfig.js';
 import { defaultRoamingSnakeConfig } from '../config/roamingSnakeConfig.js';
 import {
+  CARDINAL_DIRECTIONS,
   isWithinEuclideanRadius,
   manhattanDistance,
   vectorKey,
@@ -260,14 +261,12 @@ import type {
   ActorFactionConversationState,
 } from '../actors/voice/voiceTypes.js';
 import { selectActorVoiceLine } from '../actors/actorVoice.js';
-import { directionsFromPathOrFallback } from '../actors/actorNavigation.js';
+import { findActorGridPath } from '../actors/actorNavigation.js';
 import {
   ActorOccupancyResolver,
-  actorExitTargetForRoom,
   actorsAreAdjacent,
   createActorPresence,
   inferActorActivity,
-  shouldDematerializeForActorGoal,
 } from '../actors/actorPresence.js';
 import type { CreateWorldEventInput, WorldEvent } from '../events/worldEventTypes.js';
 import {
@@ -3379,6 +3378,36 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('ui.questInteraction', { message: 'You step back outside.' });
     roomsChanged.add(runtime.layerId);
     roomsChanged.add(runtime.parentRoomId);
+  }
+
+  private prepareSavedLayerRoomForLoad(): void {
+    const runtime = this.getFlag<LayerRuntimeState>('layers.active');
+    if (!runtime || this.snake.currentRoomId !== runtime.layerId) {
+      return;
+    }
+    const parentRoom = this.world.getRoom(runtime.parentRoomId);
+    const entrance =
+      parentRoom.layerEntrances?.find(
+        (entry) => entry.id === runtime.entranceId || entry.layerId === runtime.layerId,
+      ) ??
+      this.world.getLayerEntrance(runtime.entranceId) ??
+      this.createSavedLayerEntrance(runtime);
+    const ensured = this.world.ensureLayerInstance(entrance);
+    this.world.setLayerInstanceState(ensured.id, 'active');
+  }
+
+  private createSavedLayerEntrance(runtime: LayerRuntimeState): LayerEntrance {
+    return {
+      id: runtime.entranceId,
+      layerId: runtime.layerId,
+      parentRoomId: runtime.parentRoomId,
+      x: runtime.returnPosition.x,
+      y: runtime.returnPosition.y,
+      kind: 'townInterior',
+      templateId: runtime.templateId,
+      returnPosition: { ...runtime.returnPosition },
+      discovered: true,
+    };
   }
 
   private enterCave(
@@ -8425,12 +8454,15 @@ export class SnakeGame implements QuestRuntime {
         : !isHostile && !roomDangerActive
           ? Math.max(15, decision.moveCooldown * 3)
           : decision.moveCooldown;
-      const preferredDirections = travelTarget
-        ? directionsFromPathOrFallback({
+      const travelPath = travelTarget
+        ? findActorGridPath({
             start: body.position,
-            target: travelTarget,
+            goals: [travelTarget],
             canStandAt: (position) => this.canNpcBodyStandAt(room, body, position),
           })
+        : undefined;
+      const preferredDirections = travelTarget
+        ? (travelPath?.directions ?? [])
         : decision.preferredDirections;
       const resolution = occupancy.resolveMove({
         actorId: body.actorId ?? body.relationshipId,
@@ -8443,7 +8475,9 @@ export class SnakeGame implements QuestRuntime {
         actor &&
         actor.goal?.roomId &&
         actor.goal.roomId !== room.id &&
-        shouldDematerializeForActorGoal(actor, room, body.position)
+        travelTarget &&
+        body.position.x === travelTarget.x &&
+        body.position.y === travelTarget.y
       ) {
         const goalRoomId = actor.goal.roomId;
         const nextRoomId = this.selectNextActorTravelRoom(room, goalRoomId);
@@ -8752,6 +8786,25 @@ export class SnakeGame implements QuestRuntime {
     return undefined;
   }
 
+  private edgeTargetForNeighbor(
+    sourceRoomId: string,
+    destinationRoomId: string,
+    sourcePosition?: Vector2Like,
+  ): Vector2Like | undefined {
+    const [sourceX, sourceY, sourceZ] = this.parseRoomCoordinates(sourceRoomId);
+    const [destX, destY, destZ] = this.parseRoomCoordinates(destinationRoomId);
+    if (sourceZ !== destZ || this.roomIdDistance(sourceRoomId, destinationRoomId) !== 1) {
+      return undefined;
+    }
+    const x = sourcePosition?.x ?? Math.floor(this.config.grid.cols / 2);
+    const y = sourcePosition?.y ?? Math.floor(this.config.grid.rows / 2);
+    if (destX > sourceX) return { x: this.config.grid.cols - 2, y };
+    if (destX < sourceX) return { x: 1, y };
+    if (destY > sourceY) return { x, y: this.config.grid.rows - 2 };
+    if (destY < sourceY) return { x, y: 1 };
+    return undefined;
+  }
+
   private roomIdDistance(a: string, b: string): number {
     const [ax, ay, az] = this.parseRoomCoordinates(a);
     const [bx, by, bz] = this.parseRoomCoordinates(b);
@@ -8772,7 +8825,102 @@ export class SnakeGame implements QuestRuntime {
     if (actor.goal?.kind === 'seekPlayer' && playerHeadLocal) {
       return playerHeadLocal;
     }
-    return actorExitTargetForRoom(room, actor);
+    if (!actor.goal?.roomId || actor.goal.roomId === room.id) {
+      return undefined;
+    }
+    const nextRoomId = this.selectNextActorTravelRoom(room, actor.goal.roomId);
+    return this.getLoadedActorTravelLegTarget(actor, room, nextRoomId);
+  }
+
+  private getLoadedActorTravelLegTarget(
+    actor: Actor,
+    room: RoomSnapshot,
+    nextRoomId: string,
+  ): Vector2Like | undefined {
+    if (nextRoomId === room.id) {
+      return undefined;
+    }
+    if (room.layer?.parentRoomId === nextRoomId && room.layer.exit) {
+      return this.reachableActorInteractionTile(room, actor, room.layer.exit);
+    }
+    const layerEntrance = room.layerEntrances?.find((entry) => entry.layerId === nextRoomId);
+    if (layerEntrance) {
+      return this.reachableActorInteractionTile(room, actor, layerEntrance);
+    }
+    const portal = room.portals.find((entry) => entry.destRoomId === nextRoomId);
+    if (portal) {
+      return this.reachableActorInteractionTile(room, actor, portal);
+    }
+    return this.reachableActorEdgeTarget(room, actor, nextRoomId);
+  }
+
+  private reachableActorInteractionTile(
+    room: RoomSnapshot,
+    actor: Actor,
+    target: Vector2Like,
+  ): Vector2Like | undefined {
+    const body = this.createActorPathBody(room, actor);
+    if (body && this.canNpcBodyStandAt(room, body, target)) {
+      return { ...target };
+    }
+    const candidates = CARDINAL_DIRECTIONS.map((direction) => ({
+      x: target.x + direction.x,
+      y: target.y + direction.y,
+    }));
+    return body
+      ? candidates.find((candidate) => this.canNpcBodyStandAt(room, body, candidate))
+      : candidates.find((candidate) => this.isWalkableUnoccupiedActorTile(room, candidate));
+  }
+
+  private reachableActorEdgeTarget(
+    room: RoomSnapshot,
+    actor: Actor,
+    nextRoomId: string,
+  ): Vector2Like | undefined {
+    const body = this.createActorPathBody(room, actor);
+    if (!body) {
+      return this.edgeTargetForNeighbor(room.id, nextRoomId, actor.presence?.position);
+    }
+    const [sourceX, sourceY, sourceZ] = this.parseRoomCoordinates(room.id);
+    const [destX, destY, destZ] = this.parseRoomCoordinates(nextRoomId);
+    if (sourceZ !== destZ || this.roomIdDistance(room.id, nextRoomId) !== 1) {
+      return undefined;
+    }
+    const candidates: Vector2Like[] = [];
+    if (destX > sourceX || destX < sourceX) {
+      const x = destX > sourceX ? this.config.grid.cols - 2 : 1;
+      for (let y = 1; y < this.config.grid.rows - 1; y += 1) {
+        candidates.push({ x, y });
+      }
+    } else if (destY > sourceY || destY < sourceY) {
+      const y = destY > sourceY ? this.config.grid.rows - 2 : 1;
+      for (let x = 1; x < this.config.grid.cols - 1; x += 1) {
+        candidates.push({ x, y });
+      }
+    }
+    const reachable = findActorGridPath({
+      start: body.position,
+      goals: candidates.filter((candidate) => this.canNpcBodyStandAt(room, body, candidate)),
+      canStandAt: (position) => this.canNpcBodyStandAt(room, body, position),
+    });
+    return reachable ? reachable.path[reachable.path.length - 1] : undefined;
+  }
+
+  private createActorPathBody(room: RoomSnapshot, actor: Actor): NpcBodyState | undefined {
+    const position = actor.presence?.position;
+    if (!position) {
+      return undefined;
+    }
+    return {
+      actorId: actor.id,
+      relationshipId: actor.id,
+      roomId: room.id,
+      position,
+      anchor: actor.presence?.anchor ?? position,
+      wanderRadius: actor.presence?.wanderRadius ?? 0,
+      stationary: actor.presence?.stationary ?? false,
+      moveCooldown: 0,
+    };
   }
 
   private resolveActorVsActorAttack(source: Actor, targetActorId: string, roomId: string): void {
@@ -15724,6 +15872,7 @@ export class SnakeGame implements QuestRuntime {
       'starforged.wallSenseBonus',
       'artifacts.run',
       'caves.save',
+      'layers.active',
       'minecraft.save',
       'fishing.caughtFish',
       'achievement.hotSurvivalMs',
@@ -16098,6 +16247,7 @@ export class SnakeGame implements QuestRuntime {
       this.setFlag('maneuvers.ghostSources', undefined);
       this.setFlag('maneuvers.activeGhostSteps', undefined);
       this.syncGhostVisualFlag();
+      this.prepareSavedLayerRoomForLoad();
       const currentRoom = this.world.getRoom(this.snake.currentRoomId);
       this.animals.ensureAnimals(
         this.snake.currentRoomId,

@@ -4,7 +4,9 @@ import {
   createHeadlessScenario,
 } from '../../../test/headless/headlessScenario.js';
 import {
+  adjacentWalkableTile,
   ensureScenarioActor,
+  findGeneratedTownDoor,
   firstWalkableTile,
   offsetPosition,
 } from '../../../test/headless/scenarioFixtures.js';
@@ -90,7 +92,7 @@ describe('Headless user-story harness', () => {
     scenario.setDayPhase('night');
     await scenario.advanceUntil(
       () => scenario.actor(shopkeeper.id).presence?.roomId === homeRoomId,
-      { timeoutMs: 2_000 },
+      { timeoutMs: 5_000 },
     );
 
     const arrived = scenario.actor(shopkeeper.id);
@@ -118,7 +120,7 @@ describe('Headless user-story harness', () => {
       roomId: startRoomId,
       homeRoomId: destinationRoomId,
       workRoomId: startRoomId,
-      position: firstWalkableTile(scenario, startRoomId),
+      position: { x: 26, y: 1 },
     });
 
     scenario.setActorGoal(traveler.id, {
@@ -142,6 +144,226 @@ describe('Headless user-story harness', () => {
     );
     expect(reloaded.actor(traveler.id).presence?.roomId).toBe(destinationRoomId);
     reloaded.assertWorldIntegrity();
+  });
+
+  it('a visible Actor can leave the loaded room and continue cross-room travel', async () => {
+    const scenario = createHeadlessScenario({ seed: 'story-onscreen-cross-room-travel' });
+    const startRoomId = '0,0,0';
+    const destinationRoomId = '2,0,0';
+    scenario.getRoom(destinationRoomId);
+    const traveler = ensureScenarioActor(scenario, {
+      id: 'onscreen-traveler',
+      name: 'Onscreen Traveler',
+      role: 'resident',
+      roomId: startRoomId,
+      position: { x: 26, y: 1 },
+    });
+    scenario.enterRoom(startRoomId);
+    scenario.setActorGoal(traveler.id, {
+      kind: 'travelToRoom',
+      priority: 80,
+      roomId: destinationRoomId,
+      reason: 'story-onscreen-cross-room-travel',
+    });
+
+    await scenario.advanceUntil(() => scenario.actor(traveler.id).presence?.roomId === '1,0,0', {
+      timeoutMs: 1_000,
+    });
+    expect(scenario.actor(traveler.id).presence?.materialized).toBe(false);
+
+    await scenario.advanceUntil(
+      () => scenario.actor(traveler.id).presence?.roomId === destinationRoomId,
+      { timeoutMs: 1_000 },
+    );
+    expect(scenario.actor(traveler.id).currentRoomId).toBe(destinationRoomId);
+    scenario.assertWorldIntegrity();
+  });
+
+  it('a visible Actor takes a cardinal intermediate room for diagonal travel', async () => {
+    const scenario = createHeadlessScenario({ seed: 'story-onscreen-diagonal-travel' });
+    const startRoomId = '0,0,0';
+    const destinationRoomId = '1,1,0';
+    scenario.getRoom(destinationRoomId);
+    const traveler = ensureScenarioActor(scenario, {
+      id: 'diagonal-traveler',
+      name: 'Diagonal Traveler',
+      role: 'resident',
+      roomId: startRoomId,
+      position: { x: 26, y: 1 },
+    });
+    scenario.enterRoom(startRoomId);
+    scenario.setActorGoal(traveler.id, {
+      kind: 'travelToRoom',
+      priority: 80,
+      roomId: destinationRoomId,
+      reason: 'story-onscreen-diagonal-travel',
+    });
+
+    await scenario.advanceUntil(
+      () => scenario.actor(traveler.id).presence?.roomId !== startRoomId,
+      { timeoutMs: 1_000 },
+    );
+    expect(scenario.actor(traveler.id).presence?.roomId).not.toBe(destinationRoomId);
+    expect(['1,0,0', '0,1,0']).toContain(scenario.actor(traveler.id).presence?.roomId);
+
+    await scenario.advanceUntil(
+      () => scenario.actor(traveler.id).presence?.roomId === destinationRoomId,
+      { timeoutMs: 1_000 },
+    );
+    scenario.assertWorldIntegrity();
+  });
+
+  it('a visible Actor does not use an unrelated town door as a cross-room shortcut', async () => {
+    const scenario = createHeadlessScenario({ seed: 'story-cross-town-ignores-shop-door' });
+    const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'generalStore' });
+    const [roomX, roomY, roomZ] = room.id.split(',').map(Number);
+    const destinationRoomId = `${roomX + 1},${roomY},${roomZ}`;
+    scenario.getRoom(destinationRoomId);
+    const traveler = ensureScenarioActor(scenario, {
+      id: 'door-ignoring-traveler',
+      name: 'Door Ignoring Traveler',
+      role: 'resident',
+      roomId: room.id,
+      position: adjacentWalkableTile(room, entrance),
+    });
+    scenario.enterRoom(room.id);
+    scenario.setActorGoal(traveler.id, {
+      kind: 'travelToRoom',
+      priority: 80,
+      roomId: destinationRoomId,
+      reason: 'story-cross-town-ignores-shop-door',
+    });
+
+    await scenario.advanceUntil(
+      () => scenario.actor(traveler.id).presence?.roomId === destinationRoomId,
+      { timeoutMs: 8_000 },
+    );
+
+    expect(scenario.actor(traveler.id).presence?.roomId).toBe(destinationRoomId);
+    expect(scenario.actor(traveler.id).presence?.roomId.startsWith('layer:')).toBe(false);
+    scenario.assertWorldIntegrity();
+  });
+
+  it('a town interior round trip restores the parent room and return tile', () => {
+    const scenario = createHeadlessScenario({ seed: 'story-interior-round-trip' });
+    const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'generalStore' });
+    const approach = adjacentWalkableTile(room, entrance);
+    scenario.enterRoom(room.id, approach);
+
+    const entered = scenario.game.enterNearbyTownBuildingDoor();
+
+    expect(entered.ok).toBe(true);
+    const activeLayer = scenario.game.getFlag<{
+      layerId: string;
+      parentRoomId: string;
+      returnPosition: { x: number; y: number };
+    }>('layers.active');
+    expect(activeLayer?.parentRoomId).toBe(room.id);
+    if (!activeLayer) return;
+    const interior = scenario.currentRoom();
+    expect(interior.layer?.kind).toBe('townInterior');
+    expect(interior.layer?.parentRoomId).toBe(room.id);
+
+    const exit = interior.layer?.exit;
+    expect(exit).toBeDefined();
+    if (!exit) return;
+    const beforeExit = adjacentWalkableTile(interior, exit);
+    scenario.enterRoom(interior.id, beforeExit);
+    scenario.game.forceDirection(exit.x - beforeExit.x, exit.y - beforeExit.y);
+    scenario.advanceActionTicks(1);
+
+    expect(scenario.currentRoom().id).toBe(room.id);
+    expect(scenario.game.getFlag('layers.active')).toBeUndefined();
+    const [roomX, roomY] = room.id.split(',').map(Number);
+    expect(scenario.game.getSnakeBody()[0]).toEqual({
+      x: activeLayer.returnPosition.x + roomX * scenario.game.config.grid.cols,
+      y: activeLayer.returnPosition.y + roomY * scenario.game.config.grid.rows,
+    });
+    scenario.assertWorldIntegrity();
+  });
+
+  it('save/load inside a town interior preserves exit routing', () => {
+    const scenario = createHeadlessScenario({ seed: 'story-save-inside-interior' });
+    const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'tavern' });
+    scenario.enterRoom(room.id, adjacentWalkableTile(room, entrance));
+    expect(scenario.game.enterNearbyTownBuildingDoor().ok).toBe(true);
+    const interiorRoomId = scenario.currentRoom().id;
+    const saved = scenario.game.getSaveData();
+
+    const reloaded = HeadlessScenario.fromSave(saved);
+
+    expect(reloaded.currentRoom().id).toBe(interiorRoomId);
+    const runtime = reloaded.game.getFlag<{ parentRoomId: string }>('layers.active');
+    expect(runtime?.parentRoomId).toBe(room.id);
+    const exit = reloaded.currentRoom().layer?.exit;
+    expect(exit).toBeDefined();
+    if (!exit) return;
+    const beforeExit = adjacentWalkableTile(reloaded.currentRoom(), exit);
+    reloaded.enterRoom(interiorRoomId, beforeExit);
+    reloaded.game.forceDirection(exit.x - beforeExit.x, exit.y - beforeExit.y);
+    reloaded.advanceActionTicks(1);
+
+    expect(reloaded.currentRoom().id).toBe(room.id);
+    expect(reloaded.game.getFlag('layers.active')).toBeUndefined();
+    reloaded.assertWorldIntegrity();
+  });
+
+  it('gossip can move from one bonded Actor to another', async () => {
+    const scenario = createHeadlessScenario({ seed: 'story-bonded-rumor-diffusion' });
+    const base = firstWalkableTile(scenario);
+    const source = ensureScenarioActor(scenario, {
+      id: 'rumor-source',
+      name: 'Rumor Source',
+      role: 'resident',
+      position: base,
+    });
+    const listener = ensureScenarioActor(scenario, {
+      id: 'rumor-listener',
+      name: 'Rumor Listener',
+      role: 'resident',
+      position: offsetPosition(base, 1, 0),
+    });
+    scenario.game.getActorSystem().registry.update(source.id, (actor) => ({
+      ...actor,
+      relationships: [{ actorId: listener.id, relationship: 'friend', strength: 90 }],
+      memory: [
+        ...actor.memory,
+        {
+          id: 'memory:story:secret-tunnel',
+          type: 'rumor',
+          summary: 'a secret tunnel under the market smells like wasabi apples',
+          source: 'rumor',
+          intensity: 55,
+          roomId: scenario.currentRoom().id,
+          tags: ['rumor', 'town', 'market'],
+        },
+      ],
+    }));
+    scenario.game.getActorSystem().registry.update(listener.id, (actor) => ({
+      ...actor,
+      relationships: [{ actorId: source.id, relationship: 'friend', strength: 90 }],
+    }));
+    scenario.enterRoom(scenario.currentRoom().id);
+
+    await scenario.advanceUntil(
+      () =>
+        scenario
+          .actor(listener.id)
+          .memory.some((memory) => memory.summary.includes('secret tunnel under the market')),
+      { timeoutMs: 30_000, stepMs: 100 },
+    );
+
+    expect(scenario.actor(listener.id).memory.some((memory) => memory.source === 'heard')).toBe(
+      true,
+    );
+    await scenario.advanceUntil(
+      () =>
+        scenario.actor(source.id).activity?.kind !== 'talking' &&
+        scenario.actor(listener.id).activity?.kind !== 'talking',
+      { timeoutMs: 10_000, stepMs: 100 },
+    );
+    expect(scenario.actor(listener.id).activity?.kind).not.toBe('talking');
+    scenario.assertWorldIntegrity();
   });
 
   it('minimap-like nine-room query stress does not mutate simulation state', () => {

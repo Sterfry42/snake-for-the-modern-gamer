@@ -1,4 +1,7 @@
 import type { Actor, ActorPresence } from '../../actors/actorTypes.js';
+import type { LayerEntrance } from '../../layers/layerTypes.js';
+import { isSolidTile } from '../../world/tiles.js';
+import type { RoomSnapshot } from '../../world/types.js';
 import type { HeadlessScenario } from './headlessScenario.js';
 
 export interface ScenarioActorOptions {
@@ -70,6 +73,47 @@ export function firstWalkableTile(
 
 export function offsetPosition(position: { x: number; y: number }, dx: number, dy: number) {
   return { x: position.x + dx, y: position.y + dy };
+}
+
+export function findGeneratedTownDoor(
+  scenario: HeadlessScenario,
+  options: { templateId?: LayerEntrance['templateId']; radius?: number } = {},
+): { room: RoomSnapshot; entrance: LayerEntrance } {
+  const radius = options.radius ?? 8;
+  for (let y = -radius; y <= radius; y += 1) {
+    for (let x = -radius; x <= radius; x += 1) {
+      const room = scenario.getRoom(`${x},${y},0`);
+      const entrance = room.layerEntrances?.find(
+        (entry) =>
+          entry.kind === 'townInterior' &&
+          !entry.locked &&
+          (!options.templateId || entry.templateId === options.templateId),
+      );
+      if (room.town && entrance) {
+        return { room, entrance };
+      }
+    }
+  }
+  throw new Error(`No generated town door found within radius ${radius}.`);
+}
+
+export function adjacentWalkableTile(
+  room: RoomSnapshot,
+  target: { x: number; y: number },
+): { x: number; y: number } {
+  for (const candidate of [
+    { x: target.x + 1, y: target.y },
+    { x: target.x - 1, y: target.y },
+    { x: target.x, y: target.y + 1 },
+    { x: target.x, y: target.y - 1 },
+    target,
+  ]) {
+    const tile = room.layout[candidate.y]?.[candidate.x];
+    if (tile !== undefined && !isSolidTile(tile)) {
+      return candidate;
+    }
+  }
+  throw new Error(`No adjacent walkable tile near ${target.x},${target.y} in ${room.id}.`);
 }
 
 function defaultFactionForRole(role: ScenarioActorOptions['role']): string {

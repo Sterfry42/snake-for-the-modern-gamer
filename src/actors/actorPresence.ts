@@ -327,10 +327,6 @@ export function actorExitTargetForRoom(room: RoomSnapshot, actor: Actor): Vector
   if (portalToGoal) {
     return { x: portalToGoal.x, y: portalToGoal.y };
   }
-  const openDoor = room.layerEntrances?.find((entry) => !entry.locked);
-  if (openDoor) {
-    return { x: openDoor.x, y: openDoor.y };
-  }
   return nearestRoomEdge(actor.presence?.position, room.layout[0]?.length ?? 0, room.layout.length);
 }
 
