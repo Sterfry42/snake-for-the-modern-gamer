@@ -234,7 +234,11 @@ import type {
   RelationshipState,
   RelationshipTalkResult,
 } from '../relationships/relationshipTypes.js';
-import { ActorSystem, type ActorSystemSaveData } from '../actors/actorSystem.js';
+import {
+  ActorSystem,
+  type ActorSystemSaveData,
+  type ActorTickWorkMetrics,
+} from '../actors/actorSystem.js';
 import { compactActorDebugSnapshot, type ActorTelemetryEvent } from '../actors/actorTelemetry.js';
 import type {
   Actor,
@@ -3899,14 +3903,19 @@ export class SnakeGame implements QuestRuntime {
       materializeLoadedActors: () => this.materializeDirtyActorsForRoom(room),
       processLoadedActors: () => {
         const loadedActors = this.actors.getActorsInRoom(room.id);
-        this.tickNpcBodies(room);
+        const loadedWork = this.tickNpcBodies(room);
         return {
           brainsProcessed: loadedActors.filter((actor) => actor.brainId && actor.brainId !== 'none')
             .length,
+          ...loadedWork,
         };
       },
       advanceOffscreenActors: () =>
-        this.advanceActorsOffscreenTowardGoals(room.id, this.getRoomsVisitedCount()),
+        this.advanceActorsOffscreenTowardGoals(
+          room.id,
+          this.getRoomsVisitedCount(),
+          Number(this.getFlag<number>('timeMs') ?? 0),
+        ),
     });
 
     return { enemyStep, animalStep };
@@ -8045,7 +8054,7 @@ export class SnakeGame implements QuestRuntime {
       }
       const actorPosition =
         actor?.presence?.roomId === room.id ? actor.presence.position : candidate.position;
-      const actorTraveling = Boolean(actor?.goal?.roomId && actor.goal.roomId !== room.id);
+      const actorTraveling = actor ? this.isActorTravelingFromAuthoredPost(actor, room.id) : false;
       candidates.push({
         ...candidate,
         position: { ...actorPosition },
@@ -8198,6 +8207,23 @@ export class SnakeGame implements QuestRuntime {
     return candidates;
   }
 
+  private isActorTravelingFromAuthoredPost(actor: Actor, roomId: string): boolean {
+    const goal = actor.goal;
+    if (!goal?.roomId) {
+      return false;
+    }
+    if (goal.roomId !== roomId) {
+      return true;
+    }
+    if (!goal.targetPosition || actor.presence?.roomId !== roomId) {
+      return false;
+    }
+    return (
+      actor.presence.position.x !== goal.targetPosition.x ||
+      actor.presence.position.y !== goal.targetPosition.y
+    );
+  }
+
   private shouldMaterializeActorInRoom(actor: Actor, roomId: string): boolean {
     return Boolean(
       actor.presence?.roomId === roomId &&
@@ -8299,11 +8325,12 @@ export class SnakeGame implements QuestRuntime {
     return body ? { ...body.position } : { ...(fallback ?? { x: 3, y: 3 }) };
   }
 
-  private tickNpcBodies(room: RoomSnapshot): void {
+  private tickNpcBodies(room: RoomSnapshot): ActorTickWorkMetrics {
     this.advanceActorConversations(room.id);
+    const work: ActorTickWorkMetrics = { conversationsProcessed: 1 };
     const bodies = [...this.npcBodies.values()].filter((body) => body.roomId === room.id);
     if (bodies.length === 0) {
-      return;
+      return work;
     }
     const enemies = this.enemies.getEnemiesInRoom(room.id);
     const threats = enemies
@@ -8380,9 +8407,10 @@ export class SnakeGame implements QuestRuntime {
         roomDangerActive,
         random: this._rng,
       });
-      const travelTarget = actor
-        ? this.getActorLoadedTravelTarget(actor, room, playerHeadLocal)
-        : undefined;
+      const travelTarget =
+        actor && decision.kind !== 'fleeThreat'
+          ? this.getActorLoadedTravelTarget(actor, room, playerHeadLocal)
+          : undefined;
       if (
         actor?.goal?.kind === 'attackActor' &&
         actor.goal.targetActorId &&
@@ -8461,6 +8489,18 @@ export class SnakeGame implements QuestRuntime {
             canStandAt: (position) => this.canNpcBodyStandAt(room, body, position),
           })
         : undefined;
+      if (travelTarget) {
+        work.pathsRequested = (work.pathsRequested ?? 0) + 1;
+        if (!travelPath) {
+          if (actor) {
+            this.actors.recordActorTelemetry('actor.path_blocked', actor.id, 'loaded-travel-path', {
+              roomId: room.id,
+              target: { ...travelTarget },
+              goal: actor.goal,
+            });
+          }
+        }
+      }
       const preferredDirections = travelTarget
         ? (travelPath?.directions ?? [])
         : decision.preferredDirections;
@@ -8471,6 +8511,9 @@ export class SnakeGame implements QuestRuntime {
         canStandAt: (position) => this.canNpcBodyStandAt(room, body, position),
       });
       body.position = resolution.to;
+      if (resolution.moved) {
+        work.actorsMoved = (work.actorsMoved ?? 0) + 1;
+      }
       if (
         actor &&
         actor.goal?.roomId &&
@@ -8480,7 +8523,7 @@ export class SnakeGame implements QuestRuntime {
         body.position.y === travelTarget.y
       ) {
         const goalRoomId = actor.goal.roomId;
-        const nextRoomId = this.selectNextActorTravelRoom(room, goalRoomId);
+        const nextRoomId = this.selectNextActorTravelRoomForActor(actor, room, goalRoomId);
         if (nextRoomId === room.id) {
           continue;
         }
@@ -8501,6 +8544,13 @@ export class SnakeGame implements QuestRuntime {
               materialized: false,
             });
         this.actors.setPresence(actor.id, nextPresence, 'actor-room-transition');
+        this.actors.recordActorTelemetry('actor.transitioned', actor.id, 'actor-room-transition', {
+          fromRoomId: room.id,
+          toRoomId: nextRoomId,
+          fromPosition: { ...body.position },
+          toPosition: { ...arrival },
+          finalRoomId: goalRoomId,
+        });
         this.actorsTransitionedFromLoadedRoomThisTick.add(actor.id);
         const transitioned = this.actors.getActor(actor.id) ?? actor;
         this.actors.setActivity(
@@ -8538,6 +8588,7 @@ export class SnakeGame implements QuestRuntime {
         );
       }
     }
+    return work;
   }
 
   private buildNpcBodySocialTargets(
@@ -8585,7 +8636,11 @@ export class SnakeGame implements QuestRuntime {
     );
   }
 
-  private advanceActorsOffscreenTowardGoals(loadedRoomId: string, roomNumber: number): number {
+  private advanceActorsOffscreenTowardGoals(
+    loadedRoomId: string,
+    roomNumber: number,
+    nowMs: number,
+  ): number {
     let actorsMoved = 0;
     for (const actor of this.actors.registry.getAll()) {
       const goalRoomId = actor.goal?.roomId;
@@ -8604,7 +8659,23 @@ export class SnakeGame implements QuestRuntime {
         continue;
       }
       const currentRoom = this.world.getRoom(currentRoomId);
-      const nextRoomId = this.selectNextActorTravelRoom(currentRoom, goalRoomId);
+      const nextAvailableAtMs = Number(actor.flags.actorTravelNextAtMs ?? 0);
+      if (nextAvailableAtMs > nowMs) {
+        continue;
+      }
+      const nextRoomId = this.selectNextActorTravelRoomForActor(actor, currentRoom, goalRoomId);
+      if (nextRoomId === currentRoom.id) {
+        this.actors.recordActorTelemetry('actor.travel_blocked', actor.id, 'offscreen-travel', {
+          currentRoomId,
+          goalRoomId,
+        });
+        continue;
+      }
+      this.actors.recordActorTelemetry('actor.travel_leg_selected', actor.id, 'offscreen-travel', {
+        fromRoomId: currentRoom.id,
+        toRoomId: nextRoomId,
+        finalRoomId: goalRoomId,
+      });
       const arrival = this.resolveActorTransitionArrival(
         currentRoom,
         nextRoomId,
@@ -8625,6 +8696,13 @@ export class SnakeGame implements QuestRuntime {
             materialized: false,
           });
       this.actors.setPresence(actor.id, presence, 'offscreen-travel');
+      this.actors.registry.update(actor.id, (current) => ({
+        ...current,
+        flags: {
+          ...current.flags,
+          actorTravelNextAtMs: nowMs + 1_500,
+        },
+      }));
       this.actors.setActivity(
         actor.id,
         {
@@ -8642,28 +8720,45 @@ export class SnakeGame implements QuestRuntime {
     return actorsMoved;
   }
 
-  private selectNextActorTravelRoom(currentRoom: RoomSnapshot, goalRoomId: string): string {
+  private selectNextActorTravelRoomForActor(
+    actor: Actor,
+    currentRoom: RoomSnapshot,
+    goalRoomId: string,
+  ): string {
     if (currentRoom.id === goalRoomId) {
       return currentRoom.id;
     }
-    if (currentRoom.layer?.parentRoomId) {
+    if (
+      currentRoom.layer?.parentRoomId &&
+      this.getLoadedActorTravelLegTarget(actor, currentRoom, currentRoom.layer.parentRoomId)
+    ) {
       return currentRoom.layer.parentRoomId;
     }
     const layerEntrance = currentRoom.layerEntrances?.find((entry) => entry.layerId === goalRoomId);
-    if (layerEntrance) {
+    if (
+      layerEntrance &&
+      this.getLoadedActorTravelLegTarget(
+        actor,
+        currentRoom,
+        this.world.ensureLayerInstance(layerEntrance).id,
+      )
+    ) {
       return this.world.ensureLayerInstance(layerEntrance).id;
     }
     const portal = currentRoom.portals.find((entry) => entry.destRoomId === goalRoomId);
-    if (portal) {
+    if (portal && this.getLoadedActorTravelLegTarget(actor, currentRoom, portal.destRoomId)) {
       return portal.destRoomId;
     }
+    const currentDistance = this.roomIdDistance(currentRoom.id, goalRoomId);
     const neighbor = this.getNeighborRoomIds(currentRoom.id)
       .filter((roomId) => this.isCoordinateRoomId(roomId) && this.isCoordinateRoomId(goalRoomId))
-      .sort((a, b) => this.roomIdDistance(a, goalRoomId) - this.roomIdDistance(b, goalRoomId))[0];
+      .filter((roomId) => this.roomIdDistance(roomId, goalRoomId) < currentDistance)
+      .sort((a, b) => this.roomIdDistance(a, goalRoomId) - this.roomIdDistance(b, goalRoomId))
+      .find((roomId) => this.getLoadedActorTravelLegTarget(actor, currentRoom, roomId));
     if (neighbor) {
       return neighbor;
     }
-    return goalRoomId.startsWith('layer:') ? currentRoom.id : goalRoomId;
+    return currentRoom.id;
   }
 
   private resolveActorTransitionArrival(
@@ -8724,10 +8819,10 @@ export class SnakeGame implements QuestRuntime {
           return next;
         }
         if (
-          next.x >= 0 &&
-          next.x < this.config.grid.cols &&
-          next.y >= 0 &&
-          next.y < this.config.grid.rows
+          next.x >= 1 &&
+          next.x < this.config.grid.cols - 1 &&
+          next.y >= 1 &&
+          next.y < this.config.grid.rows - 1
         ) {
           queue.push(next);
         }
@@ -8741,10 +8836,10 @@ export class SnakeGame implements QuestRuntime {
 
   private isWalkableUnoccupiedActorTile(room: RoomSnapshot, position: Vector2Like): boolean {
     if (
-      position.x < 0 ||
-      position.x >= this.config.grid.cols ||
-      position.y < 0 ||
-      position.y >= this.config.grid.rows
+      position.x < 1 ||
+      position.x >= this.config.grid.cols - 1 ||
+      position.y < 1 ||
+      position.y >= this.config.grid.rows - 1
     ) {
       return false;
     }
@@ -8828,8 +8923,17 @@ export class SnakeGame implements QuestRuntime {
     if (!actor.goal?.roomId || actor.goal.roomId === room.id) {
       return undefined;
     }
-    const nextRoomId = this.selectNextActorTravelRoom(room, actor.goal.roomId);
-    return this.getLoadedActorTravelLegTarget(actor, room, nextRoomId);
+    const nextRoomId = this.selectNextActorTravelRoomForActor(actor, room, actor.goal.roomId);
+    const target = this.getLoadedActorTravelLegTarget(actor, room, nextRoomId);
+    if (target) {
+      this.actors.recordActorTelemetry('actor.travel_leg_selected', actor.id, 'loaded-travel', {
+        fromRoomId: room.id,
+        toRoomId: nextRoomId,
+        finalRoomId: actor.goal.roomId,
+        target: { ...target },
+      });
+    }
+    return target;
   }
 
   private getLoadedActorTravelLegTarget(
@@ -8867,9 +8971,15 @@ export class SnakeGame implements QuestRuntime {
       x: target.x + direction.x,
       y: target.y + direction.y,
     }));
-    return body
-      ? candidates.find((candidate) => this.canNpcBodyStandAt(room, body, candidate))
-      : candidates.find((candidate) => this.isWalkableUnoccupiedActorTile(room, candidate));
+    if (!body) {
+      return candidates.find((candidate) => this.isWalkableUnoccupiedActorTile(room, candidate));
+    }
+    const path = findActorGridPath({
+      start: body.position,
+      goals: candidates.filter((candidate) => this.canNpcBodyStandAt(room, body, candidate)),
+      canStandAt: (position) => this.canNpcBodyStandAt(room, body, position),
+    });
+    return path ? path.path[path.path.length - 1] : undefined;
   }
 
   private reachableActorEdgeTarget(
@@ -9413,10 +9523,10 @@ export class SnakeGame implements QuestRuntime {
     position: Vector2Like,
   ): boolean {
     if (
-      position.x < 0 ||
-      position.x >= this.config.grid.cols ||
-      position.y < 0 ||
-      position.y >= this.config.grid.rows
+      position.x < 1 ||
+      position.x >= this.config.grid.cols - 1 ||
+      position.y < 1 ||
+      position.y >= this.config.grid.rows - 1
     ) {
       return false;
     }
@@ -9427,7 +9537,8 @@ export class SnakeGame implements QuestRuntime {
     const actor = body.actorId ? this.actors.getActor(body.actorId) : undefined;
     if (
       actor?.goal?.kind === 'seekPlayer' ||
-      (actor?.goal?.roomId && actor.goal.roomId !== room.id)
+      (actor?.goal?.roomId && actor.goal.roomId !== room.id) ||
+      (actor?.goal?.roomId === room.id && actor.goal.targetPosition)
     ) {
       return true;
     }

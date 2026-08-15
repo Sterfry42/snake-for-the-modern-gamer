@@ -9,6 +9,7 @@ import {
   findGeneratedTownDoor,
   firstWalkableTile,
   offsetPosition,
+  walkableTileAwayFrom,
 } from '../../../test/headless/scenarioFixtures.js';
 
 describe('Headless user-story harness', () => {
@@ -108,6 +109,79 @@ describe('Headless user-story harness', () => {
     scenario.assertWorldIntegrity();
   });
 
+  it('a same-room night schedule moves a resident to their home tile and sleeps', async () => {
+    const scenario = createHeadlessScenario({ seed: 'story-same-room-home-tile' });
+    const roomId = scenario.currentRoom().id;
+    const homeTile = firstWalkableTile(scenario, roomId);
+    const startTile = walkableTileAwayFrom(scenario, roomId, homeTile, 6);
+    const resident = ensureScenarioActor(scenario, {
+      id: 'same-room-sleeper',
+      name: 'Same Room Sleeper',
+      role: 'resident',
+      roomId,
+      homeRoomId: roomId,
+      workRoomId: roomId,
+      position: homeTile,
+    });
+    scenario.placeActor(resident.id, {
+      roomId,
+      position: startTile,
+      anchor: startTile,
+      materialized: true,
+    });
+    scenario.enterRoom(roomId);
+
+    scenario.setDayPhase('night');
+    expect(scenario.actor(resident.id).goal).toMatchObject({
+      kind: 'sleep',
+      roomId,
+      targetPosition: homeTile,
+    });
+
+    await scenario.advanceUntil(
+      () =>
+        scenario.actor(resident.id).presence?.position.x === homeTile.x &&
+        scenario.actor(resident.id).presence?.position.y === homeTile.y &&
+        scenario.actor(resident.id).activity?.kind === 'sleeping',
+      { timeoutMs: 5_000 },
+    );
+    expect(scenario.actor(resident.id).activity?.kind).toBe('sleeping');
+    scenario.assertWorldIntegrity();
+  });
+
+  it('a stationary shopkeeper can leave the post when the schedule changes', async () => {
+    const scenario = createHeadlessScenario({ seed: 'story-stationary-worker-leaves-post' });
+    const workRoomId = scenario.currentRoom().id;
+    const homeRoomId = '1,0,0';
+    scenario.getRoom(homeRoomId);
+    const shopkeeper = ensureScenarioActor(scenario, {
+      id: 'night-shift-shopkeeper',
+      name: 'Night Shift Shopkeeper',
+      role: 'shopkeeper',
+      roomId: workRoomId,
+      homeRoomId,
+      workRoomId,
+      position: { x: 8, y: 8 },
+    });
+    scenario.placeActor(shopkeeper.id, {
+      roomId: workRoomId,
+      position: { x: 8, y: 8 },
+      anchor: { x: 8, y: 8 },
+      materialized: true,
+      stationary: true,
+    });
+    scenario.enterRoom(workRoomId);
+
+    scenario.setDayPhase('night');
+
+    await scenario.advanceUntil(
+      () => scenario.actor(shopkeeper.id).presence?.roomId === homeRoomId,
+      { timeoutMs: 6_000 },
+    );
+    expect(scenario.actor(shopkeeper.id).activity?.kind).not.toBe('merchant');
+    scenario.assertWorldIntegrity();
+  });
+
   it('save/load mid-story preserves Actor travel state', async () => {
     const scenario = createHeadlessScenario({ seed: 'story-save-mid-travel' });
     const startRoomId = '0,0,0';
@@ -144,6 +218,32 @@ describe('Headless user-story harness', () => {
     );
     expect(reloaded.actor(traveler.id).presence?.roomId).toBe(destinationRoomId);
     reloaded.assertWorldIntegrity();
+  });
+
+  it('offscreen travel advances by cadence rather than every Actor tick', async () => {
+    const scenario = createHeadlessScenario({ seed: 'story-offscreen-travel-cadence' });
+    const traveler = ensureScenarioActor(scenario, {
+      id: 'offscreen-paced-traveler',
+      name: 'Offscreen Paced Traveler',
+      role: 'resident',
+      roomId: '1,0,0',
+      position: { x: 26, y: 1 },
+    });
+    scenario.setActorGoal(traveler.id, {
+      kind: 'travelToRoom',
+      priority: 80,
+      roomId: '4,0,0',
+      reason: 'story-offscreen-travel-cadence',
+    });
+
+    await scenario.advanceActorTicks(1);
+    expect(scenario.actor(traveler.id).presence?.roomId).toBe('2,0,0');
+
+    await scenario.advanceActorTicks(5);
+    expect(scenario.actor(traveler.id).presence?.roomId).toBe('2,0,0');
+
+    await scenario.advanceMs(1_000);
+    expect(scenario.actor(traveler.id).presence?.roomId).toBe('3,0,0');
   });
 
   it('a visible Actor can leave the loaded room and continue cross-room travel', async () => {

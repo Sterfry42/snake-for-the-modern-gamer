@@ -24,6 +24,10 @@ export type ActorTelemetryEventType =
   | 'actor.conversation_started'
   | 'actor.conversation_ended'
   | 'actor.rumor_shared'
+  | 'actor.travel_leg_selected'
+  | 'actor.travel_blocked'
+  | 'actor.path_blocked'
+  | 'actor.transitioned'
   | 'actor.tick'
   | 'actor.tick_slow';
 

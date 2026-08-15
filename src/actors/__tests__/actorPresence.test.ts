@@ -94,11 +94,11 @@ describe('actor presence simulation', () => {
       roomId: 'work-room',
     });
     expect(selectScheduleGoal(merchant, 23)).toMatchObject({
-      kind: 'goHome',
+      kind: 'sleep',
       roomId: 'home-room',
     });
     expect(selectScheduleGoal(merchant, { roomNumber: 1, dayPhase: 'night' })).toMatchObject({
-      kind: 'goHome',
+      kind: 'sleep',
       roomId: 'home-room',
     });
   });

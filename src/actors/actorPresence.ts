@@ -140,23 +140,32 @@ export function inferActorActivity(args: {
   if (args.decision?.kind === 'shareRumor' || args.targetAdjacent) {
     return activity('talking', 'social', args.roomNumber, args.decision?.targetActorId);
   }
-  if (args.moved) {
+  if (
+    args.moved ||
+    (args.actor.goal?.roomId && args.actor.goal.roomId !== args.actor.currentRoomId)
+  ) {
     return activity('walking', 'brain', args.roomNumber);
   }
-  if (isTownShopRole(args.actor.role)) {
-    return activity('merchant', 'schedule', args.roomNumber);
-  }
-  if (args.actor.role === 'guard' || args.actor.role === 'gateGuard') {
-    return activity('guarding', 'schedule', args.roomNumber);
-  }
-  if (args.actor.role === 'fisher') {
-    return activity('fishing', 'schedule', args.roomNumber);
+  if (args.actor.goal?.kind === 'sleep') {
+    return activity('sleeping', 'schedule', args.roomNumber);
   }
   if (args.actor.goal?.reason?.includes('shelter')) {
     return activity('sheltering', 'schedule', args.roomNumber);
   }
-  if (args.actor.goal?.kind === 'sleep') {
-    return activity('sleeping', 'schedule', args.roomNumber);
+  if (args.actor.goal?.kind === 'defendArea') {
+    return activity('guarding', 'schedule', args.roomNumber);
+  }
+  if (args.actor.goal?.kind === 'work' && isTownShopRole(args.actor.role)) {
+    return activity('merchant', 'schedule', args.roomNumber);
+  }
+  if (args.actor.goal?.kind === 'work' && args.actor.role === 'fisher') {
+    return activity('fishing', 'schedule', args.roomNumber);
+  }
+  if (
+    (args.actor.role === 'guard' || args.actor.role === 'gateGuard') &&
+    args.actor.schedule?.permanentDuty
+  ) {
+    return activity('guarding', 'schedule', args.roomNumber);
   }
   return activity('idle', 'brain', args.roomNumber);
 }
@@ -169,12 +178,12 @@ export function selectScheduleGoal(
   const dayPhase = scheduleContext.dayPhase ?? fallbackDayPhase(scheduleContext.roomNumber);
   const routine = actor.schedule?.routines?.[dayPhase];
   if (routine) {
+    const place = resolveSchedulePlace(actor, routine.roomTarget);
     return {
       kind: routine.goalKind,
       priority: routine.priority,
-      roomId: resolveScheduleRoom(actor, routine.roomTarget),
-      targetPosition:
-        routine.roomTarget === 'fixedPost' ? actor.schedule?.fixedPostPosition : undefined,
+      roomId: place.roomId,
+      targetPosition: place.targetPosition,
       reason: `schedule:${routine.behavior}`,
     };
   }
@@ -188,26 +197,32 @@ export function selectScheduleGoal(
     };
   }
   if (dayPhase === 'night') {
+    const place = resolveSchedulePlace(actor, actor.schedule?.sleepRoomId ? 'sleep' : 'home');
     return {
-      kind: actor.schedule?.sleepRoomId || actor.homeRoomId ? 'goHome' : 'sleep',
+      kind: place.roomId ? 'sleep' : 'sleep',
       priority: 20,
-      roomId: actor.schedule?.sleepRoomId ?? actor.homeRoomId,
+      roomId: place.roomId,
+      targetPosition: place.targetPosition,
       reason: 'night-schedule',
     };
   }
   if (dayPhase === 'dawn' || dayPhase === 'dusk') {
+    const place = resolveSchedulePlace(actor, 'home');
     return {
-      kind: actor.homeRoomId ? 'goHome' : 'wander',
+      kind: place.roomId ? 'goHome' : 'wander',
       priority: 12,
-      roomId: actor.homeRoomId ?? actor.currentRoomId,
+      roomId: place.roomId ?? actor.currentRoomId,
+      targetPosition: place.targetPosition,
       reason: dayPhase === 'dawn' ? 'morning-schedule' : 'evening-schedule',
     };
   }
   if (isTownShopRole(actor.role) && (actor.schedule?.workRoomId || actor.workRoomId)) {
+    const place = resolveSchedulePlace(actor, 'work');
     return {
       kind: 'work',
       priority: 18,
-      roomId: actor.schedule?.workRoomId ?? actor.workRoomId,
+      roomId: place.roomId,
+      targetPosition: place.targetPosition,
       reason: 'day-schedule',
     };
   }
@@ -215,10 +230,15 @@ export function selectScheduleGoal(
     (actor.role === 'guard' || actor.role === 'gateGuard') &&
     actor.schedule?.patrolRoomIds?.[0]
   ) {
+    const patrolRoomId = actor.schedule.patrolRoomIds[0];
     return {
       kind: 'defendArea',
       priority: 16,
-      roomId: actor.schedule.patrolRoomIds[0],
+      roomId: patrolRoomId,
+      targetPosition:
+        patrolRoomId === actor.schedule.fixedPostRoomId
+          ? actor.schedule.fixedPostPosition
+          : undefined,
       reason: 'patrol-schedule',
     };
   }
@@ -227,10 +247,12 @@ export function selectScheduleGoal(
   const scheduleRoll =
     stableStringHashPositive(`${actor.id}:${Math.floor(scheduleContext.roomNumber / 2)}`) % 4;
   if (scheduleRoll === 0 && homeRoomId) {
+    const place = resolveSchedulePlace(actor, actor.schedule?.sleepRoomId ? 'sleep' : 'home');
     return {
       kind: 'socialize',
       priority: 9,
-      roomId: homeRoomId,
+      roomId: place.roomId ?? homeRoomId,
+      targetPosition: place.targetPosition,
       reason: 'social-schedule',
     };
   }
@@ -242,24 +264,36 @@ export function selectScheduleGoal(
   };
 }
 
-function resolveScheduleRoom(
+function resolveSchedulePlace(
   actor: Actor,
   roomTarget: ActorScheduleRoomTarget | undefined,
-): string | undefined {
+): { roomId?: string; targetPosition?: { x: number; y: number } } {
   switch (roomTarget) {
     case 'home':
-      return actor.schedule?.homeRoomId ?? actor.homeRoomId;
+      return {
+        roomId: actor.schedule?.homeRoomId ?? actor.homeRoomId,
+        targetPosition: actor.schedule?.homePosition,
+      };
     case 'work':
-      return actor.schedule?.workRoomId ?? actor.workRoomId;
+      return {
+        roomId: actor.schedule?.workRoomId ?? actor.workRoomId,
+        targetPosition: actor.schedule?.workPosition,
+      };
     case 'sleep':
-      return actor.schedule?.sleepRoomId ?? actor.homeRoomId;
+      return {
+        roomId: actor.schedule?.sleepRoomId ?? actor.homeRoomId,
+        targetPosition: actor.schedule?.sleepPosition ?? actor.schedule?.homePosition,
+      };
     case 'fixedPost':
-      return actor.schedule?.fixedPostRoomId;
+      return {
+        roomId: actor.schedule?.fixedPostRoomId,
+        targetPosition: actor.schedule?.fixedPostPosition,
+      };
     case 'firstPatrol':
-      return actor.schedule?.patrolRoomIds?.[0];
+      return { roomId: actor.schedule?.patrolRoomIds?.[0] };
     case 'current':
     case undefined:
-      return actor.currentRoomId;
+      return { roomId: actor.currentRoomId };
   }
 }
 

@@ -116,6 +116,25 @@ export function adjacentWalkableTile(
   throw new Error(`No adjacent walkable tile near ${target.x},${target.y} in ${room.id}.`);
 }
 
+export function walkableTileAwayFrom(
+  scenario: HeadlessScenario,
+  roomId: string,
+  target: { x: number; y: number },
+  minimumDistance: number,
+): { x: number; y: number } {
+  const room = scenario.getRoom(roomId);
+  for (let y = 1; y < room.layout.length - 1; y += 1) {
+    for (let x = 1; x < (room.layout[0]?.length ?? 0) - 1; x += 1) {
+      const tile = room.layout[y]?.[x];
+      const distance = Math.abs(x - target.x) + Math.abs(y - target.y);
+      if (tile !== undefined && !isSolidTile(tile) && distance >= minimumDistance) {
+        return { x, y };
+      }
+    }
+  }
+  throw new Error(`No walkable tile at least ${minimumDistance} from ${target.x},${target.y}.`);
+}
+
 function defaultFactionForRole(role: ScenarioActorOptions['role']): string {
   switch (role) {
     case 'guard':

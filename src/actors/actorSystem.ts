@@ -254,6 +254,7 @@ export class ActorSystem {
         this.scheduleDirtyActors.add(actor.id);
       }
     }
+    this.processDirtySchedules({ roomNumber: roomNumber ?? 0 });
     return actors;
   }
 
@@ -280,6 +281,7 @@ export class ActorSystem {
         this.scheduleDirtyActors.add(actor.id);
       }
     }
+    this.processDirtySchedules({ roomNumber: roomNumber ?? 0 });
     return actors;
   }
 
@@ -386,8 +388,8 @@ export class ActorSystem {
       nextPresence: compactActorPresence(next.presence),
       fromRoomId: previous?.presence?.roomId ?? previous?.currentRoomId,
       toRoomId: presence.roomId,
-      fromPosition: previous?.presence?.position,
-      toPosition: presence.position,
+      fromPosition: previous?.presence?.position ? { ...previous.presence.position } : undefined,
+      toPosition: { ...presence.position },
     });
     if (previous?.presence?.materialized !== presence.materialized) {
       this.emitActorTelemetry(

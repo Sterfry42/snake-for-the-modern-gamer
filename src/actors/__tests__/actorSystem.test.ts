@@ -627,7 +627,7 @@ describe('ActorSystem', () => {
     actors.applyScheduleGoals(23);
 
     expect(actors.getActor(merchant.id)?.scheduleGoal).toMatchObject({
-      kind: 'goHome',
+      kind: 'sleep',
       roomId: 'home-room',
     });
   });
@@ -663,6 +663,40 @@ describe('ActorSystem', () => {
     });
     expect(actors.getActorsInRoom('market')).toEqual([]);
     expect(actors.getActorsInRoom('home').map((actor) => actor.id)).toEqual([resident.id]);
+  });
+
+  it('emits copied from/to positions for presence telemetry', () => {
+    const events: ActorTelemetryEvent[] = [];
+    const actors = new ActorSystem();
+    actors.setTelemetrySink((event) => events.push(event));
+    const resident = actors.registry.ensureTownResidentActor({
+      residentId: 'telemetry-resident',
+      name: 'Telemetry Resident',
+      role: 'resident',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: 'market',
+    });
+
+    actors.setPresence(
+      resident.id,
+      createActorPresence({ roomId: 'market', position: { x: 4, y: 5 } }),
+      'first-place',
+    );
+    actors.setPresence(
+      resident.id,
+      createActorPresence({ roomId: 'home', position: { x: 7, y: 8 } }),
+      'test-move',
+    );
+
+    const event = events.find(
+      (entry) => entry.type === 'actor.presence_changed' && entry.reason === 'test-move',
+    );
+    expect(event?.data).toMatchObject({
+      fromPosition: { x: 4, y: 5 },
+      toPosition: { x: 7, y: 8 },
+    });
+    expect(event?.data.fromPosition).not.toBe(event?.data.toPosition);
   });
 
   it('logs exact reasons for player-hostility changes', () => {

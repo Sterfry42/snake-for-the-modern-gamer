@@ -362,6 +362,7 @@ export function createActorFromTownResident(args: EnsureTownResidentActorArgs): 
             policyId: 'town-guard',
             fixedPostRoomId: args.workRoomId ?? args.currentRoomId,
             fixedPostPosition: args.postPosition ? { ...args.postPosition } : undefined,
+            workPosition: args.postPosition ? { ...args.postPosition } : undefined,
             patrolRoomIds: args.workRoomId ? [args.workRoomId] : undefined,
             permanentDuty: role === 'gateGuard',
           }
@@ -369,6 +370,14 @@ export function createActorFromTownResident(args: EnsureTownResidentActorArgs): 
             policyId: 'town-resident',
             homeRoomId: args.homeRoomId ?? args.currentRoomId,
             workRoomId: args.workRoomId ?? args.currentRoomId,
+            homePosition:
+              (args.homeRoomId ?? args.currentRoomId) === args.currentRoomId && args.postPosition
+                ? { ...args.postPosition }
+                : undefined,
+            workPosition:
+              (args.workRoomId ?? args.currentRoomId) === args.currentRoomId && args.postPosition
+                ? { ...args.postPosition }
+                : undefined,
           },
     flags: { source: 'townResident', residentId: args.residentId },
     createdAtRoomNumber: args.createdAtRoomNumber,

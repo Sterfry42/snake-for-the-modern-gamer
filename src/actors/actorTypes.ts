@@ -252,6 +252,9 @@ export interface ActorSchedule {
   homeRoomId?: string;
   workRoomId?: string;
   sleepRoomId?: string;
+  homePosition?: { x: number; y: number };
+  workPosition?: { x: number; y: number };
+  sleepPosition?: { x: number; y: number };
   patrolRoomIds?: string[];
   fixedPostRoomId?: string;
   fixedPostPosition?: { x: number; y: number };
