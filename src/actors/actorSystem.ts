@@ -41,11 +41,7 @@ import {
   selectActorEnvironmentReaction,
   type ActorEnvironmentContext,
 } from './actorEnvironment.js';
-import {
-  advanceOffscreenActorTravel,
-  findFactionConflictGoals,
-  selectScheduleGoal,
-} from './actorPresence.js';
+import { findFactionConflictGoals, selectScheduleGoal } from './actorPresence.js';
 import {
   compactActorActivity,
   compactActorGoal,
@@ -76,10 +72,44 @@ export interface ActorScheduleUpdateContext {
   atmosphere?: ResolvedAtmosphereView;
 }
 
+export interface ActorTickWorkMetrics {
+  brainsProcessed?: number;
+  pathsRequested?: number;
+  actorsMoved?: number;
+  conversationsProcessed?: number;
+  combatInteractions?: number;
+  materializations?: number;
+}
+
+export interface ActorTickContext {
+  nowMs: number;
+  deltaMs: number;
+  loadedRoomId: string;
+  roomNumber: number;
+  atmosphere?: ResolvedAtmosphereView;
+  materializeLoadedActors?: () => number;
+  processLoadedActors?: () => ActorTickWorkMetrics;
+  advanceOffscreenActors?: () => number;
+}
+
+export interface ActorTickMetrics extends Required<ActorTickWorkMetrics> {
+  durationMs: number;
+  totalActors: number;
+  activeActors: number;
+  loadedRoomActors: number;
+  schedulesEvaluated: number;
+  registryMutations: number;
+  tickCount: number;
+}
+
 export class ActorSystem {
   readonly registry = new ActorRegistry();
   readonly events = new WorldEventLog();
   private telemetrySink: ActorTelemetrySink | undefined;
+  private readonly scheduleDirtyActors = new Set<string>();
+  private lastScheduleDayPhase: string | undefined;
+  private tickCount = 0;
+  private lastSlowTickTelemetryAtMs = Number.NEGATIVE_INFINITY;
 
   setTelemetrySink(sink: ActorTelemetrySink | undefined): void {
     this.telemetrySink = sink;
@@ -88,9 +118,13 @@ export class ActorSystem {
   reset(): void {
     this.registry.clear();
     this.events.clear();
+    this.scheduleDirtyActors.clear();
+    this.lastScheduleDayPhase = undefined;
+    this.tickCount = 0;
+    this.lastSlowTickTelemetryAtMs = Number.NEGATIVE_INFINITY;
   }
 
-  syncRoom(context: ActorSystemSyncContext): Actor[] {
+  ensureActorsFromRoomContent(context: ActorSystemSyncContext): Actor[] {
     const actors: Actor[] = [];
     const { room, roomNumber } = context;
 
@@ -215,6 +249,11 @@ export class ActorSystem {
       );
     }
 
+    for (const actor of actors) {
+      if (actor.schedule && !actor.scheduleGoal) {
+        this.scheduleDirtyActors.add(actor.id);
+      }
+    }
     return actors;
   }
 
@@ -236,6 +275,11 @@ export class ActorSystem {
       }),
     );
     this.ensureLocalSocialLinks(actors);
+    for (const actor of actors) {
+      if (actor.schedule && !actor.scheduleGoal) {
+        this.scheduleDirtyActors.add(actor.id);
+      }
+    }
     return actors;
   }
 
@@ -287,9 +331,13 @@ export class ActorSystem {
     options?: { interrupt?: boolean },
   ): Actor | undefined {
     const previous = this.registry.get(actorId);
+    const mutationsBefore = this.registry.getMutationCount();
     const next = this.registry.setGoal(actorId, goal, options?.interrupt ?? false);
     if (!next) {
       return undefined;
+    }
+    if (this.registry.getMutationCount() === mutationsBefore) {
+      return next;
     }
     const reason = goal.reason ?? 'goal-request';
     if (options?.interrupt && previous?.goal) {
@@ -308,9 +356,13 @@ export class ActorSystem {
 
   resumeGoal(actorId: string, reason = 'resume-interrupted-goal'): Actor | undefined {
     const previous = this.registry.get(actorId);
+    const mutationsBefore = this.registry.getMutationCount();
     const next = this.registry.resumeInterruptedGoal(actorId);
     if (!next) {
       return undefined;
+    }
+    if (this.registry.getMutationCount() === mutationsBefore) {
+      return next;
     }
     this.emitActorTelemetry('actor.goal_resumed', next, reason, {
       previousGoal: compactActorGoal(previous?.goal),
@@ -321,9 +373,13 @@ export class ActorSystem {
 
   setPresence(actorId: string, presence: ActorPresence, reason: string): Actor | undefined {
     const previous = this.registry.get(actorId);
+    const mutationsBefore = this.registry.getMutationCount();
     const next = this.registry.setPresence(actorId, presence);
     if (!next) {
       return undefined;
+    }
+    if (this.registry.getMutationCount() === mutationsBefore) {
+      return next;
     }
     this.emitActorTelemetry('actor.presence_changed', next, reason, {
       previousPresence: compactActorPresence(previous?.presence),
@@ -349,9 +405,13 @@ export class ActorSystem {
 
   setActivity(actorId: string, activity: ActorActivity, reason: string): Actor | undefined {
     const previous = this.registry.get(actorId);
+    const mutationsBefore = this.registry.getMutationCount();
     const next = this.registry.setActivity(actorId, activity);
     if (!next) {
       return undefined;
+    }
+    if (this.registry.getMutationCount() === mutationsBefore) {
+      return next;
     }
     this.emitActorTelemetry('actor.activity_changed', next, reason, {
       previousActivity: compactActorActivity(previous?.activity),
@@ -366,6 +426,9 @@ export class ActorSystem {
     reason: string,
   ): Actor | undefined {
     const previous = this.registry.get(actorId);
+    if (actorThreatEquals(previous?.targetedThreat, threat)) {
+      return previous;
+    }
     const next = this.registry.update(actorId, (actor) => ({
       ...actor,
       targetedThreat: threat,
@@ -393,6 +456,12 @@ export class ActorSystem {
       reason,
       startedAtRoomNumber: roomNumber,
     };
+    if (
+      previous?.playerHostility?.state === playerHostility.state &&
+      previous.playerHostility.reason === playerHostility.reason
+    ) {
+      return previous;
+    }
     const next = this.registry.update(actorId, (actor) => ({
       ...actor,
       hostility:
@@ -428,12 +497,110 @@ export class ActorSystem {
     this.emitActorTelemetry(type, actor, reason, data);
   }
 
+  markSchedulesDirty(actorIds?: readonly string[]): void {
+    if (actorIds) {
+      for (const actorId of actorIds) {
+        if (this.registry.get(actorId)?.schedule) {
+          this.scheduleDirtyActors.add(actorId);
+        }
+      }
+      return;
+    }
+    for (const actor of this.registry.getAll()) {
+      if (actor.schedule) {
+        this.scheduleDirtyActors.add(actor.id);
+      }
+    }
+  }
+
   applyScheduleGoals(context: number | ActorScheduleUpdateContext): void {
     const updateContext = typeof context === 'number' ? { roomNumber: context } : context;
-    for (const actor of this.registry.getAll()) {
+    this.markSchedulesDirty();
+    this.processDirtySchedules(updateContext);
+    if (updateContext.atmosphere) {
+      this.applyEnvironmentReactions({
+        roomNumber: updateContext.roomNumber,
+        atmosphere: updateContext.atmosphere.state,
+        sheltered: updateContext.atmosphere.sheltered,
+        effects: updateContext.atmosphere.effects,
+      });
+    }
+  }
+
+  tick(context: ActorTickContext): ActorTickMetrics {
+    const startedAt = performance.now();
+    const mutationsBefore = this.registry.getMutationCount();
+    this.tickCount += 1;
+    const dayPhase = context.atmosphere?.state.dayPhase;
+    if (dayPhase !== this.lastScheduleDayPhase) {
+      this.lastScheduleDayPhase = dayPhase;
+      this.markSchedulesDirty();
+    }
+    const schedulesEvaluated = this.processDirtySchedules({
+      roomNumber: context.roomNumber,
+      atmosphere: context.atmosphere,
+    });
+    if (context.atmosphere) {
+      this.applyEnvironmentReactions(
+        {
+          roomNumber: context.roomNumber,
+          atmosphere: context.atmosphere.state,
+          sheltered: context.atmosphere.sheltered,
+          effects: context.atmosphere.effects,
+        },
+        context.loadedRoomId,
+      );
+    }
+    const materializations = context.materializeLoadedActors?.() ?? 0;
+    const loadedWork = context.processLoadedActors?.() ?? {};
+    const combatInteractions =
+      (loadedWork.combatInteractions ?? 0) + this.resolveFactionConflicts(context.loadedRoomId);
+    const offscreenMoves = context.advanceOffscreenActors?.() ?? 0;
+    this.expireSpeech(context.nowMs, context.roomNumber);
+    const allActors = this.registry.getAll();
+    const loadedRoomActors = this.getActorsInRoom(context.loadedRoomId).length;
+    const metrics: ActorTickMetrics = {
+      durationMs: Math.max(0, performance.now() - startedAt),
+      totalActors: allActors.length,
+      activeActors: allActors.filter(
+        (actor) => actor.health?.state !== 'dead' && actor.hostility !== 'dead',
+      ).length,
+      loadedRoomActors,
+      brainsProcessed: loadedWork.brainsProcessed ?? loadedRoomActors,
+      schedulesEvaluated,
+      pathsRequested: loadedWork.pathsRequested ?? 0,
+      actorsMoved: (loadedWork.actorsMoved ?? 0) + offscreenMoves,
+      conversationsProcessed: loadedWork.conversationsProcessed ?? 0,
+      combatInteractions,
+      materializations: materializations + (loadedWork.materializations ?? 0),
+      registryMutations: this.registry.getMutationCount() - mutationsBefore,
+      tickCount: this.tickCount,
+    };
+    this.emitSystemTelemetry('actor.tick', 'actor-clock', metrics);
+    if (metrics.durationMs > 16 && context.nowMs - this.lastSlowTickTelemetryAtMs >= 1_000) {
+      this.lastSlowTickTelemetryAtMs = context.nowMs;
+      this.emitSystemTelemetry('actor.tick_slow', 'actor-tick-over-16ms', metrics);
+    }
+    return metrics;
+  }
+
+  getTickCount(): number {
+    return this.tickCount;
+  }
+
+  private processDirtySchedules(updateContext: ActorScheduleUpdateContext): number {
+    let evaluated = 0;
+    const dirtyActorIds = [...this.scheduleDirtyActors];
+    this.scheduleDirtyActors.clear();
+    for (const actorId of dirtyActorIds) {
+      const actor = this.registry.get(actorId);
+      if (!actor?.schedule) {
+        continue;
+      }
       if (actor.health?.state === 'dead' || actor.hostility === 'dead') {
         continue;
       }
+      evaluated += 1;
       const goal = selectScheduleGoal(actor, {
         roomNumber: updateContext.roomNumber,
         dayPhase: updateContext.atmosphere?.state.dayPhase,
@@ -445,15 +612,19 @@ export class ActorSystem {
         goal.priority >= currentPriority ||
         actor.goal.reason?.includes('schedule') ||
         actor.goal.kind === actor.scheduleGoal?.kind;
-      const scheduled = this.registry.update(actor.id, (current) => ({
-        ...current,
-        scheduleGoal: goal,
-      }));
-      if (scheduled) {
-        this.emitActorTelemetry('actor.schedule_evaluated', scheduled, goal.reason ?? 'schedule', {
+      const scheduleChanged = !actorGoalEquals(previousScheduleGoal, goal);
+      const scheduled = scheduleChanged
+        ? this.registry.update(actor.id, (current) => ({ ...current, scheduleGoal: goal }))
+        : actor;
+      if (scheduled && scheduleChanged) {
+        this.emitActorTelemetry('actor.schedule_changed', scheduled, goal.reason ?? 'schedule', {
           dayPhase: updateContext.atmosphere?.state.dayPhase,
           schedulePolicy: actor.schedule
             ? {
+                policyId: actor.schedule.policyId,
+                preferredBehavior:
+                  actor.schedule.routines?.[updateContext.atmosphere?.state.dayPhase ?? 'day']
+                    ?.behavior,
                 permanentDuty: actor.schedule.permanentDuty,
                 fixedPostRoomId: actor.schedule.fixedPostRoomId,
               }
@@ -467,23 +638,20 @@ export class ActorSystem {
         this.requestGoal(actor.id, goal);
       }
     }
-    if (updateContext.atmosphere) {
-      this.applyEnvironmentReactions({
-        roomNumber: updateContext.roomNumber,
-        atmosphere: updateContext.atmosphere.state,
-        sheltered: updateContext.atmosphere.sheltered,
-        effects: updateContext.atmosphere.effects,
-      });
-    }
+    return evaluated;
   }
 
-  private applyEnvironmentReactions(context: ActorEnvironmentContext): void {
-    for (const actor of this.registry.getAll()) {
+  private applyEnvironmentReactions(context: ActorEnvironmentContext, roomId?: string): void {
+    const actors = roomId ? this.registry.getByRoom(roomId) : this.registry.getAll();
+    for (const actor of actors) {
       const reaction = selectActorEnvironmentReaction(actor, context);
       if (!reaction) {
         continue;
       }
       const applyDeltas = actor.flags.lastEnvironmentReactionKey !== reaction.environmentKey;
+      if (!applyDeltas) {
+        continue;
+      }
       const currentPriority = actor.goal?.priority ?? 0;
       const nextGoal =
         reaction.goal &&
@@ -522,23 +690,19 @@ export class ActorSystem {
     }
   }
 
-  advanceOffscreenTravel(loadedRoomId: string, roomNumber: number): void {
-    for (const actor of this.registry.getAll()) {
-      const traveled = advanceOffscreenActorTravel({ actor, loadedRoomId, roomNumber });
-      if (traveled) {
-        this.registry.update(actor.id, () => traveled);
-      }
-    }
-  }
-
-  resolveFactionConflicts(roomId: string): void {
+  resolveFactionConflicts(roomId: string): number {
     const updates = findFactionConflictGoals(this.getActorsInRoom(roomId));
+    let interactions = 0;
     for (const update of updates) {
       const actor = this.registry.get(update.actorId);
       if (!actor) {
         continue;
       }
       const alreadyTargeting = actor.targetedThreat?.targetActorId === update.threat.targetActorId;
+      if (alreadyTargeting) {
+        continue;
+      }
+      interactions += 1;
       this.setTargetThreat(
         update.actorId,
         { ...update.threat, startedAtRoomNumber: actor.targetedThreat?.startedAtRoomNumber },
@@ -564,6 +728,22 @@ export class ActorSystem {
           targetActorId: update.threat.targetActorId,
         });
       }
+    }
+    return interactions;
+  }
+
+  private expireSpeech(nowMs: number, roomNumber: number): void {
+    for (const actor of this.registry.getAll()) {
+      const expiredByTime =
+        actor.speech?.expiresAtMs !== undefined && actor.speech.expiresAtMs <= nowMs;
+      const expiredByRoom =
+        actor.speech?.expiresAtMs === undefined &&
+        actor.speech?.expiresAtRoomNumber !== undefined &&
+        actor.speech.expiresAtRoomNumber <= roomNumber;
+      if (!expiredByTime && !expiredByRoom) {
+        continue;
+      }
+      this.registry.update(actor.id, (current) => ({ ...current, speech: undefined }));
     }
   }
 
@@ -618,9 +798,11 @@ export class ActorSystem {
     if ('actors' in data && 'events' in data) {
       this.registry.loadSaveData(data.actors);
       this.events.loadSaveData(data.events);
+      this.markSchedulesDirty();
       return;
     }
     this.registry.loadSaveData(data);
+    this.markSchedulesDirty();
   }
 
   private applyEventMemory(event: WorldEvent): void {
@@ -714,6 +896,40 @@ export class ActorSystem {
     };
     this.telemetrySink(event);
   }
+
+  private emitSystemTelemetry(
+    type: 'actor.tick' | 'actor.tick_slow',
+    reason: string,
+    data: ActorTickMetrics,
+  ): void {
+    this.telemetrySink?.({ type, reason, data: { ...data } });
+  }
+}
+
+function actorGoalEquals(left: ActorGoal | undefined, right: ActorGoal | undefined): boolean {
+  return (
+    left === right ||
+    (left?.kind === right?.kind &&
+      left?.priority === right?.priority &&
+      left?.roomId === right?.roomId &&
+      left?.targetActorId === right?.targetActorId &&
+      left?.targetPosition?.x === right?.targetPosition?.x &&
+      left?.targetPosition?.y === right?.targetPosition?.y &&
+      left?.reason === right?.reason)
+  );
+}
+
+function actorThreatEquals(
+  left: ActorTargetThreat | undefined,
+  right: ActorTargetThreat | undefined,
+): boolean {
+  return (
+    left === right ||
+    (left?.targetActorId === right?.targetActorId &&
+      left?.source === right?.source &&
+      left?.reason === right?.reason &&
+      left?.startedAtRoomNumber === right?.startedAtRoomNumber)
+  );
 }
 
 function socialRelationshipFor(actorId: string, targetId: string): ActorSocialLink['relationship'] {

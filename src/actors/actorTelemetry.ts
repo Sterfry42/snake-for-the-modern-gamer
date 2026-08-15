@@ -12,7 +12,7 @@ export type ActorTelemetryEventType =
   | 'actor.presence_changed'
   | 'actor.materialized'
   | 'actor.dematerialized'
-  | 'actor.schedule_evaluated'
+  | 'actor.schedule_changed'
   | 'actor.goal_changed'
   | 'actor.goal_interrupted'
   | 'actor.goal_resumed'
@@ -23,7 +23,9 @@ export type ActorTelemetryEventType =
   | 'actor.combat_ended'
   | 'actor.conversation_started'
   | 'actor.conversation_ended'
-  | 'actor.rumor_shared';
+  | 'actor.rumor_shared'
+  | 'actor.tick'
+  | 'actor.tick_slow';
 
 export interface ActorTelemetryEvent {
   type: ActorTelemetryEventType;
@@ -129,6 +131,7 @@ export function compactActorDebugSnapshot(actor: Actor): Record<string, unknown>
       : null,
     schedule: actor.schedule
       ? {
+          policyId: actor.schedule.policyId,
           permanentDuty: actor.schedule.permanentDuty,
           fixedPostRoomId: actor.schedule.fixedPostRoomId,
           fixedPostPosition: actor.schedule.fixedPostPosition,

@@ -103,6 +103,28 @@ describe('actor presence simulation', () => {
     });
   });
 
+  it('resolves content-authored routines without assuming a town role', () => {
+    const rabbit = actor('actor:rabbit', 'wildlife.prey');
+    rabbit.role = 'animalPrey';
+    rabbit.schedule = {
+      policyId: 'rabbit',
+      routines: {
+        day: { behavior: 'forage', goalKind: 'wander', priority: 8, roomTarget: 'current' },
+        night: { behavior: 'hide', goalKind: 'sleep', priority: 18, roomTarget: 'current' },
+      },
+    };
+
+    expect(selectScheduleGoal(rabbit, { roomNumber: 1, dayPhase: 'day' })).toMatchObject({
+      kind: 'wander',
+      roomId: rabbit.currentRoomId,
+      reason: 'schedule:forage',
+    });
+    expect(selectScheduleGoal(rabbit, { roomNumber: 1, dayPhase: 'night' })).toMatchObject({
+      kind: 'sleep',
+      reason: 'schedule:hide',
+    });
+  });
+
   it('reacts to exposed storm weather by sheltering civilians without forcing mass speech', () => {
     const resident = actor('actor:resident', 'hearthbound-remnant');
     resident.homeRoomId = 'home-room';

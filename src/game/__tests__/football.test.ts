@@ -39,7 +39,8 @@ interface SnakeGamePrivate {
   >;
   calculateAppleLengthScoreMultiplier(): number;
   applyLengthScoreMultiplier(baseScore: number, multiplier: number): number;
-  syncActorsForRoom(room: RoomSnapshot): void;
+  ensureActorsFromRoomContent(room: RoomSnapshot): void;
+  materializeActorsForRoom(room: RoomSnapshot): number;
   maybeMarkTownHostility(room: RoomSnapshot): void;
   noteBanditRaidDefeat(enemy: EnemyInstance, eaten: boolean): void;
   tickFactionRaidGameplay(): void;
@@ -758,7 +759,8 @@ describe('actor conversations', () => {
       residents: [{ id: 'marta', name: 'Marta', x: 7, y: 7, portraitId: 'sage-1' }],
       shopkeeper: { id: 'shop', name: 'Rook', x: 10, y: 7, portraitId: 'sage-2' },
     } as unknown as never;
-    (game as unknown as SnakeGamePrivate).syncActorsForRoom(room);
+    (game as unknown as SnakeGamePrivate).ensureActorsFromRoomContent(room);
+    (game as unknown as SnakeGamePrivate).materializeActorsForRoom(room);
     const actorId = game.getVillageActorId(room.id, 'marta', 'resident');
 
     for (let index = 0; index < 5; index += 1) {
@@ -905,7 +907,8 @@ describe('actor room brains', () => {
       portraitId: 'sage-1',
     });
 
-    (game as unknown as SnakeGamePrivate).syncActorsForRoom(room);
+    (game as unknown as SnakeGamePrivate).ensureActorsFromRoomContent(room);
+    (game as unknown as SnakeGamePrivate).materializeActorsForRoom(room);
     const body = (game as unknown as SnakeGamePrivate).npcBodies.get('wanderer:road-scribe');
 
     expect(body?.actorId).toBe(actorId);
@@ -938,7 +941,8 @@ describe('actor room brains', () => {
       residents: [{ id: 'marta', name: 'Marta', x: 7, y: 7, portraitId: 'sage-1' }],
       shopkeeper: { id: 'shop', name: 'Rook', x: 10, y: 7, portraitId: 'sage-2' },
     } as unknown as never;
-    (game as unknown as SnakeGamePrivate).syncActorsForRoom(room);
+    (game as unknown as SnakeGamePrivate).ensureActorsFromRoomContent(room);
+    (game as unknown as SnakeGamePrivate).materializeActorsForRoom(room);
     const actorId = game.getVillageActorId(room.id, 'marta', 'resident');
     const relationshipId = `resident:${room.id}:marta`;
     const body = (game as unknown as SnakeGamePrivate).npcBodies.get(relationshipId)!;
@@ -979,7 +983,8 @@ describe('actor room brains', () => {
       ],
       shopkeeper: { id: 'shop', name: 'Rook', x: 10, y: 7, portraitId: 'sage-3' },
     } as unknown as never;
-    (game as unknown as SnakeGamePrivate).syncActorsForRoom(room);
+    (game as unknown as SnakeGamePrivate).ensureActorsFromRoomContent(room);
+    (game as unknown as SnakeGamePrivate).materializeActorsForRoom(room);
     const sourceActorId = game.getVillageActorId(room.id, 'marta', 'resident');
     const targetActorId = game.getVillageActorId(room.id, 'nina', 'resident');
     game.getActorSystem().registry.update(sourceActorId, (actor) => ({

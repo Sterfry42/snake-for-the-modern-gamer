@@ -23,6 +23,7 @@ import type {
   ActorNeeds,
   ActorPersonalityTag,
   ActorRole,
+  ActorSchedule,
   ActorSoulProfile,
   ActorLoreProfile,
   ActorSpecies,
@@ -33,6 +34,46 @@ import type {
   EnsureTownResidentActorArgs,
   EnsureWandererActorArgs,
 } from './actorTypes.js';
+
+const PREY_SCHEDULE: ActorSchedule = {
+  policyId: 'animal-prey',
+  routines: {
+    dawn: { behavior: 'emerge', goalKind: 'wander', priority: 8, roomTarget: 'current' },
+    day: { behavior: 'forage', goalKind: 'wander', priority: 8, roomTarget: 'current' },
+    dusk: { behavior: 'seekDen', goalKind: 'wander', priority: 12, roomTarget: 'current' },
+    night: { behavior: 'hide', goalKind: 'sleep', priority: 18, roomTarget: 'current' },
+  },
+};
+
+const PREDATOR_SCHEDULE: ActorSchedule = {
+  policyId: 'animal-predator',
+  routines: {
+    dawn: { behavior: 'hunt', goalKind: 'wander', priority: 10, roomTarget: 'current' },
+    day: { behavior: 'roam', goalKind: 'wander', priority: 8, roomTarget: 'current' },
+    dusk: { behavior: 'hunt', goalKind: 'wander', priority: 10, roomTarget: 'current' },
+    night: { behavior: 'hunt', goalKind: 'wander', priority: 12, roomTarget: 'current' },
+  },
+};
+
+const BANDIT_SCHEDULE: ActorSchedule = {
+  policyId: 'bandit',
+  routines: {
+    dawn: { behavior: 'camp', goalKind: 'sleep', priority: 14, roomTarget: 'current' },
+    day: { behavior: 'scout', goalKind: 'wander', priority: 9, roomTarget: 'current' },
+    dusk: { behavior: 'patrol', goalKind: 'defendArea', priority: 11, roomTarget: 'current' },
+    night: { behavior: 'ambush', goalKind: 'defendArea', priority: 13, roomTarget: 'current' },
+  },
+};
+
+const GOBLIN_SCHEDULE: ActorSchedule = {
+  policyId: 'goblin-merchant',
+  routines: {
+    dawn: { behavior: 'work', goalKind: 'work', priority: 10, roomTarget: 'current' },
+    day: { behavior: 'work', goalKind: 'work', priority: 12, roomTarget: 'current' },
+    dusk: { behavior: 'socialize', goalKind: 'socialize', priority: 8, roomTarget: 'current' },
+    night: { behavior: 'sleep', goalKind: 'sleep', priority: 16, roomTarget: 'current' },
+  },
+};
 
 export function createDefaultMood(tags: readonly ActorPersonalityTag[] = []): ActorMood {
   return {
@@ -318,12 +359,17 @@ export function createActorFromTownResident(args: EnsureTownResidentActorArgs): 
     schedule:
       role === 'gateGuard' || role === 'guard'
         ? {
+            policyId: 'town-guard',
             fixedPostRoomId: args.workRoomId ?? args.currentRoomId,
             fixedPostPosition: args.postPosition ? { ...args.postPosition } : undefined,
             patrolRoomIds: args.workRoomId ? [args.workRoomId] : undefined,
             permanentDuty: role === 'gateGuard',
           }
-        : undefined,
+        : {
+            policyId: 'town-resident',
+            homeRoomId: args.homeRoomId ?? args.currentRoomId,
+            workRoomId: args.workRoomId ?? args.currentRoomId,
+          },
     flags: { source: 'townResident', residentId: args.residentId },
     createdAtRoomNumber: args.createdAtRoomNumber,
   });
@@ -377,6 +423,7 @@ export function createActorFromAnimal(
       : undefined,
     hostility: predator ? 'hostile' : 'afraid',
     brainId: predator ? 'animalPredator' : 'animalPrey',
+    schedule: predator ? PREDATOR_SCHEDULE : PREY_SCHEDULE,
     flags: { source: 'animal', animalId: args.animalId, animalType: args.animalType },
     createdAtRoomNumber: args.createdAtRoomNumber,
   });
@@ -441,6 +488,7 @@ export function createActorFromEnemy(args: EnsureEnemyActorArgs): Actor {
     },
     hostility: currentHealth <= 0 ? 'dead' : 'hostile',
     brainId: isShark ? 'animalPredator' : 'enemyRanged',
+    schedule: isGoblin ? GOBLIN_SCHEDULE : isShark ? PREDATOR_SCHEDULE : BANDIT_SCHEDULE,
     flags: { source: 'enemy', enemyId: args.enemyId, encounterKind: args.encounterKind },
     createdAtRoomNumber: args.createdAtRoomNumber,
   });

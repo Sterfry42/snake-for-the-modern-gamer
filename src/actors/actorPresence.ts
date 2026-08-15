@@ -15,6 +15,7 @@ import type {
   ActorActivityKind,
   ActorGoal,
   ActorPresence,
+  ActorScheduleRoomTarget,
   ActorTargetThreat,
 } from './actorTypes.js';
 import type { ActorBrainDecision } from './actorBrains.js';
@@ -166,6 +167,17 @@ export function selectScheduleGoal(
 ): ActorGoal {
   const scheduleContext = typeof context === 'number' ? { roomNumber: context } : context;
   const dayPhase = scheduleContext.dayPhase ?? fallbackDayPhase(scheduleContext.roomNumber);
+  const routine = actor.schedule?.routines?.[dayPhase];
+  if (routine) {
+    return {
+      kind: routine.goalKind,
+      priority: routine.priority,
+      roomId: resolveScheduleRoom(actor, routine.roomTarget),
+      targetPosition:
+        routine.roomTarget === 'fixedPost' ? actor.schedule?.fixedPostPosition : undefined,
+      reason: `schedule:${routine.behavior}`,
+    };
+  }
   if (actor.schedule?.permanentDuty && actor.schedule.fixedPostRoomId) {
     return {
       kind: 'defendArea',
@@ -228,6 +240,27 @@ export function selectScheduleGoal(
     roomId: anchorRoomId,
     reason: 'daily-roam-schedule',
   };
+}
+
+function resolveScheduleRoom(
+  actor: Actor,
+  roomTarget: ActorScheduleRoomTarget | undefined,
+): string | undefined {
+  switch (roomTarget) {
+    case 'home':
+      return actor.schedule?.homeRoomId ?? actor.homeRoomId;
+    case 'work':
+      return actor.schedule?.workRoomId ?? actor.workRoomId;
+    case 'sleep':
+      return actor.schedule?.sleepRoomId ?? actor.homeRoomId;
+    case 'fixedPost':
+      return actor.schedule?.fixedPostRoomId;
+    case 'firstPatrol':
+      return actor.schedule?.patrolRoomIds?.[0];
+    case 'current':
+    case undefined:
+      return actor.currentRoomId;
+  }
 }
 
 function fallbackDayPhase(roomNumber: number): DayPhase {

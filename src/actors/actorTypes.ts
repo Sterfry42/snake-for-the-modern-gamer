@@ -9,6 +9,7 @@ import type {
   RelationshipStage,
 } from '../relationships/relationshipTypes.js';
 import type { TownResidentRole } from '../world/townRoles.js';
+import type { DayPhase } from '../world/atmosphereTypes.js';
 
 export type ActorKind =
   | 'civilian'
@@ -210,7 +211,44 @@ export type ActorBrainId =
   | 'romance'
   | 'none';
 
+export type ActorScheduledBehavior =
+  | 'idle'
+  | 'emerge'
+  | 'forage'
+  | 'graze'
+  | 'seekDen'
+  | 'sleep'
+  | 'hide'
+  | 'hunt'
+  | 'roam'
+  | 'scout'
+  | 'camp'
+  | 'patrol'
+  | 'raid'
+  | 'ambush'
+  | 'work'
+  | 'goHome'
+  | 'guardPost'
+  | 'socialize';
+
+export type ActorScheduleRoomTarget =
+  | 'current'
+  | 'home'
+  | 'work'
+  | 'sleep'
+  | 'fixedPost'
+  | 'firstPatrol';
+
+export interface ActorScheduleRoutine {
+  behavior: ActorScheduledBehavior;
+  goalKind: ActorGoalKind;
+  priority: number;
+  roomTarget?: ActorScheduleRoomTarget;
+}
+
 export interface ActorSchedule {
+  policyId?: string;
+  routines?: Partial<Record<DayPhase, ActorScheduleRoutine>>;
   homeRoomId?: string;
   workRoomId?: string;
   sleepRoomId?: string;

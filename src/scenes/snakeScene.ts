@@ -1914,7 +1914,7 @@ export default class SnakeScene extends Phaser.Scene {
     {
       id: 'actor',
       intervalMs: this.actorStepIntervalMs,
-      step: () => this.runActorClockStep(),
+      step: (stepMs) => this.runActorClockStep(stepMs),
     },
     {
       id: 'bullet',
@@ -3411,11 +3411,11 @@ export default class SnakeScene extends Phaser.Scene {
     this.jasonDefeatTimer?.remove(false);
   }
 
-  private async runActorClockStep(): Promise<void> {
+  private async runActorClockStep(stepMs: number): Promise<void> {
     if (this.paused) {
       return;
     }
-    const result = await this.gameSession.actorClockStep();
+    const result = await this.gameSession.actorClockStep(stepMs);
     if (!result) {
       return;
     }
