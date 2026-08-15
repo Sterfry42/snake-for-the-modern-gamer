@@ -65,6 +65,7 @@ export interface ActorSystemSyncContext {
   relationships?: readonly RelationshipState[];
   relationshipCandidates?: readonly RelationshipCandidateProfile[];
   roomNumber?: number;
+  atmosphere?: ResolvedAtmosphereView;
 }
 
 export interface ActorScheduleUpdateContext {
@@ -129,7 +130,7 @@ export class ActorSystem {
     const { room, roomNumber } = context;
 
     if (room.town) {
-      actors.push(...this.syncTown(room.town, room.id, roomNumber));
+      actors.push(...this.syncTown(room.town, room.id, roomNumber, context.atmosphere));
     }
     if (room.village) {
       actors.push(
@@ -254,11 +255,16 @@ export class ActorSystem {
         this.scheduleDirtyActors.add(actor.id);
       }
     }
-    this.processDirtySchedules({ roomNumber: roomNumber ?? 0 });
+    this.processDirtySchedules({ roomNumber: roomNumber ?? 0, atmosphere: context.atmosphere });
     return actors;
   }
 
-  syncTown(town: TownStructure, roomId: string, roomNumber?: number): Actor[] {
+  syncTown(
+    town: TownStructure,
+    roomId: string,
+    roomNumber?: number,
+    atmosphere?: ResolvedAtmosphereView,
+  ): Actor[] {
     const actors = townResidentsForRoom(town, roomId).map((resident) =>
       this.registry.ensureTownResidentActor({
         actorId: resident.actorId,
@@ -281,7 +287,7 @@ export class ActorSystem {
         this.scheduleDirtyActors.add(actor.id);
       }
     }
-    this.processDirtySchedules({ roomNumber: roomNumber ?? 0 });
+    this.processDirtySchedules({ roomNumber: roomNumber ?? 0, atmosphere });
     return actors;
   }
 
@@ -330,9 +336,17 @@ export class ActorSystem {
   requestGoal(
     actorId: string,
     goal: ActorGoal,
-    options?: { interrupt?: boolean },
+    options?: { interrupt?: boolean; replaceLowerPriority?: boolean },
   ): Actor | undefined {
     const previous = this.registry.get(actorId);
+    if (
+      previous?.goal &&
+      options?.interrupt !== true &&
+      options?.replaceLowerPriority !== true &&
+      goal.priority < (previous.goal.priority ?? 0)
+    ) {
+      return previous;
+    }
     const mutationsBefore = this.registry.getMutationCount();
     const next = this.registry.setGoal(actorId, goal, options?.interrupt ?? false);
     if (!next) {
@@ -637,7 +651,7 @@ export class ActorSystem {
         });
       }
       if (accepted) {
-        this.requestGoal(actor.id, goal);
+        this.requestGoal(actor.id, goal, { replaceLowerPriority: true });
       }
     }
     return evaluated;
@@ -656,10 +670,7 @@ export class ActorSystem {
       }
       const currentPriority = actor.goal?.priority ?? 0;
       const nextGoal =
-        reaction.goal &&
-        (reaction.goal.priority >= currentPriority ||
-          actor.goal?.reason?.includes('schedule') ||
-          actor.goal?.reason?.includes('shelter'))
+        reaction.goal && (!actor.goal || reaction.goal.priority >= currentPriority)
           ? reaction.goal
           : actor.goal;
       this.registry.update(actor.id, (current) => ({

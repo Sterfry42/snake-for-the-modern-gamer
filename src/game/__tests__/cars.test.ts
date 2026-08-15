@@ -154,8 +154,25 @@ describe('vehicle runtime', () => {
   it('returns empty vehicle impact telemetry when no entity was hit', () => {
     const game = new SnakeGame(defaultGameConfig, new QuestRegistry(), {});
     game.reset();
+    const room = game.getCurrentRoom();
+    const occupied = new Set([
+      ...game.getEnemies(room.id).map((enemy) => `${enemy.position.x},${enemy.position.y}`),
+      ...game.getAnimals(room.id).map((animal) => `${animal.position.x},${animal.position.y}`),
+    ]);
+    const emptyPosition = room.layout
+      .flatMap((row, y) =>
+        [...row].map((tile, x) => ({
+          tile,
+          x,
+          y,
+        })),
+      )
+      .find((cell) => cell.tile !== '#' && !occupied.has(`${cell.x},${cell.y}`)) ?? {
+      x: 1,
+      y: 1,
+    };
 
-    expect(game.damageCarImpactAt(game.getCurrentRoom().id, [{ x: 1, y: 1 }])).toEqual({
+    expect(game.damageCarImpactAt(room.id, [emptyPosition])).toEqual({
       enemiesHit: 0,
       animalsHit: 0,
       npcsHit: 0,

@@ -425,6 +425,13 @@ interface RoomNpcBodyCandidate {
   stationary: boolean;
 }
 
+export interface PresentRelationshipProfile extends RelationshipCandidateProfile {
+  actorId: string;
+  x: number;
+  y: number;
+  stationary: boolean;
+}
+
 interface ActorConversationRuntime {
   id: string;
   partnerId: string;
@@ -8108,6 +8115,7 @@ export class SnakeGame implements QuestRuntime {
       room,
       animals: this.animals.getAnimalsInRoom(room.id),
       enemies: this.enemies.getEnemiesInRoom(room.id),
+      atmosphere: this.getAtmosphereForRoom(room),
       relationships: includeRelationships
         ? this.relationshipController
             .getAllStates()
@@ -8397,6 +8405,30 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
+  getPresentRelationshipProfilesForRoom(
+    roomId = this.snake.currentRoomId,
+  ): PresentRelationshipProfile[] {
+    return this.actors
+      .getActorsInRoom(roomId)
+      .filter(
+        (actor) =>
+          this.shouldMaterializeActorInRoom(actor, roomId) &&
+          actor.presence?.roomId === roomId &&
+          actor.presence.materialized,
+      )
+      .map((actor) => {
+        const profile = this.createActorBodyProfile(actor, roomId);
+        const position = actor.presence?.position ?? { x: 3, y: 3 };
+        return {
+          ...profile,
+          actorId: actor.id,
+          x: position.x,
+          y: position.y,
+          stationary: actor.presence?.stationary ?? false,
+        };
+      });
+  }
+
   private ensureNpcBody(
     profile: RelationshipCandidateProfile,
     anchor: Vector2Like,
@@ -8462,15 +8494,18 @@ export class SnakeGame implements QuestRuntime {
   getRelationshipNpcBodyPosition(
     profile: RelationshipCandidateProfile,
     fallback?: Vector2Like,
+    roomId = this.snake.currentRoomId,
   ): Vector2Like {
     if (profile.actorId) {
       const actor = this.actors.getActor(profile.actorId);
-      if (actor?.presence) {
+      if (actor?.presence?.roomId === roomId) {
         return { ...actor.presence.position };
       }
     }
     const body = this.npcBodies.get(profile.id);
-    return body ? { ...body.position } : { ...(fallback ?? { x: 3, y: 3 }) };
+    return body && body.roomId === roomId
+      ? { ...body.position }
+      : { ...(fallback ?? { x: 3, y: 3 }) };
   }
 
   private tickNpcBodies(room: RoomSnapshot): ActorTickWorkMetrics {
@@ -9134,11 +9169,11 @@ export class SnakeGame implements QuestRuntime {
     if (actor.goal?.kind === 'attackActor' && actor.goal.targetActorId) {
       return this.actors.getActor(actor.goal.targetActorId)?.presence?.position;
     }
+    if (actor.goal?.kind === 'seekPlayer' && playerHeadLocal) {
+      return this.reachableActorPlayerApproachTile(room, actor, playerHeadLocal);
+    }
     if (actor.goal?.targetPosition && actor.goal.roomId === room.id) {
       return actor.goal.targetPosition;
-    }
-    if (actor.goal?.kind === 'seekPlayer' && playerHeadLocal) {
-      return playerHeadLocal;
     }
     if (!actor.goal?.roomId || actor.goal.roomId === room.id) {
       return undefined;
@@ -9154,6 +9189,45 @@ export class SnakeGame implements QuestRuntime {
       });
     }
     return target;
+  }
+
+  private reachableActorPlayerApproachTile(
+    room: RoomSnapshot,
+    actor: Actor,
+    playerHeadLocal: Vector2Like,
+  ): Vector2Like | undefined {
+    const body = this.createActorPathBody(room, actor);
+    const candidates = CARDINAL_DIRECTIONS.map((direction) => ({
+      x: playerHeadLocal.x + direction.x,
+      y: playerHeadLocal.y + direction.y,
+    })).sort((a, b) => {
+      const aDistance = actor.presence ? manhattanDistance(actor.presence.position, a) : 0;
+      const bDistance = actor.presence ? manhattanDistance(actor.presence.position, b) : 0;
+      return aDistance - bDistance;
+    });
+    const openCandidates = candidates.filter(
+      (candidate) =>
+        !this.isPlayerBodyAtLocal(room.id, candidate) &&
+        (body
+          ? this.canNpcBodyStandAt(room, body, candidate)
+          : this.isWalkableUnoccupiedActorTile(room, candidate)),
+    );
+    if (!body) {
+      return openCandidates[0];
+    }
+    const path = findActorGridPath({
+      start: body.position,
+      goals: openCandidates,
+      canStandAt: (position) => this.canNpcBodyStandAt(room, body, position),
+    });
+    return path ? path.path[path.path.length - 1] : undefined;
+  }
+
+  private isPlayerBodyAtLocal(roomId: string, position: Vector2Like): boolean {
+    return this.snake.bodySegments.some((segment) => {
+      const local = this.worldToLocalInRoom(roomId, segment);
+      return local.x === position.x && local.y === position.y;
+    });
   }
 
   private getLoadedActorTravelLegTarget(
@@ -18756,7 +18830,6 @@ export class SnakeGame implements QuestRuntime {
       kind: 'seekPlayer',
       priority: 55,
       roomId,
-      targetPosition: this.worldToLocalInRoom(roomId, this.snake.bodySegments[0] ?? spawn),
       reason: 'wanderer-encounter',
     });
     this.actors.setActivity(
@@ -18841,7 +18914,6 @@ export class SnakeGame implements QuestRuntime {
       kind: 'seekPlayer',
       priority: 55,
       roomId,
-      targetPosition: this.worldToLocalInRoom(roomId, this.snake.bodySegments[0] ?? spawn),
       reason: 'relationship-encounter',
     });
     this.actors.setActivity(
@@ -19019,9 +19091,10 @@ export class SnakeGame implements QuestRuntime {
       : { x: Math.floor(this.config.grid.cols / 2), y: Math.floor(this.config.grid.rows / 2) };
     let best: Vector2Like | null = null;
     let bestDistance = -1;
-    for (let y = 0; y < this.config.grid.rows; y++) {
-      for (let x = 0; x < this.config.grid.cols; x++) {
-        if (room.layout[y]?.[x] === '#') continue;
+    for (let y = 1; y < this.config.grid.rows - 1; y++) {
+      for (let x = 1; x < this.config.grid.cols - 1; x++) {
+        if (!this.isWalkableUnoccupiedActorTile(room, { x, y })) continue;
+        if (this.isPlayerBodyAtLocal(roomId, { x, y })) continue;
         if (room.apple && room.apple.x === x && room.apple.y === y) continue;
         if (room.treasure && room.treasure.x === x && room.treasure.y === y) continue;
         if (room.powerup && room.powerup.x === x && room.powerup.y === y) continue;

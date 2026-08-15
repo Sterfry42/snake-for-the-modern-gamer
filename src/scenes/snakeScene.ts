@@ -43,6 +43,7 @@ import {
 import { SnakeGame } from '../game/snakeGame.js';
 import type {
   ActorJournalEntry,
+  PresentRelationshipProfile,
   QuestObjectiveSummary,
   QuestRoomActor,
 } from '../game/snakeGame.js';
@@ -71,13 +72,7 @@ import { PauseUI } from '../ui/pauseUI.js';
 import { SaveLoadMenu } from '../ui/saveLoadMenu.js';
 import { saveManagerV2, type GameSaveData } from '../game/saveManagerV2.js';
 import { AtmosphereAudioManager } from './atmosphereAudioManager.js';
-import {
-  isTownCriminalRole,
-  isTownResidentRole,
-  isTownShopRole,
-  type TownResidentRole,
-} from '../world/townRoles.js';
-import type { FactionId } from '../factions/factions.js';
+import { isTownCriminalRole, isTownShopRole } from '../world/townRoles.js';
 import {
   DatingScenePopup,
   type DatingSceneAction,
@@ -119,7 +114,7 @@ import {
 } from '../input/controllerMenuRouting.js';
 import type { Quest } from '../../quests.js';
 import type { AppleSnapshot } from '../apples/types.js';
-import type { Vector2Like } from '../core/math.js';
+import { stableStringHashPositive, type Vector2Like } from '../core/math.js';
 import {
   CAR_COLLISION_DAMAGE_HEARTS,
   CAR_HEIGHT_TILES,
@@ -172,7 +167,6 @@ import {
   getTownDistrictForRoom,
   getTownRoom,
   isBlockingTownTile,
-  townResidentsForRoom,
   type TownStructure,
 } from '../world/town.js';
 import { getItem, ITEMS } from '../inventory/itemRegistry.js';
@@ -19578,80 +19572,8 @@ export default class SnakeScene extends Phaser.Scene {
     if (!local) {
       return null;
     }
-    const candidates: Array<RelationshipCandidateProfile & { x: number; y: number }> = [];
-    if (room.village) {
-      candidates.push(
-        ...[...room.village.residents, room.village.shopkeeper].map((resident) => ({
-          id: `resident:${room.id}:${resident.id}`,
-          actorId: this.snakeGame.getVillageActorId(
-            room.id,
-            resident.id,
-            resident.id === room.village!.shopkeeper.id ? 'shopkeeper' : 'resident',
-          ),
-          displayName: resident.name,
-          species: 'human' as RelationshipSpecies,
-          portraitId: resident.portraitId,
-          homeRoomId: room.id,
-          factionId: 'hearthbound-remnant' as const,
-          ...this.snakeGame.getRelationshipNpcBodyPosition(
-            {
-              id: `resident:${room.id}:${resident.id}`,
-              actorId: this.snakeGame.getVillageActorId(
-                room.id,
-                resident.id,
-                resident.id === room.village!.shopkeeper.id ? 'shopkeeper' : 'resident',
-              ),
-              displayName: resident.name,
-              species: 'human' as RelationshipSpecies,
-              portraitId: resident.portraitId,
-              homeRoomId: room.id,
-              factionId: 'hearthbound-remnant' as const,
-            },
-            { x: resident.x, y: resident.y },
-          ),
-        })),
-      );
-    }
-    if (room.questGiver) {
-      candidates.push({
-        id: `quest:${room.id}:${room.questGiver.id}`,
-        actorId: this.snakeGame.getQuestGiverActorId(room.id, room.questGiver.id),
-        displayName: room.questGiver.name,
-        species: 'human' as RelationshipSpecies,
-        portraitId: room.questGiver.portraitId,
-        homeRoomId: room.id,
-        factionId: 'hearthbound-remnant' as const,
-        ...this.snakeGame.getRelationshipNpcBodyPosition(
-          {
-            id: `quest:${room.id}:${room.questGiver.id}`,
-            actorId: this.snakeGame.getQuestGiverActorId(room.id, room.questGiver.id),
-            displayName: room.questGiver.name,
-            species: 'human' as RelationshipSpecies,
-            portraitId: room.questGiver.portraitId,
-            homeRoomId: room.id,
-            factionId: 'hearthbound-remnant' as const,
-          },
-          { x: room.questGiver.x, y: room.questGiver.y },
-        ),
-      });
-    }
-    if (room.garage) {
-      const profile: RelationshipCandidateProfile = {
-        id: this.snakeGame.getGarageMechanicRelationshipId(room.id, room.garage.mechanic.id),
-        actorId: this.snakeGame.getGarageMechanicActorId(room.id, room.garage.mechanic.id),
-        displayName: `${room.garage.mechanic.name} the Mechanic`,
-        species: 'human' as RelationshipSpecies,
-        homeRoomId: room.id,
-        factionId: 'hearthbound-remnant' as const,
-      };
-      candidates.push({
-        ...profile,
-        ...this.snakeGame.getRelationshipNpcBodyPosition(profile, {
-          x: room.garage.mechanic.x,
-          y: room.garage.mechanic.y,
-        }),
-      });
-    }
+    const candidates: Array<RelationshipCandidateProfile & { x: number; y: number }> =
+      this.snakeGame.getPresentRelationshipProfilesForRoom(room.id);
     if (room.molemanDigSite) {
       const foreman = room.molemanDigSite.foreman;
       candidates.push({
@@ -19659,95 +19581,6 @@ export default class SnakeScene extends Phaser.Scene {
         x: foreman.x,
         y: foreman.y,
       });
-    }
-    if (room.town) {
-      candidates.push(
-        ...townResidentsForRoom(room.town, room.id).map((resident) => {
-          const relationshipId = this.snakeGame.getTownResidentRelationshipId(
-            room.town!.id,
-            resident.id,
-          );
-          const actorId =
-            resident.actorId ??
-            this.snakeGame.getTownResidentActorId(room.town!.id, resident.id, resident.role);
-          return {
-            id: relationshipId,
-            actorId,
-            displayName: `${resident.name}${
-              resident.role === 'bartender'
-                ? ' the Bartender'
-                : resident.role === 'equipmentMerchant'
-                  ? ' the Equipment Merchant'
-                  : resident.role === 'potionMaker'
-                    ? ' the Potion Maker'
-                    : resident.role === 'butcher'
-                      ? ' the Butcher'
-                      : resident.role === 'cardDealer'
-                        ? ' the Card Dealer'
-                        : resident.role === 'physicalTrainer'
-                          ? ' the Physical Trainer'
-                          : resident.role === 'guard'
-                            ? ' the Guard'
-                            : resident.role === 'thief' || resident.role === 'thiefContact'
-                              ? ' of the Guild'
-                              : resident.role === 'questGiver'
-                                ? ' the Quest Broker'
-                                : ''
-            }`,
-            species: 'human' as RelationshipSpecies,
-            portraitId: resident.portraitId,
-            homeRoomId: resident.homeRoomId ?? room.id,
-            factionId: resident.factionId as FactionId,
-            personality: resident.role === 'bartender' ? ('deadpan' as const) : undefined,
-            ...this.snakeGame.getRelationshipNpcBodyPosition(
-              {
-                id: relationshipId,
-                actorId,
-                displayName: resident.name,
-                species: 'human' as RelationshipSpecies,
-                portraitId: resident.portraitId,
-                homeRoomId: resident.homeRoomId ?? room.id,
-                factionId: resident.factionId as FactionId,
-                personality: resident.role === 'bartender' ? ('deadpan' as const) : undefined,
-              },
-              { x: resident.x, y: resident.y },
-            ),
-          };
-        }),
-      );
-    }
-    if (room.goblinCamp) {
-      candidates.push(
-        ...[room.goblinCamp.shopkeeper, ...room.goblinCamp.guards].map((guard) => ({
-          id: `resident:${room.id}:${guard.id}`,
-          actorId: this.snakeGame.getGoblinCampActorId(
-            room.goblinCamp!.id,
-            guard.id,
-            guard.id === room.goblinCamp!.shopkeeper.id ? 'shopkeeper' : 'guard',
-          ),
-          displayName: guard.name,
-          species: 'goblin' as RelationshipSpecies,
-          portraitId: guard.portraitId ?? 'goblin-neutral',
-          homeRoomId: room.id,
-          factionId: 'goblin-camps' as const,
-          ...this.snakeGame.getRelationshipNpcBodyPosition(
-            {
-              id: `resident:${room.id}:${guard.id}`,
-              actorId: this.snakeGame.getGoblinCampActorId(
-                room.goblinCamp!.id,
-                guard.id,
-                guard.id === room.goblinCamp!.shopkeeper.id ? 'shopkeeper' : 'guard',
-              ),
-              displayName: guard.name,
-              species: 'goblin' as RelationshipSpecies,
-              portraitId: guard.portraitId ?? 'goblin-neutral',
-              homeRoomId: room.id,
-              factionId: 'goblin-camps' as const,
-            },
-            { x: guard.x, y: guard.y },
-          ),
-        })),
-      );
     }
     const nearest = candidates
       .filter((candidate) => {
@@ -22422,54 +22255,9 @@ export default class SnakeScene extends Phaser.Scene {
     }
     const room = this.snakeGame.getCurrentRoom();
     const goblinStanding = this.snakeGame.getFactionAlignment('goblin-camps').standing;
-    const goblinResidents =
-      room.goblinCamp && goblinStanding !== 'violent'
-        ? [room.goblinCamp.shopkeeper, ...room.goblinCamp.guards]
-        : [];
-    const encounter = this.snakeGame.getFlag<
-      WandererEncounter & {
-        roomId: string;
-        id: string;
-        name: string;
-        x: number;
-        y: number;
-        actorId?: string;
-        portraitId?: string;
-        relationshipId?: string;
-      }
-    >('npc.randomEncounter');
-    const encounterActor = encounter?.actorId
-      ? this.snakeGame.getActorSystem().getActor(encounter.actorId)
-      : undefined;
-    const activeWanderer =
-      encounter &&
-      encounter.roomId === room.id &&
-      encounterActor?.presence?.roomId === room.id &&
-      encounterActor.presence.materialized
-        ? [
-            {
-              id: `wanderer:${encounter.id}`,
-              name: encounter.name,
-              x: encounterActor.presence.position.x,
-              y: encounterActor.presence.position.y,
-              actorId: encounterActor.id,
-              portraitId: encounter.portraitId,
-              relationshipId: encounter.relationshipId,
-              wandererEncounterId: encounter.id,
-            },
-          ]
-        : [];
-    const residents = [
-      ...(room.village ? [...room.village.residents, room.village.shopkeeper] : []),
-      ...(room.garage ? [room.garage.mechanic] : []),
-      ...(room.town
-        ? this.snakeGame.isTownHostileForRoom(room.town, room.id)
-          ? []
-          : townResidentsForRoom(room.town, room.id)
-        : []),
-      ...goblinResidents,
-      ...activeWanderer,
-    ];
+    const residents = this.snakeGame
+      .getPresentRelationshipProfilesForRoom(room.id)
+      .filter((profile) => profile.factionId !== 'goblin-camps' || goblinStanding !== 'violent');
     if (residents.length === 0 || this.questPopup.isVisible()) {
       return;
     }
@@ -22478,60 +22266,8 @@ export default class SnakeScene extends Phaser.Scene {
       const indicator = this.ensureVillageResidentIndicatorText(index);
       const speechText = this.ensureVillageResidentSpeechText(index);
       const activityPropSprite = this.ensureVillageResidentActivityPropSprite(index);
-      const isGoblin = room.goblinCamp
-        ? goblinResidents.some((goblin) => goblin.id === resident.id)
-        : false;
-      const isWanderer = 'wandererEncounterId' in resident;
-      const isGarageMechanic = Boolean(room.garage && room.garage.mechanic.id === resident.id);
-      const isTownResident = Boolean(room.town && !isGoblin && !isGarageMechanic && !isWanderer);
-      const relationshipId = isGarageMechanic
-        ? this.snakeGame.getGarageMechanicRelationshipId(room.id, resident.id)
-        : isWanderer
-          ? ((resident as { relationshipId?: string }).relationshipId ?? resident.id)
-          : isTownResident
-            ? this.snakeGame.getTownResidentRelationshipId(room.town!.id, resident.id)
-            : `resident:${room.id}:${resident.id}`;
-      const portraitId =
-        'portraitId' in resident && typeof resident.portraitId === 'string'
-          ? resident.portraitId
-          : undefined;
-      const relationshipProfile: RelationshipCandidateProfile = {
-        id: relationshipId,
-        actorId: isWanderer
-          ? 'actorId' in resident && typeof resident.actorId === 'string'
-            ? resident.actorId
-            : undefined
-          : isGarageMechanic
-            ? this.snakeGame.getGarageMechanicActorId(room.id, resident.id)
-            : isGoblin
-              ? this.snakeGame.getGoblinCampActorId(
-                  room.goblinCamp!.id,
-                  resident.id,
-                  resident.id === room.goblinCamp!.shopkeeper.id ? 'shopkeeper' : 'guard',
-                )
-              : room.town
-                ? 'actorId' in resident && typeof resident.actorId === 'string'
-                  ? resident.actorId
-                  : this.snakeGame.getTownResidentActorId(
-                      room.town.id,
-                      resident.id,
-                      townResidentRoleFromMixedProfile(resident),
-                    )
-                : this.snakeGame.getVillageActorId(
-                    room.id,
-                    resident.id,
-                    room.village?.shopkeeper.id === resident.id ? 'shopkeeper' : 'resident',
-                  ),
-        displayName: isGarageMechanic ? `${resident.name} the Mechanic` : resident.name,
-        species: (isGoblin ? 'goblin' : 'human') as RelationshipSpecies,
-        portraitId: isGoblin ? 'goblin-neutral' : portraitId,
-        homeRoomId: room.id,
-        factionId: isGoblin
-          ? 'goblin-camps'
-          : isTownResident && 'factionId' in resident
-            ? ((resident as { factionId?: FactionId }).factionId ?? 'hearthbound-remnant')
-            : 'hearthbound-remnant',
-      };
+      const isGoblin = resident.factionId === 'goblin-camps' || resident.species === 'goblin';
+      const relationshipProfile: PresentRelationshipProfile = resident;
       const actor = relationshipProfile.actorId
         ? this.snakeGame.getActorSystem().getActor(relationshipProfile.actorId)
         : undefined;
@@ -22565,13 +22301,13 @@ export default class SnakeScene extends Phaser.Scene {
       }
       const palette = isGoblin
         ? this.paletteForGoblinResident(goblinStanding)
-        : this.paletteForResident(resident.name, index);
+        : this.paletteForResident(resident.actorId);
       const textures = this.runtimeSpriteFactory.ensureRecipe(
         questGiverSpriteRecipe,
         Math.max(16, Math.floor(this.grid.cell * 0.84)),
         palette,
       );
-      const animKey = `village-resident-${resident.id}-${index}`;
+      const animKey = `village-resident-${resident.actorId}-${index}`;
       if (!this.anims.exists(animKey)) {
         this.anims.create({
           key: animKey,
@@ -22976,14 +22712,14 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
-  private paletteForResident(name: string, offset: number): QuestGiverSpritePalette {
+  private paletteForResident(identitySeed: string): QuestGiverSpritePalette {
     const palettes: QuestGiverSpritePalette[] = [
       { robeColor: '#536d94', trimColor: '#d4e4ff', outlineColor: '#182338', eyeColor: '#fffdf5' },
       { robeColor: '#6d5a48', trimColor: '#e7c89a', outlineColor: '#241a12', eyeColor: '#fff4e0' },
       { robeColor: '#4d7b5e', trimColor: '#cfeec8', outlineColor: '#163020', eyeColor: '#f4fff0' },
       { robeColor: '#7a4e82', trimColor: '#f0d8a0', outlineColor: '#25132d', eyeColor: '#fff8e5' },
     ];
-    const index = Math.abs(name.length + offset) % palettes.length;
+    const index = stableStringHashPositive(identitySeed) % palettes.length;
     return palettes[index];
   }
 
@@ -23137,12 +22873,6 @@ export default class SnakeScene extends Phaser.Scene {
       color: '#5dd6a2',
     };
   }
-}
-
-function townResidentRoleFromMixedProfile(profile: unknown): TownResidentRole {
-  const role =
-    typeof profile === 'object' && profile !== null && 'role' in profile ? profile.role : undefined;
-  return typeof role === 'string' && isTownResidentRole(role) ? role : 'resident';
 }
 
 function actorInteractionDescription(id: string): string {

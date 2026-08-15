@@ -40,6 +40,7 @@ interface SnakeGamePrivate {
   calculateAppleLengthScoreMultiplier(): number;
   applyLengthScoreMultiplier(baseScore: number, multiplier: number): number;
   ensureActorsFromRoomContent(room: RoomSnapshot): void;
+  findEncounterSpawn(roomId: string): Vector2Like | null;
   materializeActorsForRoom(room: RoomSnapshot): number;
   maybeMarkTownHostility(room: RoomSnapshot): void;
   noteBanditRaidDefeat(enemy: EnemyInstance, eaten: boolean): void;
@@ -927,6 +928,83 @@ describe('actor room brains', () => {
     expect(after).toBeDefined();
     expect(after!.position).not.toEqual(before);
     expect(updatedActor?.activity?.kind).toBe('walking');
+  });
+
+  it('spawns wanderers on legal actor tiles and pursues the current player-adjacent tile', () => {
+    const game = createGame();
+    const room = game.getCurrentRoom();
+    room.layout = Array.from({ length: defaultGameConfig.grid.rows }, () =>
+      '.'.repeat(defaultGameConfig.grid.cols),
+    );
+    game.placeSnakeBodyAtLocal(
+      room.id,
+      { x: defaultGameConfig.grid.cols - 1, y: 17 },
+      { x: 1, y: 0 },
+    );
+
+    const spawn = (game as unknown as SnakeGamePrivate).findEncounterSpawn(room.id);
+
+    expect(spawn).toBeTruthy();
+    expect(spawn!.x).toBeGreaterThan(0);
+    expect(spawn!.x).toBeLessThan(defaultGameConfig.grid.cols - 1);
+    expect(spawn!.y).toBeGreaterThan(0);
+    expect(spawn!.y).toBeLessThan(defaultGameConfig.grid.rows - 1);
+
+    const actorId = game.getActorSystem().getStableWandererActorId('edge-scribe');
+    game.getActorSystem().registry.ensureWandererActor({
+      actorId,
+      encounterId: 'edge-scribe',
+      displayName: 'Edge Scribe',
+      roomId: room.id,
+      portraitId: 'sage-1',
+      createdAtRoomNumber: 1,
+    });
+    game.getActorSystem().setPresence(
+      actorId,
+      {
+        roomId: room.id,
+        position: spawn!,
+        anchor: spawn!,
+        materialized: true,
+        wanderRadius: Math.max(defaultGameConfig.grid.cols, defaultGameConfig.grid.rows),
+      },
+      'test-wanderer-spawn',
+    );
+    game.getActorSystem().requestGoal(actorId, {
+      kind: 'seekPlayer',
+      priority: 55,
+      roomId: room.id,
+      targetPosition: { x: defaultGameConfig.grid.cols - 1, y: 17 },
+      reason: 'legacy-stale-target',
+    });
+    game.setFlag('npc.randomEncounter', {
+      id: 'edge-scribe',
+      kind: 'flavor',
+      name: 'Edge Scribe',
+      pages: ['An edge scribe approaches.'],
+      roomId: room.id,
+      x: spawn!.x,
+      y: spawn!.y,
+      statsNote: 'Wanderer',
+      actorId,
+      portraitId: 'sage-1',
+    });
+    (game as unknown as SnakeGamePrivate).materializeActorsForRoom(room);
+    game.placeSnakeBodyAtLocal(room.id, { x: 20, y: 10 }, { x: 1, y: 0 });
+
+    for (let index = 0; index < 80; index += 1) {
+      const body = (game as unknown as SnakeGamePrivate).npcBodies.get('wanderer:edge-scribe');
+      if (body) {
+        body.moveCooldown = 0;
+      }
+      (game as unknown as SnakeGamePrivate).tickNpcBodies(room);
+    }
+
+    const actor = game.getActorSystem().getActor(actorId);
+    const position = actor?.presence?.position;
+    expect(position).toBeDefined();
+    expect(position).not.toEqual({ x: defaultGameConfig.grid.cols - 1, y: 17 });
+    expect(Math.abs(position!.x - 20) + Math.abs(position!.y - 10)).toBeLessThanOrEqual(1);
   });
 
   it('moves threatened civilians away from active room danger', () => {

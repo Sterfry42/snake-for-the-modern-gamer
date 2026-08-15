@@ -175,7 +175,7 @@ export function selectScheduleGoal(
   context: number | ActorScheduleContext,
 ): ActorGoal {
   const scheduleContext = typeof context === 'number' ? { roomNumber: context } : context;
-  const dayPhase = scheduleContext.dayPhase ?? fallbackDayPhase(scheduleContext.roomNumber);
+  const dayPhase = scheduleContext.dayPhase ?? 'day';
   const routine = actor.schedule?.routines?.[dayPhase];
   if (routine) {
     const place = resolveSchedulePlace(actor, routine.roomTarget);
@@ -295,14 +295,6 @@ function resolveSchedulePlace(
     case undefined:
       return { roomId: actor.currentRoomId };
   }
-}
-
-function fallbackDayPhase(roomNumber: number): DayPhase {
-  const phase = Math.abs(roomNumber) % 24;
-  if (phase >= 20 || phase < 6) return 'night';
-  if (phase >= 6 && phase < 9) return 'dawn';
-  if (phase >= 17 && phase < 20) return 'dusk';
-  return 'day';
 }
 
 export function directionsTowardPosition(

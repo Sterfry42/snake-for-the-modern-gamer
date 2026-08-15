@@ -89,17 +89,21 @@ describe('actor presence simulation', () => {
     merchant.homeRoomId = 'home-room';
     merchant.workRoomId = 'work-room';
 
-    expect(selectScheduleGoal(merchant, 12)).toMatchObject({
+    expect(selectScheduleGoal(merchant, { roomNumber: 12, dayPhase: 'day' })).toMatchObject({
       kind: 'work',
       roomId: 'work-room',
     });
-    expect(selectScheduleGoal(merchant, 23)).toMatchObject({
+    expect(selectScheduleGoal(merchant, { roomNumber: 23, dayPhase: 'night' })).toMatchObject({
       kind: 'sleep',
       roomId: 'home-room',
     });
     expect(selectScheduleGoal(merchant, { roomNumber: 1, dayPhase: 'night' })).toMatchObject({
       kind: 'sleep',
       roomId: 'home-room',
+    });
+    expect(selectScheduleGoal(merchant, 23)).toMatchObject({
+      kind: 'work',
+      roomId: 'work-room',
     });
   });
 

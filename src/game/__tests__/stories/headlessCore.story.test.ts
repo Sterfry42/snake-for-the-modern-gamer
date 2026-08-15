@@ -109,6 +109,46 @@ describe('Headless user-story harness', () => {
     scenario.assertWorldIntegrity();
   });
 
+  it('runtime Actor presence drives relationship presentation candidates', () => {
+    const scenario = createHeadlessScenario({ seed: 'story-present-actor-candidates' });
+    const roomId = scenario.currentRoom().id;
+    const otherRoomId = '1,0,0';
+    scenario.getRoom(otherRoomId);
+    const position = firstWalkableTile(scenario, roomId);
+    const actor = ensureScenarioActor(scenario, {
+      id: 'traveling-butcher',
+      name: 'Traveling Butcher',
+      role: 'shopkeeper',
+      roomId,
+      position,
+    });
+
+    expect(
+      scenario.game
+        .getPresentRelationshipProfilesForRoom(roomId)
+        .some((profile) => profile.actorId === actor.id && profile.x === position.x),
+    ).toBe(true);
+
+    scenario.placeActor(actor.id, {
+      roomId: otherRoomId,
+      position,
+      anchor: position,
+      materialized: true,
+    });
+
+    expect(
+      scenario.game
+        .getPresentRelationshipProfilesForRoom(roomId)
+        .some((profile) => profile.actorId === actor.id),
+    ).toBe(false);
+    expect(
+      scenario.game
+        .getPresentRelationshipProfilesForRoom(otherRoomId)
+        .some((profile) => profile.actorId === actor.id),
+    ).toBe(true);
+    scenario.assertWorldIntegrity();
+  });
+
   it('a same-room night schedule moves a resident to their home tile and sleeps', async () => {
     const scenario = createHeadlessScenario({ seed: 'story-same-room-home-tile' });
     const roomId = scenario.currentRoom().id;

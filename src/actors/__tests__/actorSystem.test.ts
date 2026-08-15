@@ -9,15 +9,15 @@ import { createActorPresence } from '../actorPresence.js';
 import type { ActorTelemetryEvent } from '../actorTelemetry.js';
 import { getBiomeDefinition } from '../../world/biomes.js';
 import { resolveBiomeAtmosphere } from '../../world/atmosphereResolver.js';
-import type { AtmosphereState, DayPhase } from '../../world/atmosphereTypes.js';
+import type { AtmosphereState, DayPhase, GlobalWeather } from '../../world/atmosphereTypes.js';
 
-function resolvedAtmosphere(dayPhase: DayPhase) {
+function resolvedAtmosphere(dayPhase: DayPhase, globalWeather: GlobalWeather = 'clear') {
   const state: AtmosphereState = {
     worldDay: 0,
     season: 'spring',
     dayPhase,
     phaseProgress: 0,
-    globalWeather: 'clear',
+    globalWeather,
     weatherIntensity: 0,
     remainingWeatherPhaseTicks: 2,
     weatherSeed: 1,
@@ -112,6 +112,26 @@ describe('ActorSystem', () => {
     expect(actors.getActor('town:gobcamp:shopkeeper:gobshop')?.factionId).toBe('goblin-camps');
     expect(actors.getActor('town:gobcamp:guard:gobguard')?.combat?.armed).toBe(true);
     expect(actors.getActorsInRoom('0,0,0')).toHaveLength(5);
+  });
+
+  it('initializes promoted actor schedules from canonical atmosphere instead of room count', () => {
+    const actors = new ActorSystem();
+    actors.ensureActorsFromRoomContent({
+      room: {
+        id: '0,0,0',
+        village: {
+          residents: [],
+          shopkeeper: { id: 'shop', name: 'Rook', x: 3, y: 2, portraitId: 'shopkeeper-1' },
+        },
+      } as unknown as RoomSnapshot,
+      roomNumber: 7,
+      atmosphere: resolvedAtmosphere('day'),
+    });
+
+    expect(actors.getActor('town:village:0,0,0:shopkeeper:shop')?.scheduleGoal).toMatchObject({
+      kind: 'work',
+      reason: 'day-schedule',
+    });
   });
 
   it('keeps resident identity when a town resident becomes a hostile enemy', () => {
@@ -639,16 +659,45 @@ describe('ActorSystem', () => {
       workRoomId: 'shop-room',
     });
 
-    actors.applyScheduleGoals(12);
+    actors.applyScheduleGoals({ roomNumber: 12, atmosphere: resolvedAtmosphere('day') });
     expect(actors.getActor(merchant.id)?.scheduleGoal).toMatchObject({
       kind: 'work',
       roomId: 'shop-room',
     });
 
-    actors.applyScheduleGoals(23);
+    actors.applyScheduleGoals({ roomNumber: 23, atmosphere: resolvedAtmosphere('night') });
 
     expect(actors.getActor(merchant.id)?.scheduleGoal).toMatchObject({
       kind: 'sleep',
+      roomId: 'home-room',
+    });
+  });
+
+  it('does not let mild weather errands override higher-priority sleep schedules', () => {
+    const actors = new ActorSystem();
+    const merchant = actors.registry.ensureTownResidentActor({
+      residentId: 'hale',
+      name: 'Hale',
+      role: 'butcher',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: 'market-street',
+      homeRoomId: 'home-room',
+      workRoomId: 'butcher-room',
+    });
+
+    actors.applyScheduleGoals({ roomNumber: 12, atmosphere: resolvedAtmosphere('night') });
+    expect(actors.getActor(merchant.id)?.goal).toMatchObject({
+      kind: 'sleep',
+      priority: 20,
+      roomId: 'home-room',
+    });
+
+    actors.applyScheduleGoals({ roomNumber: 13, atmosphere: resolvedAtmosphere('night', 'fog') });
+
+    expect(actors.getActor(merchant.id)?.goal).toMatchObject({
+      kind: 'sleep',
+      priority: 20,
       roomId: 'home-room',
     });
   });
