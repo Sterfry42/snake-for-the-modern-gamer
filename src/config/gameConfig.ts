@@ -462,6 +462,7 @@ export const defaultGameConfig: GameConfig = {
       'coordinates',
       'minecraft',
       'radio',
+      'lindseyBirthday25',
     ],
   },
   character: {
