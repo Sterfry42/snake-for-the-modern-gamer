@@ -254,6 +254,7 @@ import {
 } from '../actors/actorBrains.js';
 import {
   buildActorInteractionMenu,
+  isActorSleeping,
   type ActorInteractionMenuModel,
 } from '../actors/actorInteractions.js';
 import { selectActorRadiantBark } from '../actors/actorEnvironment.js';
@@ -432,6 +433,9 @@ interface ActorConversationRuntime {
   nextLineAtMs: number;
   endsAtMs: number;
 }
+
+const ACTOR_TRAVEL_MOVE_COOLDOWN_TICKS = 4;
+const ACTOR_TRAVEL_MOVE_COOLDOWN_MS = 400;
 
 export interface FootballInstance {
   id: string;
@@ -3894,6 +3898,7 @@ export class SnakeGame implements QuestRuntime {
     this.stampQuestActorsIntoRoom(room);
     this.ensureActorsFromRoomContent(room);
     this.actorsTransitionedFromLoadedRoomThisTick.clear();
+    this.expireInterruptedActorSleep(Number(this.getFlag<number>('timeMs') ?? 0));
     this.actors.tick({
       nowMs: Number(this.getFlag<number>('timeMs') ?? 0),
       deltaMs,
@@ -6361,6 +6366,149 @@ export class SnakeGame implements QuestRuntime {
     });
   }
 
+  wakeActor(actorId: string): { ok: boolean; pages: string[] } {
+    const actor = this.actors.getActor(actorId);
+    if (!actor) {
+      return { ok: false, pages: ['"No one is there."'] };
+    }
+    if (!isActorSleeping(actor)) {
+      return { ok: false, pages: [`"${actor.displayName} is already awake."`] };
+    }
+    const nowMs = Number(this.getFlag<number>('timeMs') ?? 0);
+    const previousWakeCount = Number(actor.flags.timesWokenThisSleepPeriod ?? 0);
+    const wakeCount = previousWakeCount + 1;
+    const annoyance = this.actorWakeAnnoyance(actor, wakeCount);
+    const line = this.actorWakeLine(actor, wakeCount);
+    this.actors.registry.update(actor.id, (current) => ({
+      ...current,
+      mood: {
+        ...current.mood,
+        anger: Math.min(100, current.mood.anger + annoyance),
+        stress: Math.min(100, current.mood.stress + Math.ceil(annoyance / 2)),
+        trust: Math.max(0, current.mood.trust - Math.max(0, annoyance - 1)),
+      },
+      opinions: {
+        ...current.opinions,
+        player: {
+          targetId: 'player',
+          trust: Math.max(0, (current.opinions.player?.trust ?? 0) - annoyance),
+          fear: current.opinions.player?.fear ?? 0,
+          respect: current.opinions.player?.respect ?? 0,
+          affection: Math.max(
+            0,
+            (current.opinions.player?.affection ?? 0) - Math.floor(annoyance / 2),
+          ),
+          resentment: Math.min(100, (current.opinions.player?.resentment ?? 0) + annoyance),
+          attraction: current.opinions.player?.attraction ?? 0,
+          debt: current.opinions.player?.debt ?? 0,
+        },
+      },
+      flags: {
+        ...current.flags,
+        sleepInterrupted: true,
+        sleepInterruptedUntilMs: nowMs + 30_000,
+        lastWokenAtMs: nowMs,
+        timesWokenThisSleepPeriod: wakeCount,
+      },
+      speech: this.createActorSpeech(line, 'reactive', 'player', 3_000),
+    }));
+    this.actors.setActivity(
+      actor.id,
+      {
+        kind: 'idle',
+        source: 'social',
+        label: 'Interrupted sleep',
+        startedAtRoomNumber: this.getRoomsVisitedCount(),
+      },
+      'sleep-interrupted',
+    );
+    return { ok: true, pages: [`"${line}"`] };
+  }
+
+  getActorClosedServiceLine(actorId: string): string {
+    const actor = this.actors.getActor(actorId);
+    if (!actor) {
+      return 'No one answers.';
+    }
+    if (actor.role === 'butcher') {
+      return 'The butcher opens at sunrise. I do not.';
+    }
+    if (actor.role === 'equipmentMerchant') {
+      return 'You woke me up to buy a breastplate? Come back when the shop is open.';
+    }
+    if (actor.role === 'potionMaker') {
+      return 'No. Absolutely not. Come back when the shop is open.';
+    }
+    if (actor.mood.anger >= 45 || actor.personality.includes('cynical')) {
+      return 'You woke me up for business hours? Read the sign.';
+    }
+    return 'Come back when the shop is open. Let me sleep.';
+  }
+
+  private expireInterruptedActorSleep(nowMs: number): void {
+    for (const actor of this.actors.registry.getAll()) {
+      if (
+        actor.flags.sleepInterrupted === true &&
+        Number(actor.flags.sleepInterruptedUntilMs ?? 0) <= nowMs
+      ) {
+        this.actors.registry.update(actor.id, (current) => {
+          const flags = { ...current.flags };
+          delete flags.sleepInterrupted;
+          delete flags.sleepInterruptedUntilMs;
+          return { ...current, flags };
+        });
+        if (actor.goal?.kind === 'sleep') {
+          this.actors.setActivity(
+            actor.id,
+            {
+              kind: 'sleeping',
+              source: 'schedule',
+              startedAtRoomNumber: this.getRoomsVisitedCount(),
+            },
+            'sleep-interruption-expired',
+          );
+        }
+      }
+    }
+  }
+
+  private actorWakeAnnoyance(actor: Actor, wakeCount: number): number {
+    const familiar =
+      actor.hostility === 'friendly' ||
+      actor.mood.affection >= 55 ||
+      actor.mood.trust >= 55 ||
+      (actor.opinions.player?.affection ?? 0) >= 35;
+    const irritable =
+      actor.personality.includes('cynical') ||
+      actor.personality.includes('vengeful') ||
+      actor.mood.anger >= 45;
+    const anxious =
+      actor.personality.includes('paranoid') ||
+      actor.personality.includes('cowardly') ||
+      actor.mood.fear >= 45;
+    const base = familiar ? 0 : irritable ? 5 : anxious ? 4 : 2;
+    return Math.min(12, base + Math.max(0, wakeCount - 1) * 2);
+  }
+
+  private actorWakeLine(actor: Actor, wakeCount: number): string {
+    if (wakeCount >= 3) {
+      return 'Again? At this hour? Make it quick.';
+    }
+    if (actor.personality.includes('paranoid') || actor.mood.fear >= 45) {
+      return 'What happened? Is something wrong?';
+    }
+    if (actor.personality.includes('cynical') || actor.mood.anger >= 45) {
+      return 'You woke me up for this?';
+    }
+    if (actor.personality.includes('lawful') || actor.personality.includes('bureaucratic')) {
+      return 'I am awake. Briefly. State the matter.';
+    }
+    if (actor.mood.affection >= 55 || (actor.opinions.player?.affection ?? 0) >= 35) {
+      return 'Oh. It is you. Is everything okay?';
+    }
+    return 'Hh-what? What do you need?';
+  }
+
   getActorRole(actorId: string): Actor['role'] | undefined {
     return this.actors.getActor(actorId)?.role;
   }
@@ -8476,8 +8624,11 @@ export class SnakeGame implements QuestRuntime {
         }
         continue;
       }
+      if (travelTarget && body.moveCooldown > ACTOR_TRAVEL_MOVE_COOLDOWN_TICKS) {
+        body.moveCooldown = 0;
+      }
       body.moveCooldown -= 1;
-      if (!travelTarget && body.moveCooldown > 0) {
+      if (body.moveCooldown > 0) {
         if (actor) {
           this.actors.setActivity(
             actor.id,
@@ -8488,7 +8639,7 @@ export class SnakeGame implements QuestRuntime {
         continue;
       }
       body.moveCooldown = travelTarget
-        ? 4
+        ? ACTOR_TRAVEL_MOVE_COOLDOWN_TICKS
         : !isHostile && !roomDangerActive
           ? Math.max(15, decision.moveCooldown * 3)
           : decision.moveCooldown;
@@ -8681,38 +8832,100 @@ export class SnakeGame implements QuestRuntime {
         });
         continue;
       }
+      const travelTarget = this.getLoadedActorTravelLegTarget(actor, currentRoom, nextRoomId);
+      if (!travelTarget) {
+        this.actors.recordActorTelemetry('actor.path_blocked', actor.id, 'offscreen-travel-path', {
+          currentRoomId,
+          goalRoomId,
+          nextRoomId,
+        });
+        continue;
+      }
       this.actors.recordActorTelemetry('actor.travel_leg_selected', actor.id, 'offscreen-travel', {
         fromRoomId: currentRoom.id,
         toRoomId: nextRoomId,
         finalRoomId: goalRoomId,
+        target: { ...travelTarget },
       });
-      const arrival = this.resolveActorTransitionArrival(
-        currentRoom,
-        nextRoomId,
-        actor.presence?.position,
-      );
-      const presence = actor.presence
+      const body = this.createActorPathBody(currentRoom, actor);
+      if (!body) {
+        continue;
+      }
+      const path = findActorGridPath({
+        start: body.position,
+        goals: [travelTarget],
+        canStandAt: (position) => this.canNpcBodyStandAt(currentRoom, body, position),
+      });
+      if (!path) {
+        this.actors.recordActorTelemetry('actor.path_blocked', actor.id, 'offscreen-travel-path', {
+          currentRoomId,
+          goalRoomId,
+          nextRoomId,
+          target: { ...travelTarget },
+        });
+        continue;
+      }
+      const direction = path.directions[0];
+      const nextPosition = direction
         ? {
-            ...actor.presence,
-            roomId: nextRoomId,
-            position: arrival,
-            anchor: arrival,
-            materialized: false,
+            x: body.position.x + direction.x,
+            y: body.position.y + direction.y,
           }
-        : createActorPresence({
-            roomId: nextRoomId,
-            position: arrival,
-            anchor: arrival,
-            materialized: false,
-          });
-      this.actors.setPresence(actor.id, presence, 'offscreen-travel');
+        : { ...body.position };
       this.actors.registry.update(actor.id, (current) => ({
         ...current,
         flags: {
           ...current.flags,
-          actorTravelNextAtMs: nowMs + 1_500,
+          actorTravelNextAtMs: nowMs + ACTOR_TRAVEL_MOVE_COOLDOWN_MS,
         },
       }));
+      if (nextPosition.x === travelTarget.x && nextPosition.y === travelTarget.y) {
+        const arrival = this.resolveActorTransitionArrival(currentRoom, nextRoomId, nextPosition);
+        const presence = actor.presence
+          ? {
+              ...actor.presence,
+              roomId: nextRoomId,
+              position: arrival,
+              anchor: arrival,
+              materialized: false,
+            }
+          : createActorPresence({
+              roomId: nextRoomId,
+              position: arrival,
+              anchor: arrival,
+              materialized: false,
+            });
+        this.actors.setPresence(actor.id, presence, 'offscreen-room-transition');
+        this.actors.recordActorTelemetry(
+          'actor.transitioned',
+          actor.id,
+          'offscreen-room-transition',
+          {
+            fromRoomId: currentRoom.id,
+            toRoomId: nextRoomId,
+            fromPosition: { ...nextPosition },
+            toPosition: { ...arrival },
+            finalRoomId: goalRoomId,
+          },
+        );
+        if (nextRoomId === loadedRoomId) {
+          this.actorMaterializationDirtyRooms.add(loadedRoomId);
+        }
+      } else {
+        const presence = actor.presence
+          ? {
+              ...actor.presence,
+              position: nextPosition,
+              materialized: false,
+            }
+          : createActorPresence({
+              roomId: currentRoom.id,
+              position: nextPosition,
+              anchor: nextPosition,
+              materialized: false,
+            });
+        this.actors.setPresence(actor.id, presence, 'offscreen-travel-step');
+      }
       this.actors.setActivity(
         actor.id,
         {
@@ -8722,9 +8935,6 @@ export class SnakeGame implements QuestRuntime {
         },
         'offscreen-travel',
       );
-      if (nextRoomId === loadedRoomId) {
-        this.actorMaterializationDirtyRooms.add(loadedRoomId);
-      }
       actorsMoved += 1;
     }
     return actorsMoved;
@@ -9148,7 +9358,7 @@ export class SnakeGame implements QuestRuntime {
       return false;
     }
     if (
-      actor.goal?.kind === 'sleep' ||
+      (actor.goal?.kind === 'sleep' && actor.flags.sleepInterrupted !== true) ||
       actor.goal?.kind === 'attackActor' ||
       actor.goal?.kind === 'flee' ||
       actor.goal?.reason?.includes('shelter')

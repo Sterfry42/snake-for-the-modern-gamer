@@ -146,7 +146,7 @@ export function inferActorActivity(args: {
   ) {
     return activity('walking', 'brain', args.roomNumber);
   }
-  if (args.actor.goal?.kind === 'sleep') {
+  if (args.actor.goal?.kind === 'sleep' && args.actor.flags.sleepInterrupted !== true) {
     return activity('sleeping', 'schedule', args.roomNumber);
   }
   if (args.actor.goal?.reason?.includes('shelter')) {

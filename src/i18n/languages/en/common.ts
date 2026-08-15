@@ -223,6 +223,7 @@ export const COMMON_EN: CommonTranslations = {
   },
   actorInteractions: {
     inspect: 'Inspect',
+    wake: 'Wake',
     talk: 'Talk',
     takeQuest: 'Take Quest',
     askAround: 'Ask Around',
@@ -237,7 +238,9 @@ export const COMMON_EN: CommonTranslations = {
     eat: 'Eat',
     spare: 'Spare',
     leave: 'Leave',
+    leaveAlone: 'Leave Alone',
     tooHostile: 'Too hostile',
+    shopClosedSleep: 'Closed: let them sleep',
     findThievesGuildTest: 'Find the thieves guild test',
     notHostile: 'Not hostile',
     targetNotHostile: 'Target is not hostile',

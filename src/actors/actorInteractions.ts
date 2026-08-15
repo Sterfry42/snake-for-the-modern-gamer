@@ -5,6 +5,7 @@ import { isTownShopRole } from '../world/townRoles.js';
 
 export type ActorInteractionId =
   | 'inspect'
+  | 'wake'
   | 'talk'
   | 'ask-rumor'
   | 'ask-personal'
@@ -57,6 +58,16 @@ export function buildActorInteractionMenu(
     actor.species === 'angel' ||
     actor.species === 'goblinAngel';
   const canPickpocket = Boolean(context.canPickpocket ?? context.thievesGuildUnlocked);
+  const sleeping = isActorSleeping(actor);
+  const sleepInterrupted = actor.flags.sleepInterrupted === true;
+
+  if (actor.kind !== 'animal' && actor.kind !== 'enemy') {
+    if (sleeping) {
+      options.push({ id: 'wake', label: tActor('wake'), enabled: true, priority: 94 });
+      options.push({ id: 'leave', label: tActor('leaveAlone'), enabled: true, priority: 0 });
+      return menu(actor, options);
+    }
+  }
 
   options.push({ id: 'inspect', label: tActor('inspect'), enabled: true, priority: 10 });
 
@@ -95,7 +106,11 @@ export function buildActorInteractionMenu(
 
   if (isTownShopRole(actor.role)) {
     const shopClosedReason =
-      typeof actor.flags.shopClosedReason === 'string' ? actor.flags.shopClosedReason : undefined;
+      typeof actor.flags.shopClosedReason === 'string'
+        ? actor.flags.shopClosedReason
+        : sleepInterrupted && !allowsOffHoursShop(actor)
+          ? tActor('shopClosedSleep')
+          : undefined;
     options.push({
       id: 'shop',
       label: tActor('shop'),
@@ -166,6 +181,31 @@ export function buildActorInteractionMenu(
 
   options.push({ id: 'leave', label: tActor('leave'), enabled: true, priority: 0 });
 
+  return menu(actor, options);
+}
+
+export function isActorSleeping(actor: Actor): boolean {
+  return actor.flags.sleepInterrupted !== true && actor.activity?.kind === 'sleeping';
+}
+
+export function allowsOffHoursShop(actor: Actor): boolean {
+  if (actor.flags.offHoursShop === true) {
+    return true;
+  }
+  if (actor.flags.offHoursShop === false) {
+    return false;
+  }
+  return (
+    actor.role === 'shopkeeper' ||
+    actor.role === 'physicalTrainer' ||
+    actor.role === 'cardDealer' ||
+    actor.role === 'bartender' ||
+    actor.role === 'goblinMerchant' ||
+    actor.role === 'blackMarketMerchant'
+  );
+}
+
+function menu(actor: Actor, options: ActorInteractionOption[]): ActorInteractionMenuModel {
   const sorted = options.sort((a, b) => b.priority - a.priority);
   return {
     actorId: actor.id,

@@ -227,6 +227,27 @@ describe('ActorSystem', () => {
       canPickpocket: true,
     });
     expect(initiationMenu.options.find((option) => option.id === 'pickpocket')?.enabled).toBe(true);
+
+    actors.registry.update(shopkeeper.id, (actor) => ({
+      ...actor,
+      goal: { kind: 'sleep', priority: 20, reason: 'test-sleep' },
+      activity: { kind: 'sleeping', source: 'schedule' },
+    }));
+    const sleepingMenu = buildActorInteractionMenu(actors.getActor(shopkeeper.id) ?? shopkeeper);
+    expect(sleepingMenu.options.map((option) => option.id)).toEqual(['wake', 'leave']);
+
+    actors.registry.update(shopkeeper.id, (actor) => ({
+      ...actor,
+      role: 'butcher',
+      flags: { ...actor.flags, sleepInterrupted: true },
+      activity: { kind: 'idle', source: 'social' },
+    }));
+    const interruptedMenu = buildActorInteractionMenu(actors.getActor(shopkeeper.id) ?? shopkeeper);
+    const shop = interruptedMenu.options.find((option) => option.id === 'shop');
+    expect(shop).toMatchObject({
+      enabled: false,
+      reason: 'Closed: let them sleep',
+    });
   });
 
   it('enriches resident actors with relationship state without replacing their role', () => {

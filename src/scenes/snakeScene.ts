@@ -19808,6 +19808,22 @@ export default class SnakeScene extends Phaser.Scene {
           this.paused = false;
           return;
         }
+        if (id === 'wake') {
+          const result = this.snakeGame.wakeActor(profile.actorId ?? '');
+          this.showQuestDialogue(
+            profile.displayName,
+            result.pages,
+            {
+              onClose: () => {
+                this.closeQuestPopup();
+                this.showRelationshipRoot(profile, true);
+              },
+            },
+            { closeLabel: 'Talk', nextLabel: 'Listen' },
+            { portraitId: conversationPortraitId },
+          );
+          return;
+        }
         if (id === 'talk') {
           const conversation = profile.actorId
             ? this.snakeGame.getActorConversation(profile.actorId, 'talk')
@@ -19972,6 +19988,22 @@ export default class SnakeScene extends Phaser.Scene {
           }
           return;
         }
+        if (id === 'shop-closed') {
+          const line = this.snakeGame.getActorClosedServiceLine(profile.actorId ?? '');
+          this.showQuestDialogue(
+            profile.displayName,
+            [`"${line}"`],
+            {
+              onClose: () => {
+                this.closeQuestPopup();
+                this.showRelationshipRoot(profile, true);
+              },
+            },
+            { closeLabel: 'Leave', nextLabel: 'Listen' },
+            { portraitId: conversationPortraitId },
+          );
+          return;
+        }
         if (id === 'shop') {
           this.paused = false;
           if (this.snakeGame.isCurrentRoomRaidActive()) {
@@ -20063,6 +20095,7 @@ export default class SnakeScene extends Phaser.Scene {
       ];
     }
     const supported = new Set([
+      'wake',
       'talk',
       'ask-rumor',
       'ask-personal',
@@ -20076,12 +20109,13 @@ export default class SnakeScene extends Phaser.Scene {
       'leave',
     ]);
     const options = actorMenu.options
-      .filter((option) => option.enabled && supported.has(option.id))
+      .filter((option) => supported.has(option.id))
+      .filter((option) => option.enabled || option.id === 'shop')
       .filter((option) => option.id !== 'pickpocket' || canPickpocket)
       .map((option) => ({
-        id: option.id,
-        title: option.label,
-        description: actorInteractionDescription(option.id),
+        id: option.enabled ? option.id : `${option.id}-closed`,
+        title: option.enabled ? option.label : `${option.label} [CLOSED]`,
+        description: option.reason ?? actorInteractionDescription(option.id),
       }));
     return [
       ...weddingOptions,
@@ -23113,6 +23147,8 @@ function townResidentRoleFromMixedProfile(profile: unknown): TownResidentRole {
 
 function actorInteractionDescription(id: string): string {
   switch (id) {
+    case 'wake':
+      return 'Wake them and interrupt their sleep.';
     case 'talk':
       return 'Get a line from them. This does not start romance.';
     case 'ask-rumor':

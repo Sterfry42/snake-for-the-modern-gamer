@@ -93,7 +93,7 @@ describe('Headless user-story harness', () => {
     scenario.setDayPhase('night');
     await scenario.advanceUntil(
       () => scenario.actor(shopkeeper.id).presence?.roomId === homeRoomId,
-      { timeoutMs: 5_000 },
+      { timeoutMs: 16_000 },
     );
 
     const arrived = scenario.actor(shopkeeper.id);
@@ -200,6 +200,61 @@ describe('Headless user-story harness', () => {
     scenario.assertWorldIntegrity();
   });
 
+  it('waking a sleeping butcher interrupts sleep without opening the shop', async () => {
+    const scenario = createHeadlessScenario({ seed: 'story-wake-sleeping-butcher' });
+    const roomId = scenario.currentRoom().id;
+    const butcher = ensureScenarioActor(scenario, {
+      id: 'midnight-butcher',
+      name: 'Midnight Butcher',
+      role: 'shopkeeper',
+      roomId,
+      position: firstWalkableTile(scenario, roomId),
+    });
+    scenario.game.getActorSystem().registry.update(butcher.id, (actor) => ({
+      ...actor,
+      role: 'butcher',
+    }));
+    scenario.setActorGoal(butcher.id, {
+      kind: 'sleep',
+      priority: 20,
+      roomId,
+      targetPosition: scenario.actor(butcher.id).presence?.position,
+      reason: 'story-wake-sleeping-butcher',
+    });
+    scenario.game
+      .getActorSystem()
+      .setActivity(
+        butcher.id,
+        { kind: 'sleeping', source: 'schedule' },
+        'story-wake-sleeping-butcher',
+      );
+
+    expect(
+      scenario.game.getActorInteractionMenu(butcher.id)?.options.map((option) => option.id),
+    ).toEqual(['wake', 'leave']);
+
+    const result = scenario.game.wakeActor(butcher.id);
+
+    expect(result.ok).toBe(true);
+    expect(scenario.actor(butcher.id).goal?.kind).toBe('sleep');
+    expect(scenario.actor(butcher.id).activity?.kind).not.toBe('sleeping');
+    expect(scenario.actor(butcher.id).flags.sleepInterrupted).toBe(true);
+    const shop = scenario.game
+      .getActorInteractionMenu(butcher.id)
+      ?.options.find((option) => option.id === 'shop');
+    expect(shop).toMatchObject({
+      enabled: false,
+      reason: 'Closed: let them sleep',
+    });
+    expect(scenario.game.getActorClosedServiceLine(butcher.id)).toContain('sunrise');
+
+    await scenario.advanceSeconds(31);
+
+    expect(scenario.actor(butcher.id).flags.sleepInterrupted).toBeUndefined();
+    expect(scenario.actor(butcher.id).activity?.kind).toBe('sleeping');
+    scenario.assertWorldIntegrity();
+  });
+
   it('a stationary shopkeeper can leave the post when the schedule changes', async () => {
     const scenario = createHeadlessScenario({ seed: 'story-stationary-worker-leaves-post' });
     const workRoomId = scenario.currentRoom().id;
@@ -227,7 +282,7 @@ describe('Headless user-story harness', () => {
 
     await scenario.advanceUntil(
       () => scenario.actor(shopkeeper.id).presence?.roomId === homeRoomId,
-      { timeoutMs: 6_000 },
+      { timeoutMs: 16_000 },
     );
     expect(scenario.actor(shopkeeper.id).activity?.kind).not.toBe('merchant');
     scenario.assertWorldIntegrity();
@@ -257,7 +312,7 @@ describe('Headless user-story harness', () => {
     scenario.enterRoom(startRoomId);
     expect(scenario.currentRoom().id).toBe(startRoomId);
     await scenario.advanceUntil(() => scenario.actor(traveler.id).presence?.roomId === '1,0,0', {
-      timeoutMs: 1_000,
+      timeoutMs: 4_000,
     });
 
     const reloaded = HeadlessScenario.fromSave(scenario.game.getSaveData());
@@ -265,36 +320,52 @@ describe('Headless user-story harness', () => {
 
     await reloaded.advanceUntil(
       () => reloaded.actor(traveler.id).presence?.roomId === destinationRoomId,
-      { timeoutMs: 1_000 },
+      { timeoutMs: 16_000 },
     );
     expect(reloaded.actor(traveler.id).presence?.roomId).toBe(destinationRoomId);
     reloaded.assertWorldIntegrity();
   });
 
-  it('offscreen travel advances by cadence rather than every Actor tick', async () => {
-    const scenario = createHeadlessScenario({ seed: 'story-offscreen-travel-cadence' });
+  it('the player can follow an Actor through consecutive room transitions', async () => {
+    const scenario = createHeadlessScenario({ seed: 'story-player-can-follow-actor-transition' });
+    const startRoomId = '0,0,0';
+    const middleRoomId = '1,0,0';
+    const destinationRoomId = '2,0,0';
+    scenario.getRoom(destinationRoomId);
     const traveler = ensureScenarioActor(scenario, {
-      id: 'offscreen-paced-traveler',
-      name: 'Offscreen Paced Traveler',
+      id: 'followable-traveler',
+      name: 'Followable Traveler',
       role: 'resident',
-      roomId: '1,0,0',
+      roomId: startRoomId,
       position: { x: 26, y: 1 },
     });
+    scenario.enterRoom(startRoomId);
     scenario.setActorGoal(traveler.id, {
       kind: 'travelToRoom',
       priority: 80,
-      roomId: '4,0,0',
-      reason: 'story-offscreen-travel-cadence',
+      roomId: destinationRoomId,
+      reason: 'story-player-can-follow-actor-transition',
     });
 
+    await scenario.advanceUntil(
+      () => scenario.actor(traveler.id).presence?.roomId === middleRoomId,
+      { timeoutMs: 4_000 },
+    );
+    const entryPosition = scenario.actor(traveler.id).presence?.position;
+    expect(entryPosition).toEqual({ x: 1, y: 1 });
+
     await scenario.advanceActorTicks(1);
-    expect(scenario.actor(traveler.id).presence?.roomId).toBe('2,0,0');
+    expect(scenario.actor(traveler.id).presence?.roomId).toBe(middleRoomId);
+    expect(scenario.actor(traveler.id).presence?.materialized).toBe(false);
 
-    await scenario.advanceActorTicks(5);
-    expect(scenario.actor(traveler.id).presence?.roomId).toBe('2,0,0');
-
-    await scenario.advanceMs(1_000);
-    expect(scenario.actor(traveler.id).presence?.roomId).toBe('3,0,0');
+    scenario.enterRoom(middleRoomId);
+    expect(scenario.actor(traveler.id).presence?.roomId).toBe(middleRoomId);
+    expect(scenario.actor(traveler.id).presence?.materialized).toBe(true);
+    expect(scenario.actor(traveler.id).presence?.position.x).toBeGreaterThan(1);
+    expect(scenario.actor(traveler.id).presence?.position.x).toBeLessThan(
+      scenario.game.config.grid.cols - 2,
+    );
+    scenario.assertWorldIntegrity();
   });
 
   it('a visible Actor can leave the loaded room and continue cross-room travel', async () => {
@@ -318,13 +389,13 @@ describe('Headless user-story harness', () => {
     });
 
     await scenario.advanceUntil(() => scenario.actor(traveler.id).presence?.roomId === '1,0,0', {
-      timeoutMs: 1_000,
+      timeoutMs: 4_000,
     });
     expect(scenario.actor(traveler.id).presence?.materialized).toBe(false);
 
     await scenario.advanceUntil(
       () => scenario.actor(traveler.id).presence?.roomId === destinationRoomId,
-      { timeoutMs: 1_000 },
+      { timeoutMs: 16_000 },
     );
     expect(scenario.actor(traveler.id).currentRoomId).toBe(destinationRoomId);
     scenario.assertWorldIntegrity();
@@ -352,14 +423,14 @@ describe('Headless user-story harness', () => {
 
     await scenario.advanceUntil(
       () => scenario.actor(traveler.id).presence?.roomId !== startRoomId,
-      { timeoutMs: 1_000 },
+      { timeoutMs: 4_000 },
     );
     expect(scenario.actor(traveler.id).presence?.roomId).not.toBe(destinationRoomId);
     expect(['1,0,0', '0,1,0']).toContain(scenario.actor(traveler.id).presence?.roomId);
 
     await scenario.advanceUntil(
       () => scenario.actor(traveler.id).presence?.roomId === destinationRoomId,
-      { timeoutMs: 1_000 },
+      { timeoutMs: 16_000 },
     );
     scenario.assertWorldIntegrity();
   });
@@ -387,7 +458,7 @@ describe('Headless user-story harness', () => {
 
     await scenario.advanceUntil(
       () => scenario.actor(traveler.id).presence?.roomId === destinationRoomId,
-      { timeoutMs: 8_000 },
+      { timeoutMs: 20_000 },
     );
 
     expect(scenario.actor(traveler.id).presence?.roomId).toBe(destinationRoomId);
