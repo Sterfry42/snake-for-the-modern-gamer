@@ -265,6 +265,19 @@ export interface ActorGoal {
   reason?: string;
 }
 
+export interface ActorTargetThreat {
+  targetActorId: string;
+  source: 'faction' | 'personal' | 'crime' | 'script' | 'combat' | 'system';
+  reason: string;
+  startedAtRoomNumber?: number;
+}
+
+export interface ActorPlayerHostility {
+  state: Exclude<ActorHostilityState, 'dead'>;
+  reason: string;
+  startedAtRoomNumber?: number;
+}
+
 export interface ActorPresence {
   roomId: string;
   position: { x: number; y: number };
@@ -343,7 +356,10 @@ export interface Actor {
   health?: ActorHealth;
   combat?: ActorCombatProfile;
   hostility?: ActorHostilityState;
+  playerHostility?: ActorPlayerHostility;
+  targetedThreat?: ActorTargetThreat;
   presence?: ActorPresence;
+  scheduleGoal?: ActorGoal;
   goal?: ActorGoal;
   goalStack?: ActorGoal[];
   activity?: ActorActivity;

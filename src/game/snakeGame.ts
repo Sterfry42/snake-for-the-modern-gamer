@@ -234,6 +234,7 @@ import type {
   RelationshipTalkResult,
 } from '../relationships/relationshipTypes.js';
 import { ActorSystem, type ActorSystemSaveData } from '../actors/actorSystem.js';
+import { compactActorDebugSnapshot, type ActorTelemetryEvent } from '../actors/actorTelemetry.js';
 import type {
   Actor,
   ActorMemory,
@@ -978,6 +979,7 @@ export class SnakeGame implements QuestRuntime {
       setFlag: (key, value) => this.setFlag(key, value),
     });
     this.actors = new ActorSystem();
+    this.actors.setTelemetrySink((event) => this.emitActorTelemetry(event));
     this.rumors = new RumorSystem();
     this.factionEvents = new FactionEventSystem();
     this.inventory = new InventorySystem();
@@ -1284,14 +1286,21 @@ export class SnakeGame implements QuestRuntime {
           })),
           actors: this.actors.getActorsInRoom(roomId).map((actor) => ({
             category: 'actor',
-            id: actor.id,
-            kind: actor.kind,
-            role: actor.role,
-            displayName: actor.displayName,
+            ...compactActorDebugSnapshot(actor),
           })),
         },
       }),
     );
+  }
+
+  private emitActorTelemetry(event: ActorTelemetryEvent): void {
+    getDebugBus()?.emit({
+      type: event.type,
+      category: 'npc',
+      verbosity: 'verbose',
+      roomId: event.roomId,
+      data: event.data,
+    });
   }
 
   private createAppleService(): AppleService {
@@ -5556,6 +5565,7 @@ export class SnakeGame implements QuestRuntime {
         room,
         next,
         'The town alarm goes up. Guards are done asking questions.',
+        'town-crime-open-hostility',
       );
     }
     return {
@@ -5577,30 +5587,21 @@ export class SnakeGame implements QuestRuntime {
         room,
         town,
         'The town alarm is still ringing. Guards move to intercept.',
+        'town-open-hostility',
       );
       return;
     }
     const district = town.districtByRoomId[room.id];
-    const suspicion = town.suspicion ?? 0;
-    const guardDistrict =
-      district === 'gate' ||
-      district === 'square' ||
-      district === 'townCenter' ||
-      district === 'townExit';
     const thiefDistrict = district === 'backAlley' || district === 'guildHideout';
-    const hostilityChance =
-      town.wantedLevel > 0 && guardDistrict
-        ? Math.min(0.85, 0.18 + town.wantedLevel * 0.14 + suspicion / 180)
-        : thiefDistrict && town.thievesGuild && town.thievesGuild.karma < -20
-          ? Math.min(0.65, 0.25 + Math.abs(town.thievesGuild.karma) / 180)
-          : 0;
-    if (hostilityChance <= 0 || this._rng() >= hostilityChance) {
+    if (!thiefDistrict || !town.thievesGuild || town.thievesGuild.karma >= -20) {
       return;
     }
-    const label = guardDistrict
-      ? 'The guards have gone hostile.'
-      : 'The alley thieves have gone hostile.';
-    this.activateTownHostility(room, town, label);
+    this.activateTownHostility(
+      room,
+      town,
+      'The alley thieves have gone hostile.',
+      'hostile-thieves-guild-standing',
+    );
   }
 
   private isTownInOpenHostility(town: TownStructure): boolean {
@@ -5651,7 +5652,7 @@ export class SnakeGame implements QuestRuntime {
     }
     for (const actor of this.actors.registry.getByTown(town.id)) {
       if (
-        actor.hostility !== 'hostile' ||
+        actor.playerHostility?.state !== 'hostile' ||
         actor.health?.state === 'dead' ||
         actor.flags.dead ||
         actor.flags.eaten ||
@@ -5659,9 +5660,14 @@ export class SnakeGame implements QuestRuntime {
       ) {
         continue;
       }
+      this.actors.setPlayerHostility(
+        actor.id,
+        'neutral',
+        'town-hostility-resolved',
+        this.getRoomsVisitedCount(),
+      );
       this.actors.registry.update(actor.id, (current) => ({
         ...current,
-        hostility: 'neutral',
         mood: {
           ...current.mood,
           anger: Math.min(current.mood.anger, 25),
@@ -5672,7 +5678,12 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
-  private activateTownHostility(room: RoomSnapshot, town: TownStructure, label: string): void {
+  private activateTownHostility(
+    room: RoomSnapshot,
+    town: TownStructure,
+    label: string,
+    reason: string,
+  ): void {
     if (this.isTownInOpenHostility(town)) {
       this.setFlag(`town.hostile.${town.id}.all`, true);
     }
@@ -5711,7 +5722,7 @@ export class SnakeGame implements QuestRuntime {
         this.actors.getStableTownResidentActorId(town.id, resident.id, resident.role);
       const actor = this.actors.registry.get(actorId);
       if (
-        actor?.hostility === 'hostile' ||
+        actor?.playerHostility?.state === 'hostile' ||
         actor?.hostility === 'dead' ||
         actor?.health?.state === 'dead' ||
         actor?.flags.dead ||
@@ -5719,6 +5730,7 @@ export class SnakeGame implements QuestRuntime {
       ) {
         return;
       }
+      this.actors.setPlayerHostility(actorId, 'hostile', reason, this.getRoomsVisitedCount());
       const body = this.ensureNpcBody(
         {
           id: relationshipId,
@@ -8158,7 +8170,11 @@ export class SnakeGame implements QuestRuntime {
         actorPresence?.wanderRadius ??
         (existing.stationary ? 0 : Math.max(1, existing.wanderRadius));
       if (actorPresence && !actorPresence.materialized && profile.actorId) {
-        this.actors.registry.setPresence(profile.actorId, { ...actorPresence, materialized: true });
+        this.actors.setPresence(
+          profile.actorId,
+          { ...actorPresence, materialized: true },
+          'npc-body-materialized',
+        );
       }
       return existing;
     }
@@ -8174,9 +8190,13 @@ export class SnakeGame implements QuestRuntime {
     };
     this.npcBodies.set(profile.id, body);
     if (profile.actorId && actorPresence && !actorPresence.materialized) {
-      this.actors.registry.setPresence(profile.actorId, { ...actorPresence, materialized: true });
+      this.actors.setPresence(
+        profile.actorId,
+        { ...actorPresence, materialized: true },
+        'npc-body-materialized',
+      );
     } else if (profile.actorId && actor && !actor.presence) {
-      this.actors.registry.setPresence(
+      this.actors.setPresence(
         profile.actorId,
         createActorPresence({
           roomId: body.roomId,
@@ -8185,6 +8205,7 @@ export class SnakeGame implements QuestRuntime {
           wanderRadius: body.wanderRadius,
           stationary,
         }),
+        'npc-body-created',
       );
     }
     return body;
@@ -8256,12 +8277,16 @@ export class SnakeGame implements QuestRuntime {
       const actor = body.actorId ? this.actors.getActor(body.actorId) : undefined;
       const actorConversation = actor ? this.getActorConversationRuntime(actor) : undefined;
       if (actor && actorConversation?.endsAtMs) {
-        this.actors.registry.setActivity(actor.id, {
-          kind: 'talking',
-          source: 'social',
-          targetActorId: actorConversation.partnerId,
-          startedAtRoomNumber: this.getRoomsVisitedCount(),
-        });
+        this.actors.setActivity(
+          actor.id,
+          {
+            kind: 'talking',
+            source: 'social',
+            targetActorId: actorConversation.partnerId,
+            startedAtRoomNumber: this.getRoomsVisitedCount(),
+          },
+          'conversation',
+        );
         continue;
       }
       if (actor && playerHeadLocal) {
@@ -8304,14 +8329,18 @@ export class SnakeGame implements QuestRuntime {
       ) {
         this.actors.registry.update(actor.id, (current) => ({
           ...current,
-          activity: inferActorActivity({
-            actor: current,
+          speech: this.createActorSpeech('There you are.', 'reactive', 'player'),
+        }));
+        this.actors.setActivity(
+          actor.id,
+          inferActorActivity({
+            actor,
             decision,
             targetAdjacent: true,
             roomNumber: this.getRoomsVisitedCount(),
           }),
-          speech: this.createActorSpeech('There you are.', 'reactive', 'player'),
-        }));
+          'seek-player',
+        );
         continue;
       }
       const targetActor = decision.targetActorId
@@ -8330,9 +8359,10 @@ export class SnakeGame implements QuestRuntime {
       }
       if (body.stationary && !travelTarget && !isHostile && decision.kind === 'hold') {
         if (actor) {
-          this.actors.registry.setActivity(
+          this.actors.setActivity(
             actor.id,
             inferActorActivity({ actor, decision, roomNumber: this.getRoomsVisitedCount() }),
+            'actor-brain-hold',
           );
         }
         continue;
@@ -8340,9 +8370,10 @@ export class SnakeGame implements QuestRuntime {
       body.moveCooldown -= 1;
       if (!travelTarget && body.moveCooldown > 0) {
         if (actor) {
-          this.actors.registry.setActivity(
+          this.actors.setActivity(
             actor.id,
             inferActorActivity({ actor, decision, roomNumber: this.getRoomsVisitedCount() }),
+            'actor-brain-cooldown',
           );
         }
         continue;
@@ -8375,30 +8406,32 @@ export class SnakeGame implements QuestRuntime {
         const goalRoomId = actor.goal.roomId;
         const arrival = this.resolveActorTransitionArrival(room, goalRoomId, body.position);
         this.npcBodies.delete(body.relationshipId);
-        this.actors.registry.update(actor.id, (current) => ({
-          ...current,
-          currentRoomId: goalRoomId,
-          presence: current.presence
-            ? {
-                ...current.presence,
-                roomId: goalRoomId,
-                position: arrival,
-                anchor: arrival,
-                materialized: false,
-              }
-            : createActorPresence({
-                roomId: goalRoomId,
-                position: arrival,
-                anchor: arrival,
-                materialized: false,
-              }),
-          activity: inferActorActivity({
-            actor: current,
+        const nextPresence = actor.presence
+          ? {
+              ...actor.presence,
+              roomId: goalRoomId,
+              position: arrival,
+              anchor: arrival,
+              materialized: false,
+            }
+          : createActorPresence({
+              roomId: goalRoomId,
+              position: arrival,
+              anchor: arrival,
+              materialized: false,
+            });
+        this.actors.setPresence(actor.id, nextPresence, 'actor-room-transition');
+        const transitioned = this.actors.getActor(actor.id) ?? actor;
+        this.actors.setActivity(
+          actor.id,
+          inferActorActivity({
+            actor: transitioned,
             decision,
             moved: true,
             roomNumber: this.getRoomsVisitedCount(),
           }),
-        }));
+          'actor-room-transition',
+        );
         continue;
       }
       if (actor) {
@@ -8409,10 +8442,10 @@ export class SnakeGame implements QuestRuntime {
           wanderRadius: body.wanderRadius,
           stationary: body.stationary,
         });
-        this.actors.registry.setPresence(actor.id, nextPresence);
+        this.actors.setPresence(actor.id, nextPresence, 'actor-body-moved');
         body.position = { ...nextPresence.position };
         const updated = this.actors.getActor(actor.id) ?? actor;
-        this.actors.registry.setActivity(
+        this.actors.setActivity(
           actor.id,
           inferActorActivity({
             actor: updated,
@@ -8420,6 +8453,7 @@ export class SnakeGame implements QuestRuntime {
             moved: resolution.moved,
             roomNumber: this.getRoomsVisitedCount(),
           }),
+          'actor-body-moved',
         );
       }
     }
@@ -8694,24 +8728,32 @@ export class SnakeGame implements QuestRuntime {
     }
     const target = this.actors.getActor(targetActorId);
     if (!target || target.currentRoomId !== roomId || target.health?.state === 'dead') {
-      this.actors.registry.resumeInterruptedGoal(source.id);
+      this.actors.setTargetThreat(source.id, undefined, 'target-unavailable');
+      this.actors.recordActorTelemetry('actor.combat_ended', source.id, 'target-unavailable', {
+        targetActorId,
+      });
+      this.actors.resumeGoal(source.id);
       return;
     }
     const max = Math.max(1, target.health?.max ?? 1);
     const nextCurrent = Math.max(0, (target.health?.current ?? max) - 1);
     this.actors.registry.update(source.id, (actor) => ({
       ...actor,
-      activity: {
-        kind: actor.combat?.ranged ? 'combat-ranged' : 'combat-melee',
-        source: 'combat',
-        targetActorId,
-        startedAtRoomNumber: nowRoom,
-      },
       flags: {
         ...actor.flags,
         actorAttackCooldownUntilRoom: nowRoom + 1,
       },
     }));
+    this.actors.setActivity(
+      source.id,
+      {
+        kind: source.combat?.ranged ? 'combat-ranged' : 'combat-melee',
+        source: 'combat',
+        targetActorId,
+        startedAtRoomNumber: nowRoom,
+      },
+      'actor-vs-actor-attack',
+    );
     this.actors.registry.update(target.id, (actor) => ({
       ...actor,
       health: {
@@ -8730,7 +8772,11 @@ export class SnakeGame implements QuestRuntime {
           : this.createActorSpeech('Help!', 'reactive', source.id, 2_000),
     }));
     if (nextCurrent <= 0) {
-      this.actors.registry.resumeInterruptedGoal(source.id);
+      this.actors.setTargetThreat(source.id, undefined, 'target-defeated');
+      this.actors.recordActorTelemetry('actor.combat_ended', source.id, 'target-defeated', {
+        targetActorId: target.id,
+      });
+      this.actors.resumeGoal(source.id);
       this.actors.emitWorldEvent({
         type: 'enemy-defeated',
         roomId,
@@ -8825,14 +8871,18 @@ export class SnakeGame implements QuestRuntime {
     if (memory) {
       this.shareActorGossip(room, source, target.id, memory);
     }
+    this.actors.recordActorTelemetry('actor.conversation_started', source.id, 'conversation', {
+      conversationId: id,
+      partnerId: target.id,
+      sharedMemoryId: memory?.id,
+    });
+    this.actors.recordActorTelemetry('actor.conversation_started', target.id, 'conversation', {
+      conversationId: id,
+      partnerId: source.id,
+      sharedMemoryId: memory?.id,
+    });
     this.actors.registry.update(source.id, (actor) => ({
       ...actor,
-      activity: {
-        kind: 'talking',
-        source: 'social',
-        targetActorId: target.id,
-        startedAtRoomNumber: this.getRoomsVisitedCount(),
-      },
       speech: this.createActorSpeech(lines[0]!.text, 'social', target.id, 1_700),
       flags: {
         ...actor.flags,
@@ -8841,17 +8891,31 @@ export class SnakeGame implements QuestRuntime {
     }));
     this.actors.registry.update(target.id, (actor) => ({
       ...actor,
-      activity: {
-        kind: 'talking',
-        source: 'social',
-        targetActorId: source.id,
-        startedAtRoomNumber: this.getRoomsVisitedCount(),
-      },
       flags: {
         ...actor.flags,
         actorConversation: runtime(source.id),
       },
     }));
+    this.actors.setActivity(
+      source.id,
+      {
+        kind: 'talking',
+        source: 'social',
+        targetActorId: target.id,
+        startedAtRoomNumber: this.getRoomsVisitedCount(),
+      },
+      'conversation',
+    );
+    this.actors.setActivity(
+      target.id,
+      {
+        kind: 'talking',
+        source: 'social',
+        targetActorId: source.id,
+        startedAtRoomNumber: this.getRoomsVisitedCount(),
+      },
+      'conversation',
+    );
   }
 
   private advanceActorConversations(roomId: string): void {
@@ -8891,12 +8955,6 @@ export class SnakeGame implements QuestRuntime {
               participant.id === line.speakerId
                 ? this.createActorSpeech(line.text, 'social', currentConversation.partnerId, 1_700)
                 : undefined,
-            activity: {
-              kind: 'talking',
-              source: 'social',
-              targetActorId: currentConversation.partnerId,
-              startedAtRoomNumber: this.getRoomsVisitedCount(),
-            },
             flags: {
               ...participant.flags,
               actorConversation: {
@@ -8907,11 +8965,27 @@ export class SnakeGame implements QuestRuntime {
             },
           };
         });
+        const updated = this.actors.getActor(participantId);
+        if (updated) {
+          const currentConversation = this.getActorConversationRuntime(updated);
+          this.actors.setActivity(
+            participantId,
+            {
+              kind: 'talking',
+              source: 'social',
+              targetActorId: currentConversation?.partnerId,
+              startedAtRoomNumber: this.getRoomsVisitedCount(),
+            },
+            'conversation',
+          );
+        }
       }
     }
   }
 
   private finishActorConversation(actorId: string): void {
+    const actor = this.actors.getActor(actorId);
+    const conversation = actor ? this.getActorConversationRuntime(actor) : undefined;
     this.actors.registry.update(actorId, (actor) => {
       const flags = { ...actor.flags };
       delete flags.actorConversation;
@@ -8921,7 +8995,11 @@ export class SnakeGame implements QuestRuntime {
         speech: actor.speech?.category === 'social' ? undefined : actor.speech,
       };
     });
-    this.actors.registry.resumeInterruptedGoal(actorId);
+    this.actors.recordActorTelemetry('actor.conversation_ended', actorId, 'conversation-ended', {
+      conversationId: conversation?.id,
+      partnerId: conversation?.partnerId,
+    });
+    this.actors.resumeGoal(actorId);
   }
 
   private getActorConversationRuntime(actor: Actor): ActorConversationRuntime | undefined {
@@ -9131,6 +9209,11 @@ export class SnakeGame implements QuestRuntime {
           : entry,
       ),
     }));
+    this.actors.recordActorTelemetry('actor.rumor_shared', sourceActor.id, 'conversation-rumor', {
+      targetActorId: target.id,
+      sourceMemoryId: memory.id,
+      eventId: event.id,
+    });
   }
 
   private canNpcBodyStandAt(
@@ -13357,9 +13440,14 @@ export class SnakeGame implements QuestRuntime {
   ): void {
     const state = this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
     const actorId = this.ensureRelationshipActorForProfile(profile, state);
+    this.actors.setPlayerHostility(
+      actorId,
+      'hostile',
+      'player-shot-actor',
+      this.getRoomsVisitedCount(),
+    );
     this.actors.registry.update(actorId, (actor) => ({
       ...actor,
-      hostility: 'hostile',
       mood: {
         ...actor.mood,
         anger: Math.min(100, actor.mood.anger + 28),
@@ -13981,7 +14069,13 @@ export class SnakeGame implements QuestRuntime {
     if (enemy.encounterKind !== 'npc-hostile' || !enemy.actorId) {
       return;
     }
-    this.actors.registry.update(enemy.actorId, (actor) => ({
+    this.actors.setPlayerHostility(
+      enemy.actorId,
+      'hostile',
+      'legacy-hostile-npc-combat-shell',
+      this.getRoomsVisitedCount(),
+    );
+    const next = this.actors.registry.update(enemy.actorId, (actor) => ({
       ...actor,
       currentRoomId: enemy.roomId,
       health: {
@@ -13995,17 +14089,6 @@ export class SnakeGame implements QuestRuntime {
               ? 'wounded'
               : 'healthy',
       },
-      hostility: 'hostile',
-      presence: createActorPresence({
-        roomId: enemy.roomId,
-        position: enemy.position,
-        wanderRadius: Math.max(this.config.grid.cols, this.config.grid.rows),
-      }),
-      activity: {
-        kind: actor.combat?.ranged ? 'combat-ranged' : 'combat-melee',
-        source: 'combat',
-        startedAtRoomNumber: this.getRoomsVisitedCount(),
-      },
       speech: {
         text: 'Back up.',
         targetActorId: 'player',
@@ -14013,6 +14096,27 @@ export class SnakeGame implements QuestRuntime {
         expiresAtRoomNumber: this.getRoomsVisitedCount() + 1,
       },
     }));
+    if (!next) {
+      return;
+    }
+    this.actors.setPresence(
+      enemy.actorId,
+      createActorPresence({
+        roomId: enemy.roomId,
+        position: enemy.position,
+        wanderRadius: Math.max(this.config.grid.cols, this.config.grid.rows),
+      }),
+      'legacy-hostile-npc-combat-shell',
+    );
+    this.actors.setActivity(
+      enemy.actorId,
+      {
+        kind: next.combat?.ranged ? 'combat-ranged' : 'combat-melee',
+        source: 'combat',
+        startedAtRoomNumber: this.getRoomsVisitedCount(),
+      },
+      'legacy-hostile-npc-combat-shell',
+    );
   }
 
   private getRelationshipIdFromHostileNpc(enemyId?: string): string | null {
@@ -18061,7 +18165,7 @@ export class SnakeGame implements QuestRuntime {
       portraitId: encounter.portraitId,
       createdAtRoomNumber: roomsVisited,
     });
-    this.actors.registry.setPresence(
+    this.actors.setPresence(
       actor.id,
       createActorPresence({
         roomId,
@@ -18069,19 +18173,24 @@ export class SnakeGame implements QuestRuntime {
         anchor: spawn,
         wanderRadius: Math.max(this.config.grid.cols, this.config.grid.rows),
       }),
+      'wanderer-encounter',
     );
-    this.actors.registry.setGoal(actor.id, {
+    this.actors.requestGoal(actor.id, {
       kind: 'seekPlayer',
       priority: 55,
       roomId,
       targetPosition: this.worldToLocalInRoom(roomId, this.snake.bodySegments[0] ?? spawn),
       reason: 'wanderer-encounter',
     });
-    this.actors.registry.setActivity(actor.id, {
-      kind: 'walking',
-      source: 'brain',
-      startedAtRoomNumber: roomsVisited,
-    });
+    this.actors.setActivity(
+      actor.id,
+      {
+        kind: 'walking',
+        source: 'brain',
+        startedAtRoomNumber: roomsVisited,
+      },
+      'wanderer-encounter',
+    );
     this.setFlag('npc.randomEncounter', {
       ...encounter,
       pages: getEncounterPages(encounter, history),
@@ -18141,7 +18250,7 @@ export class SnakeGame implements QuestRuntime {
       stage: state.stage,
       createdAtRoomNumber: this.getRoomsVisitedCount(),
     });
-    this.actors.registry.setPresence(
+    this.actors.setPresence(
       actor.id,
       createActorPresence({
         roomId,
@@ -18149,19 +18258,24 @@ export class SnakeGame implements QuestRuntime {
         anchor: spawn,
         wanderRadius: Math.max(this.config.grid.cols, this.config.grid.rows),
       }),
+      'relationship-encounter',
     );
-    this.actors.registry.setGoal(actor.id, {
+    this.actors.requestGoal(actor.id, {
       kind: 'seekPlayer',
       priority: 55,
       roomId,
       targetPosition: this.worldToLocalInRoom(roomId, this.snake.bodySegments[0] ?? spawn),
       reason: 'relationship-encounter',
     });
-    this.actors.registry.setActivity(actor.id, {
-      kind: 'walking',
-      source: 'brain',
-      startedAtRoomNumber: this.getRoomsVisitedCount(),
-    });
+    this.actors.setActivity(
+      actor.id,
+      {
+        kind: 'walking',
+        source: 'brain',
+        startedAtRoomNumber: this.getRoomsVisitedCount(),
+      },
+      'relationship-encounter',
+    );
     this.setFlag('npc.randomEncounter', {
       id: `relationship-${state.id}`,
       relationshipId: state.id,

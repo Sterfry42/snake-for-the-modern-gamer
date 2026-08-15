@@ -80,6 +80,7 @@ export function createBaseActor(args: {
   health?: Actor['health'];
   combat?: ActorCombatProfile;
   hostility?: Actor['hostility'];
+  playerHostility?: Actor['playerHostility'];
   schedule?: Actor['schedule'];
   brainId?: ActorBrainId;
   flags?: Record<string, unknown>;
@@ -109,6 +110,7 @@ export function createBaseActor(args: {
     health: args.health,
     combat: args.combat,
     hostility: args.hostility,
+    playerHostility: args.playerHostility,
     goal: { kind: 'wander', priority: 1, roomId: args.currentRoomId, reason: 'created' },
     activity: {
       kind: args.hostility === 'dead' ? 'dead' : 'idle',
@@ -481,6 +483,14 @@ export function createActorFromRelationship(args: EnsureRelationshipActorArgs): 
     homeRoomId: args.homeRoomId,
     portraitId: args.portraitId,
     hostility: args.stage === 'hostile' || args.stage === 'murderous' ? 'hostile' : 'neutral',
+    playerHostility:
+      args.stage === 'hostile' || args.stage === 'murderous'
+        ? {
+            state: 'hostile',
+            reason: 'relationship-stage-hostile',
+            startedAtRoomNumber: args.createdAtRoomNumber,
+          }
+        : undefined,
     brainId: 'romance',
     flags: { source: 'relationship', relationshipId: args.relationshipId, stage: args.stage },
     createdAtRoomNumber: args.createdAtRoomNumber,

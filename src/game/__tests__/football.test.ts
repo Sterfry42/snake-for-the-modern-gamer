@@ -40,6 +40,7 @@ interface SnakeGamePrivate {
   calculateAppleLengthScoreMultiplier(): number;
   applyLengthScoreMultiplier(baseScore: number, multiplier: number): number;
   syncActorsForRoom(room: RoomSnapshot): void;
+  maybeMarkTownHostility(room: RoomSnapshot): void;
   noteBanditRaidDefeat(enemy: EnemyInstance, eaten: boolean): void;
   tickFactionRaidGameplay(): void;
   tickNpcBodies(room: RoomSnapshot): void;
@@ -483,6 +484,55 @@ describe('town and guild hostility split', () => {
 
     expect(game.isTownHostileForRoom(town, '0,0,0')).toBe(false);
     expect(game.isTownHostileForRoom(town, '1,0,0')).toBe(true);
+  });
+
+  it('does not spawn guard hostile shells from non-open wanted suspicion alone', () => {
+    const game = createGame();
+    const room = {
+      id: '0,0,0',
+      layout: ['..........', '..........', '..N.......', '..........'],
+      town: {
+        id: 'guard-town',
+        name: 'Guard Town',
+        wantedLevel: 1,
+        suspicion: 20,
+        reputation: 0,
+        center: { x: 5, y: 5 },
+        residents: [
+          {
+            id: 'guard-1',
+            actorId: 'town:guard-town:guard:guard-1',
+            name: 'Nina',
+            role: 'guard',
+            factionId: 'hearthbound-remnant',
+            townId: 'guard-town',
+            x: 2,
+            y: 2,
+            homeRoomId: '0,0,0',
+            workRoomId: '0,0,0',
+          },
+        ],
+        districtByRoomId: { '0,0,0': 'gate' },
+      },
+    } as unknown as RoomSnapshot;
+
+    game.getActorSystem().registry.ensureTownResidentActor({
+      residentId: 'guard-1',
+      actorId: 'town:guard-town:guard:guard-1',
+      name: 'Nina',
+      role: 'guard',
+      factionId: 'hearthbound-remnant',
+      townId: 'guard-town',
+      currentRoomId: '0,0,0',
+    });
+    (game as unknown as SnakeGamePrivate).maybeMarkTownHostility(room);
+
+    expect(
+      game.getEnemies('0,0,0').filter((enemy) => enemy.encounterKind === 'npc-hostile'),
+    ).toEqual([]);
+    expect(
+      game.getActorSystem().getActor('town:guard-town:guard:guard-1')?.playerHostility,
+    ).toBeUndefined();
   });
 });
 

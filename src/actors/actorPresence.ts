@@ -15,6 +15,7 @@ import type {
   ActorActivityKind,
   ActorGoal,
   ActorPresence,
+  ActorTargetThreat,
 } from './actorTypes.js';
 import type { ActorBrainDecision } from './actorBrains.js';
 
@@ -313,8 +314,14 @@ export function findFactionConflictGoals(actors: readonly Actor[]): Array<{
   actorId: string;
   goal: ActorGoal;
   activity: ActorActivity;
+  threat: ActorTargetThreat;
 }> {
-  const updates: Array<{ actorId: string; goal: ActorGoal; activity: ActorActivity }> = [];
+  const updates: Array<{
+    actorId: string;
+    goal: ActorGoal;
+    activity: ActorActivity;
+    threat: ActorTargetThreat;
+  }> = [];
   const liveActors = actors.filter(
     (actor) =>
       actor.currentRoomId &&
@@ -349,6 +356,11 @@ export function findFactionConflictGoals(actors: readonly Actor[]): Array<{
         undefined,
         target.id,
       ),
+      threat: {
+        targetActorId: target.id,
+        source: 'faction',
+        reason: 'faction-conflict',
+      },
     });
   }
 

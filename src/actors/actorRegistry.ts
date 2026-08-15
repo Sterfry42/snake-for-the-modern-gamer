@@ -169,6 +169,14 @@ export class ActorRegistry {
             : args.stage === 'hostile' || args.stage === 'murderous'
               ? 'hostile'
               : existing.hostility,
+          playerHostility:
+            args.stage === 'hostile' || args.stage === 'murderous'
+              ? {
+                  state: 'hostile',
+                  reason: 'relationship-stage-hostile',
+                  startedAtRoomNumber: args.createdAtRoomNumber,
+                }
+              : existing.playerHostility,
           flags: {
             ...existing.flags,
             relationshipId: args.relationshipId,
@@ -275,8 +283,11 @@ function mergeActor(existing: Actor, incoming: Actor): Actor {
       : incomingHostile
         ? incoming.hostility
         : (existing.hostility ?? incoming.hostility),
+    playerHostility: incoming.playerHostility ?? existing.playerHostility,
+    targetedThreat: existing.targetedThreat ?? incoming.targetedThreat,
     currentRoomId: existing.currentRoomId ?? incoming.currentRoomId,
     presence: existing.presence,
+    scheduleGoal: existing.scheduleGoal ?? incoming.scheduleGoal,
     goal: existing.goal ?? incoming.goal,
     goalStack: existing.goalStack ?? incoming.goalStack,
     activity: existing.activity ?? incoming.activity,

@@ -76,6 +76,11 @@ describe('actor presence simulation', () => {
     expect(updates.map((update) => update.actorId)).toEqual(['actor:goblin', 'actor:bandit']);
     expect(updates[0]?.goal.kind).toBe('attackActor');
     expect(updates[0]?.activity.kind).toBe('combat-ranged');
+    expect(updates[0]?.threat).toMatchObject({
+      targetActorId: 'actor:bandit',
+      reason: 'faction-conflict',
+      source: 'faction',
+    });
   });
 
   it('selects day and night schedule goals without moving actors directly', () => {

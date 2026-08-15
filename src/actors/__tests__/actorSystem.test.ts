@@ -5,6 +5,8 @@ import { getActorIndicators } from '../actorIndicators.js';
 import { selectActorVoiceLine } from '../actorVoice.js';
 import type { TownStructure } from '../../world/town.js';
 import type { RoomSnapshot } from '../../world/types.js';
+import { createActorPresence } from '../actorPresence.js';
+import type { ActorTelemetryEvent } from '../actorTelemetry.js';
 
 describe('ActorSystem', () => {
   it('creates stable town resident actors and room indexes', () => {
@@ -487,5 +489,188 @@ describe('ActorSystem', () => {
 
     expect(actors.getActor(target.id)?.health?.state).toBe('dead');
     expect(actors.getActor(target.id)?.hostility).toBe('dead');
+  });
+
+  it('targets hostile-faction actors without making guards hostile to the player', () => {
+    const events: ActorTelemetryEvent[] = [];
+    const actors = new ActorSystem();
+    actors.setTelemetrySink((event) => events.push(event));
+    const guard = actors.registry.ensureTownResidentActor({
+      residentId: 'nina',
+      name: 'Nina',
+      role: 'guard',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: '0,0,0',
+    });
+    const thief = actors.registry.ensureTownResidentActor({
+      residentId: 'shade',
+      name: 'Shade',
+      role: 'thief',
+      factionId: 'thieves-guild',
+      townId: 'eastmere',
+      currentRoomId: '0,0,0',
+    });
+
+    actors.resolveFactionConflicts('0,0,0');
+
+    const updatedGuard = actors.getActor(guard.id);
+    expect(updatedGuard?.goal).toMatchObject({
+      kind: 'attackActor',
+      targetActorId: thief.id,
+      reason: 'faction-conflict',
+    });
+    expect(updatedGuard?.targetedThreat).toMatchObject({
+      targetActorId: thief.id,
+      reason: 'faction-conflict',
+      source: 'faction',
+    });
+    expect(updatedGuard?.hostility).not.toBe('hostile');
+    expect(updatedGuard?.playerHostility?.state).not.toBe('hostile');
+    expect(events.some((event) => event.type === 'actor.player_hostility_changed')).toBe(false);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'actor.threat_changed',
+        actorId: guard.id,
+        reason: 'faction-conflict',
+        data: expect.objectContaining({ targetActorId: thief.id }),
+      }),
+    );
+  });
+
+  it('keeps schedules as base intent while urgent faction combat interrupts and resumes', () => {
+    const actors = new ActorSystem();
+    const guard = actors.registry.ensureTownResidentActor({
+      residentId: 'gate',
+      name: 'Gate Guard',
+      role: 'gateGuard',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: '0,0,0',
+      postPosition: { x: 2, y: 8 },
+    });
+    actors.registry.update(guard.id, (actor) => ({
+      ...actor,
+      schedule: {
+        permanentDuty: true,
+        fixedPostRoomId: '0,0,0',
+        fixedPostPosition: { x: 2, y: 8 },
+      },
+    }));
+    actors.applyScheduleGoals({ roomNumber: 1 });
+    const scheduled = actors.getActor(guard.id);
+    expect(scheduled?.scheduleGoal).toMatchObject({ kind: 'defendArea' });
+    expect(scheduled?.goal).toMatchObject({ kind: 'defendArea' });
+
+    const bandit = actors.registry.ensureTownResidentActor({
+      residentId: 'bandit',
+      name: 'Bandit',
+      role: 'thief',
+      factionId: 'bandits',
+      townId: 'raiders',
+      currentRoomId: '0,0,0',
+    });
+    actors.resolveFactionConflicts('0,0,0');
+    expect(actors.getActor(guard.id)?.goal).toMatchObject({
+      kind: 'attackActor',
+      targetActorId: bandit.id,
+    });
+
+    actors.registry.update(bandit.id, (actor) => ({
+      ...actor,
+      health: { current: 0, max: 3, state: 'dead' },
+      hostility: 'dead',
+    }));
+    actors.resumeGoal(guard.id);
+
+    expect(actors.getActor(guard.id)?.goal).toMatchObject({ kind: 'defendArea' });
+  });
+
+  it('updates merchant schedule goals across day phases without room reload', () => {
+    const actors = new ActorSystem();
+    const merchant = actors.registry.ensureTownResidentActor({
+      residentId: 'marta',
+      name: 'Marta',
+      role: 'shopkeeper',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: '0,0,0',
+      homeRoomId: 'home-room',
+      workRoomId: 'shop-room',
+    });
+
+    actors.applyScheduleGoals(12);
+    expect(actors.getActor(merchant.id)?.scheduleGoal).toMatchObject({
+      kind: 'work',
+      roomId: 'shop-room',
+    });
+
+    actors.applyScheduleGoals(23);
+
+    expect(actors.getActor(merchant.id)?.scheduleGoal).toMatchObject({
+      kind: 'goHome',
+      roomId: 'home-room',
+    });
+  });
+
+  it('treats actor presence as authoritative after authored resync', () => {
+    const actors = new ActorSystem();
+    const resident = actors.registry.ensureTownResidentActor({
+      residentId: 'alice',
+      name: 'Alice',
+      role: 'resident',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: 'market',
+    });
+    actors.setPresence(
+      resident.id,
+      createActorPresence({ roomId: 'home', position: { x: 6, y: 5 } }),
+      'test-move',
+    );
+
+    actors.registry.ensureTownResidentActor({
+      residentId: 'alice',
+      name: 'Alice',
+      role: 'resident',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: 'market',
+    });
+
+    expect(actors.getActor(resident.id)?.presence).toMatchObject({
+      roomId: 'home',
+      position: { x: 6, y: 5 },
+    });
+    expect(actors.getActorsInRoom('market')).toEqual([]);
+    expect(actors.getActorsInRoom('home').map((actor) => actor.id)).toEqual([resident.id]);
+  });
+
+  it('logs exact reasons for player-hostility changes', () => {
+    const events: ActorTelemetryEvent[] = [];
+    const actors = new ActorSystem();
+    actors.setTelemetrySink((event) => events.push(event));
+    const guard = actors.registry.ensureTownResidentActor({
+      residentId: 'nina',
+      name: 'Nina',
+      role: 'guard',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: '0,0,0',
+    });
+
+    actors.setPlayerHostility(guard.id, 'hostile', 'player-attacked-actor', 7);
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'actor.player_hostility_changed',
+        actorId: guard.id,
+        reason: 'player-attacked-actor',
+        data: expect.objectContaining({
+          reason: 'player-attacked-actor',
+          next: expect.objectContaining({ state: 'hostile' }),
+        }),
+      }),
+    );
   });
 });
