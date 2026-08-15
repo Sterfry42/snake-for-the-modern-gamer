@@ -910,6 +910,7 @@ export class SnakeGame implements QuestRuntime {
   >();
   private readonly npcBodies = new Map<string, NpcBodyState>();
   private readonly actorMaterializationDirtyRooms = new Set<string>();
+  private readonly actorsTransitionedFromLoadedRoomThisTick = new Set<string>();
   private readonly resolvedWandererEncounters = new Set<string>();
   private readonly wandererHistory = new Map<string, EncounterHistoryEntry>();
   private lastWandererEncounterRoomCount = -999;
@@ -3859,6 +3860,7 @@ export class SnakeGame implements QuestRuntime {
     this.applyTownRuntimeToRoom(room);
     this.stampQuestActorsIntoRoom(room);
     this.ensureActorsFromRoomContent(room);
+    this.actorsTransitionedFromLoadedRoomThisTick.clear();
     this.actors.tick({
       nowMs: Number(this.getFlag<number>('timeMs') ?? 0),
       deltaMs,
@@ -8444,23 +8446,28 @@ export class SnakeGame implements QuestRuntime {
         shouldDematerializeForActorGoal(actor, room, body.position)
       ) {
         const goalRoomId = actor.goal.roomId;
-        const arrival = this.resolveActorTransitionArrival(room, goalRoomId, body.position);
+        const nextRoomId = this.selectNextActorTravelRoom(room, goalRoomId);
+        if (nextRoomId === room.id) {
+          continue;
+        }
+        const arrival = this.resolveActorTransitionArrival(room, nextRoomId, body.position);
         this.npcBodies.delete(body.relationshipId);
         const nextPresence = actor.presence
           ? {
               ...actor.presence,
-              roomId: goalRoomId,
+              roomId: nextRoomId,
               position: arrival,
               anchor: arrival,
               materialized: false,
             }
           : createActorPresence({
-              roomId: goalRoomId,
+              roomId: nextRoomId,
               position: arrival,
               anchor: arrival,
               materialized: false,
             });
         this.actors.setPresence(actor.id, nextPresence, 'actor-room-transition');
+        this.actorsTransitionedFromLoadedRoomThisTick.add(actor.id);
         const transitioned = this.actors.getActor(actor.id) ?? actor;
         this.actors.setActivity(
           actor.id,
@@ -8552,6 +8559,7 @@ export class SnakeGame implements QuestRuntime {
         !goalRoomId ||
         goalRoomId === actor.currentRoomId ||
         actor.currentRoomId === loadedRoomId ||
+        this.actorsTransitionedFromLoadedRoomThisTick.has(actor.id) ||
         actor.health?.state === 'dead' ||
         actor.hostility === 'dead'
       ) {
