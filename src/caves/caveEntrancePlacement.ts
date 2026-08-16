@@ -7,7 +7,7 @@ import type { CaveEntrance } from './caveTypes.js';
 import { CAVE_ENTRANCE_TILE } from './caveTypes.js';
 import { pickWeightedCaveTemplate } from './caveTemplates.js';
 
-const BASE_CAVE_CHANCE = 0.1913;
+const BASE_CAVE_CHANCE = 0.18;
 const CARDINALS: Vector2Like[] = [
   { x: 1, y: 0 },
   { x: -1, y: 0 },

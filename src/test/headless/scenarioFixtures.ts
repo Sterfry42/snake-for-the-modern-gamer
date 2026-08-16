@@ -15,6 +15,16 @@ export interface ScenarioActorOptions {
   workRoomId?: string;
 }
 
+export interface ScenarioEnemyActorOptions {
+  id: string;
+  name?: string;
+  encounterKind?: 'goblin' | 'duelist' | 'npc-hostile' | 'bandit';
+  roomId?: string;
+  position?: { x: number; y: number };
+  currentHearts?: number;
+  maxHearts?: number;
+}
+
 export function ensureScenarioActor(
   scenario: HeadlessScenario,
   options: ScenarioActorOptions,
@@ -55,6 +65,32 @@ export function ensureScenarioActor(
   return scenario.actor(actor.id);
 }
 
+export function ensureScenarioEnemyActor(
+  scenario: HeadlessScenario,
+  options: ScenarioEnemyActorOptions,
+): Actor {
+  const roomId = options.roomId ?? scenario.currentRoom().id;
+  const position = options.position ?? { x: 10, y: 10 };
+  const encounterKind = options.encounterKind === 'bandit' ? undefined : options.encounterKind;
+  const actor = scenario.game.getActorSystem().registry.ensureEnemyActor({
+    actorId: options.id,
+    enemyId: options.id,
+    roomId,
+    name: options.name,
+    encounterKind,
+    currentHearts: options.currentHearts,
+    maxHearts: options.maxHearts,
+  });
+  const presence: ActorPresence = {
+    roomId,
+    position,
+    anchor: position,
+    materialized: true,
+  };
+  scenario.placeActor(actor.id, presence, 'fixture-place-enemy-actor');
+  return scenario.actor(actor.id);
+}
+
 export function firstWalkableTile(
   scenario: HeadlessScenario,
   roomId = scenario.currentRoom().id,
@@ -77,7 +113,11 @@ export function offsetPosition(position: { x: number; y: number }, dx: number, d
 
 export function findGeneratedTownDoor(
   scenario: HeadlessScenario,
-  options: { templateId?: LayerEntrance['templateId']; radius?: number } = {},
+  options: {
+    templateId?: LayerEntrance['templateId'];
+    radius?: number;
+    includeLocked?: boolean;
+  } = {},
 ): { room: RoomSnapshot; entrance: LayerEntrance } {
   const radius = options.radius ?? 8;
   for (let y = -radius; y <= radius; y += 1) {
@@ -86,7 +126,7 @@ export function findGeneratedTownDoor(
       const entrance = room.layerEntrances?.find(
         (entry) =>
           entry.kind === 'townInterior' &&
-          !entry.locked &&
+          (options.includeLocked || !entry.locked) &&
           (!options.templateId || entry.templateId === options.templateId),
       );
       if (room.town && entrance) {

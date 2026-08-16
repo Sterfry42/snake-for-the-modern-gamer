@@ -35,6 +35,42 @@ import type {
   EnsureWandererActorArgs,
 } from './actorTypes.js';
 
+const CIVILIAN_FIREARM = {
+  id: 'civilian-revolver',
+  kind: 'firearm' as const,
+  label: 'Revolver',
+  damage: 1,
+  range: 8,
+  cooldownRooms: 1,
+};
+
+const GUARD_FIREARM = {
+  id: 'guard-revolver',
+  kind: 'firearm' as const,
+  label: 'Guard Revolver',
+  damage: 1,
+  range: 8,
+  cooldownRooms: 1,
+};
+
+const BANDIT_FIREARM = {
+  id: 'bandit-revolver',
+  kind: 'firearm' as const,
+  label: 'Bandit Revolver',
+  damage: 1,
+  range: 8,
+  cooldownRooms: 1,
+};
+
+const STANDARD_SWORD = {
+  id: 'standard-sword',
+  kind: 'sword' as const,
+  label: 'Sword',
+  damage: 1,
+  range: 2,
+  cooldownRooms: 2,
+};
+
 const PREY_SCHEDULE: ActorSchedule = {
   policyId: 'animal-prey',
   routines: {
@@ -301,11 +337,17 @@ export function actorIdForTownResident(
               ? 'cardDealer'
               : role === 'physicalTrainer'
                 ? 'physicalTrainer'
-                : role === 'guard'
-                  ? 'guard'
-                  : role === 'questGiver'
-                    ? 'questGiver'
-                    : 'resident';
+                : role === 'mapper'
+                  ? 'mapper'
+                  : role === 'wizard'
+                    ? 'wizard'
+                    : role === 'innkeeper'
+                      ? 'innkeeper'
+                      : role === 'guard'
+                        ? 'guard'
+                        : role === 'questGiver'
+                          ? 'questGiver'
+                          : 'resident';
   return `town:${townId}:${actorRole}:${residentId}`;
 }
 
@@ -331,6 +373,11 @@ export function createActorFromTownResident(args: EnsureTownResidentActorArgs): 
   const species: ActorSpecies = args.factionId === 'goblin-camps' ? 'goblin' : 'human';
   const personality = personalityForTownRole(role, species);
   const maxHealth = 3;
+  const weapons = isTownGuardRole(role)
+    ? [GUARD_FIREARM, STANDARD_SWORD]
+    : species === 'human'
+      ? [CIVILIAN_FIREARM]
+      : [CIVILIAN_FIREARM, STANDARD_SWORD];
   return createBaseActor({
     id: args.actorId ?? actorIdForTownResident(args.townId, args.residentId, args.role),
     kind,
@@ -348,9 +395,10 @@ export function createActorFromTownResident(args: EnsureTownResidentActorArgs): 
     health: { current: maxHealth, max: maxHealth, state: 'healthy' },
     combat: {
       armed: true,
-      ranged: true,
-      melee: true,
+      ranged: weapons.some((weapon) => weapon.kind === 'firearm'),
+      melee: weapons.some((weapon) => weapon.kind === 'sword'),
       canBeEatenWhenHostile: true,
+      weapons,
       slashCooldown: 0,
       surrenderChance: role === 'guard' ? 0.15 : role === 'resident' ? 0.45 : 0.3,
     },
@@ -463,6 +511,9 @@ export function createActorFromEnemy(args: EnsureEnemyActorArgs): Actor {
   const isGoblin = args.encounterKind === 'goblin';
   const isShark = args.encounterKind === 'shark';
   const isDuelist = args.encounterKind === 'duelist';
+  const humanoidWeapons = isGoblin
+    ? [CIVILIAN_FIREARM, STANDARD_SWORD]
+    : [BANDIT_FIREARM, STANDARD_SWORD];
   const maxHealth = Math.max(1, args.maxHearts ?? args.currentHearts ?? 1);
   const currentHealth = Math.max(0, args.currentHearts ?? maxHealth);
   const displayName = args.name ?? (isShark ? 'Shark' : isGoblin ? 'Goblin Gunner' : 'Bandit');
@@ -489,9 +540,10 @@ export function createActorFromEnemy(args: EnsureEnemyActorArgs): Actor {
     },
     combat: {
       armed: !isShark,
-      ranged: !isShark,
-      melee: true,
+      ranged: !isShark && humanoidWeapons.some((weapon) => weapon.kind === 'firearm'),
+      melee: isShark || humanoidWeapons.some((weapon) => weapon.kind === 'sword'),
       canBeEatenWhenHostile: !isShark,
+      weapons: isShark ? [] : humanoidWeapons,
       slashCooldown: 0,
       surrenderChance: isGoblin ? 0.2 : 0.1,
     },
@@ -620,6 +672,12 @@ function mapTownResidentRole(role: TownResidentRole): ActorRole {
       return 'cardDealer';
     case 'physicalTrainer':
       return 'physicalTrainer';
+    case 'mapper':
+      return 'mapper';
+    case 'wizard':
+      return 'wizard';
+    case 'innkeeper':
+      return 'innkeeper';
     case 'bartender':
       return 'bartender';
     case 'guard':
@@ -679,6 +737,12 @@ function personalityForTownRole(role: ActorRole, species: ActorSpecies): ActorPe
       return ['greedy', 'sharp', 'nosy'];
     case 'physicalTrainer':
       return ['practical', 'brave', 'sharp'];
+    case 'mapper':
+      return ['nosy', 'sharp', 'practical'];
+    case 'wizard':
+      return ['nosy', 'sentimental', 'sharp'];
+    case 'innkeeper':
+      return ['practical', 'kind', 'deadpan'];
     case 'bartender':
       return ['nosy', 'deadpan', 'practical'];
     case 'guard':

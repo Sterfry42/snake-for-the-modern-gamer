@@ -1,5 +1,6 @@
 import type { Item } from './item.js';
 import { generateBiomeLocatorItems } from '../world/biomeLocators.js';
+import { generateStructureLocatorItems } from '../world/structureLocators.js';
 import { getRestaurantFoods } from '../shops/restaurants.js';
 
 const RESTAURANT_FOOD_ITEMS: readonly Item[] = getRestaurantFoods().map((food) => ({
@@ -12,6 +13,7 @@ const RESTAURANT_FOOD_ITEMS: readonly Item[] = getRestaurantFoods().map((food) =
 
 export const ITEMS: readonly Item[] = [
   ...generateBiomeLocatorItems(),
+  ...generateStructureLocatorItems(),
   {
     id: 'apple-normal',
     name: 'Recovered Standard Apple',

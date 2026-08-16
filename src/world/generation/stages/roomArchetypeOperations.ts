@@ -157,6 +157,9 @@ export class RoomArchetypeOperations {
     if (context.roomId === this.config.originRoomId) {
       return { id: 'classic' };
     }
+    if (this.isStartingNeighborhood(context.roomId)) {
+      return { id: 'classic' };
+    }
     if (context.isJadePeak) {
       const [x = 0, y = 0] = context.roomId.split(',').map(Number);
       void x;
@@ -887,5 +890,10 @@ export class RoomArchetypeOperations {
 
   private randomIntInRange(minInclusive: number, maxExclusive: number): number {
     return minInclusive + this.randomInt(Math.max(1, maxExclusive - minInclusive));
+  }
+
+  private isStartingNeighborhood(roomId: string): boolean {
+    const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
+    return z === 0 && Math.max(Math.abs(x), Math.abs(y)) <= 1;
   }
 }

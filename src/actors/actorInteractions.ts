@@ -104,7 +104,7 @@ export function buildActorInteractionMenu(
     }
   }
 
-  if (isTownShopRole(actor.role)) {
+  if (hasShopInteraction(actor)) {
     const shopClosedReason =
       typeof actor.flags.shopClosedReason === 'string'
         ? actor.flags.shopClosedReason
@@ -203,6 +203,10 @@ export function allowsOffHoursShop(actor: Actor): boolean {
     actor.role === 'goblinMerchant' ||
     actor.role === 'blackMarketMerchant'
   );
+}
+
+function hasShopInteraction(actor: Actor): boolean {
+  return isTownShopRole(actor.role) || actor.role === 'goblinMerchant';
 }
 
 function menu(actor: Actor, options: ActorInteractionOption[]): ActorInteractionMenuModel {

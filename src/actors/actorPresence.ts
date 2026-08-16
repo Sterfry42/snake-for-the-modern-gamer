@@ -152,6 +152,9 @@ export function inferActorActivity(args: {
   if (args.actor.goal?.reason?.includes('shelter')) {
     return activity('sheltering', 'schedule', args.roomNumber);
   }
+  if (args.actor.goal?.reason?.startsWith('observe-') === true) {
+    return activity('observing-sky', 'schedule', args.roomNumber);
+  }
   if (args.actor.goal?.kind === 'defendArea') {
     return activity('guarding', 'schedule', args.roomNumber);
   }
@@ -207,6 +210,21 @@ export function selectScheduleGoal(
     };
   }
   if (dayPhase === 'dawn' || dayPhase === 'dusk') {
+    const eveningSocialRoomId = actor.schedule?.workRoomId ?? actor.workRoomId;
+    if (
+      dayPhase === 'dusk' &&
+      eveningSocialRoomId &&
+      eveningSocialRoomId !== actor.currentRoomId &&
+      prefersEveningSocial(actor)
+    ) {
+      return {
+        kind: 'socialize',
+        priority: 12,
+        roomId: eveningSocialRoomId,
+        targetPosition: actor.schedule?.workPosition,
+        reason: 'evening-social-schedule',
+      };
+    }
     const place = resolveSchedulePlace(actor, 'home');
     return {
       kind: place.roomId ? 'goHome' : 'wander',
@@ -262,6 +280,20 @@ export function selectScheduleGoal(
     roomId: anchorRoomId,
     reason: 'daily-roam-schedule',
   };
+}
+
+function prefersEveningSocial(actor: Actor): boolean {
+  if (actor.personality.some((tag) => tag === 'cowardly' || tag === 'paranoid')) {
+    return false;
+  }
+  return actor.personality.some(
+    (tag) =>
+      tag === 'romantic' ||
+      tag === 'nosy' ||
+      tag === 'lonely' ||
+      tag === 'sentimental' ||
+      tag === 'greedy',
+  );
 }
 
 function resolveSchedulePlace(

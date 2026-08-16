@@ -12,6 +12,7 @@ import {
   CARDINAL_DIRECTIONS,
   isWithinEuclideanRadius,
   manhattanDistance,
+  stableStringHashPositive,
   vectorKey,
   type Vector2Like,
 } from '../core/math.js';
@@ -143,6 +144,7 @@ import { resolveBiomeAtmosphere } from '../world/atmosphereResolver.js';
 import type {
   AtmosphereConfig,
   AtmosphereState,
+  DayPhase,
   GlobalWeather,
   ResolvedAtmosphereView,
   ShelterMode,
@@ -386,6 +388,66 @@ interface BanditRaidRuntimeState {
   aftermathRecorded?: boolean;
 }
 
+export interface ApproachingBanditRaidState {
+  id: string;
+  eventId: string;
+  townId: string;
+  gateRoomId: string;
+  targetRoomId: string;
+  routeRoomIds: string[];
+  currentRouteIndex: number;
+  strength: number;
+  originalStrength: number;
+  warning: boolean;
+  delayedByRooms: number;
+  banditActorIds: string[];
+  phase: 'approaching' | 'at-gate' | 'inside' | 'aftermath';
+  casualties: number;
+  damage: number;
+}
+
+export interface PatrolRaidInterceptionResult {
+  raid: ApproachingBanditRaidState;
+  patrol: TownPatrolExcursion;
+  warningCreated: boolean;
+  strengthBefore: number;
+  strengthAfter: number;
+  delayedByRooms: number;
+  patrolSurvivors: number;
+}
+
+export type ActorAttackFacing = 'north' | 'south' | 'east' | 'west';
+
+export interface ActorSwordAttackEvent {
+  id: string;
+  actorId: string;
+  roomId: string;
+  weaponId: string;
+  selectedWeaponKind: 'sword';
+  activityKind: 'combat-melee';
+  facing: ActorAttackFacing;
+  origin: Vector2Like;
+  target: Vector2Like;
+  cells: Vector2Like[];
+  visualCells: Vector2Like[];
+  blocked: boolean;
+  cooldownActive: boolean;
+  damagedPlayer: boolean;
+  damagedActorIds: string[];
+  createdAtRoomNumber: number;
+}
+
+export interface ActorRangedAttackDecision {
+  actorId: string;
+  roomId: string;
+  weaponId: string;
+  selectedWeaponKind: 'firearm';
+  activityKind: 'combat-ranged';
+  cooldownActive: boolean;
+}
+
+export type ActorAttackDecision = ActorSwordAttackEvent | ActorRangedAttackDecision;
+
 export interface ActorJournalEntry {
   id: string;
   name: string;
@@ -573,6 +635,58 @@ export type QuestInteraction =
       title: string;
       options: Array<{ id: string; title: string; description: string }>;
     };
+
+export type DoorAction = 'enter' | 'knock' | 'use-key' | 'pick-lock' | 'inspect' | 'leave';
+
+export interface DoorAccessResolution {
+  access: 'open' | 'closed' | 'locked';
+  autoEnter: boolean;
+  entranceId: string;
+  buildingId?: string;
+  displayName: string;
+  serviceId?: string;
+  publicHours?: { opens: DayPhase; closes: DayPhase; label: string };
+  nextOpen?: { dayPhase: DayPhase; label: string };
+  closureReason?: string;
+  actions: DoorAction[];
+}
+
+export interface InnRestResult {
+  ok: boolean;
+  message: string;
+  cost: number;
+  elapsedMs: number;
+  startedPhase: DayPhase;
+  endedPhase: DayPhase;
+  phasesCrossed: DayPhase[];
+  weatherBefore: GlobalWeather;
+  weatherAfter: GlobalWeather;
+  worldDayBefore: number;
+  worldDayAfter: number;
+  scoreBefore: number;
+  scoreAfter: number;
+  healthBefore: number;
+  healthAfter: number;
+  healed: number;
+  wellRested: boolean;
+  refusedReason?: 'not-inn' | 'insufficient-score' | 'danger';
+}
+
+export interface TownPatrolMember {
+  actorId: string;
+  health: number;
+  roomId: string;
+}
+
+export interface TownPatrolExcursion {
+  id: string;
+  townId: string;
+  homeRoomId: string;
+  routeRoomIds: string[];
+  currentRouteIndex: number;
+  members: TownPatrolMember[];
+  retreating: boolean;
+}
 
 export interface ArchipelagoLocalRewardCheck {
   kind: 'item' | 'card' | 'artifact';
@@ -3387,12 +3501,26 @@ export class SnakeGame implements QuestRuntime {
       return;
     }
     this.snake.teleportTo(runtime.parentRoomId, runtime.returnPosition, { x: 0, y: 1 });
+    this.dematerializeActorsFromLayer(runtime.layerId, runtime.parentRoomId);
     this.world.setLayerInstanceState(runtime.layerId, 'completed');
     this.setFlag('layers.active', undefined);
     this.setFlag('traversal.manualResumePending', true);
     this.setFlag('ui.questInteraction', { message: 'You step back outside.' });
     roomsChanged.add(runtime.layerId);
     roomsChanged.add(runtime.parentRoomId);
+  }
+
+  private dematerializeActorsFromLayer(layerId: string, parentRoomId: string): void {
+    for (const actor of this.actors.registry.getAll()) {
+      if (actor.currentRoomId !== layerId && actor.presence?.roomId !== layerId) {
+        continue;
+      }
+      this.actors.registry.update(actor.id, (current) => ({
+        ...current,
+        currentRoomId: parentRoomId,
+        presence: undefined,
+      }));
+    }
   }
 
   private prepareSavedLayerRoomForLoad(): void {
@@ -5178,6 +5306,14 @@ export class SnakeGame implements QuestRuntime {
     return this.world.getRoom(this.snake.currentRoomId);
   }
 
+  getGeneratedRoomCount(): number {
+    return this.world.getCachedRoomCount();
+  }
+
+  getWorldGenerationIdentity(): WorldGenerationIdentity {
+    return this.world.getWorldGenerationIdentity();
+  }
+
   getDebugSnapshot(): Record<string, unknown> {
     const room = this.getCurrentRoom();
     const head = this.snake.bodySegments[0];
@@ -5558,6 +5694,86 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
+  resolveNearbyTownDoorAccess(): DoorAccessResolution | null {
+    const hit = this.getNearbyTownBuildingDoor();
+    if (!hit) {
+      return null;
+    }
+    const room = this.world.getRoom(this.snake.currentRoomId);
+    const entrance = room.layerEntrances?.find((entry) => entry.id === hit.entranceId);
+    return entrance ? this.resolveTownDoorAccess(entrance) : null;
+  }
+
+  private resolveTownDoorAccess(entrance: LayerEntrance): DoorAccessResolution {
+    const displayName = entrance.displayName ?? entrance.label ?? 'Town Interior';
+    const buildingId = entrance.townBuildingId;
+    const closureFlag = buildingId && this.getFlag<string>(`town.doorClosure.${buildingId}`);
+    if (closureFlag) {
+      return {
+        access: 'closed',
+        autoEnter: false,
+        entranceId: entrance.id,
+        buildingId,
+        displayName,
+        serviceId: buildingId,
+        closureReason: closureFlag,
+        actions: ['leave'],
+      };
+    }
+    if (entrance.doorKind === 'homeDoorClosed') {
+      return {
+        access: 'locked',
+        autoEnter: false,
+        entranceId: entrance.id,
+        buildingId,
+        displayName,
+        closureReason: 'Private residence',
+        actions: ['knock', 'use-key', 'pick-lock', 'leave'],
+      };
+    }
+    if (entrance.doorKind === 'guildGrateClosed') {
+      return {
+        access: 'locked',
+        autoEnter: false,
+        entranceId: entrance.id,
+        buildingId,
+        displayName,
+        closureReason: 'Hidden entrance locked',
+        actions: ['inspect', 'leave'],
+      };
+    }
+    if (entrance.doorKind === 'shopDoorClosed') {
+      const publicHours = { opens: 'day' as const, closes: 'night' as const, label: 'day-dusk' };
+      const serviceOpen = this.isTownBusinessOpenNow();
+      return {
+        access: serviceOpen ? 'open' : 'closed',
+        autoEnter: serviceOpen,
+        entranceId: entrance.id,
+        buildingId,
+        displayName,
+        serviceId: buildingId,
+        publicHours,
+        nextOpen: serviceOpen ? undefined : { dayPhase: 'day', label: 'day' },
+        closureReason: serviceOpen ? undefined : `Closed until ${publicHours.opens}`,
+        actions: serviceOpen ? ['enter', 'leave'] : ['knock', 'leave'],
+      };
+    }
+    return {
+      access: 'open',
+      autoEnter: true,
+      entranceId: entrance.id,
+      buildingId,
+      displayName,
+      serviceId: buildingId,
+      actions: ['enter', 'leave'],
+    };
+  }
+
+  private isTownBusinessOpenNow(): boolean {
+    const phase = this.getAtmosphereState().dayPhase;
+    return phase === 'day' || phase === 'dusk';
+  }
+
   enterNearbyTownBuildingDoor(): { ok: boolean; message: string } {
     const hit = this.getNearbyTownBuildingDoor();
     if (!hit) {
@@ -5573,6 +5789,15 @@ export class SnakeGame implements QuestRuntime {
       return guildResult.ok
         ? guildResult
         : { ok: false, message: entrance.doorLabel ?? guildResult.message };
+    }
+    const access = this.resolveTownDoorAccess(entrance);
+    if (access.access !== 'open' && entrance.doorKind !== 'homeDoorClosed') {
+      return {
+        ok: false,
+        message: access.closureReason
+          ? `${access.displayName} is closed: ${access.closureReason}.`
+          : `${access.displayName} is closed.`,
+      };
     }
     const effectiveEntrance =
       entrance.doorKind === 'homeDoorClosed' ? { ...entrance, locked: false } : entrance;
@@ -7566,6 +7791,460 @@ export class SnakeGame implements QuestRuntime {
     return event.summary;
   }
 
+  escalateGoblinAggressionAgainstGuards(
+    goblinActorId: string,
+    roomId = this.snake.currentRoomId,
+  ): FactionCurrentEvent | null {
+    const room = this.world.getRoom(roomId);
+    this.ensureActorsFromRoomContent(room);
+    this.materializeActorsForRoom(room);
+    const goblin = this.actors.getActor(goblinActorId);
+    if (!goblin || goblin.factionId !== 'goblin-camps') {
+      return null;
+    }
+    const guards = this.actors
+      .getActorsInRoom(roomId)
+      .filter((actor) => actor.id !== goblinActorId && isTownGuardRole(actor.role));
+    if (guards.length === 0) {
+      return null;
+    }
+    const event = this.factionEvents.createEvent({
+      type: 'skirmish',
+      factionIds: ['goblin-camps', 'guards'],
+      actorIds: [goblinActorId, ...guards.map((guard) => guard.id)],
+      townId: room.town?.id,
+      roomId,
+      severity: 42,
+      phase: 'active',
+      createdAt: this.getRoomsVisitedCount(),
+      summary: 'Goblin aggression broke the tense truce with the guards.',
+      tags: ['goblin', 'guard', 'hostile', 'skirmish'],
+    });
+    this.recordRumorFromFactionEvent(event);
+    this.actors.registry.update(goblinActorId, (actor) => ({
+      ...actor,
+      hostility: actor.hostility === 'dead' ? actor.hostility : 'hostile',
+      mood: {
+        ...actor.mood,
+        anger: Math.min(100, actor.mood.anger + 35),
+        stress: Math.min(100, actor.mood.stress + 20),
+      },
+      flags: {
+        ...actor.flags,
+        activeFactionEventId: event.id,
+      },
+    }));
+    for (const guard of guards) {
+      this.actors.setTargetThreat(
+        guard.id,
+        {
+          targetActorId: goblinActorId,
+          source: 'faction',
+          reason: 'goblin-aggression',
+          startedAtRoomNumber: this.getRoomsVisitedCount(),
+        },
+        'goblin-aggression',
+      );
+      this.actors.requestGoal(
+        guard.id,
+        {
+          kind: 'attackActor',
+          priority: 42,
+          targetActorId: goblinActorId,
+          roomId,
+          reason: 'goblin-aggression',
+        },
+        { interrupt: true },
+      );
+    }
+    this.setFlag('factions.v2.save', this.factionEvents.save());
+    return event;
+  }
+
+  startApproachingBanditRaidForCurrentTown(severity = 56): ApproachingBanditRaidState | null {
+    const town = this.getCurrentRoom().town;
+    if (!town) {
+      return null;
+    }
+    const existing = this.getFlag<ApproachingBanditRaidState>(this.approachingRaidFlagKey(town.id));
+    if (existing && existing.phase !== 'aftermath') {
+      this.materializeApproachingRaid(existing);
+      return existing;
+    }
+    const gateRoomId = town.entranceRoomId;
+    const routeRoomIds = this.createApproachingRaidRoute(town);
+    const strength = severity >= 64 ? 4 : severity >= 48 ? 3 : 2;
+    const event = this.factionEvents.createEvent({
+      type: 'raid-warning',
+      factionIds: ['bandits', 'guards', 'shopkeepers'],
+      townId: town.id,
+      roomId: routeRoomIds[0],
+      severity,
+      phase: 'brewing',
+      createdAt: this.getRoomsVisitedCount(),
+      expiresAt: this.getRoomsVisitedCount() + 12,
+      summary: 'Bandits are approaching town from the road outside the wall.',
+      tags: ['bandit', 'raid', 'warning', 'approaching', 'outside-town'],
+    });
+    const state: ApproachingBanditRaidState = {
+      id: `town-raid:${town.id}:${this.hashText(event.id)}`,
+      eventId: event.id,
+      townId: town.id,
+      gateRoomId,
+      targetRoomId: gateRoomId,
+      routeRoomIds,
+      currentRouteIndex: 0,
+      strength,
+      originalStrength: strength,
+      warning: false,
+      delayedByRooms: 0,
+      banditActorIds: Array.from(
+        { length: strength },
+        (_, index) => `town-raid-bandit:${town.id}:${this.hashText(event.id)}:${index}`,
+      ),
+      phase: 'approaching',
+      casualties: 0,
+      damage: 0,
+    };
+    this.setFlag(this.approachingRaidFlagKey(town.id), state);
+    this.recordRumorFromFactionEvent(event);
+    this.materializeApproachingRaid(state);
+    this.setFlag('factions.v2.save', this.factionEvents.save());
+    return state;
+  }
+
+  advanceApproachingBanditRaid(raidId: string): ApproachingBanditRaidState | null {
+    const current = this.findApproachingBanditRaidById(raidId);
+    if (!current) {
+      return null;
+    }
+    if (current.phase === 'inside' || current.phase === 'aftermath') {
+      return current;
+    }
+    const nextIndex = Math.min(current.routeRoomIds.length - 1, current.currentRouteIndex + 1);
+    const reachedGate = nextIndex === current.routeRoomIds.length - 1;
+    const next: ApproachingBanditRaidState = {
+      ...current,
+      currentRouteIndex: nextIndex,
+      phase: reachedGate ? 'at-gate' : 'approaching',
+    };
+    this.setFlag(this.approachingRaidFlagKey(next.townId), next);
+    this.materializeApproachingRaid(next);
+    if (reachedGate) {
+      return this.activateApproachingRaidInsideTown(next);
+    }
+    return next;
+  }
+
+  resolvePatrolRaidInterception(
+    raidId: string,
+    patrolId: string,
+  ): PatrolRaidInterceptionResult | null {
+    const raid = this.findApproachingBanditRaidById(raidId);
+    const patrol = this.findTownPatrolById(patrolId);
+    if (!raid || !patrol) {
+      return null;
+    }
+    const livingPatrol = patrol.members.filter((member) => member.health > 0);
+    const strengthBefore = raid.strength;
+    const losses = Math.min(raid.strength, Math.max(1, Math.ceil(livingPatrol.length / 2)));
+    const woundedPatrol = livingPatrol.slice(0, losses);
+    const nextPatrol: TownPatrolExcursion = {
+      ...patrol,
+      retreating: true,
+      members: patrol.members.map((member) =>
+        woundedPatrol.some((wounded) => wounded.actorId === member.actorId)
+          ? { ...member, health: Math.max(1, member.health - 1), roomId: patrol.homeRoomId }
+          : member,
+      ),
+    };
+    const nextRaid: ApproachingBanditRaidState = {
+      ...raid,
+      strength: Math.max(0, raid.strength - losses),
+      warning: true,
+      delayedByRooms: raid.delayedByRooms + 1,
+      casualties: raid.casualties + losses,
+    };
+    this.setFlag(this.townPatrolFlagKey(nextPatrol.townId), nextPatrol);
+    this.setFlag(this.approachingRaidFlagKey(nextRaid.townId), nextRaid);
+    this.materializeTownPatrol(nextPatrol);
+    this.materializeApproachingRaid(nextRaid);
+    this.emitWorldEvent({
+      type: 'faction-skirmish-started',
+      roomId: raid.routeRoomIds[raid.currentRouteIndex],
+      sourceActorId: livingPatrol[0]?.actorId,
+      targetActorIds: raid.banditActorIds.slice(0, strengthBefore),
+      witnessActorIds: livingPatrol.map((member) => member.actorId),
+      severity: 38 + losses * 6,
+      loudness: 50,
+      tags: ['bandit', 'raid', 'patrol', 'warning'],
+      summary: 'A town patrol intercepted approaching raiders outside the wall.',
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { townId: raid.townId, raidId: raid.id },
+    });
+    return {
+      raid: nextRaid,
+      patrol: nextPatrol,
+      warningCreated: true,
+      strengthBefore,
+      strengthAfter: nextRaid.strength,
+      delayedByRooms: nextRaid.delayedByRooms,
+      patrolSurvivors: nextPatrol.members.filter((member) => member.health > 0).length,
+    };
+  }
+
+  resolveApproachingBanditRaidAftermath(
+    raidId: string,
+    input: { casualties?: number; damage?: number } = {},
+  ): FactionCurrentEvent | null {
+    const raid = this.findApproachingBanditRaidById(raidId);
+    if (!raid) {
+      return null;
+    }
+    const room = this.world.getRoom(raid.targetRoomId);
+    const state = this.getFlag<BanditRaidRuntimeState>(this.banditRaidFlagKey(raid.eventId)) ?? {
+      eventId: raid.eventId,
+      roomId: raid.targetRoomId,
+      banditEnemyIds: [],
+      banditsKilled: 0,
+      banditsEaten: 0,
+      startedAtRoom: this.getRoomsVisitedCount(),
+    };
+    const defeated = Math.max(input.casualties ?? raid.casualties, state.banditsKilled);
+    const aftermath = this.factionEvents.recordRaidAftermath({
+      roomId: raid.targetRoomId,
+      townId: raid.townId,
+      createdAt: this.getRoomsVisitedCount(),
+      banditsKilled: defeated,
+      banditsEaten: state.banditsEaten,
+      playerHelped: defeated > 0,
+    });
+    const nextState = {
+      ...state,
+      banditsKilled: defeated,
+      aftermathRecorded: true,
+    } satisfies BanditRaidRuntimeState;
+    const nextRaid: ApproachingBanditRaidState = {
+      ...raid,
+      phase: 'aftermath',
+      strength: 0,
+      casualties: defeated,
+      damage: Math.max(input.damage ?? raid.damage, raid.damage),
+    };
+    this.setFlag(this.banditRaidFlagKey(raid.eventId), nextState);
+    this.setFlag(this.approachingRaidFlagKey(raid.townId), nextRaid);
+    this.resolveBanditRaidDefenders(aftermath, room, nextState);
+    this.recordRumorFromFactionEvent(aftermath);
+    this.setFlag('factions.v2.save', this.factionEvents.save());
+    return aftermath;
+  }
+
+  chooseActorAttackAgainstPlayer(actorId: string): ActorAttackDecision | null {
+    const actor = this.actors.getActor(actorId);
+    if (!actor?.presence || !actor.combat?.armed) {
+      return null;
+    }
+    const room = this.world.getRoom(actor.presence.roomId);
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return null;
+    }
+    const target = this.worldToLocalInRoom(room.id, head);
+    const sword = actor.combat.weapons?.find((weapon) => weapon.kind === 'sword');
+    const firearm = actor.combat.weapons?.find((weapon) => weapon.kind === 'firearm');
+    if (
+      sword &&
+      this.isActorSwordReady(actor) &&
+      this.isTargetInsideActorSwordArc(room, actor, target)
+    ) {
+      return this.resolveActorSwordAttackAgainstPlayer(actorId);
+    }
+    if (firearm) {
+      this.actors.setActivity(
+        actor.id,
+        {
+          kind: 'combat-ranged',
+          source: 'combat',
+          startedAtRoomNumber: this.getRoomsVisitedCount(),
+        },
+        'actor-ranged-attack-choice',
+      );
+      this.actors.registry.update(actor.id, (current) => ({
+        ...current,
+        combat: current.combat
+          ? {
+              ...current.combat,
+              activeWeaponId: firearm.id,
+            }
+          : current.combat,
+      }));
+      return {
+        actorId: actor.id,
+        roomId: room.id,
+        weaponId: firearm.id,
+        selectedWeaponKind: 'firearm',
+        activityKind: 'combat-ranged',
+        cooldownActive: false,
+      };
+    }
+    return null;
+  }
+
+  previewActorSwordAttack(actorId: string, target: Vector2Like): ActorSwordAttackEvent | null {
+    return this.createActorSwordAttackEvent(actorId, target, { applyDamage: false });
+  }
+
+  resolveActorSwordAttackAgainstPlayer(actorId: string): ActorSwordAttackEvent | null {
+    const actor = this.actors.getActor(actorId);
+    const head = this.snake.bodySegments[0];
+    if (!actor?.presence || !head) {
+      return null;
+    }
+    return this.createActorSwordAttackEvent(
+      actorId,
+      this.worldToLocalInRoom(actor.presence.roomId, head),
+      {
+        applyDamage: true,
+        playerTarget: true,
+      },
+    );
+  }
+
+  resolveActorSwordAttackAgainstActor(
+    actorId: string,
+    targetActorId: string,
+  ): ActorSwordAttackEvent | null {
+    const target = this.actors.getActor(targetActorId);
+    if (!target?.presence) {
+      return null;
+    }
+    return this.createActorSwordAttackEvent(actorId, target.presence.position, {
+      applyDamage: true,
+      targetActorId,
+    });
+  }
+
+  clearActorCombatState(actorId: string): void {
+    this.actors.setTargetThreat(actorId, undefined, 'combat-ended');
+    this.actors.setActivity(
+      actorId,
+      { kind: 'idle', source: 'system', startedAtRoomNumber: this.getRoomsVisitedCount() },
+      'combat-ended',
+    );
+    this.actors.registry.update(actorId, (actor) => ({
+      ...actor,
+      goal: undefined,
+      combat: actor.combat
+        ? {
+            ...actor.combat,
+            activeWeaponId: undefined,
+          }
+        : actor.combat,
+      flags: {
+        ...actor.flags,
+        actorSwordAttack: undefined,
+      },
+    }));
+    this.actors.resumeGoal(actorId);
+  }
+
+  resolveTownPatrolExcursion(townId?: string): TownPatrolExcursion | null {
+    const town = this.findTownForPatrol(townId);
+    if (!town) {
+      return null;
+    }
+    const key = this.townPatrolFlagKey(town.id);
+    const existing = this.getFlag<TownPatrolExcursion>(key);
+    if (existing) {
+      this.materializeTownPatrol(existing);
+      return existing;
+    }
+    const routeRoomIds = this.createTownPatrolRoute(town);
+    const memberCount = 1 + (stableStringHashPositive(`${town.id}:patrol:size`) % 4);
+    const members: TownPatrolMember[] = Array.from({ length: memberCount }, (_, index) => ({
+      actorId: `town-patrol:${town.id}:${index}`,
+      health: 3,
+      roomId: routeRoomIds[0]!,
+    }));
+    const excursion: TownPatrolExcursion = {
+      id: `town-patrol:${town.id}`,
+      townId: town.id,
+      homeRoomId: town.entranceRoomId,
+      routeRoomIds,
+      currentRouteIndex: 0,
+      members,
+      retreating: false,
+    };
+    this.setFlag(key, excursion);
+    this.materializeTownPatrol(excursion);
+    return excursion;
+  }
+
+  advanceTownPatrolExcursion(excursionId: string): TownPatrolExcursion | null {
+    const excursion = this.findTownPatrolById(excursionId);
+    if (!excursion) {
+      return null;
+    }
+    const nextIndex = excursion.retreating
+      ? Math.max(0, excursion.currentRouteIndex - 1)
+      : Math.min(excursion.routeRoomIds.length - 1, excursion.currentRouteIndex + 1);
+    const nextRoomId =
+      excursion.retreating && nextIndex === 0
+        ? excursion.homeRoomId
+        : excursion.routeRoomIds[nextIndex]!;
+    const next = {
+      ...excursion,
+      currentRouteIndex: nextIndex,
+      members: excursion.members.map((member) => ({ ...member, roomId: nextRoomId })),
+    };
+    this.setFlag(this.townPatrolFlagKey(excursion.townId), next);
+    this.materializeTownPatrol(next);
+    return next;
+  }
+
+  woundTownPatrolMember(actorId: string, health: number): TownPatrolExcursion | null {
+    const excursion = this.findTownPatrolForActor(actorId);
+    if (!excursion) {
+      return null;
+    }
+    const next = {
+      ...excursion,
+      members: excursion.members.map((member) =>
+        member.actorId === actorId
+          ? { ...member, health: Math.max(0, Math.floor(health)) }
+          : member,
+      ),
+    };
+    this.setFlag(this.townPatrolFlagKey(next.townId), next);
+    this.materializeTownPatrol(next);
+    return next;
+  }
+
+  evaluateTownPatrolRetreat(excursionId: string): TownPatrolExcursion | null {
+    const excursion = this.findTownPatrolById(excursionId);
+    if (!excursion) {
+      return null;
+    }
+    const living = excursion.members.filter((member) => member.health > 0);
+    const shouldRetreat =
+      living.length <= Math.max(1, Math.floor(excursion.members.length / 2)) ||
+      living.some((member) => member.health <= 1);
+    const next = shouldRetreat ? { ...excursion, retreating: true } : excursion;
+    this.setFlag(this.townPatrolFlagKey(next.townId), next);
+    this.materializeTownPatrol(next);
+    if (shouldRetreat) {
+      for (const member of living) {
+        this.actors.requestGoal(member.actorId, {
+          kind: 'travelToRoom',
+          priority: 26,
+          roomId: excursion.homeRoomId,
+          reason: 'patrol-retreat',
+        });
+      }
+    }
+    return next;
+  }
+
   getPeopleJournalView(limit = 24): ActorJournalEntry[] {
     const knownFacts = this.getFlag<ActorKnownFact[]>('actors.knownFacts') ?? [];
     return this.actors.registry
@@ -7774,6 +8453,15 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private activateBanditRaidDefenders(event: FactionCurrentEvent, room: RoomSnapshot): void {
+    for (const building of room.town?.buildings ?? []) {
+      if (
+        building.enterable &&
+        building.publicAccess !== false &&
+        building.kind !== 'residentialHome'
+      ) {
+        this.setFlag(`town.doorClosure.${building.id}`, 'Closed during the raid');
+      }
+    }
     for (const actor of this.actors.registry.getByRoom(room.id)) {
       if (actor.kind === 'animal' || actor.kind === 'enemy' || actor.factionId === 'bandits') {
         continue;
@@ -7828,6 +8516,9 @@ export class SnakeGame implements QuestRuntime {
     room: RoomSnapshot,
     state: BanditRaidRuntimeState,
   ): void {
+    for (const building of room.town?.buildings ?? []) {
+      this.setFlag(`town.doorClosure.${building.id}`, undefined);
+    }
     for (const actor of this.actors.registry.getByRoom(room.id)) {
       if (actor.flags.activeFactionEventId !== state.eventId) {
         continue;
@@ -7917,6 +8608,239 @@ export class SnakeGame implements QuestRuntime {
 
   private banditRaidFlagKey(eventId: string): string {
     return `factions.raid.${this.hashText(eventId)}`;
+  }
+
+  private findTownForPatrol(townId?: string): TownStructure | null {
+    const current = this.getCurrentRoom().town;
+    if (current && (!townId || current.id === townId)) {
+      return current;
+    }
+    return null;
+  }
+
+  private createTownPatrolRoute(town: TownStructure): string[] {
+    const coords = town.physicalRoomIds.map((roomId) => this.parseRoomCoordinates(roomId));
+    const xs = coords.map(([x]) => x);
+    const ys = coords.map(([, y]) => y);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    const centerY = Math.floor((minY + maxY) / 2);
+    const z = coords[0]?.[2] ?? 0;
+    const eastBand = [`${maxX + 2},${centerY},${z}`, `${maxX + 3},${centerY},${z}`];
+    return eastBand.every((roomId) => !town.districtByRoomId[roomId])
+      ? eastBand
+      : [`${minX - 2},${centerY},${z}`, `${minX - 3},${centerY},${z}`];
+  }
+
+  private materializeTownPatrol(excursion: TownPatrolExcursion): void {
+    for (const [index, member] of excursion.members.entries()) {
+      if (member.health <= 0) {
+        continue;
+      }
+      const room = this.world.getRoom(member.roomId);
+      const position = this.findTownPatrolPosition(room, index);
+      this.actors.registry.ensureTownResidentActor({
+        actorId: member.actorId,
+        residentId: member.actorId,
+        name: `Patrol Guard ${index + 1}`,
+        role: 'guard',
+        factionId: 'guards',
+        townId: excursion.townId,
+        currentRoomId: member.roomId,
+        homeRoomId: excursion.homeRoomId,
+        workRoomId: member.roomId,
+        postPosition: position,
+        createdAtRoomNumber: this.getRoomsVisitedCount(),
+      });
+      this.actors.registry.update(member.actorId, (actor) => ({
+        ...actor,
+        health: {
+          current: member.health,
+          max: 3,
+          state: member.health < 3 ? 'wounded' : 'healthy',
+        },
+        flags: {
+          ...actor.flags,
+          patrolExcursionId: excursion.id,
+        },
+      }));
+      this.actors.setPresence(
+        member.actorId,
+        {
+          roomId: member.roomId,
+          position,
+          anchor: position,
+          materialized: true,
+        },
+        'town-patrol-materialize',
+      );
+    }
+  }
+
+  private findTownPatrolPosition(room: RoomSnapshot, index: number): Vector2Like {
+    const cols = room.layout[0]?.length ?? this.config.grid.cols;
+    const rows = room.layout.length;
+    for (let radius = 0; radius < Math.max(cols, rows); radius += 1) {
+      const y = Math.min(rows - 2, 4 + index + radius);
+      for (let x = 4; x < cols - 4; x += 1) {
+        const tile = room.layout[y]?.[x];
+        if (tile && tile !== '~' && !this.isSolidTile(tile) && !isBlockingTownTile(tile)) {
+          return { x, y };
+        }
+      }
+    }
+    return { x: 5 + index, y: 5 };
+  }
+
+  private findTownPatrolById(excursionId: string): TownPatrolExcursion | null {
+    for (const [key, value] of Object.entries(this.snake.flags)) {
+      if (!key.startsWith('town.runtime.patrol.')) {
+        continue;
+      }
+      const excursion = value as TownPatrolExcursion;
+      if (excursion?.id === excursionId) {
+        return excursion;
+      }
+    }
+    return null;
+  }
+
+  private findTownPatrolForActor(actorId: string): TownPatrolExcursion | null {
+    for (const [key, value] of Object.entries(this.snake.flags)) {
+      if (!key.startsWith('town.runtime.patrol.')) {
+        continue;
+      }
+      const excursion = value as TownPatrolExcursion;
+      if (excursion?.members?.some((member) => member.actorId === actorId)) {
+        return excursion;
+      }
+    }
+    return null;
+  }
+
+  private townPatrolFlagKey(townId: string): string {
+    return `town.runtime.patrol.${townId}`;
+  }
+
+  private createApproachingRaidRoute(town: TownStructure): string[] {
+    const patrolRoute = this.createTownPatrolRoute(town);
+    return [...patrolRoute].reverse().concat(town.entranceRoomId);
+  }
+
+  private materializeApproachingRaid(raid: ApproachingBanditRaidState): void {
+    if (raid.phase === 'aftermath') {
+      return;
+    }
+    const roomId =
+      raid.phase === 'inside' ? raid.targetRoomId : raid.routeRoomIds[raid.currentRouteIndex]!;
+    const room = this.world.getRoom(roomId);
+    const livingBanditIds = raid.banditActorIds.slice(0, raid.strength);
+    for (const [index, actorId] of livingBanditIds.entries()) {
+      const position = this.findTownPatrolPosition(room, index + 3);
+      this.actors.registry.ensureEnemyActor({
+        actorId,
+        enemyId: actorId,
+        roomId,
+        name: `Approaching Raider ${index + 1}`,
+        encounterKind: 'bandit',
+        currentHearts: 1,
+        maxHearts: 1,
+        createdAtRoomNumber: this.getRoomsVisitedCount(),
+      });
+      this.actors.registry.update(actorId, (actor) => ({
+        ...actor,
+        currentRoomId: roomId,
+        flags: {
+          ...actor.flags,
+          approachingRaidId: raid.id,
+        },
+      }));
+      this.actors.setPresence(
+        actorId,
+        {
+          roomId,
+          position,
+          anchor: position,
+          materialized: true,
+        },
+        'approaching-raid-materialize',
+      );
+      this.actors.requestGoal(
+        actorId,
+        raid.phase === 'inside'
+          ? {
+              kind: 'attackActor',
+              priority: 40,
+              roomId,
+              reason: 'town-raid',
+            }
+          : {
+              kind: 'travelToRoom',
+              priority: 34,
+              roomId: raid.phase === 'at-gate' ? raid.targetRoomId : raid.gateRoomId,
+              reason: 'approaching-raid',
+            },
+        { replaceLowerPriority: true },
+      );
+    }
+  }
+
+  private activateApproachingRaidInsideTown(
+    raid: ApproachingBanditRaidState,
+  ): ApproachingBanditRaidState {
+    const room = this.world.getRoom(raid.targetRoomId);
+    this.ensureActorsFromRoomContent(room);
+    this.materializeActorsForRoom(room);
+    const active = this.factionEvents.createEvent({
+      type: 'raid-active',
+      factionIds: ['bandits', 'guards', 'shopkeepers'],
+      actorIds: raid.banditActorIds.slice(0, raid.strength),
+      townId: raid.townId,
+      roomId: raid.targetRoomId,
+      severity: Math.max(35, 36 + raid.strength * 8),
+      phase: 'active',
+      createdAt: this.getRoomsVisitedCount(),
+      expiresAt: this.getRoomsVisitedCount() + 10 + raid.delayedByRooms,
+      summary: 'Raiders came through the gate and the town emergency snapped into place.',
+      tags: ['bandit', 'raid', 'active', 'danger', 'gate-entry'],
+      flags: {
+        sourceApproachId: raid.id,
+        delayedByRooms: raid.delayedByRooms,
+        warning: raid.warning,
+      },
+    });
+    const inside: ApproachingBanditRaidState = {
+      ...raid,
+      eventId: active.id,
+      phase: 'inside',
+      currentRouteIndex: raid.routeRoomIds.length - 1,
+      targetRoomId: room.id,
+    };
+    this.setFlag(this.approachingRaidFlagKey(inside.townId), inside);
+    this.recordRumorFromFactionEvent(active);
+    this.spawnBanditRaidForEvent(active, room);
+    this.materializeApproachingRaid(inside);
+    this.setFlag('factions.v2.save', this.factionEvents.save());
+    return inside;
+  }
+
+  private findApproachingBanditRaidById(raidId: string): ApproachingBanditRaidState | null {
+    for (const [key, value] of Object.entries(this.snake.flags)) {
+      if (!key.startsWith('town.runtime.raid.')) {
+        continue;
+      }
+      const raid = value as ApproachingBanditRaidState;
+      if (raid?.id === raidId) {
+        return raid;
+      }
+    }
+    return null;
+  }
+
+  private approachingRaidFlagKey(townId: string): string {
+    return `town.runtime.raid.${townId}`;
   }
 
   private recordRumorFromWorldEvent(event: WorldEvent): void {
@@ -9161,6 +10085,283 @@ export class SnakeGame implements QuestRuntime {
     return Math.abs(ax - bx) + Math.abs(ay - by) + Math.abs(az - bz);
   }
 
+  private createActorSwordAttackEvent(
+    actorId: string,
+    target: Vector2Like,
+    options: { applyDamage: boolean; playerTarget?: boolean; targetActorId?: string },
+  ): ActorSwordAttackEvent | null {
+    const actor = this.actors.getActor(actorId);
+    if (!actor?.presence || !actor.combat?.melee) {
+      return null;
+    }
+    const sword = actor.combat.weapons?.find((weapon) => weapon.kind === 'sword');
+    if (!sword) {
+      return null;
+    }
+    const room = this.world.getRoom(actor.presence.roomId);
+    const nowRoom = this.getRoomsVisitedCount();
+    const cooldownUntil = Number(actor.flags.actorSwordCooldownUntilRoom ?? 0);
+    const cooldownActive = cooldownUntil > nowRoom;
+    const facing = this.chooseActorAttackFacing(actor.presence.position, target);
+    const footprint = this.resolveActorSwordFootprint(room, actor.presence.position, facing);
+    const targetKey = vectorKey(target);
+    const targetReachable = footprint.cells.some((cell) => vectorKey(cell) === targetKey);
+    const event: ActorSwordAttackEvent = {
+      id: `actor-sword:${actor.id}:${nowRoom}:${facing}`,
+      actorId: actor.id,
+      roomId: room.id,
+      weaponId: sword.id,
+      selectedWeaponKind: 'sword',
+      activityKind: 'combat-melee',
+      facing,
+      origin: { ...actor.presence.position },
+      target: { ...target },
+      cells: footprint.cells,
+      visualCells: footprint.cells,
+      blocked: footprint.blocked || !targetReachable,
+      cooldownActive,
+      damagedPlayer: false,
+      damagedActorIds: [],
+      createdAtRoomNumber: nowRoom,
+    };
+    this.actors.setActivity(
+      actor.id,
+      {
+        kind: 'combat-melee',
+        source: 'combat',
+        targetActorId: options.targetActorId,
+        startedAtRoomNumber: nowRoom,
+        endsAtRoomNumber: nowRoom + sword.cooldownRooms,
+      },
+      'actor-sword-attack',
+    );
+    this.actors.registry.update(actor.id, (current) => ({
+      ...current,
+      combat: current.combat
+        ? {
+            ...current.combat,
+            activeWeaponId: sword.id,
+          }
+        : current.combat,
+      flags: {
+        ...current.flags,
+        actorSwordAttack: event,
+      },
+    }));
+    if (!options.applyDamage || cooldownActive || !targetReachable) {
+      return event;
+    }
+    if (options.playerTarget) {
+      const damagedPlayer = this.damagePlayerIfHeadInSwordArc(room, event);
+      const resolved = { ...event, damagedPlayer };
+      this.recordActorSwordCooldown(actor.id, sword.cooldownRooms, resolved);
+      return resolved;
+    }
+    if (options.targetActorId) {
+      const damagedActorIds = this.damageHostileActorInSwordArc(
+        actor,
+        options.targetActorId,
+        event,
+      );
+      const resolved = { ...event, damagedActorIds };
+      this.recordActorSwordCooldown(actor.id, sword.cooldownRooms, resolved);
+      return resolved;
+    }
+    return event;
+  }
+
+  private isActorSwordReady(actor: Actor): boolean {
+    return Number(actor.flags.actorSwordCooldownUntilRoom ?? 0) <= this.getRoomsVisitedCount();
+  }
+
+  private isTargetInsideActorSwordArc(
+    room: RoomSnapshot,
+    actor: Actor,
+    target: Vector2Like,
+  ): boolean {
+    if (!actor.presence) {
+      return false;
+    }
+    const facing = this.chooseActorAttackFacing(actor.presence.position, target);
+    const footprint = this.resolveActorSwordFootprint(room, actor.presence.position, facing);
+    return footprint.cells.some((cell) => cell.x === target.x && cell.y === target.y);
+  }
+
+  private chooseActorAttackFacing(origin: Vector2Like, target: Vector2Like): ActorAttackFacing {
+    const dx = target.x - origin.x;
+    const dy = target.y - origin.y;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      return dx >= 0 ? 'east' : 'west';
+    }
+    return dy >= 0 ? 'south' : 'north';
+  }
+
+  private resolveActorSwordFootprint(
+    room: RoomSnapshot,
+    origin: Vector2Like,
+    facing: ActorAttackFacing,
+  ): { cells: Vector2Like[]; blocked: boolean } {
+    const lanes = [-1, 0, 1];
+    const cells: Vector2Like[] = [];
+    let blocked = false;
+    for (const lane of lanes) {
+      let laneBlocked = false;
+      for (let depth = 1; depth <= 2; depth += 1) {
+        const cell = this.swordFootprintCell(origin, facing, depth, lane);
+        if (laneBlocked || !this.isInRoomBounds(room, cell)) {
+          continue;
+        }
+        const tile = room.layout[cell.y]?.[cell.x];
+        if (!tile || this.isSolidTile(tile) || isBlockingTownTile(tile)) {
+          blocked = true;
+          laneBlocked = true;
+          continue;
+        }
+        cells.push(cell);
+      }
+    }
+    return { cells, blocked };
+  }
+
+  private swordFootprintCell(
+    origin: Vector2Like,
+    facing: ActorAttackFacing,
+    depth: number,
+    lane: number,
+  ): Vector2Like {
+    switch (facing) {
+      case 'east':
+        return { x: origin.x + depth, y: origin.y + lane };
+      case 'west':
+        return { x: origin.x - depth, y: origin.y + lane };
+      case 'south':
+        return { x: origin.x + lane, y: origin.y + depth };
+      case 'north':
+        return { x: origin.x + lane, y: origin.y - depth };
+    }
+  }
+
+  private isInRoomBounds(room: RoomSnapshot, position: Vector2Like): boolean {
+    return (
+      position.y >= 0 &&
+      position.y < room.layout.length &&
+      position.x >= 0 &&
+      position.x < (room.layout[position.y]?.length ?? 0)
+    );
+  }
+
+  private damagePlayerIfHeadInSwordArc(room: RoomSnapshot, event: ActorSwordAttackEvent): boolean {
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return false;
+    }
+    const headLocal = this.worldToLocalInRoom(room.id, head);
+    const headHit = event.cells.some((cell) => cell.x === headLocal.x && cell.y === headLocal.y);
+    if (!headHit) {
+      return false;
+    }
+    this.applySwordDamageToPlayer();
+    return true;
+  }
+
+  private applySwordDamageToPlayer(): void {
+    const max = Number(this.getFlag<number>('player.maxHealth') ?? 3);
+    const current = Number(this.getFlag<number>('player.health') ?? max);
+    const next = Math.max(0, current - 1);
+    this.setFlag('player.health', next);
+    this.emitHealthDebug('snake.damaged', 'npc-hostile', current, next, max, {
+      damage: current - next,
+      hitStyle: 'sword',
+      hitCount: 1,
+    });
+    this.emitPlayerLowHealthEvent(next, max, 'npc-hostile');
+    this.setFlag('ui.healthRevealed', true);
+    const head = this.snake.bodySegments[0];
+    if (head) {
+      this.setFlag('ui.playerHit', {
+        x: head.x,
+        y: head.y,
+        roomId: this.snake.currentRoomId,
+        health: next,
+        maxHealth: max,
+        source: 'sword',
+      });
+    }
+  }
+
+  private damageHostileActorInSwordArc(
+    source: Actor,
+    targetActorId: string,
+    event: ActorSwordAttackEvent,
+  ): string[] {
+    const target = this.actors.getActor(targetActorId);
+    if (!target?.presence || target.currentRoomId !== event.roomId) {
+      return [];
+    }
+    if (source.factionId && target.factionId === source.factionId) {
+      return [];
+    }
+    const hit = event.cells.some(
+      (cell) => cell.x === target.presence?.position.x && cell.y === target.presence?.position.y,
+    );
+    if (!hit) {
+      return [];
+    }
+    this.applyActorSwordDamage(source, target, event.roomId);
+    return [target.id];
+  }
+
+  private applyActorSwordDamage(source: Actor, target: Actor, roomId: string): void {
+    const nowRoom = this.getRoomsVisitedCount();
+    const max = Math.max(1, target.health?.max ?? 1);
+    const nextCurrent = Math.max(0, (target.health?.current ?? max) - 1);
+    this.actors.registry.update(target.id, (actor) => ({
+      ...actor,
+      health: {
+        current: nextCurrent,
+        max,
+        state: nextCurrent <= 0 ? 'dead' : 'wounded',
+      },
+      hostility: nextCurrent <= 0 ? 'dead' : actor.hostility,
+      activity:
+        nextCurrent <= 0
+          ? { kind: 'dead', source: 'combat', startedAtRoomNumber: nowRoom }
+          : actor.activity,
+    }));
+    if (nextCurrent <= 0) {
+      this.actors.setTargetThreat(source.id, undefined, 'target-defeated');
+      this.actors.recordActorTelemetry('actor.combat_ended', source.id, 'target-defeated', {
+        targetActorId: target.id,
+      });
+      this.actors.emitWorldEvent({
+        type: 'enemy-defeated',
+        roomId,
+        sourceActorId: source.id,
+        targetActorIds: [target.id],
+        severity: 42,
+        loudness: 20,
+        tags: ['combat', 'actor-vs-actor', 'faction', 'sword'],
+        summary: `${source.displayName} defeated ${target.displayName}.`,
+        createdAtRoomNumber: nowRoom,
+      });
+    }
+  }
+
+  private recordActorSwordCooldown(
+    actorId: string,
+    cooldownRooms: number,
+    event: ActorSwordAttackEvent,
+  ): void {
+    this.actors.registry.update(actorId, (actor) => ({
+      ...actor,
+      flags: {
+        ...actor.flags,
+        actorSwordCooldownUntilRoom: this.getRoomsVisitedCount() + cooldownRooms,
+        actorSwordAttack: event,
+      },
+    }));
+  }
+
   private getActorLoadedTravelTarget(
     actor: Actor,
     room: RoomSnapshot,
@@ -10391,11 +11592,155 @@ export class SnakeGame implements QuestRuntime {
   }
 
   updateAtmosphere(deltaMs: number): AtmosphereState {
-    return this.atmosphere.update(deltaMs);
+    const before = this.atmosphere.getState();
+    const after = this.atmosphere.update(deltaMs);
+    if (after.dayPhase !== before.dayPhase || after.worldDay !== before.worldDay) {
+      this.actors.markSchedulesDirty();
+    }
+    return after;
   }
 
   getAtmosphereState(): AtmosphereState {
     return this.atmosphere.getState();
+  }
+
+  async restAtCurrentInnUntilDawn(cost = 12): Promise<InnRestResult> {
+    const room = this.getCurrentRoom();
+    const beforeAtmosphere = this.getAtmosphereState();
+    const scoreBefore = this.getScore();
+    const healthBefore = this.getPlayerHealth().current;
+    const refused = (
+      message: string,
+      refusedReason: NonNullable<InnRestResult['refusedReason']>,
+    ): InnRestResult => ({
+      ok: false,
+      message,
+      cost,
+      elapsedMs: 0,
+      startedPhase: beforeAtmosphere.dayPhase,
+      endedPhase: beforeAtmosphere.dayPhase,
+      phasesCrossed: [],
+      weatherBefore: beforeAtmosphere.globalWeather,
+      weatherAfter: beforeAtmosphere.globalWeather,
+      worldDayBefore: beforeAtmosphere.worldDay,
+      worldDayAfter: beforeAtmosphere.worldDay,
+      scoreBefore,
+      scoreAfter: scoreBefore,
+      healthBefore,
+      healthAfter: healthBefore,
+      healed: 0,
+      wellRested: false,
+      refusedReason,
+    });
+    if (room.layer?.templateId !== 'inn') {
+      return refused('You need to be inside an inn to rest.', 'not-inn');
+    }
+    if (this.getScore() < cost) {
+      return refused(`Inn rest costs ${cost} score.`, 'insufficient-score');
+    }
+    if (this.hasImmediateRestDanger(room)) {
+      return refused('Too dangerous to sleep right now.', 'danger');
+    }
+
+    this.addScore(-cost);
+    const phasesCrossed: DayPhase[] = [];
+    let elapsedMs = 0;
+    let previous = beforeAtmosphere;
+    for (let guard = 0; guard < 80; guard += 1) {
+      const next = this.updateAtmosphere(5_000);
+      elapsedMs += 5_000;
+      if (next.dayPhase !== previous.dayPhase || next.worldDay !== previous.worldDay) {
+        phasesCrossed.push(next.dayPhase);
+      }
+      await this.actorClockStep(5_000);
+      previous = next;
+      if (next.dayPhase === 'dawn' && elapsedMs > 0) {
+        break;
+      }
+    }
+    const healed = this.healPlayer(1);
+    const afterAtmosphere = this.getAtmosphereState();
+    const healthAfter = this.getPlayerHealth().current;
+    this.setFlag('inn.lastRestResult', {
+      elapsedMs,
+      phasesCrossed,
+      weatherBefore: beforeAtmosphere.globalWeather,
+      weatherAfter: afterAtmosphere.globalWeather,
+      worldDayBefore: beforeAtmosphere.worldDay,
+      worldDayAfter: afterAtmosphere.worldDay,
+      scoreAfter: this.getScore(),
+      healed,
+    });
+    this.setFlag('inn.wellRestedUntilRoom', this.getRoomsVisitedCount() + 6);
+    const result: InnRestResult = {
+      ok: true,
+      message: this.formatInnRestMessage({
+        phasesCrossed,
+        weatherBefore: beforeAtmosphere.globalWeather,
+        weatherAfter: afterAtmosphere.globalWeather,
+        healed,
+      }),
+      cost,
+      elapsedMs,
+      startedPhase: beforeAtmosphere.dayPhase,
+      endedPhase: afterAtmosphere.dayPhase,
+      phasesCrossed,
+      weatherBefore: beforeAtmosphere.globalWeather,
+      weatherAfter: afterAtmosphere.globalWeather,
+      worldDayBefore: beforeAtmosphere.worldDay,
+      worldDayAfter: afterAtmosphere.worldDay,
+      scoreBefore,
+      scoreAfter: this.getScore(),
+      healthBefore,
+      healthAfter,
+      healed,
+      wellRested: true,
+    };
+    this.setFlag('ui.innRest', result);
+    return result;
+  }
+
+  private hasImmediateRestDanger(room: RoomSnapshot): boolean {
+    const parentRoomId = room.layer?.parentRoomId;
+    if (this.isCurrentRoomRaidActive()) {
+      return true;
+    }
+    if (
+      parentRoomId &&
+      this.factionEvents
+        .getEventsForRoom(parentRoomId, 8)
+        .some((event) => event.type === 'raid-active' && event.phase === 'active')
+    ) {
+      return true;
+    }
+    const head = this.snake.bodySegments[0];
+    const headLocal = head ? this.worldToLocalInRoom(room.id, head) : undefined;
+    return this.enemies.getEnemiesInRoom(room.id).some((enemy) => {
+      if (!headLocal) {
+        return true;
+      }
+      return (
+        Math.abs(enemy.position.x - headLocal.x) + Math.abs(enemy.position.y - headLocal.y) <= 1
+      );
+    });
+  }
+
+  private formatInnRestMessage(args: {
+    phasesCrossed: readonly DayPhase[];
+    weatherBefore: GlobalWeather;
+    weatherAfter: GlobalWeather;
+    healed: number;
+  }): string {
+    const changes = [`rested through ${args.phasesCrossed.join(', ') || 'the quiet hours'}`];
+    if (args.weatherBefore !== args.weatherAfter) {
+      changes.push(`weather changed from ${args.weatherBefore} to ${args.weatherAfter}`);
+    }
+    if (args.healed > 0) {
+      changes.push(`healed ${args.healed}`);
+    }
+    changes.push(`businesses are ${this.isTownBusinessOpenNow() ? 'open' : 'closed'}`);
+    changes.push('well rested');
+    return `Inn rest complete: ${changes.join('; ')}.`;
   }
 
   forceAtmosphereWeather(weather: GlobalWeather): AtmosphereState {
@@ -16352,6 +17697,8 @@ export class SnakeGame implements QuestRuntime {
       if (
         (key.startsWith('town.runtime.') ||
           key.startsWith('town.gateOpened.') ||
+          key.startsWith('town.doorClosure.') ||
+          key.startsWith('inn.') ||
           key.startsWith('custom.') ||
           key.startsWith('relationships.')) &&
         value !== undefined

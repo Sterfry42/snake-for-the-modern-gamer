@@ -512,6 +512,9 @@ describe('multi-room structure generation', () => {
     );
     expect(market.town?.residents.some((resident) => resident.role === 'potionMaker')).toBe(true);
     expect(market.town?.residents.some((resident) => resident.role === 'butcher')).toBe(true);
+    expect(market.town?.residents.some((resident) => resident.role === 'mapper')).toBe(true);
+    expect(market.town?.residents.some((resident) => resident.role === 'wizard')).toBe(true);
+    expect(townCenter.town?.residents.some((resident) => resident.role === 'innkeeper')).toBe(true);
     expect(townCenter.town?.residents.some((resident) => resident.role === 'cardDealer')).toBe(
       true,
     );
@@ -526,7 +529,9 @@ describe('multi-room structure generation', () => {
     expect(market.layerEntrances?.map((entry) => entry.templateId).sort()).toEqual([
       'butcherShop',
       'generalStore',
+      'mapper',
       'potionMaker',
+      'wizardShop',
     ]);
     expect(market.layerEntrances?.every((entry) => entry.townBuildingId && entry.displayName)).toBe(
       true,
@@ -537,7 +542,7 @@ describe('multi-room structure generation', () => {
         .filter((building) => building.district === 'marketStreet' && building.enterable)
         .map((building) => building.kind)
         .sort(),
-    ).toEqual(['butcherShop', 'generalStore', 'potionMaker']);
+    ).toEqual(['butcherShop', 'generalStore', 'mapper', 'potionMaker', 'wizardShop']);
     expect(
       alley.town?.residents.filter(
         (resident) => resident.role === 'thief' || resident.role === 'thiefContact',
@@ -702,23 +707,35 @@ describe('multi-room structure generation', () => {
     const townCenter = world.getRoom(townRoomIdForDistrict(resolver, squareId, 'townCenter'));
     const market = world.getRoom(townRoomIdForDistrict(resolver, squareId, 'marketStreet'));
     const tavernDoor = townCenter.layerEntrances?.find((entry) => entry.templateId === 'tavern');
+    const innDoor = townCenter.layerEntrances?.find((entry) => entry.templateId === 'inn');
     const storeDoor = market.layerEntrances?.find((entry) => entry.templateId === 'generalStore');
     const butcherDoor = market.layerEntrances?.find((entry) => entry.templateId === 'butcherShop');
     const potionDoor = market.layerEntrances?.find((entry) => entry.templateId === 'potionMaker');
+    const mapperDoor = market.layerEntrances?.find((entry) => entry.templateId === 'mapper');
+    const wizardDoor = market.layerEntrances?.find((entry) => entry.templateId === 'wizardShop');
 
     expect(tavernDoor).toBeTruthy();
+    expect(innDoor).toBeTruthy();
     expect(storeDoor).toBeTruthy();
     expect(butcherDoor).toBeTruthy();
     expect(potionDoor).toBeTruthy();
+    expect(mapperDoor).toBeTruthy();
+    expect(wizardDoor).toBeTruthy();
 
     const tavern = world.getRoom(world.ensureLayerInstance(tavernDoor!).id);
+    const inn = world.getRoom(world.ensureLayerInstance(innDoor!).id);
     const store = world.getRoom(world.ensureLayerInstance(storeDoor!).id);
     const butcher = world.getRoom(world.ensureLayerInstance(butcherDoor!).id);
     const potion = world.getRoom(world.ensureLayerInstance(potionDoor!).id);
+    const mapper = world.getRoom(world.ensureLayerInstance(mapperDoor!).id);
+    const wizard = world.getRoom(world.ensureLayerInstance(wizardDoor!).id);
 
     expect(tavern.layer?.templateId).toBe('tavern');
     expect(tavern.town?.districtByRoomId[tavern.id]).toBe('tavernInterior');
     expect(tavern.town?.residents.some((resident) => resident.role === 'bartender')).toBe(true);
+    expect(inn.layer?.templateId).toBe('inn');
+    expect(inn.town?.districtByRoomId[inn.id]).toBe('tavernInterior');
+    expect(inn.town?.residents.some((resident) => resident.role === 'innkeeper')).toBe(true);
     expect(store.layer?.templateId).toBe('generalStore');
     expect(store.town?.districtByRoomId[store.id]).toBe('marketStreet');
     expect(store.town?.residents.some((resident) => resident.role === 'equipmentMerchant')).toBe(
@@ -740,8 +757,20 @@ describe('multi-room structure generation', () => {
         .filter((resident) => resident.workRoomId === potion.id)
         .map((resident) => resident.role)
         .sort() ?? [];
+    const positionedMapperRoles =
+      mapper.town?.residents
+        .filter((resident) => resident.workRoomId === mapper.id)
+        .map((resident) => resident.role)
+        .sort() ?? [];
+    const positionedWizardRoles =
+      wizard.town?.residents
+        .filter((resident) => resident.workRoomId === wizard.id)
+        .map((resident) => resident.role)
+        .sort() ?? [];
     expect(positionedButcherRoles).toEqual(['butcher']);
     expect(positionedPotionRoles).toEqual(['potionMaker']);
+    expect(positionedMapperRoles).toEqual(['mapper']);
+    expect(positionedWizardRoles).toEqual(['wizard']);
     expect(positionedStoreRoles).not.toContain('butcher');
     expect(positionedStoreRoles).not.toContain('potionMaker');
     expect(store.layout[store.layer!.exit.y]?.[store.layer!.exit.x]).toBe(LAYER_EXIT_TILE);

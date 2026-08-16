@@ -672,7 +672,9 @@ export class ActorSystem {
       const nextGoal =
         reaction.goal && (!actor.goal || reaction.goal.priority >= currentPriority)
           ? reaction.goal
-          : actor.goal;
+          : !reaction.goal && isTemporaryEnvironmentGoal(actor.goal)
+            ? (actor.scheduleGoal ?? actor.goal)
+            : actor.goal;
       this.registry.update(actor.id, (current) => ({
         ...current,
         goal: nextGoal,
@@ -929,6 +931,16 @@ function actorGoalEquals(left: ActorGoal | undefined, right: ActorGoal | undefin
       left?.targetPosition?.x === right?.targetPosition?.x &&
       left?.targetPosition?.y === right?.targetPosition?.y &&
       left?.reason === right?.reason)
+  );
+}
+
+function isTemporaryEnvironmentGoal(goal: ActorGoal | undefined): boolean {
+  return (
+    goal?.reason === 'blood-moon-shelter' ||
+    goal?.reason === 'storm-shelter' ||
+    goal?.reason === 'heat-shelter' ||
+    goal?.reason === 'cold-shelter' ||
+    goal?.reason?.startsWith('observe-') === true
   );
 }
 

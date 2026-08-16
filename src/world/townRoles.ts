@@ -7,6 +7,9 @@ export type TownResidentRole =
   | 'cardDealer'
   | 'bartender'
   | 'physicalTrainer'
+  | 'mapper'
+  | 'wizard'
+  | 'innkeeper'
   | 'guard'
   | 'gateGuard'
   | 'thiefContact'
@@ -23,7 +26,10 @@ export type TownMerchantRole =
   | 'butcher'
   | 'cardDealer'
   | 'bartender'
-  | 'physicalTrainer';
+  | 'physicalTrainer'
+  | 'mapper'
+  | 'wizard'
+  | 'innkeeper';
 
 export type TownRoleShopKind =
   | 'general'
@@ -38,7 +44,10 @@ export type TownRoleShopKind =
   | 'scribe'
   | 'clinic'
   | 'blackMarket'
-  | 'maneuverTrainer';
+  | 'maneuverTrainer'
+  | 'maps'
+  | 'magic'
+  | 'inn';
 
 const TOWN_MERCHANT_ROLES = new Set<string>([
   'shopkeeper',
@@ -48,6 +57,9 @@ const TOWN_MERCHANT_ROLES = new Set<string>([
   'cardDealer',
   'bartender',
   'physicalTrainer',
+  'mapper',
+  'wizard',
+  'innkeeper',
 ]);
 
 const TOWN_SHOP_ROLES = new Set<string>([...TOWN_MERCHANT_ROLES, 'blackMarketMerchant']);
@@ -62,6 +74,9 @@ const STATIONARY_TOWN_ROLES = new Set<string>([
   'cardDealer',
   'bartender',
   'physicalTrainer',
+  'mapper',
+  'wizard',
+  'innkeeper',
   'questGiver',
 ]);
 
@@ -127,6 +142,12 @@ export function shopKindForTownRole(role: string): TownRoleShopKind | undefined 
       return 'food';
     case 'physicalTrainer':
       return 'maneuverTrainer';
+    case 'mapper':
+      return 'maps';
+    case 'wizard':
+      return 'magic';
+    case 'innkeeper':
+      return 'inn';
     case 'blackMarketMerchant':
       return 'blackMarket';
     case 'shopkeeper':

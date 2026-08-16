@@ -36,7 +36,6 @@ export class RoomGenerator {
   private readonly forestOperations: ForestOperations;
   private readonly oceanOperations: OceanOperations;
   private readonly mosaicCoastOperations: MosaicCoastOperations;
-  private readonly roomArchetypeOperations: RoomArchetypeOperations;
   private readonly safetyOperations: SafetyOperations;
   private readonly vegetationOperations: VegetationOperations;
   private readonly transitionResolver: TransitionContractResolver;
@@ -75,7 +74,6 @@ export class RoomGenerator {
     this.forestOperations = new ForestOperations(this.biomeMap);
     this.oceanOperations = new OceanOperations(this.biomeMap, this.rng);
     this.mosaicCoastOperations = new MosaicCoastOperations(this.worldGenerationIdentity);
-    this.roomArchetypeOperations = new RoomArchetypeOperations(this.config, this.rng);
     this.safetyOperations = new SafetyOperations(this.config);
     this.vegetationOperations = new VegetationOperations();
     this.pipeline = new RoomGenerationPipeline(this);
@@ -204,7 +202,12 @@ export class RoomGenerator {
     if (context.isMosaicCoast) {
       return;
     }
-    this.roomArchetypeOperations.apply(context);
+    new RoomArchetypeOperations(
+      this.config,
+      createRng(
+        `${this.worldGenerationIdentity.seed}:archetypes:${this.worldGenerationIdentity.worldSalt}:${context.roomId}`,
+      ),
+    ).apply(context);
   }
 
   placeRandomObstacles(context: RoomGenerationContext): void {

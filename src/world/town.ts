@@ -12,7 +12,7 @@ import {
   type TownDoorKind,
 } from '../layers/layerTypes.js';
 import type { BiomeId } from './biomes.js';
-import { tileHasTag } from './tiles.js';
+import { isSolidTile, tileHasTag } from './tiles.js';
 import {
   selectPrimaryTownMerchant,
   shopKindForTownRole,
@@ -125,7 +125,10 @@ export type TownShopKind =
   | 'scribe'
   | 'clinic'
   | 'blackMarket'
-  | 'maneuverTrainer';
+  | 'maneuverTrainer'
+  | 'maps'
+  | 'magic'
+  | 'inn';
 
 export interface TownRoomNode {
   id: string;
@@ -264,6 +267,9 @@ export type TownBuildingKind =
   | 'generalStore'
   | 'butcherShop'
   | 'potionMaker'
+  | 'mapper'
+  | 'wizardShop'
+  | 'inn'
   | 'residentialHome'
   | 'guildAccess';
 
@@ -799,7 +805,22 @@ export function createPhysicalHumanTown(args: {
       workDistrict: 'marketStreet' as const,
     },
     {
+      role: 'mapper' as const,
+      name: pickNpcName('scribe', rng),
+      workDistrict: 'marketStreet' as const,
+    },
+    {
+      role: 'wizard' as const,
+      name: pickNpcName('scribe', rng),
+      workDistrict: 'marketStreet' as const,
+    },
+    {
       role: 'bartender' as const,
+      name: pickNpcName('keeper', rng),
+      workDistrict: 'townCenter' as const,
+    },
+    {
+      role: 'innkeeper' as const,
       name: pickNpcName('keeper', rng),
       workDistrict: 'townCenter' as const,
     },
@@ -921,6 +942,8 @@ export function createPhysicalHumanTown(args: {
           : spot.role === 'equipmentMerchant' ||
               spot.role === 'potionMaker' ||
               spot.role === 'butcher' ||
+              spot.role === 'mapper' ||
+              spot.role === 'wizard' ||
               spot.role === 'physicalTrainer'
             ? 'marketStreet'
             : 'townCenter',
@@ -1124,6 +1147,65 @@ function createTownBuildings(
       enterable: true,
       publicAccess: true,
       crimeTarget: true,
+    },
+    {
+      id: `${town.id}:building:mapper`,
+      townId: town.id,
+      district: 'marketStreet',
+      roomId: marketRoom,
+      kind: 'mapper',
+      displayName: `${town.name} Mapper`,
+      shortLabel: 'Mapper',
+      interiorTitle: `${town.name} Map Room`,
+      doorLabel: 'Enter Mapper',
+      doorKind: 'shopDoorClosed',
+      door: { x: 7, y: 18 },
+      bounds: { left: 3, top: 18, width: 8, height: 5 },
+      templateId: 'mapper',
+      ownerResidentId: ownerIdFor('mapper'),
+      ownerResidentRole: 'mapper',
+      enterable: true,
+      publicAccess: true,
+      crimeTarget: true,
+    },
+    {
+      id: `${town.id}:building:wizard-shop`,
+      townId: town.id,
+      district: 'marketStreet',
+      roomId: marketRoom,
+      kind: 'wizardShop',
+      displayName: `${town.name} Wizard Shop`,
+      shortLabel: 'Wizard',
+      interiorTitle: `${town.name} Wizard Shop`,
+      doorLabel: 'Enter Wizard Shop',
+      doorKind: 'shopDoorClosed',
+      door: { x: 25, y: 18 },
+      bounds: { left: 21, top: 18, width: 8, height: 5 },
+      templateId: 'wizardShop',
+      ownerResidentId: ownerIdFor('wizard'),
+      ownerResidentRole: 'wizard',
+      enterable: true,
+      publicAccess: true,
+      crimeTarget: true,
+    },
+    {
+      id: `${town.id}:building:inn`,
+      townId: town.id,
+      district: 'townCenter',
+      roomId: centerRoom,
+      kind: 'inn',
+      displayName: `${town.name} Inn`,
+      shortLabel: 'Inn',
+      interiorTitle: `${town.name} Inn`,
+      doorLabel: 'Enter Inn',
+      doorKind: 'tavernDoor',
+      door: { x: 24, y: 9 },
+      bounds: { left: 21, top: 5, width: 7, height: 5 },
+      templateId: 'inn',
+      ownerResidentId: ownerIdFor('innkeeper'),
+      ownerResidentRole: 'innkeeper',
+      enterable: true,
+      publicAccess: true,
     },
     {
       id: `${town.id}:building:home`,
@@ -1739,6 +1821,9 @@ function createTownLayerEntrance(args: {
   discovered?: boolean;
 }): LayerEntrance {
   const building = args.building;
+  const returnPosition = building
+    ? returnPositionForBuildingDoor(building)
+    : { x: args.x, y: args.y };
   return {
     id: `town:${args.townId}:${args.key}`,
     layerId: `layer:townInterior:${args.townId}:${args.templateId}`,
@@ -1758,9 +1843,31 @@ function createTownLayerEntrance(args: {
     crimeOnEntry: Boolean(building?.crimeTarget && !building.publicAccess),
     locked: building?.doorKind === 'homeDoorClosed',
     discovered: args.discovered ?? true,
-    returnPosition: { x: args.x, y: args.y },
+    returnPosition,
     tile: townDoorTile(building?.doorKind),
   };
+}
+
+function returnPositionForBuildingDoor(building: TownBuilding): { x: number; y: number } {
+  const { door, bounds } = building;
+  const right = bounds.left + bounds.width - 1;
+  const bottom = bounds.top + bounds.height - 1;
+  if (door.y === bounds.top) {
+    return { x: door.x, y: Math.max(0, door.y - 1) };
+  }
+  if (door.y === bottom) {
+    return { x: door.x, y: door.y + 1 };
+  }
+  if (door.x === bounds.left) {
+    return { x: Math.max(0, door.x - 1), y: door.y };
+  }
+  if (door.x === right) {
+    return { x: door.x + 1, y: door.y };
+  }
+  if (isBlockingTownTile(townDoorTile(building.doorKind))) {
+    return { x: Math.max(0, door.x - 1), y: door.y };
+  }
+  return { x: door.x, y: door.y };
 }
 
 function addTownLayerEntrance(
@@ -1783,7 +1890,35 @@ function addTownLayerEntrance(
   } else {
     setChar(layout, entrance.x, entrance.y, tile);
   }
-  entrances.push(entrance);
+  entrances.push({
+    ...entrance,
+    returnPosition: walkableDoorApproach(layout, entrance) ?? entrance.returnPosition,
+  });
+}
+
+function walkableDoorApproach(
+  layout: string[][],
+  entrance: LayerEntrance,
+): { x: number; y: number } | undefined {
+  const current = entrance.returnPosition;
+  if (isWalkableTownApproach(layout[current.y]?.[current.x])) {
+    return current;
+  }
+  for (const candidate of [
+    { x: entrance.x, y: entrance.y + 1 },
+    { x: entrance.x, y: entrance.y - 1 },
+    { x: entrance.x - 1, y: entrance.y },
+    { x: entrance.x + 1, y: entrance.y },
+  ]) {
+    if (isWalkableTownApproach(layout[candidate.y]?.[candidate.x])) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
+
+function isWalkableTownApproach(tile: string | undefined): boolean {
+  return Boolean(tile && tile !== '~' && !isSolidTile(tile) && !isBlockingTownTile(tile));
 }
 
 function townDoorTile(kind: TownDoorKind | undefined): string {
@@ -2020,6 +2155,7 @@ export function createTownDistrictRoom(args: {
     case 'townCenter':
       {
         const tavern = townBuildingFor(town, 'tavern', 'townCenter');
+        const inn = townBuildingFor(town, 'inn', 'townCenter');
         drawConnectedRoad(layout, openSides);
         fillRect(layout, center.x - 4, center.y - 3, 9, 7, 'E');
         fillRect(layout, center.x - 1, center.y - 1, 3, 3, 'P');
@@ -2051,10 +2187,27 @@ export function createTownDistrictRoom(args: {
           );
         }
         drawBuildingShell(layout, args.grid.cols - 11, 5, 7, 5, {
-          x: args.grid.cols - 8,
-          y: 9,
-          tile: 'D',
+          x: inn?.door.x ?? args.grid.cols - 8,
+          y: inn?.door.y ?? 9,
+          tile: townDoorTile(inn?.doorKind),
         });
+        if (inn) {
+          addTownLayerEntrance(
+            layout,
+            layerEntrances,
+            createTownLayerEntrance({
+              townId: town.id,
+              parentRoomId: args.roomId,
+              templateId: 'inn',
+              key: 'inn-door',
+              label: 'Inn door',
+              x: inn.door.x,
+              y: inn.door.y,
+              building: inn,
+            }),
+            context,
+          );
+        }
         setChar(layout, args.grid.cols - 8, 7, 'D');
         setChar(layout, center.x + 5, center.y - 4, 'P');
         setChar(layout, center.x - 5, center.y + 4, 'P');
@@ -2065,6 +2218,8 @@ export function createTownDistrictRoom(args: {
         const generalStore = townBuildingFor(town, 'generalStore', 'marketStreet');
         const butcher = townBuildingFor(town, 'butcherShop', 'marketStreet');
         const potionMaker = townBuildingFor(town, 'potionMaker', 'marketStreet');
+        const mapper = townBuildingFor(town, 'mapper', 'marketStreet');
+        const wizardShop = townBuildingFor(town, 'wizardShop', 'marketStreet');
         drawConnectedRoad(layout, openSides);
         drawBuildingShell(layout, 3, 4, 8, 6, {
           x: generalStore?.door.x ?? 6,
@@ -2138,6 +2293,54 @@ export function createTownDistrictRoom(args: {
         }
         setChar(layout, args.grid.cols - 9, 6, 'P');
         setChar(layout, args.grid.cols - 6, 6, 'P');
+        drawBuildingShell(layout, 3, 18, 8, 5, {
+          x: mapper?.door.x ?? 7,
+          y: mapper?.door.y ?? 22,
+          tile: townDoorTile(mapper?.doorKind),
+        });
+        if (mapper) {
+          addTownLayerEntrance(
+            layout,
+            layerEntrances,
+            createTownLayerEntrance({
+              townId: town.id,
+              parentRoomId: args.roomId,
+              templateId: 'mapper',
+              key: 'mapper-door',
+              label: 'Mapper door',
+              x: mapper.door.x,
+              y: mapper.door.y,
+              building: mapper,
+            }),
+            context,
+          );
+        }
+        setChar(layout, 6, 20, 'M');
+        setChar(layout, 8, 20, 'S');
+        drawBuildingShell(layout, args.grid.cols - 11, 18, 8, 5, {
+          x: wizardShop?.door.x ?? args.grid.cols - 7,
+          y: wizardShop?.door.y ?? 22,
+          tile: townDoorTile(wizardShop?.doorKind),
+        });
+        if (wizardShop) {
+          addTownLayerEntrance(
+            layout,
+            layerEntrances,
+            createTownLayerEntrance({
+              townId: town.id,
+              parentRoomId: args.roomId,
+              templateId: 'wizardShop',
+              key: 'wizard-shop-door',
+              label: 'Wizard shop door',
+              x: wizardShop.door.x,
+              y: wizardShop.door.y,
+              building: wizardShop,
+            }),
+            context,
+          );
+        }
+        setChar(layout, args.grid.cols - 9, 20, 'P');
+        setChar(layout, args.grid.cols - 6, 20, 'M');
         for (let x = 5; x < args.grid.cols - 5; x += 6) {
           fillRect(layout, x, center.y + 4, 4, 2, 'S');
           setChar(layout, x + 1, center.y + 5, x % 2 === 0 ? 'M' : 'A');

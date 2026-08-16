@@ -1,4 +1,4 @@
-import type { AtmosphereEffectTag, AtmosphereState } from '../world/atmosphereTypes.js';
+import type { AtmosphereEffectTag, AtmosphereState, SkyEvent } from '../world/atmosphereTypes.js';
 import { isTownShopRole } from '../world/townRoles.js';
 import type { Actor, ActorActivity, ActorGoal, ActorSpeechBubble } from './actorTypes.js';
 
@@ -55,6 +55,32 @@ export function selectActorEnvironmentReaction(
       speech: undefined,
       moodDelta: { fear: 10, stress: 8 },
       needsDelta: { safety: 10 },
+      environmentKey,
+    };
+  }
+
+  if (
+    actor.role === 'wizard' &&
+    dayPhase === 'night' &&
+    !context.sheltered &&
+    isObservableSkyEvent(context.atmosphere.skyEvent?.current)
+  ) {
+    return {
+      goal: {
+        kind: 'defendArea',
+        priority: 25,
+        roomId: actor.currentRoomId,
+        reason: `observe-${context.atmosphere.skyEvent.current}`,
+      },
+      activity: {
+        kind: 'observing-sky',
+        source: 'schedule',
+        label: skyObservationLabel(context.atmosphere.skyEvent.current),
+        startedAtRoomNumber: context.roomNumber,
+      },
+      speech: undefined,
+      moodDelta: { curiosity: 8, stress: -2 },
+      needsDelta: { duty: 3 },
       environmentKey,
     };
   }
@@ -211,6 +237,23 @@ function shelterActivity(roomNumber: number): ActorActivity {
 
 function guardingActivity(roomNumber: number): ActorActivity {
   return { kind: 'guarding', source: 'schedule', startedAtRoomNumber: roomNumber };
+}
+
+function isObservableSkyEvent(
+  skyEvent: SkyEvent | undefined,
+): skyEvent is 'aurora' | 'eclipse' | 'meteorShower' {
+  return skyEvent === 'aurora' || skyEvent === 'eclipse' || skyEvent === 'meteorShower';
+}
+
+function skyObservationLabel(skyEvent: 'aurora' | 'eclipse' | 'meteorShower'): string {
+  switch (skyEvent) {
+    case 'aurora':
+      return 'Observing aurora';
+    case 'eclipse':
+      return 'Measuring eclipse shadow';
+    case 'meteorShower':
+      return 'Counting meteors';
+  }
 }
 
 function radiantBarkText(actor: Actor, atmosphere: AtmosphereState): string {
