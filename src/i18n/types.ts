@@ -154,10 +154,14 @@ export interface FeatureStrings {
   loadGameMenuTitle: string;
   regularSaves: string;
   autosaves: string;
+  sessions: string;
+  sessionSavesTitle: string;
+  open: string;
   load: string;
   delete: string;
   back: string;
   confirmDelete: string;
+  confirmDeleteSession: string;
   noSaves: string;
   noAutosaves: string;
 

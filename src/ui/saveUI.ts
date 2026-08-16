@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
 import { i18n } from '../i18n/i18nManager.js';
-import { saveManagerV2 } from '../game/saveManagerV2.js';
 import { getPrimaryBindingLabelForDisplay, type InputModeId } from '../input/controlActions.js';
 
 const SAVE_BUTTON_WIDTH = 110;
@@ -103,21 +102,10 @@ export class SaveUI {
 
   private saveGame(): void {
     this.scene.prepareCharacterSave();
-    const data = this.scene.snakeGame.getSaveData();
-    const dateKey = new Date().toISOString();
-
-    // Save to V2 with a new slot each time
-    saveManagerV2
-      .save(dateKey, data)
-      .then(() => {
-        // Show a brief green flash on the button
-        this.triggerSaveFlash();
-      })
-      .catch((err) => {
-        console.error('[SaveUI] Failed to save game:', err);
-      });
-
-    this.scene.showQuestHintPopup(i18n.getFeatureString('gameSaved')!, '#5dd6a2');
+    // Save into the current session (keeps its last five saves).
+    this.scene.saveGameToSession();
+    // Show a brief green flash on the button
+    this.triggerSaveFlash();
   }
 
   save(): void {

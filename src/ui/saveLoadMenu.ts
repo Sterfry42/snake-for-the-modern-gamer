@@ -1,16 +1,27 @@
 import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
 import { i18n } from '../i18n/i18nManager.js';
-import { saveManagerV2 } from '../game/saveManagerV2.js';
-import type { GameSaveData, SaveSlotInfo } from '../game/saveManagerV2.js';
+import {
+  saveManagerV2,
+  type GameSaveData,
+  type SessionInfo,
+  type SessionSaveEntry,
+} from '../game/saveManagerV2.js';
 import type { ControllerNavCommand } from '../input/controllerNavigation.js';
 
+export type LoadGameHandler = (sessionId: string, data: GameSaveData) => void;
+
+/**
+ * Two-level Load Game menu. The top level lists every save session
+ * (one per unique game run); opening a session shows its last five
+ * saves in chronological order, any of which may be loaded.
+ */
 export class SaveLoadMenu {
   private container?: Phaser.GameObjects.Container;
   private background?: Phaser.GameObjects.Rectangle;
   private titleText?: Phaser.GameObjects.Text;
-  private regularSectionTitle?: Phaser.GameObjects.Text;
-  private autosaveSectionTitle?: Phaser.GameObjects.Text;
+  private sectionTitle?: Phaser.GameObjects.Text;
+  private emptyText?: Phaser.GameObjects.Text;
   private scrollContainer?: Phaser.GameObjects.Container;
   private scrollMask?: Phaser.GameObjects.Graphics;
   private scrollbarGraphics?: Phaser.GameObjects.Graphics;
@@ -19,7 +30,7 @@ export class SaveLoadMenu {
   private confirmOverlay?: Phaser.GameObjects.Container;
   private confirmYes?: Phaser.GameObjects.Text;
   private confirmNo?: Phaser.GameObjects.Text;
-  private pendingDeleteSlot?: string;
+  private pendingDeleteAction?: () => void;
   private onBack?: () => void;
   private scrollY = 0;
   private contentHeight = 0;
@@ -28,9 +39,12 @@ export class SaveLoadMenu {
   private readonly entryHeight = 56;
   private readonly headerHeight = 48;
   private readonly footerHeight = 44;
-  private regularEntries: SaveSlotInfo[] = [];
-  private autosaveEntries: SaveSlotInfo[] = [];
-  private currentOnLoad?: (slotId: string, data: GameSaveData) => void;
+  private view: 'sessions' | 'saves' = 'sessions';
+  private sessions: SessionInfo[] = [];
+  private activeSessionId: string | null = null;
+  private activeSessionLabel = '';
+  private saveEntries: SessionSaveEntry[] = [];
+  private currentOnLoad?: LoadGameHandler;
   private controllerLoadActions: Array<() => void> = [];
   private controllerDeleteActions: Array<() => void> = [];
   private selectedEntryIndex = 0;
@@ -41,30 +55,16 @@ export class SaveLoadMenu {
     this.build();
   }
 
-  async show(
-    onLoad: (slotId: string, data: GameSaveData) => void,
-    onBack?: () => void,
-  ): Promise<void> {
+  async show(onLoad: LoadGameHandler, onBack?: () => void): Promise<void> {
     this.onBack = onBack;
-    this.scene.setChoicePopupVisible(true);
-    this.regularEntries = await saveManagerV2.listRegularSaves();
-    this.autosaveEntries = await saveManagerV2.listAutosaves();
     this.currentOnLoad = onLoad;
-
+    this.scene.setChoicePopupVisible(true);
+    this.view = 'sessions';
+    this.activeSessionId = null;
+    this.sessions = await saveManagerV2.listSessions();
     this.titleText?.setText(i18n.getFeatureString('loadGameMenuTitle') || 'Load Game');
-    this.buildEntries(onLoad);
-    this.selectedEntryIndex = 0;
-
-    const popupHeight = this.calculateHeight();
-    const x = (this.scene.scale.width - this.width) / 2;
-    const rootY = (this.scene.scale.height - popupHeight) / 2;
-    this.container?.setPosition(x, rootY);
-    this.background?.setSize(this.width, popupHeight);
-    this.scrollContainer?.setPosition(0, this.headerHeight);
-    this.viewportHeight = popupHeight - this.headerHeight - this.footerHeight;
-    this.updateMask();
-    this.applyScroll(0);
-    this.backText?.setPosition(this.width / 2, popupHeight - 16);
+    this.buildEntries();
+    this.layoutPopup();
     this.container?.setVisible(true);
     this.refreshControllerSelection();
   }
@@ -76,9 +76,11 @@ export class SaveLoadMenu {
     this.scene.setChoicePopupVisible(false);
     this.onBack = undefined;
     this.currentOnLoad = undefined;
+    this.activeSessionId = null;
+    this.view = 'sessions';
     this.scrollMask?.destroy();
     this.scrollMask = undefined;
-    this.pendingDeleteSlot = undefined;
+    this.pendingDeleteAction = undefined;
     for (const c of this.entryContainers) c.destroy();
     this.entryContainers = [];
     this.controllerLoadActions = [];
@@ -141,118 +143,180 @@ export class SaveLoadMenu {
       return true;
     }
     if (command === 'cancel' || command === 'menu') {
-      const onBack = this.onBack;
-      this.hide();
-      onBack?.();
+      this.handleBack();
       return true;
     }
     return false;
   }
 
-  private async refreshEntries(): Promise<void> {
-    this.regularEntries = await saveManagerV2.listRegularSaves();
-    this.autosaveEntries = await saveManagerV2.listAutosaves();
-    if (this.currentOnLoad) {
-      this.buildEntries(this.currentOnLoad);
-      const popupHeight = this.calculateHeight();
-      this.background?.setSize(this.width, popupHeight);
-      this.scrollContainer?.setPosition(0, this.headerHeight);
-      this.viewportHeight = popupHeight - this.headerHeight - this.footerHeight;
-      this.updateMask();
-      this.applyScroll(0);
-      this.backText?.setPosition(this.width / 2, popupHeight - 16);
+  /** Back button / cancel: step out of the saves view first, then exit. */
+  private handleBack(): void {
+    if (this.view === 'saves') {
+      this.view = 'sessions';
+      this.activeSessionId = null;
+      this.titleText?.setText(i18n.getFeatureString('loadGameMenuTitle') || 'Load Game');
+      this.buildEntries();
+      this.layoutPopup();
+    } else {
+      const onBack = this.onBack;
+      this.hide();
+      onBack?.();
     }
   }
 
-  private buildEntries(onLoad: (slotId: string, data: GameSaveData) => void): void {
+  private async openSession(sessionId: string): Promise<void> {
+    const saves = await saveManagerV2.listSessionSaves(sessionId);
+    if (saves.length === 0) return;
+    this.view = 'saves';
+    this.activeSessionId = sessionId;
+    this.saveEntries = saves;
+    const info = this.sessions.find((s) => s.sessionId === sessionId);
+    this.activeSessionLabel = info ? saveManagerV2.getSessionLabel(info) : sessionId;
+    this.titleText?.setText(i18n.getFeatureString('sessionSavesTitle') || 'Saves');
+    this.buildEntries();
+    this.layoutPopup();
+  }
+
+  private buildEntries(): void {
     for (const c of this.entryContainers) c.destroy();
     this.entryContainers = [];
     this.controllerLoadActions = [];
     this.controllerDeleteActions = [];
 
-    if (!this.scrollContainer) return;
-
     const scrollX = 16;
     const buttonWidth = 64;
     const buttonHeight = 24;
     const buttonGap = 8;
-    const entryGap = 6;
     const padding = 8;
-    const totalEntryHeight = this.entryHeight + entryGap;
+    const totalEntryHeight = this.entryHeight + 6;
+
+    if (!this.scrollContainer) return;
 
     let y = 16;
+    this.emptyText?.setVisible(false);
 
-    // Autosaves section first
-    this.autosaveSectionTitle?.setVisible(this.autosaveEntries.length > 0);
-    if (this.autosaveEntries.length > 0) {
-      this.autosaveSectionTitle?.setPosition(scrollX, y);
-      y += 24;
-    }
-
-    for (const entry of this.autosaveEntries) {
-      const label = saveManagerV2.getDisplayLabel(entry.slotId, entry.data.worldGeneration?.seed);
-      const entryBox = this.createEntryBox(
-        label,
-        buttonWidth,
-        buttonHeight,
-        buttonGap,
-        padding,
-        (action) => {
-          if (action === 'load') {
-            onLoad(entry.slotId, entry.data);
-          } else if (action === 'delete') {
-            this.showConfirmDelete(entry.slotId);
-          }
-        },
-        true,
+    if (this.view === 'sessions') {
+      this.sectionTitle?.setVisible(this.sessions.length > 0);
+      this.sectionTitle?.setText(i18n.getFeatureString('sessions') || 'Sessions');
+      if (this.sessions.length === 0) {
+        this.showEmpty(i18n.getFeatureString('noSaves') || 'No save files found.');
+      }
+      for (const session of this.sessions) {
+        const label = saveManagerV2.getSessionLabel(session);
+        const entryBox = this.createEntryBox(
+          label,
+          buttonWidth,
+          buttonHeight,
+          buttonGap,
+          padding,
+          (action) => {
+            if (action === 'load') {
+              void this.openSession(session.sessionId);
+            } else if (action === 'delete') {
+              this.showConfirmDelete(
+                i18n.getFeatureString('confirmDeleteSession') ||
+                  'Delete this session and all of its saves?',
+                () => this.deleteSession(session.sessionId),
+              );
+            }
+          },
+        );
+        entryBox.setPosition(scrollX, y);
+        this.scrollContainer?.add(entryBox);
+        this.entryContainers.push(entryBox);
+        this.controllerLoadActions.push(() => void this.openSession(session.sessionId));
+        this.controllerDeleteActions.push(() =>
+          this.showConfirmDelete(
+            i18n.getFeatureString('confirmDeleteSession') ||
+              'Delete this session and all of its saves?',
+            () => this.deleteSession(session.sessionId),
+          ),
+        );
+        y += totalEntryHeight;
+      }
+    } else {
+      this.sectionTitle?.setVisible(true);
+      this.sectionTitle?.setText(
+        this.activeSessionLabel || i18n.getFeatureString('sessions') || 'Sessions',
       );
-      entryBox.setPosition(scrollX, y);
-      this.scrollContainer?.add(entryBox);
-      this.entryContainers.push(entryBox);
-      this.controllerLoadActions.push(() => onLoad(entry.slotId, entry.data));
-      this.controllerDeleteActions.push(() => this.showConfirmDelete(entry.slotId));
-      y += totalEntryHeight;
+      if (this.saveEntries.length === 0) {
+        this.showEmpty(i18n.getFeatureString('noSaves') || 'No save files found.');
+      }
+      for (const entry of this.saveEntries) {
+        const label = saveManagerV2.getSaveLabel(entry.timestamp, entry.data.score);
+        const entryBox = this.createEntryBox(
+          label,
+          buttonWidth,
+          buttonHeight,
+          buttonGap,
+          padding,
+          (action) => {
+            if (action === 'load') {
+              this.currentOnLoad?.(this.activeSessionId ?? '', entry.data);
+            } else if (action === 'delete' && this.activeSessionId) {
+              this.showConfirmDelete(
+                i18n.getFeatureString('confirmDelete') || 'Delete this save?',
+                () => this.deleteSave(this.activeSessionId!, entry.timestamp),
+              );
+            }
+          },
+        );
+        entryBox.setPosition(scrollX, y);
+        this.scrollContainer?.add(entryBox);
+        this.entryContainers.push(entryBox);
+        this.controllerLoadActions.push(() =>
+          this.currentOnLoad?.(this.activeSessionId ?? '', entry.data),
+        );
+        this.controllerDeleteActions.push(() =>
+          this.showConfirmDelete(
+            i18n.getFeatureString('confirmDelete') || 'Delete this save?',
+            () => this.deleteSave(this.activeSessionId!, entry.timestamp),
+          ),
+        );
+        y += totalEntryHeight;
+      }
     }
 
-    // Regular saves section after autosaves
-    this.regularSectionTitle?.setVisible(this.regularEntries.length > 0);
-    if (this.regularEntries.length > 0) {
-      y += 12;
-      this.regularSectionTitle?.setPosition(scrollX, y);
-      y += 24;
-    }
-
-    for (const entry of this.regularEntries) {
-      const label = saveManagerV2.getDisplayLabel(entry.slotId, entry.data.worldGeneration?.seed);
-      const entryBox = this.createEntryBox(
-        label,
-        buttonWidth,
-        buttonHeight,
-        buttonGap,
-        padding,
-        (action) => {
-          if (action === 'load') {
-            onLoad(entry.slotId, entry.data);
-          } else if (action === 'delete') {
-            this.showConfirmDelete(entry.slotId);
-          }
-        },
-      );
-      entryBox.setPosition(scrollX, y);
-      this.scrollContainer?.add(entryBox);
-      this.entryContainers.push(entryBox);
-      this.controllerLoadActions.push(() => onLoad(entry.slotId, entry.data));
-      this.controllerDeleteActions.push(() => this.showConfirmDelete(entry.slotId));
-      y += totalEntryHeight;
-    }
-
-    this.contentHeight = Math.max(0, y - 16);
+    this.contentHeight = this.entryContainers.length === 0 ? 40 : Math.max(0, y - 16);
     this.selectedEntryIndex = Phaser.Math.Clamp(
       this.selectedEntryIndex,
       0,
       Math.max(0, this.entryContainers.length - 1),
     );
     this.refreshControllerSelection();
+  }
+
+  private showEmpty(message: string): void {
+    if (!this.emptyText) return;
+    this.emptyText.setText(message).setPosition(16, 16).setVisible(true);
+  }
+
+  private async deleteSession(sessionId: string): Promise<void> {
+    await saveManagerV2.deleteSession(sessionId);
+    this.sessions = (await saveManagerV2.listSessions()).filter((s) => s.sessionId !== sessionId);
+    await this.refreshView();
+  }
+
+  private async deleteSave(sessionId: string, timestamp: number): Promise<void> {
+    await saveManagerV2.deleteSave(sessionId, timestamp);
+    this.saveEntries = await saveManagerV2.listSessionSaves(sessionId);
+    await this.refreshView();
+  }
+
+  private async refreshView(): Promise<void> {
+    if (this.view === 'saves' && this.activeSessionId) {
+      const sessions = await saveManagerV2.listSessions();
+      this.sessions = sessions;
+      const info = sessions.find((s) => s.sessionId === this.activeSessionId);
+      this.activeSessionLabel = info ? saveManagerV2.getSessionLabel(info) : '';
+    }
+    this.titleText?.setText(
+      this.view === 'saves'
+        ? i18n.getFeatureString('sessionSavesTitle') || 'Saves'
+        : i18n.getFeatureString('loadGameMenuTitle') || 'Load Game',
+    );
+    this.buildEntries();
+    this.layoutPopup();
   }
 
   private moveControllerSelection(delta: number): void {
@@ -281,9 +345,11 @@ export class SaveLoadMenu {
     buttonGap: number,
     padding: number,
     onAction: (action: 'load' | 'delete') => void,
-    isAutosave = false,
   ): Phaser.GameObjects.Container {
-    const loadText = i18n.getFeatureString('load') || 'Load';
+    const loadText =
+      this.view === 'sessions'
+        ? i18n.getFeatureString('open') || 'Open'
+        : i18n.getFeatureString('load') || 'Load';
     const deleteText = i18n.getFeatureString('delete') || 'Delete';
 
     const entryBoxWidth = this.width - 32;
@@ -292,8 +358,8 @@ export class SaveLoadMenu {
     const labelWidth = entryBoxWidth - padding * 3 - actionsWidth;
 
     const bg = this.scene.add
-      .rectangle(0, 0, entryBoxWidth, entryBoxHeight, isAutosave ? 0x0a1628 : 0x0b1622, 0.9)
-      .setStrokeStyle(1, isAutosave ? 0x3a7bd5 : 0x4da3ff, 0.5)
+      .rectangle(0, 0, entryBoxWidth, entryBoxHeight, 0x0b1622, 0.9)
+      .setStrokeStyle(1, 0x4da3ff, 0.5)
       .setOrigin(0, 0);
 
     const labelText = this.scene.add
@@ -351,12 +417,9 @@ export class SaveLoadMenu {
     return container;
   }
 
-  private showConfirmDelete(slotId: string): void {
-    this.pendingDeleteSlot = slotId;
+  private showConfirmDelete(message: string, onConfirm: () => Promise<void>): void {
+    this.pendingDeleteAction = onConfirm;
     this.confirmSelection = 'no';
-    const deleteText = i18n.getFeatureString('confirmDelete') || 'Delete this save?';
-    const yesText = i18n.getFeatureString('popupAccept') || 'Yes';
-    const noText = i18n.getFeatureString('popupReject') || 'No';
 
     if (this.confirmOverlay) {
       this.confirmOverlay.destroy();
@@ -367,7 +430,7 @@ export class SaveLoadMenu {
       .setOrigin(0, 0);
 
     const confirmTxt = this.scene.add
-      .text(this.width / 2, 30, deleteText, {
+      .text(this.width / 2, 30, message, {
         fontFamily: 'monospace',
         fontSize: '14px',
         color: '#ff6b6b',
@@ -375,7 +438,7 @@ export class SaveLoadMenu {
       .setOrigin(0.5, 0);
 
     const yesBtn = this.scene.add
-      .text(this.width / 2 - 50, 60, yesText, {
+      .text(this.width / 2 - 50, 60, i18n.getFeatureString('popupAccept') || 'Yes', {
         fontFamily: 'monospace',
         fontSize: '13px',
         color: '#ff6b6b',
@@ -386,17 +449,15 @@ export class SaveLoadMenu {
       .on('pointerover', () => yesBtn.setTint(0xff9a9a))
       .on('pointerout', () => yesBtn.clearTint())
       .on('pointerdown', async () => {
-        if (this.pendingDeleteSlot) {
-          await saveManagerV2.delete(this.pendingDeleteSlot);
-          this.pendingDeleteSlot = undefined;
-          await this.refreshEntries();
-        }
+        const action = this.pendingDeleteAction;
+        this.pendingDeleteAction = undefined;
         this.confirmOverlay?.destroy();
         this.confirmOverlay = undefined;
+        await action?.();
       });
 
     const noBtn = this.scene.add
-      .text(this.width / 2 + 50, 60, noText, {
+      .text(this.width / 2 + 50, 60, i18n.getFeatureString('popupReject') || 'No', {
         fontFamily: 'monospace',
         fontSize: '13px',
         color: '#c8d0da',
@@ -407,7 +468,7 @@ export class SaveLoadMenu {
       .on('pointerover', () => noBtn.setTint(0x9ad1ff))
       .on('pointerout', () => noBtn.clearTint())
       .on('pointerdown', () => {
-        this.pendingDeleteSlot = undefined;
+        this.pendingDeleteAction = undefined;
         this.confirmOverlay?.destroy();
         this.confirmOverlay = undefined;
       });
@@ -415,9 +476,13 @@ export class SaveLoadMenu {
     this.confirmYes = yesBtn;
     this.confirmNo = noBtn;
 
+    // The overlay must live inside the menu container: it is shown over the
+    // title screen (depth 220) while the menu renders at depth 9999, so a
+    // scene-level overlay at a fixed depth would hide underneath the title.
     this.confirmOverlay = this.scene.add
       .container(0, 0, [overlayBg, confirmTxt, yesBtn, noBtn])
-      .setDepth(40);
+      .setPosition(0, this.headerHeight);
+    this.container?.add(this.confirmOverlay);
     this.refreshConfirmSelection();
   }
 
@@ -432,18 +497,30 @@ export class SaveLoadMenu {
 
   private calculateHeight(): number {
     const baseHeight = 140; // title + back button area
-    const entryHeight = this.entryHeight;
+    const entryCount = this.view === 'sessions' ? this.sessions.length : this.saveEntries.length;
 
     let contentH = 0;
-    if (this.regularEntries.length > 0) {
-      contentH += 20 + this.regularEntries.length * (entryHeight + 8);
-    }
-    if (this.autosaveEntries.length > 0) {
-      if (this.regularEntries.length > 0) contentH += 12;
-      contentH += 20 + this.autosaveEntries.length * (entryHeight + 8);
+    if (entryCount > 0) {
+      contentH += 24 + entryCount * (this.entryHeight + 6);
+    } else {
+      contentH += 40;
     }
 
     return Math.min(baseHeight + contentH, this.scene.scale.height - 40);
+  }
+
+  private layoutPopup(): void {
+    this.selectedEntryIndex = 0;
+    const popupHeight = this.calculateHeight();
+    const x = (this.scene.scale.width - this.width) / 2;
+    const rootY = (this.scene.scale.height - popupHeight) / 2;
+    this.container?.setPosition(x, rootY);
+    this.background?.setSize(this.width, popupHeight);
+    this.scrollContainer?.setPosition(0, this.headerHeight);
+    this.viewportHeight = popupHeight - this.headerHeight - this.footerHeight;
+    this.updateMask();
+    this.applyScroll(0);
+    this.backText?.setPosition(this.width / 2, popupHeight - 16);
   }
 
   private scrollBy(delta: number): void {
@@ -494,7 +571,7 @@ export class SaveLoadMenu {
     this.scrollbarGraphics.fillStyle(0x10283a, 0.9);
     this.scrollbarGraphics.fillRoundedRect(trackX, trackY, 4, trackHeight, 2);
     this.scrollbarGraphics.fillStyle(maxScroll > 0 ? 0x4da3ff : 0x34546a, 0.95);
-    this.scrollbarGraphics.fillRoundedRect(trackX, thumbY, 4, thumbHeight, 2);
+    this.scrollbarGraphics.fillRoundedRect(trackX, thumbY, 4, thumbHeight);
   }
 
   private build(): void {
@@ -515,8 +592,8 @@ export class SaveLoadMenu {
       })
       .setOrigin(0.5, 0);
 
-    this.regularSectionTitle = this.scene.add
-      .text(0, 0, i18n.getFeatureString('regularSaves') || 'Saves', {
+    this.sectionTitle = this.scene.add
+      .text(0, 0, '', {
         fontFamily: 'monospace',
         fontSize: '14px',
         color: '#7ec8e8',
@@ -524,19 +601,16 @@ export class SaveLoadMenu {
       .setOrigin(0, 0)
       .setVisible(false);
 
-    this.autosaveSectionTitle = this.scene.add
-      .text(0, 0, i18n.getFeatureString('autosaves') || 'Autosaves', {
+    this.emptyText = this.scene.add
+      .text(16, 16, '', {
         fontFamily: 'monospace',
-        fontSize: '14px',
-        color: '#7ec8e8',
+        fontSize: '13px',
+        color: '#8b939f',
       })
       .setOrigin(0, 0)
       .setVisible(false);
 
-    this.scrollContainer = this.scene.add.container(0, 0, [
-      this.regularSectionTitle,
-      this.autosaveSectionTitle,
-    ]);
+    this.scrollContainer = this.scene.add.container(0, 0, [this.sectionTitle, this.emptyText]);
     this.scrollbarGraphics = this.scene.add.graphics();
 
     // Back button
@@ -552,10 +626,7 @@ export class SaveLoadMenu {
       .setInteractive({ useHandCursor: true })
       .on('pointerover', () => this.backText?.setTint(0x9ad1ff))
       .on('pointerout', () => this.backText?.clearTint())
-      .on('pointerdown', () => {
-        this.hide();
-        if (this.onBack) this.onBack();
-      });
+      .on('pointerdown', () => this.handleBack());
 
     this.container = this.scene.add
       .container(x, y, [

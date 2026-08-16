@@ -1,5 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { SaveManagerV2, type GameSaveData } from '../../game/saveManagerV2.js';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import {
+  SaveManagerV2,
+  MAX_SAVES_PER_SESSION,
+  type GameSaveData,
+  type SessionRecord,
+} from '../../game/saveManagerV2.js';
 import type { SaveStore } from '../../storage/SaveStore.js';
 
 function createMockStore<T>(storage: Map<string, T>): SaveStore<T> {
@@ -41,184 +46,216 @@ function makeSaveData(overrides: Partial<GameSaveData> = {}): GameSaveData {
 }
 
 describe('SaveManagerV2', () => {
-  let storage: Map<string, GameSaveData>;
+  let storage: Map<string, SessionRecord>;
   let manager: SaveManagerV2;
 
   beforeEach(() => {
     storage = new Map();
     manager = new SaveManagerV2((_prefix: string) => {
       void _prefix;
-      return createMockStore<GameSaveData>(storage);
+      return createMockStore<SessionRecord>(storage);
     });
   });
 
-  describe('save and load', () => {
-    it('saves and loads a slot', async () => {
-      const data = makeSaveData({ score: 42 });
-      await manager.save('2026-01-15T10:00:00.000Z', data);
+  describe('createSessionId', () => {
+    it('produces unique IDs', () => {
+      const a = manager.createSessionId();
+      const b = manager.createSessionId();
+      expect(a).not.toBe(b);
+      expect(a.startsWith('s-')).toBe(true);
+    });
+  });
 
-      const loaded = await manager.load('2026-01-15T10:00:00.000Z');
+  describe('appendSave', () => {
+    it('creates a session with its first save', async () => {
+      const sessionId = manager.createSessionId();
+      await manager.appendSave(sessionId, makeSaveData({ score: 42 }));
+
+      const record = await manager.getSession(sessionId);
+      expect(record).not.toBeNull();
+      expect(record!.sessionId).toBe(sessionId);
+      expect(record!.saves).toHaveLength(1);
+      expect(record!.saves[0].data.score).toBe(42);
+    });
+
+    it('appends saves in chronological order', async () => {
+      const sessionId = manager.createSessionId();
+      await manager.appendSave(sessionId, makeSaveData({ score: 1 }));
+      await new Promise((r) => setTimeout(r, 5));
+      await manager.appendSave(sessionId, makeSaveData({ score: 2 }));
+
+      const saves = await manager.listSessionSaves(sessionId);
+      expect(saves).toHaveLength(2);
+      expect(saves[0].data.score).toBe(1);
+      expect(saves[1].data.score).toBe(2);
+      expect(saves[0].timestamp).toBeLessThan(saves[1].timestamp);
+    });
+
+    it(`keeps only the last ${MAX_SAVES_PER_SESSION} saves`, async () => {
+      const sessionId = manager.createSessionId();
+      for (let i = 0; i < MAX_SAVES_PER_SESSION + 3; i++) {
+        await manager.appendSave(sessionId, makeSaveData({ score: i }));
+      }
+
+      const saves = await manager.listSessionSaves(sessionId);
+      expect(saves).toHaveLength(MAX_SAVES_PER_SESSION);
+      // Oldest saves were pruned; newest ones remain in order.
+      expect(saves[0].data.score).toBe(3);
+      expect(saves[saves.length - 1].data.score).toBe(MAX_SAVES_PER_SESSION + 2);
+    });
+
+    it('does not affect other sessions', async () => {
+      const alpha = manager.createSessionId();
+      const beta = manager.createSessionId();
+      await manager.appendSave(alpha, makeSaveData({ score: 10 }));
+      for (let i = 0; i < 6; i++) {
+        await manager.appendSave(beta, makeSaveData({ score: i }));
+      }
+
+      const alphaSaves = await manager.listSessionSaves(alpha);
+      expect(alphaSaves).toHaveLength(1);
+      expect(alphaSaves[0].data.score).toBe(10);
+    });
+  });
+
+  describe('listSessions', () => {
+    it('returns sessions most recently saved first', async () => {
+      const older = manager.createSessionId();
+      const newer = manager.createSessionId();
+      await manager.appendSave(older, makeSaveData({ score: 1 }));
+      await new Promise((r) => setTimeout(r, 5));
+      await manager.appendSave(newer, makeSaveData({ score: 2 }));
+      await new Promise((r) => setTimeout(r, 5));
+      // Touch the older session so it becomes the most recently saved.
+      await manager.appendSave(older, makeSaveData({ score: 2 }));
+
+      const sessions = await manager.listSessions();
+      expect(sessions.map((s) => s.sessionId)).toEqual([older, newer]);
+    });
+
+    it('exposes save count, timestamps and latest seed', async () => {
+      const sessionId = manager.createSessionId();
+      await manager.appendSave(sessionId, makeSaveData({ score: 1 }));
+      await new Promise((r) => setTimeout(r, 5));
+      await manager.appendSave(
+        sessionId,
+        makeSaveData({
+          score: 2,
+          worldGeneration: {
+            seed: 'newest-seed',
+            worldSalt: 1,
+            biomeSalt: 2,
+            riverSalt: 3,
+            barrierSalt: 4,
+            structureSalt: 5,
+            townSalt: 6,
+          },
+        }),
+      );
+
+      const sessions = await manager.listSessions();
+      expect(sessions).toHaveLength(1);
+      expect(sessions[0].saveCount).toBe(2);
+      expect(sessions[0].seed).toBe('newest-seed');
+      expect(sessions[0].lastSavedAt).toBeGreaterThanOrEqual(sessions[0].createdAt);
+    });
+
+    it('returns empty array when no sessions exist', async () => {
+      const sessions = await manager.listSessions();
+      expect(sessions).toHaveLength(0);
+    });
+  });
+
+  describe('loadSave', () => {
+    it('loads a specific save by timestamp', async () => {
+      const sessionId = manager.createSessionId();
+      await manager.appendSave(sessionId, makeSaveData({ score: 10 }));
+      await new Promise((r) => setTimeout(r, 5));
+      await manager.appendSave(sessionId, makeSaveData({ score: 20 }));
+
+      const saves = await manager.listSessionSaves(sessionId);
+      const loaded = await manager.loadSave(sessionId, saves[0].timestamp);
       expect(loaded).not.toBeNull();
-      expect(loaded!.score).toBe(42);
-      expect(loaded!.worldGeneration?.seed).toBe('test-seed');
+      expect(loaded!.score).toBe(10);
     });
 
-    it('returns null for missing slot', async () => {
-      const result = await manager.load('nonexistent');
-      expect(result).toBeNull();
-    });
+    it('returns null for unknown session or timestamp', async () => {
+      const sessionId = manager.createSessionId();
+      await manager.appendSave(sessionId, makeSaveData({ score: 1 }));
 
-    it('overwrites existing slot data', async () => {
-      await manager.save('slot-a', makeSaveData({ score: 10 }));
-      await manager.save('slot-a', makeSaveData({ score: 99 }));
-
-      const loaded = await manager.load('slot-a');
-      expect(loaded!.score).toBe(99);
+      expect(await manager.loadSave('nope', 123)).toBeNull();
+      expect(await manager.loadSave(sessionId, 999999999)).toBeNull();
     });
   });
 
   describe('delete', () => {
-    it('removes a saved slot', async () => {
-      await manager.save('slot-b', makeSaveData({ score: 50 }));
-      await manager.delete('slot-b');
+    it('removes an entire session', async () => {
+      const sessionId = manager.createSessionId();
+      await manager.appendSave(sessionId, makeSaveData({ score: 50 }));
+      await manager.deleteSession(sessionId);
 
-      const loaded = await manager.load('slot-b');
-      expect(loaded).toBeNull();
+      expect(await manager.getSession(sessionId)).toBeNull();
+      const sessions = await manager.listSessions();
+      expect(sessions).toHaveLength(0);
     });
 
-    it('does not throw on deleting nonexistent slot', async () => {
-      await expect(manager.delete('ghost-slot')).resolves.toBeUndefined();
-    });
-  });
+    it('removes a single save from a session', async () => {
+      const sessionId = manager.createSessionId();
+      await manager.appendSave(sessionId, makeSaveData({ score: 1 }));
+      await new Promise((r) => setTimeout(r, 5));
+      await manager.appendSave(sessionId, makeSaveData({ score: 2 }));
 
-  describe('list regular saves', () => {
-    it('returns saves sorted newest first', async () => {
-      await manager.save('2026-01-10T10:00:00.000Z', makeSaveData({ score: 1 }));
-      await manager.save('2026-01-15T10:00:00.000Z', makeSaveData({ score: 2 }));
-      await manager.save('2026-01-12T10:00:00.000Z', makeSaveData({ score: 3 }));
+      const saves = await manager.listSessionSaves(sessionId);
+      await manager.deleteSave(sessionId, saves[0].timestamp);
 
-      const saves = await manager.listRegularSaves();
-      expect(saves).toHaveLength(3);
-      expect(saves[0].slotId).toBe('2026-01-15T10:00:00.000Z');
-      expect(saves[1].slotId).toBe('2026-01-12T10:00:00.000Z');
-      expect(saves[2].slotId).toBe('2026-01-10T10:00:00.000Z');
+      const remaining = await manager.listSessionSaves(sessionId);
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0].data.score).toBe(2);
     });
 
-    it('excludes autosave slots from regular list', async () => {
-      await manager.save('2026-01-15T10:00:00.000Z', makeSaveData({ score: 1 }));
-      await manager.save('autosave-0', makeSaveData({ score: 2 }));
-
-      const saves = await manager.listRegularSaves();
-      expect(saves).toHaveLength(1);
-      expect(saves[0].slotId).toBe('2026-01-15T10:00:00.000Z');
-    });
-
-    it('returns empty array when no saves exist', async () => {
-      const saves = await manager.listRegularSaves();
-      expect(saves).toHaveLength(0);
+    it('does not throw on deleting a nonexistent session', async () => {
+      await expect(manager.deleteSession('ghost-session')).resolves.toBeUndefined();
     });
   });
 
-  describe('autosaves', () => {
-    it('lists autosaves in slot order', async () => {
-      await manager.save('autosave-0', makeSaveData({ score: 1 }));
-      await manager.save('autosave-2', makeSaveData({ score: 3 }));
-      await manager.save('autosave-1', makeSaveData({ score: 2 }));
-
-      const autosaves = await manager.listAutosaves();
-      expect(autosaves).toHaveLength(3);
-      expect(autosaves[0].slotId).toBe('autosave-0');
-      expect(autosaves[1].slotId).toBe('autosave-1');
-      expect(autosaves[2].slotId).toBe('autosave-2');
+  describe('labels', () => {
+    it('formats a session label with seed and save count', async () => {
+      const sessionId = manager.createSessionId();
+      await manager.appendSave(sessionId, makeSaveData());
+      const [info] = await manager.listSessions();
+      const label = manager.getSessionLabel(info);
+      expect(label).toContain('Started');
+      expect(label).toContain('test-seed');
+      expect(label).toContain(`${info.saveCount}/${MAX_SAVES_PER_SESSION} saves`);
     });
 
-    it('skips empty autosave slots', async () => {
-      await manager.save('autosave-0', makeSaveData({ score: 1 }));
-      await manager.save('autosave-4', makeSaveData({ score: 5 }));
-
-      const autosaves = await manager.listAutosaves();
-      expect(autosaves).toHaveLength(2);
-      expect(autosaves[0].slotId).toBe('autosave-0');
-      expect(autosaves[1].slotId).toBe('autosave-4');
+    it('does not label the default-world seed', async () => {
+      const sessionId = manager.createSessionId();
+      await manager.appendSave(
+        sessionId,
+        makeSaveData({
+          worldGeneration: {
+            seed: 'default-world',
+            worldSalt: 1,
+            biomeSalt: 2,
+            riverSalt: 3,
+            barrierSalt: 4,
+            structureSalt: 5,
+            townSalt: 6,
+          },
+        }),
+      );
+      const [info] = await manager.listSessions();
+      expect(manager.getSessionLabel(info)).not.toContain('default-world');
     });
 
-    it('returns empty array when no autosaves exist', async () => {
-      const autosaves = await manager.listAutosaves();
-      expect(autosaves).toHaveLength(0);
-    });
-
-    it('sliding window: 6th autosave replaces oldest', async () => {
-      // Fill all 5 slots
-      for (let i = 0; i < 5; i++) {
-        await manager.save(`autosave-${i}`, makeSaveData({ score: i * 100 }));
-      }
-
-      // After filling 5 slots, the index wraps to 0
-      // Simulate by saving to autosave-0 (which would be the next slot after index 4)
-      await manager.save('autosave-0', makeSaveData({ score: 999 }));
-
-      const autosaves = await manager.listAutosaves();
-      expect(autosaves).toHaveLength(5);
-      // autosave-0 should now have the new data
-      expect(autosaves.find((a) => a.slotId === 'autosave-0')!.data.score).toBe(999);
-    });
-  });
-
-  describe('getSlotLabel', () => {
-    it('returns formatted date for ISO date slot IDs', async () => {
-      const label = manager.getSlotLabel('2026-06-17T14:30:00.000Z');
-      expect(label).toContain('Jun');
-      expect(label).toContain('2026');
-    });
-
-    it('returns autosave label for autosave slot IDs', () => {
-      expect(manager.getSlotLabel('autosave-0')).toBe('Autosave 1');
-      expect(manager.getSlotLabel('autosave-1')).toBe('Autosave 2');
-      expect(manager.getSlotLabel('autosave-4')).toBe('Autosave 5');
-    });
-
-    it('returns raw slotId for unknown format', () => {
-      expect(manager.getSlotLabel('unknown-format')).toBe('unknown-format');
-    });
-  });
-
-  describe('getDisplayLabel', () => {
-    it('appends seed to label when seed is provided', () => {
-      const data = makeSaveData({
-        worldGeneration: {
-          seed: 'my-world',
-          worldSalt: 1,
-          biomeSalt: 2,
-          riverSalt: 3,
-          barrierSalt: 4,
-          structureSalt: 5,
-          townSalt: 6,
-        },
-      });
-      const label = manager.getDisplayLabel('2026-06-17T14:30:00.000Z', data.worldGeneration!.seed);
-      expect(label).toContain('my-world');
-      expect(label).toContain('\nSeed: my-world');
-    });
-
-    it('does not append default seed', () => {
-      const data = makeSaveData({
-        worldGeneration: {
-          seed: 'default-world',
-          worldSalt: 1,
-          biomeSalt: 2,
-          riverSalt: 3,
-          barrierSalt: 4,
-          structureSalt: 5,
-          townSalt: 6,
-        },
-      });
-      const label = manager.getDisplayLabel('2026-06-17T14:30:00.000Z', data.worldGeneration!.seed);
-      expect(label).not.toContain('default-world');
+    it('formats save labels with date and score', () => {
+      expect(manager.getSaveLabel(1000, 77)).toContain('Score 77');
     });
   });
 
   describe('migration', () => {
-    it('migrates v1 data to v3', async () => {
+    it('migrates v1 data to v3 when appended and loaded', async () => {
       const v1Data: GameSaveData = {
         version: '1.0.0',
         timestamp: Date.now(),
@@ -227,17 +264,16 @@ describe('SaveManagerV2', () => {
         equipment: {},
         flags: {},
       };
+      const sessionId = manager.createSessionId();
+      await manager.appendSave(sessionId, v1Data);
 
-      // Save as raw in the mock store
-      storage.set('v1-test', v1Data as unknown as GameSaveData);
-
-      const loaded = await manager.load('v1-test');
-      expect(loaded!.version).toBe('3.0.0');
-      expect(loaded!.minecraftBlocks).toEqual([]);
-      expect(loaded!.minecraftPlayerState).toBeDefined();
-      expect(loaded!.fishing).toBeDefined();
-      expect(loaded!.fishing!.catchJournal).toEqual([]);
-      expect(loaded!.fishing!.equippedRod).toBe('none');
+      const saves = await manager.listSessionSaves(sessionId);
+      expect(saves[0].data.version).toBe('3.0.0');
+      expect(saves[0].data.minecraftBlocks).toEqual([]);
+      expect(saves[0].data.minecraftPlayerState).toBeDefined();
+      expect(saves[0].data.fishing).toBeDefined();
+      expect(saves[0].data.fishing!.catchJournal).toEqual([]);
+      expect(saves[0].data.fishing!.equippedRod).toBe('none');
     });
 
     it('migrates v2 data to v3', async () => {
@@ -252,10 +288,13 @@ describe('SaveManagerV2', () => {
           caughtFish: { 'fish-minnow': 5 },
         },
       };
+      const sessionId = manager.createSessionId();
+      await manager.appendSave(sessionId, v2Data);
 
-      storage.set('v2-test', v2Data as unknown as GameSaveData);
-
-      const loaded = await manager.load('v2-test');
+      const loaded = await manager.loadSave(
+        sessionId,
+        (await manager.listSessionSaves(sessionId))[0].timestamp,
+      );
       expect(loaded!.version).toBe('3.0.0');
       expect(loaded!.fishing!.caughtFish).toEqual({ 'fish-minnow': 5 });
       expect(loaded!.fishing!.catchJournal).toEqual([]);
@@ -263,23 +302,86 @@ describe('SaveManagerV2', () => {
     });
 
     it('does not re-migrate already migrated data', async () => {
-      const data = makeSaveData({ version: '3.0.0', score: 300 });
+      const sessionId = manager.createSessionId();
+      await manager.appendSave(sessionId, makeSaveData({ score: 300 }));
 
-      storage.set('v3-test', data);
-
-      const loaded1 = await manager.load('v3-test');
-      expect(loaded1!.version).toBe('3.0.0');
-
-      const loaded2 = await manager.load('v3-test');
-      expect(loaded2!.version).toBe('3.0.0');
-      expect(loaded2!.score).toBe(300);
+      const first = await manager.loadSave(
+        sessionId,
+        (await manager.listSessionSaves(sessionId))[0].timestamp,
+      );
+      const second = await manager.loadSave(
+        sessionId,
+        (await manager.listSessionSaves(sessionId))[0].timestamp,
+      );
+      expect(first!.version).toBe('3.0.0');
+      expect(second!.version).toBe('3.0.0');
+      expect(second!.score).toBe(300);
     });
   });
+});
 
-  describe('legacy save', () => {
-    it('returns null when no legacy save exists', async () => {
-      const loaded = await manager.load('legacy');
-      expect(loaded).toBeNull();
-    });
+describe('SaveManagerV2 legacy slot migration', () => {
+  function createFakeLocalStorage() {
+    const backing = new Map<string, string>();
+    return {
+      store: backing,
+      get length() {
+        return backing.size;
+      },
+      key: (i: number) => [...backing.keys()][i] ?? null,
+      getItem: (k: string) => (backing.has(k) ? (backing.get(k) as string) : null),
+      setItem: (k: string, v: string) => {
+        backing.set(k, v);
+      },
+      removeItem: (k: string) => {
+        backing.delete(k);
+      },
+    };
+  }
+
+  it('folds pre-session flat slots into standalone sessions', async () => {
+    const fake = createFakeLocalStorage();
+    const legacyData = makeSaveData({ score: 11 });
+    legacyData.version = '2.0.0';
+    legacyData.fishing = { caughtFish: { 'fish-minnow': 1 } };
+    fake.store.set('snake-save:2026-01-15T10:00:00.000Z', JSON.stringify(legacyData));
+    const autosaveData = makeSaveData({ score: 22 });
+    fake.store.set('snake-save:autosave-0', JSON.stringify(autosaveData));
+
+    vi.stubGlobal('localStorage', fake);
+    const sessions = await new SaveManagerV2().listSessions();
+    const dateSession = sessions.find((s) => s.sessionId.startsWith('legacy-2026'));
+    const autosaveSession = sessions.find((s) => s.sessionId.startsWith('legacy-autosave-0'));
+    expect(dateSession).toBeDefined();
+    expect(autosaveSession).toBeDefined();
+
+    // Legacy keys are consumed by the migration.
+    expect(fake.store.has('snake-save:2026-01-15T10:00:00.000Z')).toBe(false);
+    expect(fake.store.has('snake-save:autosave-0')).toBe(false);
+
+    // Migrated data survives a round trip and v2 data is migrated to v3.
+    const manager = new SaveManagerV2();
+    const dateSaves = await manager.listSessionSaves(dateSession!.sessionId);
+    expect(dateSaves[0].data.score).toBe(11);
+    expect(dateSaves[0].data.version).toBe('3.0.0');
+    expect(dateSaves[0].data.fishing!.equippedRod).toBe('none');
+    const autosaveSaves = await manager.listSessionSaves(autosaveSession!.sessionId);
+    expect(autosaveSaves[0].data.score).toBe(22);
+  });
+
+  it('does not double-migrate once legacy slots are gone', async () => {
+    const fake = createFakeLocalStorage();
+    fake.store.set(
+      'snake-save:2026-01-15T10:00:00.000Z',
+      JSON.stringify(makeSaveData({ score: 33 })),
+    );
+
+    vi.stubGlobal('localStorage', fake);
+    const manager = new SaveManagerV2();
+    const first = await manager.listSessions();
+    expect(first).toHaveLength(1);
+    const second = await manager.listSessions();
+    expect(second).toHaveLength(1);
+    expect(second[0].sessionId).toBe(first[0].sessionId);
   });
 });
