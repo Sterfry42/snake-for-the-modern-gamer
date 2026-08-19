@@ -510,6 +510,20 @@ export const VILLAGE_SHOP_EMOTICONS: readonly VillageShopEmoticonOffer[] = [
     price: 25,
     description: 'Too cool for school.',
   },
+  {
+    id: 'honk',
+    label: 'Honk',
+    symbol: 'HONK!',
+    price: 15,
+    description: 'HONK. That is the entire joke.',
+  },
+  {
+    id: 'faceplant',
+    label: 'Faceplant',
+    symbol: '(>﹏<)',
+    price: 20,
+    description: 'Contact with the floor. No refunds.',
+  },
 ];
 
 export function getVillageShopDefinition(biomeId: BiomeId): VillageShopDefinition {

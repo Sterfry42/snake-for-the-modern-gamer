@@ -22,6 +22,10 @@ export const ALL_EMOTICON_IDS = [
   'angel',
   'ghost',
   'clown',
+  'honk',
+  'bonk',
+  'faceplant',
+  'sir',
   'fire',
   'star',
   'heart',
@@ -150,6 +154,36 @@ export const EMOTICON_DEFINITIONS: readonly EmoticonDefinition[] = [
     symbol: 'OwO',
     price: 20,
     description: "Clowning around. The wise old snake's favorite apple is wasabi.",
+  },
+  {
+    id: 'honk',
+    label: 'Honk',
+    symbol: 'HONK!',
+    price: 15,
+    description:
+      'HONK. That is the entire joke. The wise old snake would never explain one, because the wise old snake is never wrong and always done.',
+  },
+  {
+    id: 'bonk',
+    label: 'Bonk',
+    symbol: 'BONK!',
+    price: 20,
+    description: 'A wooden spoon was involved. The wall is filing a complaint. No refunds.',
+  },
+  {
+    id: 'faceplant',
+    label: 'Faceplant',
+    symbol: '(>﹏<)',
+    price: 20,
+    description: 'Contact with the floor. No refunds, no apologies, and absolutely no neck.',
+  },
+  {
+    id: 'sir',
+    label: 'Sir',
+    symbol: '🎩',
+    price: 30,
+    description:
+      "Yes, sir. Of course, sir. The wise old snake would've said 'sir' right back at it, sir. The wise old snake is never wrong, not even about the hat.",
   },
   {
     id: 'fire',

@@ -79,6 +79,9 @@ export interface AppleTypeConfig {
     | 'frost'
     | 'winterberry'
     | 'heatwave'
+    // Buffoonery apples
+    | 'spud'
+    | 'yodel'
     // Evolved/Mutation apples
     | 'spicyEnergy'
     | 'frostMochi'
@@ -350,6 +353,23 @@ export const defaultGameConfig: GameConfig = {
         outlineDarkenFactor: 0.45,
         spawn: { base: 0.005, scoreThreshold: 100 },
         behavior: 'treat',
+      },
+      // Buffoonery apples — the wise old snake considers both "dangerous but delicious."
+      {
+        id: 'spud',
+        label: 'Demoted Spud',
+        color: 0xc8965a,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.02, scoreThreshold: 30 },
+        behavior: 'spud',
+      },
+      {
+        id: 'yodel',
+        label: 'Alpine Yodel',
+        color: 0x7ec8e3,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.01, scoreThreshold: 45 },
+        behavior: 'yodel',
       },
       // Dream World Apples
       {
