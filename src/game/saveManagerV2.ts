@@ -151,16 +151,33 @@ export class SaveManagerV2 {
   }
 
   async deleteSession(sessionId: string): Promise<void> {
-    this.knownSessions.delete(sessionId);
-    await this.store.clear(this.sessionKey(sessionId));
+    await this.deleteSessions([sessionId]);
+  }
+
+  async deleteSessions(sessionIds: string[]): Promise<void> {
+    for (const sessionId of sessionIds) {
+      this.knownSessions.delete(sessionId);
+    }
+    await Promise.all(sessionIds.map((sessionId) => this.store.clear(this.sessionKey(sessionId))));
   }
 
   async deleteSave(sessionId: string, timestamp: number): Promise<void> {
+    await this.deleteSaves(sessionId, [timestamp]);
+  }
+
+  /** Delete multiple save points from a session; an emptied session is dropped. */
+  async deleteSaves(sessionId: string, timestamps: number[]): Promise<void> {
     const record = await this.getSession(sessionId);
     if (!record) return;
-    record.saves = record.saves.filter((entry) => entry.timestamp !== timestamp);
-    this.knownSessions.add(sessionId);
-    await this.store.save(this.sessionKey(sessionId), record);
+    const doomed = new Set(timestamps);
+    record.saves = record.saves.filter((entry) => !doomed.has(entry.timestamp));
+    if (record.saves.length === 0) {
+      this.knownSessions.delete(sessionId);
+      await this.store.clear(this.sessionKey(sessionId));
+    } else {
+      this.knownSessions.add(sessionId);
+      await this.store.save(this.sessionKey(sessionId), record);
+    }
   }
 
   /** Human-friendly label for a session in the load menu. */

@@ -216,6 +216,49 @@ describe('SaveManagerV2', () => {
     it('does not throw on deleting a nonexistent session', async () => {
       await expect(manager.deleteSession('ghost-session')).resolves.toBeUndefined();
     });
+
+    it('removes several sessions at once, leaving others alone', async () => {
+      const first = manager.createSessionId();
+      const second = manager.createSessionId();
+      const keeper = manager.createSessionId();
+      for (const id of [first, second, keeper]) {
+        await manager.appendSave(id, makeSaveData());
+      }
+
+      await manager.deleteSessions([first, second]);
+
+      const sessions = await manager.listSessions();
+      expect(sessions).toHaveLength(1);
+      expect(sessions[0].sessionId).toBe(keeper);
+      expect(await manager.getSession(first)).toBeNull();
+      expect(await manager.getSession(second)).toBeNull();
+    });
+
+    it('removes multiple saves from a session in one call', async () => {
+      const sessionId = manager.createSessionId();
+      for (let i = 0; i < 4; i++) {
+        await manager.appendSave(sessionId, makeSaveData({ score: i }));
+        await new Promise((r) => setTimeout(r, 5));
+      }
+      const saves = await manager.listSessionSaves(sessionId);
+      await manager.deleteSaves(sessionId, [saves[0].timestamp, saves[2].timestamp]);
+
+      const remaining = await manager.listSessionSaves(sessionId);
+      expect(remaining).toHaveLength(2);
+      expect(remaining.map((entry) => entry.data.score)).toEqual([1, 3]);
+    });
+
+    it('drops the session when its last save is deleted in bulk', async () => {
+      const sessionId = manager.createSessionId();
+      await manager.appendSave(sessionId, makeSaveData({ score: 9 }));
+      const [save] = await manager.listSessionSaves(sessionId);
+
+      await manager.deleteSaves(sessionId, [save.timestamp]);
+
+      expect(await manager.getSession(sessionId)).toBeNull();
+      const sessions = await manager.listSessions();
+      expect(sessions).toHaveLength(0);
+    });
   });
 
   describe('labels', () => {

@@ -96,6 +96,7 @@ export const FEATURE_STRINGS_FR: FeatureStringsType = {
 
   // Save System
   saveButton: 'SAUVER',
+  saveLoadButton: 'SAUVEGARDER/CHARGER',
   pauseButton: 'PAUSE',
   loadButton: 'CHARGER',
   clearButton: 'EFFACER',
@@ -118,6 +119,9 @@ export const FEATURE_STRINGS_FR: FeatureStringsType = {
   back: 'Retour',
   confirmDelete: 'Effacer cette sauvegarde ?',
   confirmDeleteSession: 'Effacer cette session et toutes ses sauvegardes ?',
+  confirmDeleteSelectedSessions: 'Effacer {count} sessions et toutes leurs sauvegardes ?',
+  confirmDeleteSelectedSaves: 'Effacer {count} sauvegardes ?',
+  deleteSelected: 'Effacer la sélection',
   noSaves: 'Aucun fichier de sauvegarde trouvé.',
   noAutosaves: 'Pas de sauvegardes automatiques.',
 

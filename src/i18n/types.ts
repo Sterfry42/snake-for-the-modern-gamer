@@ -140,6 +140,7 @@ export interface FeatureStrings {
 
   // === SAVE SYSTEM ===
   saveButton: string;
+  saveLoadButton: string;
   pauseButton: string;
   loadButton: string;
   clearButton: string;
@@ -162,6 +163,9 @@ export interface FeatureStrings {
   back: string;
   confirmDelete: string;
   confirmDeleteSession: string;
+  confirmDeleteSelectedSessions: string;
+  confirmDeleteSelectedSaves: string;
+  deleteSelected: string;
   noSaves: string;
   noAutosaves: string;
 

@@ -95,6 +95,7 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
 
   // Save System
   saveButton: 'GUARDAR',
+  saveLoadButton: 'GUARDAR/CARGAR',
   pauseButton: 'PAUSA',
   loadButton: 'CARGAR',
   clearButton: 'BORRAR',
@@ -117,6 +118,9 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   back: 'Atr\u00e1s',
   confirmDelete: '\u00bfBorrar este guardado?',
   confirmDeleteSession: '\u00bfBorrar esta sesi\u00f3n y todos sus guardados?',
+  confirmDeleteSelectedSessions: '\u00bfBorrar {count} sesiones y todos sus guardados?',
+  confirmDeleteSelectedSaves: '\u00bfBorrar {count} guardados?',
+  deleteSelected: 'Borrar seleccionados',
   noSaves: 'No se encontraron archivos de guardado.',
   noAutosaves: 'No hay guardados autom\u00e1ticos.',
 

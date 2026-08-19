@@ -7833,22 +7833,12 @@ export default class SnakeScene extends Phaser.Scene {
     this.saveLoadMenu.setDepth(9999);
     this.saveLoadMenu.show(
       async (sessionId: string, data: GameSaveData) => {
-        // Loading reuses the unique session this save belongs to.
-        this.currentSessionId = sessionId;
         this.hideTitleScreen();
-        const success = this.snakeGame.loadFromSaveData(data);
-        if (!success) {
+        if (!this.applyLoadedGame(sessionId, data)) {
           this.titleMessageText?.setText('Failed to load game.');
           this.showTitleScreen('main');
           return;
         }
-        this.currentSnapshot = this.gameSession.getSnapshot();
-        this.restoreCharacterSaveState();
-        this.applyRaccoonActionStepInterval();
-        this.backfillArchipelagoDurableRewards();
-        this.backfillArchipelagoAchievementScore();
-        this.paused = false;
-        this.isDirty = true;
         this.saveLoadMenu?.hide();
         this.saveLoadMenu = null;
       },
@@ -7858,6 +7848,55 @@ export default class SnakeScene extends Phaser.Scene {
         this.showTitleScreen('main');
       },
     );
+  }
+
+  /**
+   * In-game "Save/Load" button entry: opens the same Load Game menu over the
+   * live game (paused while open) and resumes the run with the chosen save.
+   */
+  openSaveLoadMenuFromGame(): void {
+    this.saveLoadMenu?.hide();
+    this.saveLoadMenu = new SaveLoadMenu(this);
+    this.saveLoadMenu.setControllerMode(this.inputModeManager.getMode() === 'controller');
+    this.saveLoadMenu.setDepth(9999);
+    this.paused = true;
+    this.saveLoadMenu.show(
+      async (sessionId: string, data: GameSaveData) => {
+        const menu = this.saveLoadMenu;
+        this.saveLoadMenu = null;
+        menu?.hide();
+        if (!this.applyLoadedGame(sessionId, data)) {
+          this.titleMessageText?.setText('Failed to load game.');
+          this.showTitleScreen('main');
+          return;
+        }
+      },
+      () => {
+        // No back target in-game: just close the menu and keep playin' on.
+        const menu = this.saveLoadMenu;
+        this.saveLoadMenu = null;
+        menu?.hide();
+        this.paused = false;
+      },
+    );
+  }
+
+  /** Apply a loaded save to the live game; returns false when the load fails. */
+  private applyLoadedGame(sessionId: string, data: GameSaveData): boolean {
+    // Loading reuses the unique session this save belongs to.
+    this.currentSessionId = sessionId;
+    const success = this.snakeGame.loadFromSaveData(data);
+    if (!success) {
+      return false;
+    }
+    this.currentSnapshot = this.gameSession.getSnapshot();
+    this.restoreCharacterSaveState();
+    this.applyRaccoonActionStepInterval();
+    this.backfillArchipelagoDurableRewards();
+    this.backfillArchipelagoAchievementScore();
+    this.paused = false;
+    this.isDirty = true;
+    return true;
   }
 
   private buildTitleScreen(): void {

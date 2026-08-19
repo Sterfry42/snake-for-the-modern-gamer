@@ -11,10 +11,21 @@ import type { ControllerNavCommand } from '../input/controllerNavigation.js';
 
 export type LoadGameHandler = (sessionId: string, data: GameSaveData) => void;
 
+interface EntryBox {
+  container: Phaser.GameObjects.Container;
+  bg: Phaser.GameObjects.Rectangle;
+  check: Phaser.GameObjects.Text;
+  key: string;
+}
+
 /**
  * Two-level Load Game menu. The top level lists every save session
  * (one per unique game run); opening a session shows its last five
  * saves in chronological order, any of which may be loaded.
+ *
+ * Entries can be multi-selected (click the body, or left/right with a
+ * controller) and bulk-deleted via the "Delete Selected (n)" button.
+ * The single Delete button on each entry always deletes just that one.
  */
 export class SaveLoadMenu {
   private container?: Phaser.GameObjects.Container;
@@ -23,10 +34,11 @@ export class SaveLoadMenu {
   private sectionTitle?: Phaser.GameObjects.Text;
   private emptyText?: Phaser.GameObjects.Text;
   private scrollContainer?: Phaser.GameObjects.Container;
-  private scrollMask?: Phaser.GameObjects.Graphics;
+  private scrollMask?: Phaser.Display.Masks.GeometryMask;
   private scrollbarGraphics?: Phaser.GameObjects.Graphics;
   private backText?: Phaser.GameObjects.Text;
-  private entryContainers: Phaser.GameObjects.Container[] = [];
+  private deleteSelectedText?: Phaser.GameObjects.Text;
+  private entryBoxes: EntryBox[] = [];
   private confirmOverlay?: Phaser.GameObjects.Container;
   private confirmYes?: Phaser.GameObjects.Text;
   private confirmNo?: Phaser.GameObjects.Text;
@@ -35,6 +47,7 @@ export class SaveLoadMenu {
   private scrollY = 0;
   private contentHeight = 0;
   private viewportHeight = 0;
+  private scrollInput?: Phaser.GameObjects.Rectangle;
   private readonly width = 520;
   private readonly entryHeight = 56;
   private readonly headerHeight = 48;
@@ -50,6 +63,8 @@ export class SaveLoadMenu {
   private selectedEntryIndex = 0;
   private controllerMode = false;
   private confirmSelection: 'yes' | 'no' = 'no';
+  /** Keys of the entries picked for bulk delete (session IDs or save timestamps). */
+  private selectedKeys = new Set<string>();
 
   constructor(private readonly scene: SnakeScene) {
     this.build();
@@ -61,6 +76,7 @@ export class SaveLoadMenu {
     this.scene.setChoicePopupVisible(true);
     this.view = 'sessions';
     this.activeSessionId = null;
+    this.selectedKeys.clear();
     this.sessions = await saveManagerV2.listSessions();
     this.titleText?.setText(i18n.getFeatureString('loadGameMenuTitle') || 'Load Game');
     this.buildEntries();
@@ -78,11 +94,12 @@ export class SaveLoadMenu {
     this.currentOnLoad = undefined;
     this.activeSessionId = null;
     this.view = 'sessions';
+    this.selectedKeys.clear();
     this.scrollMask?.destroy();
     this.scrollMask = undefined;
     this.pendingDeleteAction = undefined;
-    for (const c of this.entryContainers) c.destroy();
-    this.entryContainers = [];
+    for (const entry of this.entryBoxes) entry.container.destroy();
+    this.entryBoxes = [];
     this.controllerLoadActions = [];
     this.controllerDeleteActions = [];
   }
@@ -118,12 +135,22 @@ export class SaveLoadMenu {
       }
       return true;
     }
-    if (command === 'up' || command === 'left') {
+    if (command === 'up') {
       this.moveControllerSelection(-1);
       return true;
     }
-    if (command === 'down' || command === 'right') {
+    if (command === 'down') {
       this.moveControllerSelection(1);
+      return true;
+    }
+    if (command === 'left' || command === 'right') {
+      // Horizontal buttons toggle the multi-select state of the
+      // highlighted entry (the list is one-dimensional, so there is no
+      // horizontal movement to fall back on).
+      const entry = this.entryBoxes[this.selectedEntryIndex];
+      if (entry) {
+        this.toggleSelection(entry.key);
+      }
       return true;
     }
     if (command === 'scrollUp') {
@@ -139,7 +166,11 @@ export class SaveLoadMenu {
       return true;
     }
     if (command === 'primary') {
-      this.controllerDeleteActions[this.selectedEntryIndex]?.();
+      if (this.selectedKeys.size > 0) {
+        void this.deleteSelected();
+      } else {
+        this.controllerDeleteActions[this.selectedEntryIndex]?.();
+      }
       return true;
     }
     if (command === 'cancel' || command === 'menu') {
@@ -154,6 +185,7 @@ export class SaveLoadMenu {
     if (this.view === 'saves') {
       this.view = 'sessions';
       this.activeSessionId = null;
+      this.selectedKeys.clear();
       this.titleText?.setText(i18n.getFeatureString('loadGameMenuTitle') || 'Load Game');
       this.buildEntries();
       this.layoutPopup();
@@ -169,6 +201,7 @@ export class SaveLoadMenu {
     if (saves.length === 0) return;
     this.view = 'saves';
     this.activeSessionId = sessionId;
+    this.selectedKeys.clear();
     this.saveEntries = saves;
     const info = this.sessions.find((s) => s.sessionId === sessionId);
     this.activeSessionLabel = info ? saveManagerV2.getSessionLabel(info) : sessionId;
@@ -178,8 +211,8 @@ export class SaveLoadMenu {
   }
 
   private buildEntries(): void {
-    for (const c of this.entryContainers) c.destroy();
-    this.entryContainers = [];
+    for (const entry of this.entryBoxes) entry.container.destroy();
+    this.entryBoxes = [];
     this.controllerLoadActions = [];
     this.controllerDeleteActions = [];
 
@@ -194,6 +227,9 @@ export class SaveLoadMenu {
 
     let y = 16;
     this.emptyText?.setVisible(false);
+    if (this.emptyText && !this.emptyText.scene) {
+      this.scrollContainer?.add(this.emptyText);
+    }
 
     if (this.view === 'sessions') {
       this.sectionTitle?.setVisible(this.sessions.length > 0);
@@ -203,35 +239,19 @@ export class SaveLoadMenu {
       }
       for (const session of this.sessions) {
         const label = saveManagerV2.getSessionLabel(session);
+        const action = this.sessionEntryActions(session);
         const entryBox = this.createEntryBox(
           label,
+          session.sessionId,
           buttonWidth,
           buttonHeight,
           buttonGap,
           padding,
-          (action) => {
-            if (action === 'load') {
-              void this.openSession(session.sessionId);
-            } else if (action === 'delete') {
-              this.showConfirmDelete(
-                i18n.getFeatureString('confirmDeleteSession') ||
-                  'Delete this session and all of its saves?',
-                () => this.deleteSession(session.sessionId),
-              );
-            }
-          },
+          action,
         );
-        entryBox.setPosition(scrollX, y);
-        this.scrollContainer?.add(entryBox);
-        this.entryContainers.push(entryBox);
-        this.controllerLoadActions.push(() => void this.openSession(session.sessionId));
-        this.controllerDeleteActions.push(() =>
-          this.showConfirmDelete(
-            i18n.getFeatureString('confirmDeleteSession') ||
-              'Delete this session and all of its saves?',
-            () => this.deleteSession(session.sessionId),
-          ),
-        );
+        this.placeEntry(entryBox, scrollX, y);
+        this.controllerLoadActions.push(action.load);
+        this.controllerDeleteActions.push(action.delete);
         y += totalEntryHeight;
       }
     } else {
@@ -244,46 +264,67 @@ export class SaveLoadMenu {
       }
       for (const entry of this.saveEntries) {
         const label = saveManagerV2.getSaveLabel(entry.timestamp, entry.data.score);
+        const key = String(entry.timestamp);
+        const action = this.saveEntryActions(entry);
         const entryBox = this.createEntryBox(
           label,
+          key,
           buttonWidth,
           buttonHeight,
           buttonGap,
           padding,
-          (action) => {
-            if (action === 'load') {
-              this.currentOnLoad?.(this.activeSessionId ?? '', entry.data);
-            } else if (action === 'delete' && this.activeSessionId) {
-              this.showConfirmDelete(
-                i18n.getFeatureString('confirmDelete') || 'Delete this save?',
-                () => this.deleteSave(this.activeSessionId!, entry.timestamp),
-              );
-            }
-          },
+          action,
         );
-        entryBox.setPosition(scrollX, y);
-        this.scrollContainer?.add(entryBox);
-        this.entryContainers.push(entryBox);
-        this.controllerLoadActions.push(() =>
-          this.currentOnLoad?.(this.activeSessionId ?? '', entry.data),
-        );
-        this.controllerDeleteActions.push(() =>
-          this.showConfirmDelete(
-            i18n.getFeatureString('confirmDelete') || 'Delete this save?',
-            () => this.deleteSave(this.activeSessionId!, entry.timestamp),
-          ),
-        );
+        this.placeEntry(entryBox, scrollX, y);
+        this.controllerLoadActions.push(action.load);
+        this.controllerDeleteActions.push(action.delete);
         y += totalEntryHeight;
       }
     }
 
-    this.contentHeight = this.entryContainers.length === 0 ? 40 : Math.max(0, y - 16);
+    this.contentHeight = this.entryBoxes.length === 0 ? 40 : Math.max(0, y - 16);
     this.selectedEntryIndex = Phaser.Math.Clamp(
       this.selectedEntryIndex,
       0,
-      Math.max(0, this.entryContainers.length - 1),
+      Math.max(0, this.entryBoxes.length - 1),
     );
+    this.applySelectionVisuals();
+    this.updateDeleteSelectedButton();
     this.refreshControllerSelection();
+  }
+
+  /** Button + controller actions shared by the sessions view. */
+  private sessionEntryActions(session: SessionInfo): {
+    load: () => void;
+    delete: () => void;
+  } {
+    const message =
+      i18n.getFeatureString('confirmDeleteSession') || 'Delete this session and all of its saves?';
+    return {
+      load: () => void this.openSession(session.sessionId),
+      delete: () => this.showConfirmDelete(message, () => this.deleteSession(session.sessionId)),
+    };
+  }
+
+  /** Button + controller actions shared by the saves view. */
+  private saveEntryActions(entry: SessionSaveEntry): {
+    load: () => void;
+    delete: () => void;
+  } {
+    const message = i18n.getFeatureString('confirmDelete') || 'Delete this save?';
+    return {
+      load: () => this.currentOnLoad?.(this.activeSessionId ?? '', entry.data),
+      delete: () =>
+        this.showConfirmDelete(message, () =>
+          this.deleteSave(this.activeSessionId!, entry.timestamp),
+        ),
+    };
+  }
+
+  private placeEntry(entry: EntryBox, x: number, y: number): void {
+    entry.container.setPosition(x, y);
+    this.scrollContainer?.add(entry.container);
+    this.entryBoxes.push(entry);
   }
 
   private showEmpty(message: string): void {
@@ -293,14 +334,38 @@ export class SaveLoadMenu {
 
   private async deleteSession(sessionId: string): Promise<void> {
     await saveManagerV2.deleteSession(sessionId);
-    this.sessions = (await saveManagerV2.listSessions()).filter((s) => s.sessionId !== sessionId);
+    this.selectedKeys.delete(sessionId);
+    this.sessions = await saveManagerV2.listSessions();
     await this.refreshView();
   }
 
   private async deleteSave(sessionId: string, timestamp: number): Promise<void> {
     await saveManagerV2.deleteSave(sessionId, timestamp);
+    this.selectedKeys.delete(String(timestamp));
     this.saveEntries = await saveManagerV2.listSessionSaves(sessionId);
     await this.refreshView();
+  }
+
+  /** Bulk-delete everything the player has selected, with a confirm. */
+  private deleteSelected(): void {
+    const count = this.selectedKeys.size;
+    if (count === 0) return;
+    const template =
+      this.view === 'sessions'
+        ? i18n.getFeatureString('confirmDeleteSelectedSessions') ||
+          'Delete {count} sessions and all of their saves?'
+        : i18n.getFeatureString('confirmDeleteSelectedSaves') || 'Delete {count} saves?';
+    this.showConfirmDelete(template.replace('{count}', String(count)), async () => {
+      if (this.view === 'sessions') {
+        await saveManagerV2.deleteSessions([...this.selectedKeys]);
+        this.sessions = await saveManagerV2.listSessions();
+      } else if (this.activeSessionId) {
+        await saveManagerV2.deleteSaves(this.activeSessionId, [...this.selectedKeys].map(Number));
+        this.saveEntries = await saveManagerV2.listSessionSaves(this.activeSessionId);
+      }
+      this.selectedKeys.clear();
+      await this.refreshView();
+    });
   }
 
   private async refreshView(): Promise<void> {
@@ -319,11 +384,42 @@ export class SaveLoadMenu {
     this.layoutPopup();
   }
 
+  private toggleSelection(key: string): void {
+    if (this.selectedKeys.has(key)) {
+      this.selectedKeys.delete(key);
+    } else {
+      this.selectedKeys.add(key);
+    }
+    this.applySelectionVisuals();
+    this.updateDeleteSelectedButton();
+  }
+
+  private applySelectionVisuals(): void {
+    for (const entry of this.entryBoxes) {
+      const selected = this.selectedKeys.has(entry.key);
+      entry.bg.setStrokeStyle(1, selected ? 0x5dd6a2 : 0x4da3ff, selected ? 0.9 : 0.5);
+      entry.check.setVisible(selected);
+    }
+  }
+
+  private updateDeleteSelectedButton(): void {
+    if (!this.deleteSelectedText) return;
+    const count = this.selectedKeys.size;
+    this.deleteSelectedText
+      .setVisible(count > 0)
+      .setInteractive(count > 0)
+      .setText(
+        count > 0
+          ? `${i18n.getFeatureString('deleteSelected') || 'Delete Selected'} (${count})`
+          : '',
+      );
+  }
+
   private moveControllerSelection(delta: number): void {
-    if (this.entryContainers.length === 0) return;
+    if (this.entryBoxes.length === 0) return;
     this.selectedEntryIndex =
-      (this.selectedEntryIndex + delta + this.entryContainers.length) % this.entryContainers.length;
-    const entry = this.entryContainers[this.selectedEntryIndex];
+      (this.selectedEntryIndex + delta + this.entryBoxes.length) % this.entryBoxes.length;
+    const entry = this.entryBoxes[this.selectedEntryIndex].container;
     if (entry.y < this.scrollY) this.applyScroll(entry.y);
     else if (entry.y + this.entryHeight > this.scrollY + this.viewportHeight) {
       this.applyScroll(entry.y + this.entryHeight - this.viewportHeight);
@@ -332,20 +428,21 @@ export class SaveLoadMenu {
   }
 
   private refreshControllerSelection(): void {
-    this.entryContainers.forEach((entry, index) => {
+    this.entryBoxes.forEach((entry, index) => {
       const selected = this.controllerMode && index === this.selectedEntryIndex;
-      entry.setScale(selected ? 1.015 : 1).setAlpha(selected ? 1 : 0.88);
+      entry.container.setScale(selected ? 1.015 : 1).setAlpha(selected ? 1 : 0.88);
     });
   }
 
   private createEntryBox(
     label: string,
+    key: string,
     buttonWidth: number,
-    _buttonHeight: number,
+    buttonHeight: number,
     buttonGap: number,
     padding: number,
-    onAction: (action: 'load' | 'delete') => void,
-  ): Phaser.GameObjects.Container {
+    actions: { load: () => void; delete: () => void },
+  ): EntryBox {
     const loadText =
       this.view === 'sessions'
         ? i18n.getFeatureString('open') || 'Open'
@@ -355,70 +452,99 @@ export class SaveLoadMenu {
     const entryBoxWidth = this.width - 32;
     const entryBoxHeight = this.entryHeight;
     const actionsWidth = buttonWidth * 2 + buttonGap;
-    const labelWidth = entryBoxWidth - padding * 3 - actionsWidth;
+    const checkColumnWidth = 18;
+    const labelWidth = Math.max(60, entryBoxWidth - actionsWidth - padding * 2 - checkColumnWidth);
 
-    const bg = this.scene.add
-      .rectangle(0, 0, entryBoxWidth, entryBoxHeight, 0x0b1622, 0.9)
-      .setStrokeStyle(1, 0x4da3ff, 0.5)
-      .setOrigin(0, 0);
+    const check = this.scene.add
+      .text(padding, 0, '✓', {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#5dd6a2',
+      })
+      .setOrigin(0, 0.5)
+      .setVisible(false);
 
-    const labelText = this.scene.add
-      .text(padding, padding, label, {
+    const labelTxt = this.scene.add
+      .text(padding + checkColumnWidth, 0, label, {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#e8f0f8',
+        lineSpacing: 3,
+        wordWrap: { width: labelWidth },
+        align: 'left',
+      })
+      .setOrigin(0, 0.5);
+
+    const loadBtn = this.scene.add
+      .text(0, 0, loadText, {
         fontFamily: 'monospace',
         fontSize: '13px',
-        color: '#c8d0da',
-        wordWrap: { width: labelWidth, useAdvancedWrap: true },
-        lineSpacing: 2,
-      })
-      .setOrigin(0, 0);
-
-    const loadX = entryBoxWidth - padding - actionsWidth + buttonWidth / 2;
-    const deleteX = entryBoxWidth - padding - buttonWidth / 2;
-    const buttonY = entryBoxHeight / 2;
-    const loadBtn = this.scene.add
-      .text(loadX, buttonY, loadText, {
-        fontFamily: 'monospace',
-        fontSize: '12px',
-        color: '#7ec87e',
-        backgroundColor: '#0a2a0a',
-        padding: { left: 8, right: 8, top: 4, bottom: 4 },
+        color: '#0a1622',
+        backgroundColor: '#1f7a4d',
+        padding: { left: 12, right: 12, top: 4, bottom: 4 },
       })
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
-      .on('pointerover', () => loadBtn.setTint(0x9ad19a))
+      .on('pointerover', () => loadBtn.setTint(0x9ad1ff))
       .on('pointerout', () => loadBtn.clearTint())
-      .on('pointerdown', () => onAction('load'));
+      .on('pointerdown', () => actions.load());
+    loadBtn.setSize(buttonWidth, buttonHeight);
+    loadBtn.displayWidth = buttonWidth;
+    loadBtn.displayHeight = buttonHeight;
 
     const deleteBtn = this.scene.add
-      .text(deleteX, buttonY, deleteText, {
+      .text(0, 0, deleteText, {
         fontFamily: 'monospace',
-        fontSize: '12px',
-        color: '#d87e7e',
-        backgroundColor: '#2a0a0a',
-        padding: { left: 8, right: 8, top: 4, bottom: 4 },
+        fontSize: '13px',
+        color: '#ff9d9d',
+        backgroundColor: '#3a1f1f',
+        padding: { left: 12, right: 12, top: 4, bottom: 4 },
       })
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
-      .on('pointerover', () => deleteBtn.setTint(0xff6b6b))
+      .on('pointerover', () => deleteBtn.setTint(0xffb0b0))
       .on('pointerout', () => deleteBtn.clearTint())
-      .on('pointerdown', () => onAction('delete'));
+      .on('pointerdown', () => actions.delete());
+    deleteBtn.setSize(buttonWidth, buttonHeight);
+    deleteBtn.displayWidth = buttonWidth;
+    deleteBtn.displayHeight = buttonHeight;
 
-    const bgInteractive = bg
+    const bg = this.scene.add
+      .rectangle(0, 0, entryBoxWidth, entryBoxHeight, 0x1a2634, 0.55)
+      .setStrokeStyle(1, 0x4da3ff, 0.5);
+
+    const bgInteractive = this.scene.add
+      .rectangle(0, 0, entryBoxWidth, entryBoxHeight, 0x000000, 0)
+      .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => onAction('load'));
+      .on('pointerdown', () => this.toggleSelection(key));
+
+    const btnY = entryBoxHeight / 2;
+    const actionsX = entryBoxWidth / 2 + (actionsWidth - buttonGap) / 2 - buttonWidth / 2;
+    loadBtn.setPosition(actionsX, btnY);
+    deleteBtn.setPosition(actionsX + buttonWidth + buttonGap, btnY);
 
     const container = this.scene.add.container(0, 0, [
+      bg,
       bgInteractive,
-      labelText,
+      check,
+      labelTxt,
       loadBtn,
       deleteBtn,
     ]);
 
-    return container;
+    return {
+      container,
+      bg,
+      check,
+      key,
+    };
   }
 
   private showConfirmDelete(message: string, onConfirm: () => Promise<void>): void {
-    this.pendingDeleteAction = onConfirm;
+    this.pendingDeleteAction = () => {
+      void onConfirm();
+    };
     this.confirmSelection = 'no';
 
     if (this.confirmOverlay) {
@@ -426,34 +552,37 @@ export class SaveLoadMenu {
     }
 
     const overlayBg = this.scene.add
-      .rectangle(0, 0, this.width, 100, 0x000000, 0.7)
-      .setOrigin(0, 0);
+      .rectangle(0, 0, this.width, 100, 0x0a1622, 0.95)
+      .setStrokeStyle(2, 0x4da3ff, 1);
 
     const confirmTxt = this.scene.add
-      .text(this.width / 2, 30, message, {
+      .text(0, 30, message, {
         fontFamily: 'monospace',
         fontSize: '14px',
-        color: '#ff6b6b',
+        color: '#e8f0f8',
+        wordWrap: { width: this.width - 80 },
+        align: 'center',
       })
-      .setOrigin(0.5, 0);
+      .setOrigin(0.5);
 
     const yesBtn = this.scene.add
-      .text(this.width / 2 - 50, 60, i18n.getFeatureString('popupAccept') || 'Yes', {
+      .text(this.width / 2 - 50, 60, i18n.getFeatureString('popupConfirm') || 'Yes', {
         fontFamily: 'monospace',
         fontSize: '13px',
-        color: '#ff6b6b',
-        backgroundColor: '#2a0a0a',
+        color: '#0a1622',
+        backgroundColor: '#ff5555',
         padding: { left: 10, right: 10, top: 4, bottom: 4 },
       })
+      .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
-      .on('pointerover', () => yesBtn.setTint(0xff9a9a))
+      .on('pointerover', () => yesBtn.setTint(0xffb0b0))
       .on('pointerout', () => yesBtn.clearTint())
       .on('pointerdown', async () => {
         const action = this.pendingDeleteAction;
         this.pendingDeleteAction = undefined;
         this.confirmOverlay?.destroy();
         this.confirmOverlay = undefined;
-        await action?.();
+        if (action) await action();
       });
 
     const noBtn = this.scene.add
@@ -464,6 +593,7 @@ export class SaveLoadMenu {
         backgroundColor: '#0a1622',
         padding: { left: 10, right: 10, top: 4, bottom: 4 },
       })
+      .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
       .on('pointerover', () => noBtn.setTint(0x9ad1ff))
       .on('pointerout', () => noBtn.clearTint())
@@ -487,162 +617,209 @@ export class SaveLoadMenu {
   }
 
   private refreshConfirmSelection(): void {
-    this.confirmYes
-      ?.setColor(this.confirmSelection === 'yes' ? '#fff3a8' : '#ff6b6b')
-      .setScale(this.confirmSelection === 'yes' ? 1.08 : 1);
-    this.confirmNo
-      ?.setColor(this.confirmSelection === 'no' ? '#fff3a8' : '#c8d0da')
-      .setScale(this.confirmSelection === 'no' ? 1.08 : 1);
-  }
-
-  private calculateHeight(): number {
-    const baseHeight = 140; // title + back button area
-    const entryCount = this.view === 'sessions' ? this.sessions.length : this.saveEntries.length;
-
-    let contentH = 0;
-    if (entryCount > 0) {
-      contentH += 24 + entryCount * (this.entryHeight + 6);
-    } else {
-      contentH += 40;
+    const yesSelected = this.confirmSelection === 'yes';
+    if (this.confirmYes) {
+      this.confirmYes.setBackgroundColor(yesSelected ? '#ff9d9d' : '#ff5555').clearTint();
     }
-
-    return Math.min(baseHeight + contentH, this.scene.scale.height - 40);
-  }
-
-  private layoutPopup(): void {
-    this.selectedEntryIndex = 0;
-    const popupHeight = this.calculateHeight();
-    const x = (this.scene.scale.width - this.width) / 2;
-    const rootY = (this.scene.scale.height - popupHeight) / 2;
-    this.container?.setPosition(x, rootY);
-    this.background?.setSize(this.width, popupHeight);
-    this.scrollContainer?.setPosition(0, this.headerHeight);
-    this.viewportHeight = popupHeight - this.headerHeight - this.footerHeight;
-    this.updateMask();
-    this.applyScroll(0);
-    this.backText?.setPosition(this.width / 2, popupHeight - 16);
-  }
-
-  private scrollBy(delta: number): void {
-    if (!this.container?.visible || this.contentHeight <= this.viewportHeight) {
-      return;
+    if (this.confirmNo) {
+      this.confirmNo.setBackgroundColor(yesSelected ? '#0a1622' : '#1a2634').clearTint();
     }
-    this.applyScroll(this.scrollY + delta);
-  }
-
-  private applyScroll(nextY: number): void {
-    const maxScroll = Math.max(0, this.contentHeight - this.viewportHeight);
-    this.scrollY = Phaser.Math.Clamp(nextY, 0, maxScroll);
-    this.scrollContainer?.setY(this.headerHeight - this.scrollY);
-    this.updateScrollbar();
-  }
-
-  private updateMask(): void {
-    if (!this.container || !this.scrollContainer) return;
-    this.scrollMask?.destroy();
-
-    const maskWidth = this.width;
-    const maskHeight = Math.max(0, this.viewportHeight);
-
-    this.scrollMask = this.scene.add.graphics().setVisible(false);
-    this.scrollMask.setPosition(this.container.x, this.container.y);
-    this.scrollMask.fillStyle(0xffffff, 1);
-    this.scrollMask.fillRect(0, this.headerHeight, maskWidth - 14, maskHeight);
-
-    const mask = this.scrollMask.createGeometryMask();
-    this.scrollContainer.setMask(mask);
-    this.updateScrollbar();
-  }
-
-  private updateScrollbar(): void {
-    if (!this.scrollbarGraphics) return;
-    const trackX = this.width - 9;
-    const trackY = this.headerHeight + 4;
-    const trackHeight = Math.max(0, this.viewportHeight - 8);
-    const maxScroll = Math.max(0, this.contentHeight - this.viewportHeight);
-    const visibleRatio =
-      this.contentHeight > 0 ? Math.min(1, this.viewportHeight / this.contentHeight) : 1;
-    const thumbHeight = Math.max(24, Math.floor(trackHeight * visibleRatio));
-    const travel = Math.max(0, trackHeight - thumbHeight);
-    const progress = maxScroll > 0 ? this.scrollY / maxScroll : 0;
-    const thumbY = trackY + travel * progress;
-
-    this.scrollbarGraphics.clear();
-    this.scrollbarGraphics.fillStyle(0x10283a, 0.9);
-    this.scrollbarGraphics.fillRoundedRect(trackX, trackY, 4, trackHeight, 2);
-    this.scrollbarGraphics.fillStyle(maxScroll > 0 ? 0x4da3ff : 0x34546a, 0.95);
-    this.scrollbarGraphics.fillRoundedRect(trackX, thumbY, 4, thumbHeight);
   }
 
   private build(): void {
-    const height = 240;
-    const x = (this.scene.scale.width - this.width) / 2;
-    const y = (this.scene.scale.height - height) / 2;
+    const x = 0;
+    const y = 0;
+    const height = this.headerHeight + this.footerHeight + 160;
 
-    this.background = this.scene.add
-      .rectangle(0, 0, this.width, height, 0x0b1622, 0.94)
-      .setStrokeStyle(2, 0x4da3ff)
-      .setOrigin(0, 0);
+    const background = this.scene.add
+      .rectangle(x, y, this.width, height, 0x0a1622, 0.95)
+      .setStrokeStyle(2, 0x4da3ff, 1);
 
-    this.titleText = this.scene.add
-      .text(this.width / 2, 18, '', {
+    const titleText = this.scene.add
+      .text(0, 26, i18n.getFeatureString('loadGameMenuTitle') || 'Load Game', {
         fontFamily: 'monospace',
-        fontSize: '20px',
+        fontSize: '16px',
+        color: '#e8f0f8',
+        align: 'center',
+      })
+      .setOrigin(0.5);
+
+    const sectionTitle = this.scene.add
+      .text(0, this.headerHeight + 20, i18n.getFeatureString('sessions') || 'Sessions', {
+        // Section label lives inside the popup container so it tracks the
+        // centered popup position instead of drifting in scene space.
+
+        fontFamily: 'monospace',
+        fontSize: '14px',
         color: '#9ad1ff',
       })
-      .setOrigin(0.5, 0);
+      .setOrigin(0.5);
 
-    this.sectionTitle = this.scene.add
-      .text(0, 0, '', {
-        fontFamily: 'monospace',
-        fontSize: '14px',
-        color: '#7ec8e8',
-      })
-      .setOrigin(0, 0)
-      .setVisible(false);
-
-    this.emptyText = this.scene.add
-      .text(16, 16, '', {
+    const emptyText = this.scene.add
+      .text(16, 16, i18n.getFeatureString('noSaves') || 'No save files found.', {
         fontFamily: 'monospace',
         fontSize: '13px',
-        color: '#8b939f',
+        color: '#c8d0da',
       })
-      .setOrigin(0, 0)
-      .setVisible(false);
+      .setOrigin(0, 0);
 
-    this.scrollContainer = this.scene.add.container(0, 0, [this.sectionTitle, this.emptyText]);
-    this.scrollbarGraphics = this.scene.add.graphics();
+    const scrollContainer = this.scene.add.container(0, 0);
 
-    // Back button
-    this.backText = this.scene.add
-      .text(this.width / 2, height - 20, i18n.getFeatureString('back') || 'Back', {
+    const scrollbarGraphics = this.scene.add.graphics();
+    scrollbarGraphics.setScrollFactor(0);
+
+    const backText = this.scene.add
+      .text(0, height - 20, i18n.getFeatureString('back') || 'Back', {
         fontFamily: 'monospace',
         fontSize: '14px',
-        color: '#8b939f',
-        backgroundColor: '#0a1622',
-        padding: { left: 20, right: 20, top: 6, bottom: 6 },
+        color: '#c8d0da',
       })
-      .setOrigin(0.5, 0.5)
+      .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
-      .on('pointerover', () => this.backText?.setTint(0x9ad1ff))
-      .on('pointerout', () => this.backText?.clearTint())
+      .on('pointerover', () => backText.setTint(0x9ad1ff))
+      .on('pointerout', () => backText.clearTint())
       .on('pointerdown', () => this.handleBack());
 
-    this.container = this.scene.add
+    const deleteSelectedText = this.scene.add
+      .text(-120, height - 20, '', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#ff9d9d',
+      })
+      .setOrigin(0.5)
+      .setInteractive(false)
+      .on('pointerover', () => deleteSelectedText.setTint(0xffb0b0))
+      .on('pointerout', () => deleteSelectedText.clearTint())
+      .on('pointerdown', () => this.deleteSelected())
+      .setVisible(false);
+
+    const scrollInput = this.scene.add
+      .rectangle(0, 0, this.width - 32, 160, 0x000000, 0)
+      .setInteractive();
+
+    scrollInput.on('wheel', (_pointer: Phaser.Input.Pointer, _go: unknown, _delta: number) => {
+      if (!this.container?.visible) return;
+      this.scrollBy(_delta > 0 ? 40 : -40);
+    });
+
+    const container = this.scene.add
       .container(x, y, [
-        this.background,
-        this.titleText,
-        this.scrollContainer,
-        this.scrollbarGraphics,
-        this.backText,
+        background,
+        titleText,
+        sectionTitle,
+        scrollContainer,
+        scrollbarGraphics,
+        scrollInput,
+        deleteSelectedText,
+        backText,
       ])
       .setVisible(false);
 
-    this.scene.input.on(
-      'wheel',
-      (_pointer: Phaser.Input.Pointer, _objects: unknown[], _dx: number, dy: number) => {
-        this.scrollBy(dy);
-      },
+    this.container = container;
+    this.background = background;
+    this.titleText = titleText;
+    this.sectionTitle = sectionTitle;
+    this.emptyText = emptyText;
+    this.scrollContainer = scrollContainer;
+    this.scrollbarGraphics = scrollbarGraphics;
+    this.scrollInput = scrollInput;
+    this.backText = backText;
+    this.deleteSelectedText = deleteSelectedText;
+    this.contentHeight = 0;
+    this.layoutPopup();
+  }
+
+  private layoutPopup(): void {
+    if (!this.background || !this.backText) return;
+
+    const maxEntries = Math.max(3, Math.min(10, this.entryBoxes.length || 3));
+    const listHeight = maxEntries * (this.entryHeight + 6);
+    const popupHeight = this.headerHeight + listHeight + this.footerHeight;
+
+    // Keep the whole popup on screen, centered on the game viewport.
+    const screen = this.scene.scale.gameSize;
+    const cx = screen.width / 2;
+    const cy = Math.max(10, (screen.height - popupHeight) / 2);
+    this.container?.setPosition(cx, cy);
+
+    this.background.setSize(this.width, popupHeight);
+    this.titleText?.setPosition(0, 26);
+    this.sectionTitle?.setPosition(0, this.headerHeight + 20);
+
+    this.viewportHeight = popupHeight - this.headerHeight - this.footerHeight;
+    this.scrollInput?.setPosition(0, this.headerHeight + this.viewportHeight / 2);
+    this.scrollInput?.setSize(this.width - 32, this.viewportHeight);
+    this.scrollY = Math.max(
+      0,
+      Math.min(this.scrollY, Math.max(0, this.contentHeight - this.viewportHeight)),
     );
+    this.applyScroll(this.scrollY);
+
+    this.backText?.setPosition(0, popupHeight - 20);
+    this.deleteSelectedText?.setPosition(-120, popupHeight - 20);
+
+    this.updateMask();
+  }
+
+  private updateMask(): void {
+    if (!this.scrollContainer) return;
+    if (this.scrollMask) {
+      this.scrollMask.geometryMask.destroy();
+      this.scrollMask = undefined;
+    }
+
+    const geometry = this.scene.add.graphics();
+    geometry.fillStyle(0xffffff, 1);
+    geometry.fillRect(8, this.headerHeight, this.width - 16, Math.max(0, this.viewportHeight));
+    this.scrollMask = new Phaser.Display.Masks.GeometryMask(this.scene, geometry);
+    this.scrollContainer.setMask(this.scrollMask);
+  }
+
+  private scrollBy(delta: number): void {
+    if (this.contentHeight <= this.viewportHeight) return;
+    const maxScroll = this.contentHeight - this.viewportHeight;
+    this.scrollY = Phaser.Math.Clamp(this.scrollY + delta, 0, maxScroll);
+    this.applyScroll(this.scrollY);
+  }
+
+  private applyScroll(y: number): void {
+    const offset = -y - this.headerHeight;
+    if (this.scrollContainer) {
+      this.scrollContainer.y = offset;
+    }
+    this.updateMask();
+    this.layoutScrollbar(y);
+  }
+
+  private layoutScrollbar(scrollY: number): void {
+    if (!this.scrollbarGraphics || !this.background) return;
+    const g = this.scrollbarGraphics;
+    g.clear();
+    const listTop = this.headerHeight;
+    const listBottom = this.background.height - this.footerHeight;
+    const listHeight = listBottom - listTop;
+    if (this.contentHeight <= this.viewportHeight) {
+      g.setVisible(false);
+      return;
+    }
+    g.setVisible(true);
+    const trackX = this.width - 14;
+    g.lineStyle(3, 0x4da3ff, 0.4);
+    g.lineBetween(trackX, listTop, trackX, listBottom);
+    const thumbTravel = listHeight - 16;
+    const ratio =
+      this.contentHeight > 0 ? scrollY / Math.max(1, this.contentHeight - this.viewportHeight) : 0;
+    const thumbY = listTop + ratio * thumbTravel;
+    g.lineStyle(3, 0x9ad1ff, 0.9);
+    g.lineBetween(trackX, thumbY, trackX, Phaser.Math.Clamp(thumbY + 24, listTop, listBottom - 24));
+  }
+
+  destroy(): void {
+    this.confirmOverlay?.destroy();
+    this.scrollMask?.destroy();
+    this.scrollInput?.destroy();
+    this.entryBoxes.forEach((entry) => entry.container.destroy());
+    this.container?.destroy();
+    this.container = undefined;
   }
 }
