@@ -91,6 +91,24 @@ describe('debug serialization', () => {
       },
     });
   });
+
+  it('TOWN-HARDEN-022 / TOWN-REGRESSION-014 - preserves reused coordinate objects', () => {
+    const shared = { x: 4, y: 9 };
+    expect(
+      safeDebugValue({
+        presence: { position: shared, anchor: shared },
+        schedule: { targetPosition: shared },
+      }),
+    ).toEqual({
+      presence: {
+        position: { x: 4, y: 9 },
+        anchor: { x: 4, y: 9 },
+      },
+      schedule: {
+        targetPosition: { x: 4, y: 9 },
+      },
+    });
+  });
 });
 
 function createBus(verbosity: 'normal' | 'verbose' | 'trace', now = () => 100): DebugBus {

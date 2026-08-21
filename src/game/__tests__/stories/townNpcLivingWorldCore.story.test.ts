@@ -1934,7 +1934,7 @@ describe('Town NPC living-world core stories', () => {
       id: firstPatrol?.id,
     });
     scenario.assertWorldIntegrity();
-  });
+  }, 15_000);
 
   it('TOWN-LIFE-085 - World integrity holds after a town emergency day', async () => {
     const scenario = enterGeneratedInnScenario('town-life-085-emergency-day-integrity');

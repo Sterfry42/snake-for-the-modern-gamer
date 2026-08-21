@@ -5,6 +5,7 @@ import { SnakeGame } from '../../game/snakeGame.js';
 import { QuestRegistry } from '../../quests/questRegistry.js';
 import { LocalGameSession } from '../../session/LocalGameSession.js';
 import { SimulationScheduler, type ClockRule } from '../../systems/simulationScheduler.js';
+import { parseCoordinateRoomId } from '../../world/roomAddress.js';
 import { isSolidTile } from '../../world/tiles.js';
 import type { RoomSnapshot } from '../../world/types.js';
 import type { Actor, ActorGoal, ActorPresence } from '../../actors/actorTypes.js';
@@ -254,7 +255,10 @@ export class HeadlessScenario {
   }
 
   readNineRoomsRepeatedly(iterations: number): void {
-    const [x, y, z] = parseCoordinateRoomId(this.game.getCurrentRoom().id);
+    const address = parseCoordinateRoomId(this.game.getCurrentRoom().id);
+    const x = address?.x ?? 0;
+    const y = address?.y ?? 0;
+    const z = address?.z ?? 0;
     for (let index = 0; index < iterations; index += 1) {
       for (let dy = -1; dy <= 1; dy += 1) {
         for (let dx = -1; dx <= 1; dx += 1) {
@@ -394,20 +398,18 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function parseCoordinateRoomId(roomId: string): [number, number, number] {
-  const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
-  return [x, y, z];
-}
-
 function toLocalPosition(
   roomId: string,
   position: { x: number; y: number },
   grid: GameConfig['grid'],
 ): { x: number; y: number } {
-  const [roomX, roomY] = parseCoordinateRoomId(roomId);
+  const address = parseCoordinateRoomId(roomId);
+  if (!address) {
+    return { ...position };
+  }
   return {
-    x: position.x - roomX * grid.cols,
-    y: position.y - roomY * grid.rows,
+    x: position.x - address.x * grid.cols,
+    y: position.y - address.y * grid.rows,
   };
 }
 

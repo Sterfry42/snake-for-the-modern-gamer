@@ -214,12 +214,23 @@ describe('multi-room structure generation', () => {
     expect(perimeterAfter.layout).toEqual(layoutBefore);
   });
 
-  it('uses physical room ids for town residents and relationship homes', () => {
+  it('uses physical work ids and real private-home ids for town residents', () => {
     const squareId = findTownRoom();
     const room = generateRoomsInOrder([squareId])[0]!;
     expect(room.town).toBeTruthy();
+    const privateHomeOwnerIds = new Set(
+      room
+        .town!.buildings.filter(
+          (building) => building.kind === 'residentialHome' && building.ownerResidentId,
+        )
+        .map((building) => building.ownerResidentId),
+    );
     for (const resident of room.town!.residents) {
-      expect(resident.homeRoomId).toMatch(/^-?\d+,-?\d+,-?\d+$/);
+      if (privateHomeOwnerIds.has(resident.id)) {
+        expect(resident.homeRoomId).toMatch(/^layer:townInterior:.+:residentialHome$/);
+      } else {
+        expect(resident.homeRoomId).toMatch(/^-?\d+,-?\d+,-?\d+$/);
+      }
       expect(resident.workRoomId).toMatch(/^-?\d+,-?\d+,-?\d+$/);
     }
   });

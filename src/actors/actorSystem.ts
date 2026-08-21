@@ -972,7 +972,12 @@ function interiorWorkRoomIdForResident(
   const building = (town.buildings ?? []).find(
     (entry) => entry.enterable && entry.templateId && entry.ownerResidentId === residentId,
   );
-  return building?.templateId ? `layer:townInterior:${town.id}:${building.templateId}` : undefined;
+  if (!building?.templateId) {
+    return undefined;
+  }
+  return building.kind === 'residentialHome'
+    ? `layer:townInterior:${town.id}:${building.id}:${building.templateId}`
+    : `layer:townInterior:${town.id}:${building.templateId}`;
 }
 
 function applyEventConsequences(

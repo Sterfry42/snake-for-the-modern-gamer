@@ -595,7 +595,14 @@ export class WorldService {
     if (!template || !townDistrictForInteriorTemplate(template)) {
       return undefined;
     }
-    const townId = parts.slice(2, -1).join(':');
+    const townParts = parts.slice(2, -1);
+    for (let length = townParts.length; length > 0; length -= 1) {
+      const candidate = townParts.slice(0, length).join(':');
+      if (this.townsById.has(candidate)) {
+        return candidate;
+      }
+    }
+    const townId = townParts.join(':');
     return townId || undefined;
   }
 

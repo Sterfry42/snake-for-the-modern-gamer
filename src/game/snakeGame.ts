@@ -218,12 +218,19 @@ import type { FactionCurrentEvent, FactionSaveData } from '../factions/factionTy
 import { RumorSystem } from '../rumors/rumorSystem.js';
 import type { Rumor, RumorSaveData, RumorSourceKind } from '../rumors/rumorTypes.js';
 import type { WardDeathSource } from '../shops/goblinShop.js';
+import { buildMapperStock, type MapperStockOffer } from '../shops/mapperShop.js';
 import {
   createFoodConsumptionResult,
   getRestaurantFoodHunger,
   type FoodConsumptionResult,
   type RestaurantId,
 } from '../shops/restaurants.js';
+import {
+  getBlackMarketDefinition,
+  getVillageShopDefinition,
+  type VillageShopSupplyOffer,
+  type VillageShopEquipmentOffer,
+} from '../shops/villageShop.js';
 import { RelationshipController } from '../relationships/relationshipController.js';
 import type {
   DatingCandidateView,
@@ -255,6 +262,7 @@ import {
   type ActorBrainSocialTarget,
 } from '../actors/actorBrains.js';
 import {
+  allowsOffHoursShop,
   buildActorInteractionMenu,
   isActorSleeping,
   type ActorInteractionMenuModel,
@@ -670,6 +678,47 @@ export interface InnRestResult {
   healed: number;
   wellRested: boolean;
   refusedReason?: 'not-inn' | 'insufficient-score' | 'danger';
+}
+
+export interface InnServiceView {
+  available: boolean;
+  roomId: string;
+  cost: number;
+  score: number;
+  label: string;
+  reason?: string;
+}
+
+export type ActorShopOfferCategory = 'equipment' | 'supplies' | 'locators' | 'food' | 'services';
+
+export interface ActorShopOfferView {
+  id: string;
+  category: ActorShopOfferCategory;
+  label: string;
+  price: number;
+  note: string;
+  itemId?: string;
+}
+
+export interface ActorShopView {
+  actorId: string;
+  role: Actor['role'];
+  title: string;
+  open: boolean;
+  closedReason?: string;
+  categories: ActorShopOfferCategory[];
+  offers: ActorShopOfferView[];
+}
+
+export interface ActorShopPurchaseResult {
+  ok: boolean;
+  message: string;
+  actorId: string;
+  offerId: string;
+  scoreBefore: number;
+  scoreAfter: number;
+  offer?: ActorShopOfferView;
+  reason?: 'missing-actor' | 'closed' | 'missing-offer' | 'insufficient-score';
 }
 
 export interface TownPatrolMember {
@@ -3457,6 +3506,17 @@ export class SnakeGame implements QuestRuntime {
     );
     if (!entrance || previousRoom !== room.id) {
       return;
+    }
+    if (entrance.kind === 'townInterior') {
+      const access = this.resolveTownDoorAccess(entrance);
+      if (access.access !== 'open') {
+        this.setFlag('ui.questInteraction', {
+          message: access.closureReason
+            ? `${access.displayName} is closed: ${access.closureReason}.`
+            : `${access.displayName} is closed.`,
+        });
+        return;
+      }
     }
     this.enterLayer(entrance, roomsChanged);
   }
@@ -6595,7 +6655,205 @@ export class SnakeGame implements QuestRuntime {
       canPickpocket,
       canUseRelationshipActions: true,
       recentRumorCount: this.getRecentWorldRumors().length,
+      shopClosedReason: this.getActorShopClosedReason(actor),
     });
+  }
+
+  getActorShopView(actorId: string): ActorShopView | null {
+    const actor = this.actors.getActor(actorId);
+    if (!actor) {
+      return null;
+    }
+    const shopOption = this.getActorInteractionMenu(actorId)?.options.find(
+      (option) => option.id === 'shop',
+    );
+    if (!shopOption) {
+      return null;
+    }
+    if (!shopOption.enabled) {
+      return {
+        actorId,
+        role: actor.role,
+        title: actor.displayName,
+        open: false,
+        closedReason: shopOption.reason ?? 'Closed.',
+        categories: [],
+        offers: [],
+      };
+    }
+    const offers = this.buildActorShopOffers(actor);
+    return {
+      actorId,
+      role: actor.role,
+      title: actor.displayName,
+      open: true,
+      categories: [...new Set(offers.map((offer) => offer.category))],
+      offers,
+    };
+  }
+
+  purchaseActorShopOffer(actorId: string, offerId: string): ActorShopPurchaseResult {
+    const scoreBefore = this.getScore();
+    const closed = (
+      reason: ActorShopPurchaseResult['reason'],
+      message: string,
+      offer?: ActorShopOfferView,
+    ): ActorShopPurchaseResult => ({
+      ok: false,
+      message,
+      actorId,
+      offerId,
+      scoreBefore,
+      scoreAfter: this.getScore(),
+      offer,
+      reason,
+    });
+    const view = this.getActorShopView(actorId);
+    if (!view) {
+      return closed('missing-actor', 'No shop is available here.');
+    }
+    if (!view.open) {
+      return closed('closed', view.closedReason ?? 'Closed.');
+    }
+    const offer = view.offers.find((entry) => entry.id === offerId);
+    if (!offer) {
+      return closed('missing-offer', 'That offer is not on the counter.');
+    }
+    if (this.getScore() < offer.price) {
+      return closed('insufficient-score', `${offer.label} costs ${offer.price} score.`, offer);
+    }
+    this.addScore(-offer.price);
+    if (offer.itemId) {
+      this.addItem(offer.itemId, 1);
+    }
+    const result = {
+      ok: true,
+      message: `Purchased ${offer.label}.`,
+      actorId,
+      offerId,
+      scoreBefore,
+      scoreAfter: this.getScore(),
+      offer,
+    } satisfies ActorShopPurchaseResult;
+    this.setFlag('ui.questInteraction', { message: result.message });
+    this.setFlag('shop.lastPurchase', result);
+    return result;
+  }
+
+  private getActorShopClosedReason(actor: Actor): string | undefined {
+    if (typeof actor.flags.shopClosedReason === 'string') {
+      return actor.flags.shopClosedReason;
+    }
+    if (isActorSleeping(actor) && !allowsOffHoursShop(actor)) {
+      return undefined;
+    }
+    if (isTownShopRole(actor.role) && !allowsOffHoursShop(actor) && !this.isTownBusinessOpenNow()) {
+      return 'Closed until day.';
+    }
+    return undefined;
+  }
+
+  private buildActorShopOffers(actor: Actor): ActorShopOfferView[] {
+    const room = this.world.getRoom(this.snake.currentRoomId);
+    const definition =
+      actor.role === 'blackMarketMerchant'
+        ? getBlackMarketDefinition()
+        : getVillageShopDefinition(room.biomeId);
+    switch (actor.role) {
+      case 'mapper':
+        return this.buildMapperActorOffers(actor, room);
+      case 'potionMaker':
+        return definition.supplies
+          .filter((offer) =>
+            ['healing-potion', 'life-tonic', 'orange-juice', 'ofuda-cache'].includes(offer.id),
+          )
+          .map((offer) => this.shopSupplyOffer(offer, 'supplies'));
+      case 'butcher':
+      case 'cook':
+        return definition.supplies
+          .filter((offer) => ['senbei', 'ramen', 'animal-bait'].includes(offer.id))
+          .map((offer) => this.shopSupplyOffer(offer, 'food'));
+      case 'wizard':
+        return definition.supplies
+          .filter((offer) =>
+            ['life-tonic', 'ofuda-cache', 'orange-juice', 'get-out-of-hell-free-card'].includes(
+              offer.id,
+            ),
+          )
+          .map((offer) => this.shopSupplyOffer(offer, 'supplies'));
+      case 'equipmentMerchant':
+      case 'shopkeeper':
+      case 'goblinMerchant':
+      case 'blackMarketMerchant':
+        return [
+          ...definition.equipment.map((offer) => this.shopEquipmentOffer(offer)),
+          ...definition.supplies.map((offer) => this.shopSupplyOffer(offer, 'supplies')),
+        ];
+      case 'bartender':
+        return definition.supplies
+          .filter((offer) => ['beer', 'wine', 'ramen'].includes(offer.id))
+          .map((offer) => this.shopSupplyOffer(offer, 'food'));
+      case 'cardDealer':
+        return CARD_SHOP_OFFERS.map((cardId) => {
+          const card = getCardDefinition(cardId);
+          return {
+            id: card.id,
+            category: 'services',
+            label: card.name,
+            price: card.price,
+            note: card.description,
+          } satisfies ActorShopOfferView;
+        });
+      default:
+        return [];
+    }
+  }
+
+  private buildMapperActorOffers(actor: Actor, room: RoomSnapshot): ActorShopOfferView[] {
+    const townId = actor.townId ?? room.town?.id ?? 'unknown-town';
+    const stockPeriod = this.getAtmosphereState().worldDay;
+    return buildMapperStock({
+      townId,
+      worldSeed: this.worldSeed,
+      currentBiomeId: room.biomeId,
+      stockPeriod,
+    }).map((offer) => this.mapperShopOffer(offer));
+  }
+
+  private mapperShopOffer(offer: MapperStockOffer): ActorShopOfferView {
+    return {
+      id: offer.id,
+      category: 'locators',
+      label: getItem(offer.itemId)?.name ?? offer.id,
+      price: offer.price,
+      note: offer.note,
+      itemId: offer.itemId,
+    };
+  }
+
+  private shopSupplyOffer(
+    offer: VillageShopSupplyOffer,
+    category: ActorShopOfferCategory,
+  ): ActorShopOfferView {
+    return {
+      id: offer.id,
+      category,
+      label: getItem(offer.itemId)?.name ?? offer.id,
+      price: offer.price,
+      note: offer.note,
+      itemId: offer.itemId,
+    };
+  }
+
+  private shopEquipmentOffer(offer: VillageShopEquipmentOffer): ActorShopOfferView {
+    return {
+      id: offer.id,
+      category: 'equipment',
+      label: getItem(offer.itemId)?.name ?? offer.id,
+      price: offer.price,
+      note: offer.note,
+      itemId: offer.itemId,
+    };
   }
 
   wakeActor(actorId: string): { ok: boolean; pages: string[] } {
@@ -11602,6 +11860,45 @@ export class SnakeGame implements QuestRuntime {
 
   getAtmosphereState(): AtmosphereState {
     return this.atmosphere.getState();
+  }
+
+  getCurrentInnServiceView(cost = 12): InnServiceView {
+    const room = this.getCurrentRoom();
+    const base = {
+      roomId: room.id,
+      cost,
+      score: this.getScore(),
+      label: 'Rest until dawn',
+    };
+    if (room.layer?.templateId !== 'inn') {
+      return {
+        ...base,
+        available: false,
+        reason: 'You need to be inside an inn to rest.',
+      };
+    }
+    if (this.hasImmediateRestDanger(room)) {
+      return {
+        ...base,
+        available: false,
+        reason: 'Too dangerous to sleep right now.',
+      };
+    }
+    if (this.getScore() < cost) {
+      return {
+        ...base,
+        available: false,
+        reason: `Inn rest costs ${cost} score.`,
+      };
+    }
+    return {
+      ...base,
+      available: true,
+    };
+  }
+
+  async chooseCurrentInnRest(cost = 12): Promise<InnRestResult> {
+    return this.restAtCurrentInnUntilDawn(cost);
   }
 
   async restAtCurrentInnUntilDawn(cost = 12): Promise<InnRestResult> {

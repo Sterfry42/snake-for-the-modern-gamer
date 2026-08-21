@@ -44,6 +44,7 @@ export interface ActorInteractionContext {
   canPickpocket?: boolean;
   canUseRelationshipActions?: boolean;
   recentRumorCount?: number;
+  shopClosedReason?: string;
 }
 
 export function buildActorInteractionMenu(
@@ -106,11 +107,12 @@ export function buildActorInteractionMenu(
 
   if (hasShopInteraction(actor)) {
     const shopClosedReason =
-      typeof actor.flags.shopClosedReason === 'string'
+      context.shopClosedReason ??
+      (typeof actor.flags.shopClosedReason === 'string'
         ? actor.flags.shopClosedReason
         : sleepInterrupted && !allowsOffHoursShop(actor)
           ? tActor('shopClosedSleep')
-          : undefined;
+          : undefined);
     options.push({
       id: 'shop',
       label: tActor('shop'),

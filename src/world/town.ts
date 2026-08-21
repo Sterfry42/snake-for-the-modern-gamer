@@ -953,6 +953,20 @@ export function createPhysicalHumanTown(args: {
   }));
   assignTownGateGuards(town, rng);
   town.buildings = createTownBuildings(town, roomFor);
+  const residentialHomeByOwner = new Map(
+    town.buildings
+      .filter((building) => building.kind === 'residentialHome' && building.ownerResidentId)
+      .map((building) => [building.ownerResidentId!, building]),
+  );
+  town.residents = town.residents.map((resident) => {
+    const home = residentialHomeByOwner.get(resident.id);
+    return home?.templateId
+      ? {
+          ...resident,
+          homeRoomId: createTownLayerId(town.id, home.templateId, home.id),
+        }
+      : resident;
+  });
   town.shopkeeper = selectPrimaryTownMerchant(town.residents, town.shopkeeper);
   return town;
 }
@@ -1053,6 +1067,32 @@ function createTownBuildings(
   const alleyRoom = roomFor('backAlley');
   const ownerIdFor = (role: TownResident['role']): string | undefined =>
     town.residents.find((resident) => resident.role === role)?.id;
+  const residentialOwners = town.residents.filter((resident) => resident.role === 'resident');
+  const residentialHome = (
+    key: string,
+    index: number,
+    door: { x: number; y: number },
+    bounds: TownBuilding['bounds'],
+  ): TownBuilding => ({
+    id: `${town.id}:building:${key}`,
+    townId: town.id,
+    district: 'residentialStreet',
+    roomId: residentialRoom,
+    kind: 'residentialHome',
+    displayName: `Locked Residence ${index + 1}`,
+    shortLabel: 'Residence',
+    interiorTitle: `Town Home ${index + 1}`,
+    doorLabel: 'Open Locked Residence',
+    doorKind: 'homeDoorClosed',
+    door,
+    bounds,
+    templateId: 'residentialHome',
+    ownerResidentId: residentialOwners[index]?.id,
+    ownerResidentRole: residentialOwners[index]?.role ?? 'resident',
+    enterable: true,
+    publicAccess: false,
+    crimeTarget: true,
+  });
   return [
     {
       id: `${town.id}:building:gatehouse`,
@@ -1207,26 +1247,14 @@ function createTownBuildings(
       enterable: true,
       publicAccess: true,
     },
-    {
-      id: `${town.id}:building:home`,
-      townId: town.id,
-      district: 'residentialStreet',
-      roomId: residentialRoom,
-      kind: 'residentialHome',
-      displayName: 'Locked Residence',
-      shortLabel: 'Residence',
-      interiorTitle: 'Town Home',
-      doorLabel: 'Open Locked Residence',
-      doorKind: 'homeDoorClosed',
-      door: { x: 6, y: 9 },
-      bounds: { left: 3, top: 5, width: 7, height: 5 },
-      templateId: 'residentialHome',
-      ownerResidentId: ownerIdFor('resident'),
-      ownerResidentRole: 'resident',
-      enterable: true,
-      publicAccess: false,
-      crimeTarget: true,
-    },
+    residentialHome('home-west', 0, { x: 6, y: 9 }, { left: 3, top: 5, width: 7, height: 5 }),
+    residentialHome(
+      'home-inner-west',
+      1,
+      { x: 15, y: 9 },
+      { left: 12, top: 4, width: 6, height: 6 },
+    ),
+    residentialHome('home-east', 2, { x: 26, y: 9 }, { left: 23, top: 4, width: 6, height: 6 }),
     {
       id: `${town.id}:building:guild-grate`,
       townId: town.id,
@@ -1824,9 +1852,10 @@ function createTownLayerEntrance(args: {
   const returnPosition = building
     ? returnPositionForBuildingDoor(building)
     : { x: args.x, y: args.y };
+  const uniqueLayerKey = building?.kind === 'residentialHome' ? building.id : undefined;
   return {
     id: `town:${args.townId}:${args.key}`,
-    layerId: `layer:townInterior:${args.townId}:${args.templateId}`,
+    layerId: createTownLayerId(args.townId, args.templateId, uniqueLayerKey),
     parentRoomId: args.parentRoomId,
     x: args.x,
     y: args.y,
@@ -1846,6 +1875,16 @@ function createTownLayerEntrance(args: {
     returnPosition,
     tile: townDoorTile(building?.doorKind),
   };
+}
+
+function createTownLayerId(
+  townId: string,
+  templateId: LayerTemplateId,
+  uniqueLayerKey?: string,
+): string {
+  return uniqueLayerKey
+    ? `layer:townInterior:${townId}:${uniqueLayerKey}:${templateId}`
+    : `layer:townInterior:${townId}:${templateId}`;
 }
 
 function returnPositionForBuildingDoor(building: TownBuilding): { x: number; y: number } {
@@ -2351,27 +2390,29 @@ export function createTownDistrictRoom(args: {
       break;
     case 'residentialStreet':
       {
-        const home = townBuildingFor(town, 'residentialHome', 'residentialStreet');
+        const homes = town.buildings.filter(
+          (building) => building.kind === 'residentialHome' && building.roomId === args.roomId,
+        );
         drawConnectedRoad(layout, openSides);
         drawFenceRun(layout, { x: 2, y: 3 }, { x: 13, y: 3 });
         drawFenceRun(layout, { x: args.grid.cols - 14, y: 3 }, { x: args.grid.cols - 3, y: 3 });
+        const homeAt = (index: number): TownBuilding | undefined => homes[index];
         drawBuildingShell(layout, 3, 5, 7, 5, {
-          x: home?.door.x ?? 6,
-          y: home?.door.y ?? 9,
-          tile: townDoorTile(home?.doorKind),
+          x: homeAt(0)?.door.x ?? 6,
+          y: homeAt(0)?.door.y ?? 9,
+          tile: townDoorTile(homeAt(0)?.doorKind),
         });
-        drawBuildingShell(layout, 12, 4, 6, 6, { x: 15, y: 9, tile: 'h' });
-        drawBuildingShell(layout, args.grid.cols - 18, 5, 7, 5, {
-          x: args.grid.cols - 15,
-          y: 9,
-          tile: 'h',
+        drawBuildingShell(layout, 12, 4, 6, 6, {
+          x: homeAt(1)?.door.x ?? 15,
+          y: homeAt(1)?.door.y ?? 9,
+          tile: townDoorTile(homeAt(1)?.doorKind),
         });
         drawBuildingShell(layout, args.grid.cols - 9, 4, 6, 6, {
-          x: args.grid.cols - 6,
-          y: 9,
-          tile: 'h',
+          x: homeAt(2)?.door.x ?? args.grid.cols - 6,
+          y: homeAt(2)?.door.y ?? 9,
+          tile: townDoorTile(homeAt(2)?.doorKind),
         });
-        if (home) {
+        for (const home of homes) {
           addTownLayerEntrance(
             layout,
             layerEntrances,
@@ -2379,7 +2420,7 @@ export function createTownDistrictRoom(args: {
               townId: town.id,
               parentRoomId: args.roomId,
               templateId: 'residentialHome',
-              key: 'home-door',
+              key: home.id.split(':').pop() ?? home.id,
               label: 'Town home door',
               x: home.door.x,
               y: home.door.y,
