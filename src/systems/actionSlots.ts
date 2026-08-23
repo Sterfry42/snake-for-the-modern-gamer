@@ -2,7 +2,7 @@ import type { SkillTreeStats } from './skillTypes.js';
 import { getPrimaryBindingLabelForDisplay } from '../input/controlActions.js';
 
 export type ActionSlotId = 'q';
-export type ActionAbilityKind = 'spell' | 'command';
+export type ActionAbilityKind = 'spell' | 'command' | 'summon';
 
 export interface ActionAbilityView {
   id: string;
@@ -39,6 +39,9 @@ export interface ActionSlotRuntime {
   tryCastArcanePulse(): boolean;
   getArcanePulseCost(): number;
   tryActivateManualSurge(): { ok: boolean; message: string };
+  hasRatFamiliar(): boolean;
+  getSummonFamiliarCost(): number;
+  tryCastSummonFamiliar(): boolean;
   hasFollowers(): boolean;
   commandFollowers(): { ok: boolean; message: string };
   recallFollowers(): { ok: boolean; message: string };
@@ -104,6 +107,35 @@ export class ActionSlotController {
         use: () => ({ ok: false, reason: 'Starlight Veil is passive and triggers on fatal hits.' }),
       },
       {
+        id: 'summon-rat-familiar',
+        label: 'Summon Rat Familiar',
+        kind: 'summon',
+        description: 'Call a rat familiar that hunts nearby enemies for a short time.',
+        getManaCost: () => this.runtime.getSummonFamiliarCost(),
+        getDisabledReason: () =>
+          this.familiarRiteUnlocked() ? undefined : 'Unlock Familiar Rite in the skill tree.',
+        canBind: () => this.familiarRiteUnlocked(),
+        use: (stats) => {
+          if (!this.familiarRiteUnlocked()) {
+            return { ok: false, reason: 'Unlock Familiar Rite in the skill tree to cast.' };
+          }
+          if (this.runtime.hasRatFamiliar()) {
+            return { ok: false, reason: 'Your rat familiar is already out there.' };
+          }
+          const cost = this.runtime.getSummonFamiliarCost();
+          if (stats.mana < cost) {
+            const missing = Math.max(1, Math.ceil(cost - stats.mana));
+            return {
+              ok: false,
+              reason: `Summon Rat Familiar needs ${cost} mana - missing ${missing}.`,
+            };
+          }
+          return this.runtime.tryCastSummonFamiliar()
+            ? { ok: true, label: 'Summon Rat Familiar' }
+            : { ok: false, reason: 'The familiar rite fizzled.' };
+        },
+      },
+      {
         id: 'command-follower',
         label: 'Command Follower',
         kind: 'command',
@@ -134,6 +166,10 @@ export class ActionSlotController {
         },
       },
     ];
+  }
+
+  private familiarRiteUnlocked(): boolean {
+    return Boolean(this.runtime.getFlag<{ enabled?: boolean }>('arcane.familiarRite')?.enabled);
   }
 
   getBound(slot: ActionSlotId = 'q'): string | undefined {

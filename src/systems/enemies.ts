@@ -29,7 +29,8 @@ export interface EnemyInstance {
     | 'goblin'
     | 'rival-snake'
     | 'roaming-snake'
-    | 'baby';
+    | 'baby'
+    | 'rat';
   _colorHex?: string;
 }
 

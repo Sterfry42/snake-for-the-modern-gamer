@@ -169,6 +169,7 @@ export interface SkillTreeRuntime {
   onArcaneVeilTriggered(): void;
   spendSafeSnakeLength?(segments: number): number;
   onAstralNova?(): void;
+  onSummonFamiliarCast?(): void;
   setFlag(key: string, value: unknown): void;
 }
 

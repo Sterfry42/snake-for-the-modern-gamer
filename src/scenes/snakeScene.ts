@@ -7027,6 +7027,10 @@ export default class SnakeScene extends Phaser.Scene {
     return this.snakeGame?.hasFollowers() ?? false;
   }
 
+  hasRatFamiliar(): boolean {
+    return this.snakeGame?.hasRatFamiliar() ?? false;
+  }
+
   commandFollowers(): { ok: boolean; message: string; color: string } {
     const result = this.snakeGame?.commandFollowers() ?? {
       ok: false,

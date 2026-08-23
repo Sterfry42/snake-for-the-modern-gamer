@@ -3665,6 +3665,16 @@ export class SnakeRenderer {
         bulletOutlineColor: '#5d2b5d',
       };
     }
+    if (enemy.encounterKind === 'rat') {
+      return {
+        bodyColor: '#7d7a8f',
+        accentColor: '#c9b8ff',
+        outlineColor: '#1d1a2b',
+        eyeColor: '#f4f0ff',
+        bulletColor: '#c9b8ff',
+        bulletOutlineColor: '#3a3350',
+      };
+    }
     if (enemy.encounterKind === 'duelist') {
       if (enemy.id === 'freak-joey') {
         return {

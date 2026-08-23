@@ -50,6 +50,9 @@ export class SkillTreeManager implements SkillTreeRuntime {
       tryCastArcanePulse: () => this.system.tryCastArcanePulse(),
       getArcanePulseCost: () => this.system.getArcanePulseCost(),
       tryActivateManualSurge: () => this.scene.snakeGame.tryActivateManualSurge(),
+      hasRatFamiliar: () => this.scene.hasRatFamiliar(),
+      getSummonFamiliarCost: () => this.system.getSummonFamiliarCost(),
+      tryCastSummonFamiliar: () => this.system.tryCastSummonFamiliar(),
       hasFollowers: () => this.scene.hasFollowers(),
       commandFollowers: () => this.scene.commandFollowers(),
       recallFollowers: () => this.scene.recallFollowers(),
@@ -479,6 +482,35 @@ export class SkillTreeManager implements SkillTreeRuntime {
   onAstralNova(): void {
     this.scene.snakeGame.triggerProgressionShockwave(5, 6);
     this.juice.arcaneVeilBurst();
+  }
+
+  onSummonFamiliarCast(): void {
+    this.scene.snakeGame.summonRatFamiliar(90);
+
+    const head = this.scene.snakeGame.getSnakeBody()[0];
+    const cell = this.scene.grid.cell;
+    const worldX = head ? head.x * cell + cell / 2 : (this.scene.grid.cols * cell) / 2;
+    const worldY = head ? head.y * cell + cell / 2 : (this.scene.grid.rows * cell) / 2;
+
+    this.juice.arcaneSpellUnlocked();
+
+    const wisp = this.scene.add
+      .circle(worldX, worldY, 10, 0xc9b8ff, 0.45)
+      .setDepth(26)
+      .setBlendMode(Phaser.BlendModes.ADD);
+
+    this.scene.tweens.add({
+      targets: wisp,
+      scale: 2.8,
+      alpha: 0,
+      duration: 300,
+      ease: 'Cubic.easeOut',
+      onComplete: () => wisp.destroy(),
+    });
+
+    if (this.overlay.isVisible()) {
+      this.overlay.announce('A rat familiar answers the rite.', '#c9b8ff', 2400);
+    }
   }
 
   // internal helpers

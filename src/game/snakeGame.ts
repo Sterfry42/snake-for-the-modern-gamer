@@ -589,13 +589,14 @@ interface StagedQuestInstance {
 
 export interface FollowerInstance {
   id: string;
-  kind: 'goblin-mercenary' | 'family-baby';
+  kind: 'goblin-mercenary' | 'family-baby' | 'rat-familiar';
   name: string;
   roomId: string;
   position: Vector2Like;
   direction: Vector2Like;
   mode: 'follow' | 'guard';
   attackCooldown: number;
+  summonTicksLeft?: number;
 }
 
 export interface QuestMapMarker {
@@ -1635,7 +1636,11 @@ export class SnakeGame implements QuestRuntime {
                 currentHearts: 1,
                 maxHearts: 1,
                 encounterKind:
-                  follower.kind === 'family-baby' ? ('baby' as const) : ('goblin' as const),
+                  follower.kind === 'family-baby'
+                    ? ('baby' as const)
+                    : follower.kind === 'rat-familiar'
+                      ? ('rat' as const)
+                      : ('goblin' as const),
               })),
             bullets: this.getEnemyBullets(roomId),
             footballs: this.getFootballs(roomId),
@@ -16447,7 +16452,7 @@ export class SnakeGame implements QuestRuntime {
     message: string;
     color: string;
   } {
-    if (this.hasFollowers()) {
+    if (this.getFollowerState().some((follower) => follower.kind !== 'rat-familiar')) {
       return { ok: false, message: 'You already have a companion in that slot.', color: '#9ad1ff' };
     }
     if (this.getScore() < price) {
@@ -16470,10 +16475,51 @@ export class SnakeGame implements QuestRuntime {
       mode: 'follow',
       attackCooldown: 0,
     };
-    this.setFollowerState([follower]);
+    this.setFollowerState([...this.getFollowerState(), follower]);
     this.setFlag('achievement.companionAcquired', { companionKind: follower.kind });
     this.adjustFactionAlignment('goblin-camps', 3);
     return { ok: true, message: `${name} hired. Q commands are now available.`, color: '#b6ff6a' };
+  }
+
+  hasRatFamiliar(): boolean {
+    return this.getFollowerState().some((follower) => follower.kind === 'rat-familiar');
+  }
+
+  summonRatFamiliar(durationTicks = 90): {
+    ok: boolean;
+    message: string;
+    color: string;
+  } {
+    if (this.hasRatFamiliar()) {
+      return {
+        ok: false,
+        message: 'Your rat familiar is already out there.',
+        color: '#9ad1ff',
+      };
+    }
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return { ok: false, message: 'No body to anchor the rite to.', color: '#ff6b6b' };
+    }
+    const roomId = this.snake.currentRoomId;
+    const position = this.worldToLocal(roomId, head);
+    const follower: FollowerInstance = {
+      id: `follower-rat-${Date.now().toString(36)}`,
+      kind: 'rat-familiar',
+      name: 'Rat Familiar',
+      roomId,
+      position: this.findFollowerStandPosition(roomId, position),
+      direction: { x: 0, y: 1 },
+      mode: 'follow',
+      attackCooldown: 0,
+      summonTicksLeft: Math.max(1, Math.floor(durationTicks)),
+    };
+    this.setFollowerState([...this.getFollowerState(), follower]);
+    return {
+      ok: true,
+      message: 'A rat familiar skitters into the light to hunt with you.',
+      color: '#b6ff6a',
+    };
   }
 
   commandFollowers(): { ok: boolean; message: string; color: string } {
@@ -16564,13 +16610,20 @@ export class SnakeGame implements QuestRuntime {
     return raw
       .filter(
         (follower) =>
-          follower && (follower.kind === 'goblin-mercenary' || follower.kind === 'family-baby'),
+          follower &&
+          (follower.kind === 'goblin-mercenary' ||
+            follower.kind === 'family-baby' ||
+            follower.kind === 'rat-familiar'),
       )
       .map((follower) => ({
         ...follower,
         direction: follower.direction ?? { x: 0, y: 1 },
         mode: follower.mode === 'guard' ? 'guard' : 'follow',
         attackCooldown: Math.max(0, Number(follower.attackCooldown ?? 0)),
+        summonTicksLeft:
+          follower.summonTicksLeft !== undefined && Number.isFinite(follower.summonTicksLeft)
+            ? Math.max(0, Math.floor(follower.summonTicksLeft))
+            : undefined,
       }));
   }
 
@@ -16584,24 +16637,37 @@ export class SnakeGame implements QuestRuntime {
   private tickFollowers(): { enemyDefeats: number; animalDefeats: number } {
     const followers = this.getFollowerState();
     const head = this.snake.bodySegments[0];
-    if (followers.length === 0 || !head) {
+    if (followers.length === 0) {
       return { enemyDefeats: 0, animalDefeats: 0 };
     }
-    const roomId = this.snake.currentRoomId;
-    const localHead = this.worldToLocal(roomId, head);
     let enemyDefeats = 0;
     let animalDefeats = 0;
+    let expiredSummons = 0;
 
-    const nextFollowers = followers.map((follower) => {
-      let next =
+    const nextFollowers = followers.flatMap((follower) => {
+      if (follower.summonTicksLeft !== undefined) {
+        if (follower.summonTicksLeft <= 1) {
+          expiredSummons += 1;
+          return [];
+        }
+      }
+      if (!head) {
+        return [follower];
+      }
+      const roomId = this.snake.currentRoomId;
+      const localHead = this.worldToLocal(roomId, head);
+      let next: FollowerInstance =
         follower.roomId === roomId
-          ? { ...follower }
+          ? { ...follower, summonTicksLeft: follower.summonTicksLeft }
           : {
               ...follower,
               roomId,
               position: this.findFollowerStandPosition(roomId, localHead),
               mode: 'follow' as const,
             };
+      if (next.summonTicksLeft !== undefined) {
+        next.summonTicksLeft = Math.max(0, next.summonTicksLeft - 1);
+      }
 
       next.attackCooldown = Math.max(0, next.attackCooldown - 1);
       if (next.attackCooldown <= 0) {
@@ -16633,7 +16699,7 @@ export class SnakeGame implements QuestRuntime {
             }
           }
           next.attackCooldown = 2;
-          return next;
+          return [next];
         }
       }
 
@@ -16643,10 +16709,13 @@ export class SnakeGame implements QuestRuntime {
           : localHead;
         next = this.moveFollowerToward(roomId, next, target);
       }
-      return next;
+      return [next];
     });
 
     this.setFollowerState(nextFollowers);
+    if (expiredSummons > 0) {
+      this.setFlag('ui.followerAction', { kind: 'expire', count: expiredSummons });
+    }
     return { enemyDefeats, animalDefeats };
   }
 
@@ -17923,7 +17992,10 @@ export class SnakeGame implements QuestRuntime {
       mode: 'follow',
       attackCooldown: 0,
     };
-    this.setFollowerState([follower]);
+    this.setFollowerState([
+      ...this.getFollowerState().filter((f) => f.kind === 'rat-familiar'),
+      follower,
+    ]);
     this.setFlag('achievement.companionAcquired', { companionKind: follower.kind });
     this.setFlag('ui.followerAction', {
       message: `${child.name} takes the companion slot. Q toggles follow/guard.`,
