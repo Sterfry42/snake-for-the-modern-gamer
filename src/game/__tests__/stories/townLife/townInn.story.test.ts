@@ -5,15 +5,118 @@ import { createHeadlessScenario } from '../../../../test/headless/headlessScenar
 import {
   adjacentWalkableTile,
   findGeneratedTownDoor,
+  walkableTileAwayFrom,
 } from '../../../../test/headless/scenarioFixtures.js';
+import type { TownResident, TownStructure } from '../../../../world/town.js';
+import { isSolidTile } from '../../../../world/tiles.js';
 import type { RoomSnapshot } from '../../../../world/types.js';
 
 describe('Town life inn hardening stories', () => {
+  it('TOWN-HARDEN-028 - hospitality schedules keep night services staffed without opening daytime specialists', async () => {
+    const scenario = createHeadlessScenario({ seed: 'town-harden-028-hospitality-schedules' });
+    const { room: innRoom, entrance: innEntrance } = findGeneratedTownDoor(scenario, {
+      templateId: 'inn',
+    });
+    const { entrance: tavernEntrance } = findGeneratedTownDoor(scenario, {
+      templateId: 'tavern',
+    });
+    const { entrance: storeEntrance } = findGeneratedTownDoor(scenario, {
+      templateId: 'generalStore',
+    });
+    const town = requireTown(innRoom);
+    scenario.setDayPhase('night');
+    scenario.enterRoom(innRoom.id, walkableTileAwayFrom(scenario, innRoom.id, innEntrance, 6));
+    await scenario.advanceActorTicks(1);
+
+    expect(
+      scenario.actor(actorIdForResident(scenario, town, requireResident(town, 'innkeeper'))).goal,
+    ).toMatchObject({
+      kind: 'work',
+      roomId: innEntrance.layerId,
+      reason: 'schedule:work',
+    });
+    expect(
+      scenario.actor(actorIdForResident(scenario, town, requireResident(town, 'bartender'))).goal,
+    ).toMatchObject({
+      kind: 'work',
+      roomId: tavernEntrance.layerId,
+      reason: 'schedule:work',
+    });
+    expect(
+      scenario.actor(actorIdForResident(scenario, town, requireResident(town, 'cardDealer'))).goal,
+    ).toMatchObject({
+      kind: 'work',
+      roomId: tavernEntrance.layerId,
+      reason: 'schedule:work',
+    });
+    expect(
+      scenario.actor(actorIdForResident(scenario, town, requireResident(town, 'equipmentMerchant')))
+        .goal,
+    ).toMatchObject({
+      kind: 'sleep',
+      reason: 'night-schedule',
+    });
+    expect(storeEntrance.layerId).not.toBe(tavernEntrance.layerId);
+    scenario.assertWorldIntegrity();
+  });
+
+  it('TOWN-HARDEN-028 / TOWN-REGRESSION-019 - an unvisited inn works at night with a pre-existing innkeeper', async () => {
+    const scenario = createHeadlessScenario({ seed: 'town-harden-028-night-inn-unvisited' });
+    const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'inn' });
+    const town = requireTown(room);
+    const innkeeper = requireResident(town, 'innkeeper');
+    const innkeeperActorId = actorIdForResident(scenario, town, innkeeper);
+
+    scenario.setDayPhase('night');
+    scenario.enterRoom(room.id, walkableTileAwayFrom(scenario, room.id, entrance, 6));
+    await scenario.advanceActorTicks(1);
+
+    const beforeActorIds = townRegistryActorIds(scenario, town.id);
+    const logicalInnkeeper = scenario.actor(innkeeperActorId);
+    expect(beforeActorIds).toContain(innkeeperActorId);
+    expect(logicalInnkeeper.goal).toMatchObject({
+      kind: 'work',
+      roomId: entrance.layerId,
+    });
+    expect(logicalInnkeeper.activity?.kind).not.toBe('sleeping');
+    expect(scenario.game.resolveNearbyTownDoorAccess()).toBeNull();
+
+    walkSnakeIntoDoor(scenario, room, entrance);
+
+    expect(scenario.currentRoom().id).toBe(entrance.layerId);
+    expect(townRegistryActorIds(scenario, town.id)).toEqual(beforeActorIds);
+    const materializedInnkeeper = scenario.game
+      .getActorsInCurrentRoom()
+      .find((actor) => actor.role === 'innkeeper');
+    expect(materializedInnkeeper?.id).toBe(innkeeperActorId);
+    scenario.game.setScore(20);
+    expect(scenario.game.getCurrentInnServiceView(12)).toMatchObject({
+      available: true,
+      cost: 12,
+    });
+
+    const beforeDay = scenario.game.getAtmosphereState().worldDay;
+    const rest = await scenario.game.chooseCurrentInnRest(12);
+
+    expect(rest).toMatchObject({
+      ok: true,
+      cost: 12,
+      scoreBefore: 20,
+      scoreAfter: 8,
+      startedPhase: 'night',
+      endedPhase: 'dawn',
+    });
+    expect(rest.worldDayAfter).toBeGreaterThanOrEqual(beforeDay);
+    expect(scenario.actor(innkeeperActorId).id).toBe(innkeeperActorId);
+    scenario.assertWorldIntegrity();
+  });
+
   it('TOWN-HARDEN-019 / TOWN-REGRESSION-012 - paid inn rest is reachable through inn gameplay interaction', async () => {
     const scenario = createHeadlessScenario({ seed: 'town-harden-019-player-inn-rest' });
     const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'inn' });
 
-    moveSnakeIntoDoor(scenario, room, entrance);
+    scenario.enterRoom(room.id, walkableTileAwayFrom(scenario, room.id, entrance, 6));
+    walkSnakeIntoDoor(scenario, room, entrance);
     expect(scenario.currentRoom().layer).toMatchObject({
       parentRoomId: room.id,
       templateId: 'inn',
@@ -60,39 +163,134 @@ describe('Town life inn hardening stories', () => {
   });
 });
 
-function moveSnakeIntoDoor(
+function walkSnakeIntoDoor(
   scenario: HeadlessScenario,
   room: RoomSnapshot,
   entrance: LayerEntrance,
 ): void {
   const approach = adjacentWalkableTile(room, entrance);
-  placeSnakeForMovement(scenario, room.id, approach, {
-    x: entrance.x - approach.x,
-    y: entrance.y - approach.y,
-  });
-  scenario.game.setFlag('traversal.manualResumePending', undefined);
-  scenario.game.setFlag('traversal.exitDirectionLockTicks', undefined);
+  walkToLocal(scenario, approach, [entrance]);
   scenario.game.forceDirection(entrance.x - approach.x, entrance.y - approach.y);
   scenario.advanceActionTicks(1);
 }
 
-function placeSnakeForMovement(
+function walkToLocal(
   scenario: HeadlessScenario,
-  roomId: string,
-  local: { x: number; y: number },
-  direction: { x: number; y: number },
+  target: { x: number; y: number },
+  forbidden: readonly { x: number; y: number }[] = [],
 ): void {
-  const room = scenario.game.getRoom(roomId);
+  const room = scenario.currentRoom();
+  const path = findLocalPath(room, playerLocalHead(scenario), target, forbidden);
+  for (const step of path) {
+    scenario.game.forceDirection(step.x, step.y);
+    scenario.advanceActionTicks(1);
+  }
+}
+
+function playerLocalHead(scenario: HeadlessScenario): { x: number; y: number } {
+  const room = scenario.currentRoom();
+  const head = scenario.player().snake.bodySegments[0];
+  expect(head).toBeDefined();
+  if (!head) {
+    throw new Error('Player head is missing.');
+  }
   const [roomX = 0, roomY = 0] = room.id.split(',').map(Number);
-  const world = {
-    x: local.x + roomX * scenario.game.config.grid.cols,
-    y: local.y + roomY * scenario.game.config.grid.rows,
+  return {
+    x: head.x - roomX * scenario.game.config.grid.cols,
+    y: head.y - roomY * scenario.game.config.grid.rows,
   };
-  const loaded = scenario.game.loadFromSaveData({
-    ...scenario.game.getSaveData(),
-    snakeRoomId: roomId,
-    snakeBody: Array.from({ length: scenario.game.getSnakeLength() }, () => ({ ...world })),
-    snakeDirection: direction,
-  });
-  expect(loaded).toBe(true);
+}
+
+function findLocalPath(
+  room: RoomSnapshot,
+  start: { x: number; y: number },
+  target: { x: number; y: number },
+  forbidden: readonly { x: number; y: number }[],
+): Array<{ x: number; y: number }> {
+  const queue = [start];
+  const seen = new Set<string>([pointKey(start)]);
+  const forbiddenKeys = new Set(forbidden.map((point) => pointKey(point)));
+  const previous = new Map<
+    string,
+    { point: { x: number; y: number }; step: { x: number; y: number } }
+  >();
+  for (let index = 0; index < queue.length; index += 1) {
+    const current = queue[index]!;
+    if (current.x === target.x && current.y === target.y) {
+      return reconstructPath(previous, start, target);
+    }
+    for (const step of [
+      { x: 1, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 0, y: -1 },
+    ]) {
+      const next = { x: current.x + step.x, y: current.y + step.y };
+      const key = pointKey(next);
+      if (seen.has(key) || forbiddenKeys.has(key) || isSolidTile(room.layout[next.y]?.[next.x])) {
+        continue;
+      }
+      seen.add(key);
+      previous.set(key, { point: current, step });
+      queue.push(next);
+    }
+  }
+  throw new Error(`No local path from ${pointKey(start)} to ${pointKey(target)} in ${room.id}.`);
+}
+
+function reconstructPath(
+  previous: Map<string, { point: { x: number; y: number }; step: { x: number; y: number } }>,
+  start: { x: number; y: number },
+  target: { x: number; y: number },
+): Array<{ x: number; y: number }> {
+  const steps: Array<{ x: number; y: number }> = [];
+  let current = target;
+  while (current.x !== start.x || current.y !== start.y) {
+    const entry = previous.get(pointKey(current));
+    if (!entry) {
+      throw new Error(`Broken path at ${pointKey(current)}.`);
+    }
+    steps.push(entry.step);
+    current = entry.point;
+  }
+  return steps.reverse();
+}
+
+function pointKey(point: { x: number; y: number }): string {
+  return `${point.x},${point.y}`;
+}
+
+function requireTown(room: RoomSnapshot): TownStructure {
+  expect(room.town).toBeDefined();
+  if (!room.town) {
+    throw new Error(`Expected room ${room.id} to belong to a town.`);
+  }
+  return room.town;
+}
+
+function requireResident(town: TownStructure, role: TownResident['role']): TownResident {
+  const resident = town.residents.find((entry) => entry.role === role);
+  expect(resident).toBeDefined();
+  if (!resident) {
+    throw new Error(`Expected town ${town.id} to have a ${role}.`);
+  }
+  return resident;
+}
+
+function actorIdForResident(
+  scenario: HeadlessScenario,
+  town: TownStructure,
+  resident: TownResident,
+): string {
+  return (
+    resident.actorId ?? scenario.game.getTownResidentActorId(town.id, resident.id, resident.role)
+  );
+}
+
+function townRegistryActorIds(scenario: HeadlessScenario, townId: string): string[] {
+  return scenario.game
+    .getActorSystem()
+    .registry.getByTown(townId)
+    .map((actor) => actor.id)
+    .sort();
 }

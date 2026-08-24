@@ -3551,6 +3551,8 @@ export class SnakeGame implements QuestRuntime {
       this.applyTownRuntimeToRoom(layerRoom);
       this.maybeMarkTownHostility(layerRoom);
     }
+    this.ensureActorsFromRoomContent(layerRoom, true);
+    this.materializeActorsForRoom(layerRoom);
     roomsChanged.add(instance.parentRoomId);
     roomsChanged.add(instance.id);
   }
@@ -9343,9 +9345,11 @@ export class SnakeGame implements QuestRuntime {
       const candidate = candidatesByActorId.get(actor.id);
       const profile = candidate?.profile ?? this.createActorBodyProfile(actor, room.id);
       const stationary = candidate?.stationary ?? actor.presence?.stationary ?? false;
+      const fallbackPosition = actor.presence?.position ??
+        actor.goal?.targetPosition ?? { x: 3, y: 3 };
       const body = this.ensureNpcBody(
         profile,
-        actor.presence?.position ?? { x: 3, y: 3 },
+        candidate?.position ?? this.resolveActorMaterializationPosition(room, fallbackPosition),
         stationary,
         room.id,
       );
@@ -9387,7 +9391,11 @@ export class SnakeGame implements QuestRuntime {
       ) {
         return;
       }
-      if (actor?.currentRoomId && actor.currentRoomId !== room.id) {
+      if (
+        actor?.currentRoomId &&
+        actor.currentRoomId !== room.id &&
+        actor.goal?.roomId !== room.id
+      ) {
         return;
       }
       const actorPosition =
@@ -9564,7 +9572,7 @@ export class SnakeGame implements QuestRuntime {
 
   private shouldMaterializeActorInRoom(actor: Actor, roomId: string): boolean {
     return Boolean(
-      actor.presence?.roomId === roomId &&
+      (actor.presence?.roomId === roomId || (!actor.presence && actor.currentRoomId === roomId)) &&
       (actor.species === 'human' || actor.species === 'goblin') &&
       actor.health?.state !== 'dead' &&
       actor.hostility !== 'dead' &&
@@ -10036,13 +10044,18 @@ export class SnakeGame implements QuestRuntime {
       if (!currentRoomId) {
         continue;
       }
-      const currentRoom = this.world.getRoom(currentRoomId);
+      const currentRoom = this.tryGetActorTravelRoom(currentRoomId);
+      if (!currentRoom) {
+        this.scheduleActorTravelRetry(actor.id, nowMs, 'logical-room-unmaterialized');
+        continue;
+      }
       const nextAvailableAtMs = Number(actor.flags.actorTravelNextAtMs ?? 0);
       if (nextAvailableAtMs > nowMs) {
         continue;
       }
       const nextRoomId = this.selectNextActorTravelRoomForActor(actor, currentRoom, goalRoomId);
       if (nextRoomId === currentRoom.id) {
+        this.scheduleActorTravelRetry(actor.id, nowMs, 'blocked-route');
         this.actors.recordActorTelemetry('actor.travel_blocked', actor.id, 'offscreen-travel', {
           currentRoomId,
           goalRoomId,
@@ -10051,6 +10064,7 @@ export class SnakeGame implements QuestRuntime {
       }
       const travelTarget = this.getLoadedActorTravelLegTarget(actor, currentRoom, nextRoomId);
       if (!travelTarget) {
+        this.scheduleActorTravelRetry(actor.id, nowMs, 'missing-leg-target');
         this.actors.recordActorTelemetry('actor.path_blocked', actor.id, 'offscreen-travel-path', {
           currentRoomId,
           goalRoomId,
@@ -10074,6 +10088,7 @@ export class SnakeGame implements QuestRuntime {
         canStandAt: (position) => this.canNpcBodyStandAt(currentRoom, body, position),
       });
       if (!path) {
+        this.scheduleActorTravelRetry(actor.id, nowMs, 'path-blocked');
         this.actors.recordActorTelemetry('actor.path_blocked', actor.id, 'offscreen-travel-path', {
           currentRoomId,
           goalRoomId,
@@ -10155,6 +10170,32 @@ export class SnakeGame implements QuestRuntime {
       actorsMoved += 1;
     }
     return actorsMoved;
+  }
+
+  private tryGetActorTravelRoom(roomId: string): RoomSnapshot | undefined {
+    try {
+      return this.world.getRoom(roomId);
+    } catch (error) {
+      if (roomId.startsWith('layer:')) {
+        return undefined;
+      }
+      throw error;
+    }
+  }
+
+  private scheduleActorTravelRetry(actorId: string, nowMs: number, reason: string): void {
+    const retryAtMs = nowMs + ACTOR_TRAVEL_MOVE_COOLDOWN_MS * 10;
+    this.actors.registry.update(actorId, (current) => ({
+      ...current,
+      flags: {
+        ...current.flags,
+        actorTravelNextAtMs: retryAtMs,
+        actorTravelRetryReason: reason,
+      },
+    }));
+    this.actors.recordActorTelemetry('actor.travel_retry_scheduled', actorId, reason, {
+      retryAtMs,
+    });
   }
 
   private selectNextActorTravelRoomForActor(
@@ -10269,6 +10310,25 @@ export class SnakeGame implements QuestRuntime {
       x: Math.max(1, Math.min(this.config.grid.cols - 2, desired.x)),
       y: Math.max(1, Math.min(this.config.grid.rows - 2, desired.y)),
     };
+  }
+
+  private resolveActorMaterializationPosition(
+    room: RoomSnapshot,
+    desired: Vector2Like,
+  ): Vector2Like {
+    const nearest = this.nearestValidActorArrival(room, desired);
+    if (this.isWalkableUnoccupiedActorTile(room, nearest)) {
+      return nearest;
+    }
+    for (let y = 1; y < room.layout.length - 1; y += 1) {
+      for (let x = 1; x < (room.layout[0]?.length ?? 0) - 1; x += 1) {
+        const candidate = { x, y };
+        if (this.isWalkableUnoccupiedActorTile(room, candidate)) {
+          return candidate;
+        }
+      }
+    }
+    return nearest;
   }
 
   private isWalkableUnoccupiedActorTile(room: RoomSnapshot, position: Vector2Like): boolean {
@@ -19264,9 +19324,11 @@ export class SnakeGame implements QuestRuntime {
     });
   }
 
-  getEquippedActiveTool(): 'gun' | 'gopro' | 'bomb-slingshot' | undefined {
-    if (this.getFlag<'gun' | 'gopro' | 'bomb-slingshot'>('equipment.activeTool')) {
-      return this.getFlag<'gun' | 'gopro' | 'bomb-slingshot'>('equipment.activeTool');
+  getEquippedActiveTool(): 'gun' | 'gopro' | 'bomb-slingshot' | 'binoculars' | undefined {
+    if (this.getFlag<'gun' | 'gopro' | 'bomb-slingshot' | 'binoculars'>('equipment.activeTool')) {
+      return this.getFlag<'gun' | 'gopro' | 'bomb-slingshot' | 'binoculars'>(
+        'equipment.activeTool',
+      );
     }
     return this.getFlag<boolean>('equipment.gunEnabled') ? 'gun' : undefined;
   }

@@ -44,7 +44,7 @@ export interface EquipmentModifiers {
   // Enables player shooting when equipped.
   gunEnabled?: boolean;
   // Selects the weapon-slot click action.
-  activeTool?: 'gun' | 'gopro' | 'bomb-slingshot';
+  activeTool?: 'gun' | 'gopro' | 'bomb-slingshot' | 'binoculars';
   // Reduces exposure in temperature hazard biomes.
   heatResistance?: number;
   coldResistance?: number;

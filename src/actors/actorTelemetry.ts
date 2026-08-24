@@ -26,6 +26,7 @@ export type ActorTelemetryEventType =
   | 'actor.rumor_shared'
   | 'actor.travel_leg_selected'
   | 'actor.travel_blocked'
+  | 'actor.travel_retry_scheduled'
   | 'actor.path_blocked'
   | 'actor.transitioned'
   | 'actor.tick'

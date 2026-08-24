@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { defaultGameConfig } from '../../config/gameConfig.js';
 import { createRng } from '../../core/rng.js';
+import { actorIdForTownResident } from '../../actors/actorFactory.js';
 import { ActorSystem } from '../../actors/actorSystem.js';
 import type { GameSaveData } from '../../game/saveManager.js';
 import { LAYER_EXIT_TILE } from '../../layers/layerTypes.js';
@@ -816,7 +817,15 @@ describe('multi-room structure generation', () => {
     expect(outsideMarketRoles).not.toContain('butcher');
     expect(outsideMarketRoles).not.toContain('potionMaker');
     expect(storeRoles).toEqual(['equipmentMerchant']);
-    expect(syncedMarket.some((actor) => actor.role === 'equipmentMerchant')).toBe(false);
+    expect(syncedMarket.map((actor) => actor.id).sort()).toEqual(
+      market
+        .town!.residents.map(
+          (resident) =>
+            resident.actorId ?? actorIdForTownResident(market.town!.id, resident.id, resident.role),
+        )
+        .sort(),
+    );
+    expect(syncedMarket.some((actor) => actor.role === 'equipmentMerchant')).toBe(true);
     expect(
       townResidentsForRoom(market.town!, market.id).some(
         (resident) => resident.x === 0 && resident.y === 0,

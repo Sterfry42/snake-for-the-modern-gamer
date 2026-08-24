@@ -14,6 +14,10 @@ Headless integration tests prove a complete gameplay behavior through the same p
 
 Headless integration tests should begin from a realistic game or world state and perform player/world actions rather than manually forcing the expected final state. Shared scenario helpers are encouraged, but they must not secretly perform the feature being tested.
 
+Persistent entity lifecycle and presentation/materialization lifecycle are separate concerns. A persistent world entity may exist while not physically materialized. First materialization is not entity creation unless the design explicitly defines a dynamic spawn.
+
+Story acceptance tests may use low-level mutation only to establish unrelated preconditions. They may not use direct mutation to perform, bypass, normalize, repair, or complete the behavior under assertion.
+
 Examples:
 
 - A shop test interacts with the shop through the Actor/shop interaction path.
@@ -25,6 +29,19 @@ Examples:
 - A save/load test serializes and reloads a real scenario containing the affected state.
 
 Implemented does not mean helper exists. Integrated means the production gameplay path reaches the implementation.
+
+Allowed setup examples:
+
+- Give the player score before testing a purchase.
+- Choose a deterministic seed.
+- Put unrelated generated content into deterministic shape when the asserted behavior is elsewhere.
+
+Not acceptable as the acceptance action:
+
+- Teleporting or save-loading the player next to a door when traversal is under assertion.
+- Clearing traversal or layer flags before claiming traversal recovered.
+- Assigning an Actor's expected schedule goal or activity before claiming the scheduler produced it.
+- Calling a commerce, mapper, combat, raid, or travel helper directly and claiming player-facing composition works.
 
 ## Presentation / Render Contract Tests
 

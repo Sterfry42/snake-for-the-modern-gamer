@@ -404,32 +404,64 @@ export function createActorFromTownResident(args: EnsureTownResidentActorArgs): 
     },
     hostility: 'neutral',
     brainId: brainForRole(role),
-    schedule:
-      role === 'gateGuard' || role === 'guard'
-        ? {
-            policyId: 'town-guard',
-            fixedPostRoomId: args.workRoomId ?? args.currentRoomId,
-            fixedPostPosition: args.postPosition ? { ...args.postPosition } : undefined,
-            workPosition: args.postPosition ? { ...args.postPosition } : undefined,
-            patrolRoomIds: args.workRoomId ? [args.workRoomId] : undefined,
-            permanentDuty: role === 'gateGuard',
-          }
-        : {
-            policyId: 'town-resident',
-            homeRoomId: args.homeRoomId ?? args.currentRoomId,
-            workRoomId: args.workRoomId ?? args.currentRoomId,
-            homePosition:
-              (args.homeRoomId ?? args.currentRoomId) === args.currentRoomId && args.postPosition
-                ? { ...args.postPosition }
-                : undefined,
-            workPosition:
-              (args.workRoomId ?? args.currentRoomId) === args.currentRoomId && args.postPosition
-                ? { ...args.postPosition }
-                : undefined,
-          },
+    schedule: scheduleForTownResidentRole(role, args),
     flags: { source: 'townResident', residentId: args.residentId },
     createdAtRoomNumber: args.createdAtRoomNumber,
   });
+}
+
+function scheduleForTownResidentRole(
+  role: ActorRole,
+  args: EnsureTownResidentActorArgs,
+): ActorSchedule {
+  if (role === 'gateGuard' || role === 'guard') {
+    return {
+      policyId: 'town-guard',
+      fixedPostRoomId: args.workRoomId ?? args.currentRoomId,
+      fixedPostPosition: args.postPosition ? { ...args.postPosition } : undefined,
+      workPosition: args.postPosition ? { ...args.postPosition } : undefined,
+      patrolRoomIds: args.workRoomId ? [args.workRoomId] : undefined,
+      permanentDuty: role === 'gateGuard',
+    };
+  }
+  const schedule: ActorSchedule = {
+    policyId: 'town-resident',
+    homeRoomId: args.homeRoomId ?? args.currentRoomId,
+    workRoomId: args.workRoomId ?? args.currentRoomId,
+    homePosition:
+      (args.homeRoomId ?? args.currentRoomId) === args.currentRoomId && args.postPosition
+        ? { ...args.postPosition }
+        : undefined,
+    workPosition:
+      (args.workRoomId ?? args.currentRoomId) === args.currentRoomId && args.postPosition
+        ? { ...args.postPosition }
+        : undefined,
+  };
+  if (role === 'innkeeper') {
+    return {
+      ...schedule,
+      policyId: 'town-hospitality-innkeeper',
+      routines: {
+        dawn: { behavior: 'work', goalKind: 'work', priority: 18, roomTarget: 'work' },
+        day: { behavior: 'work', goalKind: 'work', priority: 18, roomTarget: 'work' },
+        dusk: { behavior: 'work', goalKind: 'work', priority: 20, roomTarget: 'work' },
+        night: { behavior: 'work', goalKind: 'work', priority: 22, roomTarget: 'work' },
+      },
+    };
+  }
+  if (role === 'bartender' || role === 'cardDealer') {
+    return {
+      ...schedule,
+      policyId: `town-hospitality-${role}`,
+      routines: {
+        dawn: { behavior: 'goHome', goalKind: 'goHome', priority: 12, roomTarget: 'home' },
+        day: { behavior: 'work', goalKind: 'work', priority: 16, roomTarget: 'work' },
+        dusk: { behavior: 'work', goalKind: 'work', priority: 20, roomTarget: 'work' },
+        night: { behavior: 'work', goalKind: 'work', priority: 20, roomTarget: 'work' },
+      },
+    };
+  }
+  return schedule;
 }
 
 export function createActorFromTownResidentEntity(

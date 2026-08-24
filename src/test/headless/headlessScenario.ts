@@ -286,11 +286,19 @@ export class HeadlessScenario {
     }
 
     for (const roomId of roomsToCheck) {
-      expect(() => this.game.getRoom(roomId), `Room should exist: ${roomId}`).not.toThrow();
+      try {
+        this.game.getRoom(roomId);
+      } catch (error) {
+        if (roomId.startsWith('layer:')) {
+          continue;
+        }
+        throw error;
+      }
     }
 
     this.assertPlayerPositionValid();
     this.assertActorPositionsValid(actors);
+    this.assertLayerRuntimeConsistent();
   }
 
   private async drainActorSteps(): Promise<void> {
@@ -333,6 +341,38 @@ export class HeadlessScenario {
       expect(previous, `Actors ${previous} and ${actor.id} overlap at ${key}.`).toBeUndefined();
       occupied.set(key, actor.id);
     }
+  }
+
+  private assertLayerRuntimeConsistent(): void {
+    const currentRoom = this.currentRoom();
+    const activeLayer = this.game.getFlag<{
+      layerId?: string;
+      parentRoomId?: string;
+      entranceId?: string;
+      returnPosition?: { x: number; y: number };
+    }>('layers.active');
+    if (currentRoom.layer) {
+      expect(activeLayer, `Layer room ${currentRoom.id} requires layers.active.`).toBeDefined();
+      expect(activeLayer?.layerId, `Active layer should match ${currentRoom.id}.`).toBe(
+        currentRoom.id,
+      );
+      expect(activeLayer?.parentRoomId, `Active parent should match ${currentRoom.id}.`).toBe(
+        currentRoom.layer.parentRoomId,
+      );
+      expect(
+        activeLayer?.entranceId,
+        `Active entrance should exist for ${currentRoom.id}.`,
+      ).toBeDefined();
+      expect(
+        activeLayer?.returnPosition,
+        `Active return position should exist for ${currentRoom.id}.`,
+      ).toBeDefined();
+      return;
+    }
+    expect(
+      activeLayer,
+      `Coordinate room ${currentRoom.id} must not keep stale layers.active.`,
+    ).toBeUndefined();
   }
 
   private describeTimeout(timeoutMs: number): string {

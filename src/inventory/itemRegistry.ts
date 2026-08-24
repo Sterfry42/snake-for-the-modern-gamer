@@ -108,6 +108,17 @@ export const ITEMS: readonly Item[] = [
     },
   },
   {
+    id: 'weapon-binoculars',
+    name: 'Binoculars',
+    description:
+      'Equip them in the weapon slot and click to survey a full 3x3 room block. The wise old snake says the edges still know the rules.',
+    kind: 'equipment',
+    slot: 'weapon',
+    modifiers: {
+      activeTool: 'binoculars',
+    },
+  },
+  {
     id: 'bomb',
     name: 'Bomb',
     description:

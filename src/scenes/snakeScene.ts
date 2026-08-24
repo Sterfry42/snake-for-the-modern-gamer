@@ -49,7 +49,7 @@ import type {
 } from '../game/snakeGame.js';
 import type { HighlightClip } from '../systems/highlightReel.js';
 import type { GameConnection } from '../session/GameConnection.js';
-import type { GameSnapshot } from '../session/GameSnapshot.js';
+import type { ClientRoomSnapshot, GameSnapshot } from '../session/GameSnapshot.js';
 import type { LocalAuthoritativeRuntime } from '../session/GameRuntime.js';
 import { LocalGameConnection } from '../session/LocalGameConnection.js';
 import { LocalGameSession } from '../session/LocalGameSession.js';
@@ -62,7 +62,7 @@ import type { OwnedSkillState } from '../systems/skillTypes.js';
 import { QuestHud } from '../ui/questHud.js';
 import { QuestPopup } from '../ui/questPopup.js';
 import { ChoicePopup, type ChoiceOption } from '../ui/choicePopup.js';
-import { SnakeRenderer } from '../ui/snakeRenderer.js';
+import { SnakeRenderer, type RoomRenderEntry } from '../ui/snakeRenderer.js';
 import { MinimapRenderer } from '../ui/minimapRenderer.js';
 import { JuiceManager } from '../ui/juice.js';
 import { BossHud } from '../ui/bossHud.js';
@@ -1814,6 +1814,7 @@ export default class SnakeScene extends Phaser.Scene {
   private gameSession!: LocalAuthoritativeRuntime;
   private gameConnection!: GameConnection;
   private currentSnapshot: GameSnapshot | null = null;
+  private binocularsViewportActive = false;
   private unsubscribeSnapshot: (() => void) | null = null;
   private unsubscribeEvents: (() => void) | null = null;
   private questHud!: QuestHud;
@@ -2940,6 +2941,15 @@ export default class SnakeScene extends Phaser.Scene {
         }
         this.isDirty = true;
       }
+      return;
+    }
+    if (activeTool === 'binoculars') {
+      this.binocularsViewportActive = !this.binocularsViewportActive;
+      this.showQuestHintPopup(
+        this.binocularsViewportActive ? 'Binoculars: 3x3 survey active.' : 'Binoculars lowered.',
+        '#9ad1ff',
+      );
+      this.isDirty = true;
       return;
     }
     if (this.snakeGame.firePlayerShot(direction)) {
@@ -6549,6 +6559,18 @@ export default class SnakeScene extends Phaser.Scene {
         color: '#5dd6a2',
       };
     }
+    if (code === 'binoculars' || code === 'eagleeye') {
+      this.snakeGame.addItem('weapon-binoculars', 1);
+      this.snakeGame.getInventory().equip('weapon-binoculars');
+      this.applyEquipmentEffects();
+      this.skillTree.getOverlay().refresh();
+      this.isDirty = true;
+      return {
+        ok: true,
+        message: 'Cheat active: Binoculars equipped in the weapon slot.',
+        color: '#5dd6a2',
+      };
+    }
     if (code === 'bombs' || code === 'boomstick') {
       this.snakeGame.addItem('weapon-bomb-slingshot', 1);
       this.snakeGame.addItem('bomb', 12);
@@ -9774,6 +9796,9 @@ export default class SnakeScene extends Phaser.Scene {
     );
     this.setFlag('equipment.gunEnabled', totals.gunEnabled ? true : undefined);
     this.setFlag('equipment.activeTool', totals.activeTool);
+    if (totals.activeTool !== 'binoculars') {
+      this.binocularsViewportActive = false;
+    }
     if (totals.activeTool !== 'gopro') {
       if (this.highlightMode === 'countdown') {
         this.cancelGoProCountdown();
@@ -11262,6 +11287,10 @@ export default class SnakeScene extends Phaser.Scene {
     const localPlayer = snapshot.players[snapshot.localPlayerId];
     const roomSnapshot =
       snapshot.viewport.rooms[localPlayer?.roomId ?? snapshot.viewport.centerRoomId];
+    const binocularsView =
+      this.binocularsViewportActive && localPlayer
+        ? this.buildBinocularsRenderView(localPlayer.roomId, roomSnapshot)
+        : null;
     const room = roomSnapshot?.room ?? this.snakeGame.getCurrentRoom();
     const snakeBody = localPlayer?.body ?? Array.from(this.snakeGame.getSnakeBody());
     const renderedSnakeBody = this.drivingCar?.roomId === room.id ? [] : snakeBody;
@@ -11289,14 +11318,19 @@ export default class SnakeScene extends Phaser.Scene {
     const temperature = this.snakeGame.getPlayerTemperature();
     const starforgedSnakePalette = this.getFlag<SnakeSpritePalette>('starforged.snakePalette');
     const activeSnakeTheme = this.getActiveSnakeTheme();
-    const visibleBombs = roomSnapshot?.bombs ?? this.snakeGame.getBombs(room.id);
+    const visibleBombs =
+      binocularsView?.rooms.flatMap((entry) => [...(entry.bombs ?? [])]) ??
+      roomSnapshot?.bombs ??
+      this.snakeGame.getBombs(room.id);
     const atmosphere = this.withRoomLightSources(
-      this.snakeGame.getAtmosphereForRoom(room),
+      this.snakeGame.getAtmosphereForRoom(this.snakeGame.getCurrentRoom()),
       snakeBody,
-      room.id,
+      this.currentRoomId,
       room,
     );
     this.atmosphereAudioManager.updateAudio(atmosphere);
+    this.cameras.main.setZoom(1);
+    this.cameras.main.setScroll(0, 0);
     this.snakeRenderer.render(room, renderedSnakeBody, room.id, currentApple, {
       wallSenseRadius,
       snakeColor,
@@ -11306,7 +11340,14 @@ export default class SnakeScene extends Phaser.Scene {
       characterMode: this.snakeGame.getCharacterMode(),
       snakeRenderStyle: activeSnakeTheme.id === 'retro-grid' ? 'retro-grid' : 'sprite',
       otherPlayers: Object.values(snapshot.players)
-        .filter((player) => !player.isLocal && player.roomId === room.id && player.alive)
+        .filter(
+          (player) =>
+            !player.isLocal &&
+            player.alive &&
+            (binocularsView
+              ? binocularsView.roomIds.has(player.roomId)
+              : player.roomId === room.id),
+        )
         .map((player) => ({
           id: player.id,
           body: player.body,
@@ -11324,10 +11365,14 @@ export default class SnakeScene extends Phaser.Scene {
       animals: roomSnapshot?.animals ?? this.snakeGame.getAnimals(room.id),
       atmosphere,
       thermalBody: temperature,
-      lightningStrike: this.snakeGame.getLightningStrikeView(room.id),
+      lightningStrike: binocularsView ? null : this.snakeGame.getLightningStrikeView(room.id),
       renderTimeMs: this.time.now,
+      renderRooms: binocularsView?.rooms,
+      renderScale: binocularsView ? 1 / 3 : 1,
     });
-    this.drawCars(room.id);
+    if (!binocularsView) {
+      this.drawCars(room.id);
+    }
     this.juice.setBombFuseActive(visibleBombs.length > 0);
     this.updateDrowningVisuals(drowningDanger);
     this.updateRevivalGhostVisuals(ghostly, snakeBody[0]);
@@ -11522,99 +11567,103 @@ export default class SnakeScene extends Phaser.Scene {
       this.radiationHud.setVisible(false);
     }
 
-    // Render bosses
-    this.drawFreakYouPortalFx(room.id);
-    const bosses = this.snakeGame.getBosses(room.id);
-    const timeMs = this.time.now;
-    for (const boss of bosses) {
-      let bossColor: number;
-      let bossAlpha: number;
+    if (!binocularsView) {
+      // Render bosses
+      this.drawFreakYouPortalFx(room.id);
+      const bosses = this.snakeGame.getBosses(room.id);
+      const timeMs = this.time.now;
+      for (const boss of bosses) {
+        let bossColor: number;
+        let bossAlpha: number;
 
-      if (boss.kind === 'angel') {
-        bossColor = 0xfff2a8;
-        bossAlpha = 0.92;
-      } else if (boss.kind === 'freak-you') {
-        bossColor = 0xff2d55;
-        bossAlpha = 0.9;
-      } else if (boss.kind === 'jason-statham') {
-        // Jason: red, with pulsing glow during vulnerability
-        if (boss.jasonPhase === 'vulnerable') {
-          // Pulsing red glow
-          const pulse = Math.sin(timeMs / 200) * 0.3 + 0.7;
-          bossColor = 0xff2d2d;
-          bossAlpha = Math.max(0.5, pulse);
-        } else if (boss.jasonPhase === 'attacking') {
-          bossColor = 0xcc0000;
-          bossAlpha = 0.95;
-        } else if (boss.jasonPhase === 'calm') {
-          bossColor = 0x881111;
-          bossAlpha = 0.5;
-        } else {
-          bossColor = 0x333333;
-          bossAlpha = 0.3;
-        }
-      } else if (boss.kind === 'freaker-dennis' && boss.rainbowPalette) {
-        const palette = defaultGameConfig.freakerDennis?.rainbowPalette;
-        if (palette && palette.enabled) {
-          const colors = palette.colors;
-          const speed = palette.speed ?? 1;
-          const tickInterval = speed * 1000;
-          const colorIndex = Math.floor(timeMs / tickInterval) % colors.length;
-          bossColor = parseInt(colors[colorIndex].replace('#', '0x'), 16);
-          bossAlpha = 0.85;
+        if (boss.kind === 'angel') {
+          bossColor = 0xfff2a8;
+          bossAlpha = 0.92;
+        } else if (boss.kind === 'freak-you') {
+          bossColor = 0xff2d55;
+          bossAlpha = 0.9;
+        } else if (boss.kind === 'jason-statham') {
+          // Jason: red, with pulsing glow during vulnerability
+          if (boss.jasonPhase === 'vulnerable') {
+            // Pulsing red glow
+            const pulse = Math.sin(timeMs / 200) * 0.3 + 0.7;
+            bossColor = 0xff2d2d;
+            bossAlpha = Math.max(0.5, pulse);
+          } else if (boss.jasonPhase === 'attacking') {
+            bossColor = 0xcc0000;
+            bossAlpha = 0.95;
+          } else if (boss.jasonPhase === 'calm') {
+            bossColor = 0x881111;
+            bossAlpha = 0.5;
+          } else {
+            bossColor = 0x333333;
+            bossAlpha = 0.3;
+          }
+        } else if (boss.kind === 'freaker-dennis' && boss.rainbowPalette) {
+          const palette = defaultGameConfig.freakerDennis?.rainbowPalette;
+          if (palette && palette.enabled) {
+            const colors = palette.colors;
+            const speed = palette.speed ?? 1;
+            const tickInterval = speed * 1000;
+            const colorIndex = Math.floor(timeMs / tickInterval) % colors.length;
+            bossColor = parseInt(colors[colorIndex].replace('#', '0x'), 16);
+            bossAlpha = 0.85;
+          } else {
+            bossColor = 0xff00ff;
+            bossAlpha = 0.8;
+          }
         } else {
           bossColor = 0xff00ff;
           bossAlpha = 0.8;
         }
-      } else {
-        bossColor = 0xff00ff;
-        bossAlpha = 0.8;
-      }
 
-      for (let index = 0; index < boss.body.length; index += 1) {
-        const segment = boss.body[index];
-        const [roomX, roomY] = this.parseRoomCoordinates(room.id);
-        const localX = segment.x - roomX * this.grid.cols;
-        const localY = segment.y - roomY * this.grid.rows;
-        if (localX >= 0 && localX < this.grid.cols && localY >= 0 && localY < this.grid.rows) {
-          const { x, y } = this.snakeRenderer.getWorldPosition(segment, room.id);
-          const isFreakYouHead = boss.kind === 'freak-you' && index < 3;
-          const isFreakYouHeadCenter =
-            isFreakYouHead &&
-            (boss.headCenter
-              ? segment.x === boss.headCenter.x && segment.y === boss.headCenter.y
-              : index === 1);
-          this.graphics
-            .fillStyle(isFreakYouHead ? 0xff7a8f : bossColor, isFreakYouHead ? 0.98 : bossAlpha)
-            .fillRect(x, y, this.grid.cell, this.grid.cell);
-          if (isFreakYouHeadCenter) {
-            const noseSize = Math.max(3, this.grid.cell * 0.28);
-            const noseX = x + this.grid.cell / 2 + (boss.direction?.x ?? 0) * this.grid.cell * 0.32;
-            const noseY = y + this.grid.cell / 2 + (boss.direction?.y ?? 0) * this.grid.cell * 0.32;
-            this.graphics.fillStyle(0x7dffe0, 0.95).fillCircle(noseX, noseY, noseSize);
-          }
-          if (isFreakYouHead) {
+        for (let index = 0; index < boss.body.length; index += 1) {
+          const segment = boss.body[index];
+          const [roomX, roomY] = this.parseRoomCoordinates(room.id);
+          const localX = segment.x - roomX * this.grid.cols;
+          const localY = segment.y - roomY * this.grid.rows;
+          if (localX >= 0 && localX < this.grid.cols && localY >= 0 && localY < this.grid.rows) {
+            const { x, y } = this.snakeRenderer.getWorldPosition(segment, room.id);
+            const isFreakYouHead = boss.kind === 'freak-you' && index < 3;
+            const isFreakYouHeadCenter =
+              isFreakYouHead &&
+              (boss.headCenter
+                ? segment.x === boss.headCenter.x && segment.y === boss.headCenter.y
+                : index === 1);
             this.graphics
-              .lineStyle(2, 0x0b2b25, 0.9)
-              .strokeRect(x + 2, y + 2, this.grid.cell - 4, this.grid.cell - 4);
+              .fillStyle(isFreakYouHead ? 0xff7a8f : bossColor, isFreakYouHead ? 0.98 : bossAlpha)
+              .fillRect(x, y, this.grid.cell, this.grid.cell);
+            if (isFreakYouHeadCenter) {
+              const noseSize = Math.max(3, this.grid.cell * 0.28);
+              const noseX =
+                x + this.grid.cell / 2 + (boss.direction?.x ?? 0) * this.grid.cell * 0.32;
+              const noseY =
+                y + this.grid.cell / 2 + (boss.direction?.y ?? 0) * this.grid.cell * 0.32;
+              this.graphics.fillStyle(0x7dffe0, 0.95).fillCircle(noseX, noseY, noseSize);
+            }
+            if (isFreakYouHead) {
+              this.graphics
+                .lineStyle(2, 0x0b2b25, 0.9)
+                .strokeRect(x + 2, y + 2, this.grid.cell - 4, this.grid.cell - 4);
+            }
           }
         }
       }
+
+      this.featureManager.call('onRender', this, this.graphics);
+
+      // Draw bullet train station if present
+      if (room.bulletTrainStation) {
+        this.drawBulletTrainStation(room.bulletTrainStation);
+      }
+
+      // Draw rollercoaster station if present
+      if (room.rollercoasterStation) {
+        this.drawRollercoasterStation(room.rollercoasterStation);
+      }
+
+      this.drawQuestRoomActors(this.snakeGame.getQuestRoomActors(room.id));
     }
-
-    this.featureManager.call('onRender', this, this.graphics);
-
-    // Draw bullet train station if present
-    if (room.bulletTrainStation) {
-      this.drawBulletTrainStation(room.bulletTrainStation);
-    }
-
-    // Draw rollercoaster station if present
-    if (room.rollercoasterStation) {
-      this.drawRollercoasterStation(room.rollercoasterStation);
-    }
-
-    this.drawQuestRoomActors(this.snakeGame.getQuestRoomActors(room.id));
 
     // Update simple house HUD
     if (this.isInHouse()) {
@@ -11660,6 +11709,72 @@ export default class SnakeScene extends Phaser.Scene {
       this.questHint.setVisible(false);
       this.questHintPanel.setVisible(false);
     }
+  }
+
+  private buildBinocularsRenderView(
+    centerRoomId: string,
+    centerSnapshot?: ClientRoomSnapshot,
+  ): {
+    roomIds: ReadonlySet<string>;
+    rooms: readonly RoomRenderEntry[];
+  } | null {
+    const center = parseCoordinateRoomId(centerRoomId);
+    if (!center) {
+      return null;
+    }
+
+    const roomOffsets = [-1, 0, 1] as const;
+    const roomIds = new Set<string>();
+    const rooms: RoomRenderEntry[] = [];
+
+    for (const dy of roomOffsets) {
+      for (const dx of roomOffsets) {
+        const roomId = `${center.x + dx},${center.y + dy},${center.z}`;
+        roomIds.add(roomId);
+        const room =
+          roomId === centerRoomId
+            ? (centerSnapshot?.room ?? this.snakeGame.getRoom(roomId))
+            : this.snakeGame.getRoom(roomId);
+        rooms.push({
+          room,
+          roomId,
+          offset: {
+            x: (dx + 1) * this.grid.cols,
+            y: (dy + 1) * this.grid.rows,
+          },
+          apple:
+            roomId === centerRoomId
+              ? (centerSnapshot?.apples ?? this.currentApple)
+              : this.snakeGame.getApple(roomId),
+          enemies:
+            roomId === centerRoomId
+              ? (centerSnapshot?.enemies ?? this.snakeGame.getEnemies(roomId))
+              : this.snakeGame.getEnemies(roomId),
+          followers: roomId === centerRoomId ? (centerSnapshot?.followers ?? []) : [],
+          bullets:
+            roomId === centerRoomId
+              ? (centerSnapshot?.bullets ?? this.snakeGame.getEnemyBullets(roomId))
+              : this.snakeGame.getEnemyBullets(roomId),
+          footballs:
+            roomId === centerRoomId
+              ? (centerSnapshot?.footballs ?? this.snakeGame.getFootballs(roomId))
+              : this.snakeGame.getFootballs(roomId),
+          bombs:
+            roomId === centerRoomId
+              ? (centerSnapshot?.bombs ?? this.snakeGame.getBombs(roomId))
+              : this.snakeGame.getBombs(roomId),
+          animals:
+            roomId === centerRoomId
+              ? (centerSnapshot?.animals ?? this.snakeGame.getAnimals(roomId))
+              : this.snakeGame.getAnimals(roomId),
+        });
+      }
+    }
+
+    return {
+      roomIds,
+      rooms,
+    };
   }
 
   private updateDrowningVisuals(danger: number): void {

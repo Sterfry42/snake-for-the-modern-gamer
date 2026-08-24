@@ -14,7 +14,7 @@ import type {
 import type { EnemyInstance } from '../systems/enemies.js';
 import { stableStringHash32 } from '../core/math.js';
 import type { RoomSnapshot } from '../world/types.js';
-import { townResidentsForRoom, type TownStructure } from '../world/town.js';
+import { townResidentPresences, type TownResident, type TownStructure } from '../world/town.js';
 import type { TownResidentRole } from '../world/townRoles.js';
 import { ActorRegistry } from './actorRegistry.js';
 import type {
@@ -265,22 +265,29 @@ export class ActorSystem {
     roomNumber?: number,
     atmosphere?: ResolvedAtmosphereView,
   ): Actor[] {
-    const actors = townResidentsForRoom(town, roomId).map((resident) =>
-      this.registry.ensureTownResidentActor({
+    const actors = town.residents.map((resident) => {
+      const workRoomId =
+        interiorWorkRoomIdForResident(town, resident.id) ??
+        serviceInteriorRoomIdForResident(town, resident) ??
+        interiorPresenceRoomIdForResident(town, resident.id) ??
+        resident.workRoomId;
+      const logicalRoomId = logicalRoomIdForTownResident(town, resident, roomId, workRoomId);
+      const postPosition = initialTownResidentPosition(town, resident, logicalRoomId);
+      return this.registry.ensureTownResidentActor({
         actorId: resident.actorId,
         residentId: resident.id,
         name: resident.name,
         role: resident.role,
         factionId: resident.factionId,
         townId: town.id,
-        currentRoomId: roomId,
+        currentRoomId: logicalRoomId,
         homeRoomId: resident.homeRoomId,
-        workRoomId: interiorWorkRoomIdForResident(town, resident.id) ?? resident.workRoomId,
-        postPosition: { x: resident.x, y: resident.y },
+        workRoomId,
+        postPosition,
         portraitId: resident.portraitId,
         createdAtRoomNumber: roomNumber,
-      }),
-    );
+      });
+    });
     this.ensureLocalSocialLinks(actors);
     for (const actor of actors) {
       if (actor.schedule && !actor.scheduleGoal) {
@@ -978,6 +985,61 @@ function interiorWorkRoomIdForResident(
   return building.kind === 'residentialHome'
     ? `layer:townInterior:${town.id}:${building.id}:${building.templateId}`
     : `layer:townInterior:${town.id}:${building.templateId}`;
+}
+
+function interiorPresenceRoomIdForResident(
+  town: TownStructure,
+  residentId: string,
+): string | undefined {
+  return town.residentPresences?.find(
+    (presence) => presence.residentId === residentId && presence.source === 'interior',
+  )?.roomId;
+}
+
+function serviceInteriorRoomIdForResident(
+  town: TownStructure,
+  resident: TownResident,
+): string | undefined {
+  const buildingKind =
+    resident.role === 'bartender' || resident.role === 'cardDealer'
+      ? 'tavern'
+      : resident.role === 'innkeeper'
+        ? 'inn'
+        : undefined;
+  if (!buildingKind) {
+    return undefined;
+  }
+  const building = town.buildings.find((entry) => entry.kind === buildingKind && entry.templateId);
+  return building?.templateId ? `layer:townInterior:${town.id}:${building.templateId}` : undefined;
+}
+
+function logicalRoomIdForTownResident(
+  town: TownStructure,
+  resident: TownResident,
+  observedRoomId: string,
+  workRoomId: string | undefined,
+): string {
+  const observedPresence = townResidentPresences(town, observedRoomId).find(
+    (presence) => presence.residentId === resident.id,
+  );
+  return (
+    observedPresence?.roomId ??
+    workRoomId ??
+    resident.workRoomId ??
+    resident.homeRoomId ??
+    town.entranceRoomId
+  );
+}
+
+function initialTownResidentPosition(
+  town: TownStructure,
+  resident: TownResident,
+  roomId: string,
+): { x: number; y: number } {
+  const presence = town.residentPresences?.find(
+    (candidate) => candidate.residentId === resident.id && candidate.roomId === roomId,
+  );
+  return presence ? { x: presence.x, y: presence.y } : { x: resident.x, y: resident.y };
 }
 
 function applyEventConsequences(
