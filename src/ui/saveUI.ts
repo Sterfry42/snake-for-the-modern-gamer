@@ -175,11 +175,13 @@ export class SaveUI {
     const flashW = this.saveBg!.width;
     const flashH = this.saveBg!.height;
 
-    // Draw a green glow rectangle around the button
+    // Draw a green glow rectangle around the button. The button's rectangle
+    // starts at the container origin (top-left), so the glow wraps
+    // (btnX, btnY) .. (btnX + flashW, btnY + flashH).
     this.saveFlash.fillStyle(0x5dd6a2, 0.3);
     this.saveFlash.fillRoundedRect(
-      btnX - flashW / 2 - 4,
-      btnY - flashH / 2 - 4,
+      btnX - 4,
+      btnY - 4,
       flashW + 8,
       flashH + 8,
       SAVE_BUTTON_RADIUS + 2,

@@ -95,8 +95,10 @@ export class SaveLoadMenu {
     this.activeSessionId = null;
     this.view = 'sessions';
     this.selectedKeys.clear();
-    this.scrollMask?.destroy();
-    this.scrollMask = undefined;
+    if (this.scrollMask) {
+      this.scrollMask.geometryMask.destroy();
+      this.scrollMask = undefined;
+    }
     this.pendingDeleteAction = undefined;
     for (const entry of this.entryBoxes) entry.container.destroy();
     this.entryBoxes = [];
@@ -453,10 +455,13 @@ export class SaveLoadMenu {
     const entryBoxHeight = this.entryHeight;
     const actionsWidth = buttonWidth * 2 + buttonGap;
     const checkColumnWidth = 18;
-    const labelWidth = Math.max(60, entryBoxWidth - actionsWidth - padding * 2 - checkColumnWidth);
+    const loadX = entryBoxWidth - padding - actionsWidth + buttonWidth / 2;
+    const deleteX = entryBoxWidth - padding - buttonWidth / 2;
+    const labelX = padding + checkColumnWidth;
+    const labelWidth = Math.max(60, loadX - buttonWidth / 2 - labelX - padding);
 
     const check = this.scene.add
-      .text(padding, 0, '✓', {
+      .text(padding, entryBoxHeight / 2, '✓', {
         fontFamily: 'monospace',
         fontSize: '16px',
         color: '#5dd6a2',
@@ -465,7 +470,7 @@ export class SaveLoadMenu {
       .setVisible(false);
 
     const labelTxt = this.scene.add
-      .text(padding + checkColumnWidth, 0, label, {
+      .text(padding + checkColumnWidth, entryBoxHeight / 2, label, {
         fontFamily: 'monospace',
         fontSize: '14px',
         color: '#e8f0f8',
@@ -511,18 +516,18 @@ export class SaveLoadMenu {
 
     const bg = this.scene.add
       .rectangle(0, 0, entryBoxWidth, entryBoxHeight, 0x1a2634, 0.55)
-      .setStrokeStyle(1, 0x4da3ff, 0.5);
+      .setStrokeStyle(1, 0x4da3ff, 0.5)
+      .setOrigin(0, 0);
 
     const bgInteractive = this.scene.add
       .rectangle(0, 0, entryBoxWidth, entryBoxHeight, 0x000000, 0)
-      .setOrigin(0.5)
+      .setOrigin(0, 0)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => this.toggleSelection(key));
 
     const btnY = entryBoxHeight / 2;
-    const actionsX = entryBoxWidth / 2 + (actionsWidth - buttonGap) / 2 - buttonWidth / 2;
-    loadBtn.setPosition(actionsX, btnY);
-    deleteBtn.setPosition(actionsX + buttonWidth + buttonGap, btnY);
+    loadBtn.setPosition(loadX, btnY);
+    deleteBtn.setPosition(deleteX, btnY);
 
     const container = this.scene.add.container(0, 0, [
       bg,
@@ -732,12 +737,14 @@ export class SaveLoadMenu {
   private layoutPopup(): void {
     if (!this.background || !this.backText) return;
 
-    const maxEntries = Math.max(3, Math.min(10, this.entryBoxes.length || 3));
-    const listHeight = maxEntries * (this.entryHeight + 6);
-    const popupHeight = this.headerHeight + listHeight + this.footerHeight;
-
     // Keep the whole popup on screen, centered on the game viewport.
     const screen = this.scene.scale.gameSize;
+    const maxEntries = Math.max(3, Math.min(10, this.entryBoxes.length || 3));
+    const listHeight = maxEntries * (this.entryHeight + 6);
+    const popupHeight = Math.min(
+      this.headerHeight + listHeight + this.footerHeight,
+      screen.height - 40,
+    );
     const cx = screen.width / 2;
     const cy = Math.max(10, (screen.height - popupHeight) / 2);
     this.container?.setPosition(cx, cy);
@@ -768,7 +775,8 @@ export class SaveLoadMenu {
       this.scrollMask = undefined;
     }
 
-    const geometry = this.scene.add.graphics();
+    const geometry = this.scene.add.graphics().setVisible(false);
+    geometry.setPosition(this.container?.x ?? 0, this.container?.y ?? 0);
     geometry.fillStyle(0xffffff, 1);
     geometry.fillRect(8, this.headerHeight, this.width - 16, Math.max(0, this.viewportHeight));
     this.scrollMask = new Phaser.Display.Masks.GeometryMask(this.scene, geometry);
@@ -783,9 +791,8 @@ export class SaveLoadMenu {
   }
 
   private applyScroll(y: number): void {
-    const offset = -y - this.headerHeight;
     if (this.scrollContainer) {
-      this.scrollContainer.y = offset;
+      this.scrollContainer.y = this.headerHeight - y;
     }
     this.updateMask();
     this.layoutScrollbar(y);
@@ -816,7 +823,10 @@ export class SaveLoadMenu {
 
   destroy(): void {
     this.confirmOverlay?.destroy();
-    this.scrollMask?.destroy();
+    if (this.scrollMask) {
+      this.scrollMask.geometryMask.destroy();
+      this.scrollMask = undefined;
+    }
     this.scrollInput?.destroy();
     this.entryBoxes.forEach((entry) => entry.container.destroy());
     this.container?.destroy();
