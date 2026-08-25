@@ -1035,11 +1035,17 @@ function initialTownResidentPosition(
   town: TownStructure,
   resident: TownResident,
   roomId: string,
-): { x: number; y: number } {
+): { x: number; y: number } | undefined {
   const presence = town.residentPresences?.find(
     (candidate) => candidate.residentId === resident.id && candidate.roomId === roomId,
   );
-  return presence ? { x: presence.x, y: presence.y } : { x: resident.x, y: resident.y };
+  if (presence) {
+    return { x: presence.x, y: presence.y };
+  }
+  if (roomId.startsWith('layer:')) {
+    return undefined;
+  }
+  return { x: resident.x, y: resident.y };
 }
 
 function applyEventConsequences(

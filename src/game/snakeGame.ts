@@ -282,6 +282,7 @@ import type {
   ActorFactionConversationState,
 } from '../actors/voice/voiceTypes.js';
 import { selectActorVoiceLine } from '../actors/actorVoice.js';
+import { actorCanSpeakNow } from '../actors/actorSpeech.js';
 import { findActorGridPath } from '../actors/actorNavigation.js';
 import {
   ActorOccupancyResolver,
@@ -5379,6 +5380,10 @@ export class SnakeGame implements QuestRuntime {
     return this.world.getCachedRoomCount();
   }
 
+  getGeneratedRoomIds(): string[] {
+    return this.world.getCachedRoomIds();
+  }
+
   getWorldGenerationIdentity(): WorldGenerationIdentity {
     return this.world.getWorldGenerationIdentity();
   }
@@ -7056,6 +7061,9 @@ export class SnakeGame implements QuestRuntime {
   ): ActorConversationResult | null {
     const actor = this.actors.getActor(actorId);
     if (!actor) {
+      return null;
+    }
+    if (!actorCanSpeakNow(actor)) {
       return null;
     }
     const room = this.getCurrentRoom();
@@ -10172,7 +10180,11 @@ export class SnakeGame implements QuestRuntime {
         },
       }));
       if (nextPosition.x === travelTarget.x && nextPosition.y === travelTarget.y) {
-        const arrival = this.resolveActorTransitionArrival(currentRoom, nextRoomId, nextPosition);
+        const arrival = this.resolveOffscreenActorTransitionArrival(
+          currentRoom,
+          nextRoomId,
+          nextPosition,
+        );
         const presence = actor.presence
           ? {
               ...actor.presence,
@@ -10218,10 +10230,18 @@ export class SnakeGame implements QuestRuntime {
             });
         this.actors.setPresence(actor.id, presence, 'offscreen-travel-step');
       }
+      const arrivedAtUntargetedGoal =
+        nextPosition.x === travelTarget.x &&
+        nextPosition.y === travelTarget.y &&
+        nextRoomId === goalRoomId &&
+        !actor.goal?.targetPosition;
       this.actors.setActivity(
         actor.id,
         {
-          kind: 'walking',
+          kind:
+            arrivedAtUntargetedGoal && actor.goal?.kind === 'work'
+              ? this.actorWorkActivityKind(actor)
+              : 'walking',
           source: 'schedule',
           startedAtRoomNumber: roomNumber,
         },
@@ -10317,6 +10337,9 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private tryGetActorTravelRoom(roomId: string): RoomSnapshot | undefined {
+    if (roomId.startsWith('layer:') && !this.world.hasCachedRoom(roomId)) {
+      return undefined;
+    }
     try {
       return this.world.getRoom(roomId);
     } catch (error) {
@@ -10363,6 +10386,10 @@ export class SnakeGame implements QuestRuntime {
       if (!target || !this.actorMissedBusinessRecoveryTarget(actor, target)) {
         continue;
       }
+      const recoveryKey = this.actorBusinessRecoveryKey(actor, target, atmosphere.dayPhase);
+      if (actor.flags.actorBusinessRecoveryKey === recoveryKey) {
+        continue;
+      }
       const room = this.tryGetActorTravelRoom(target.roomId);
       if (!room) {
         continue;
@@ -10392,6 +10419,14 @@ export class SnakeGame implements QuestRuntime {
         position,
         dayPhase: atmosphere.dayPhase,
       });
+      this.actors.registry.update(actor.id, (current) => ({
+        ...current,
+        flags: {
+          ...current.flags,
+          actorBusinessRecoveryKey: recoveryKey,
+          actorBusinessRecoveryPosition: `${position.x},${position.y}`,
+        },
+      }));
       recovered += 1;
     }
     return recovered;
@@ -10437,6 +10472,22 @@ export class SnakeGame implements QuestRuntime {
       actor.presence?.position.x !== target.position.x ||
       actor.presence.position.y !== target.position.y
     );
+  }
+
+  private actorBusinessRecoveryKey(
+    actor: Actor,
+    target: { roomId: string; position: Vector2Like; reason: string },
+    dayPhase: AtmosphereState['dayPhase'],
+  ): string {
+    return [
+      actor.scheduleGoal?.reason ?? actor.goal?.reason ?? 'unknown-schedule',
+      actor.goal?.kind ?? 'unknown-goal',
+      target.reason,
+      dayPhase,
+      target.roomId,
+      target.position.x,
+      target.position.y,
+    ].join('|');
   }
 
   private actorWorkActivityKind(actor: Actor): NonNullable<Actor['activity']>['kind'] {
@@ -10499,6 +10550,32 @@ export class SnakeGame implements QuestRuntime {
       return neighbor;
     }
     return currentRoom.id;
+  }
+
+  private resolveOffscreenActorTransitionArrival(
+    sourceRoom: RoomSnapshot,
+    destinationRoomId: string,
+    sourcePosition?: Vector2Like,
+  ): Vector2Like {
+    const layerEntrance = sourceRoom.layerEntrances?.find(
+      (entry) => entry.layerId === destinationRoomId,
+    );
+    if (layerEntrance) {
+      return { ...this.world.ensureLayerInstance(layerEntrance).spawn };
+    }
+    if (sourceRoom.layer?.parentRoomId === destinationRoomId) {
+      return { ...sourceRoom.layer.returnPosition };
+    }
+    const portal = sourceRoom.portals.find((entry) => entry.destRoomId === destinationRoomId);
+    if (portal) {
+      return { x: portal.destX, y: portal.destY };
+    }
+    return (
+      this.edgeArrivalForNeighbor(sourceRoom.id, destinationRoomId, sourcePosition) ?? {
+        x: Math.floor(this.config.grid.cols / 2),
+        y: Math.floor(this.config.grid.rows / 2),
+      }
+    );
   }
 
   private resolveActorTransitionArrival(
@@ -11219,6 +11296,9 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private canActorCasuallySocialize(actor: Actor): boolean {
+    if (!actorCanSpeakNow(actor)) {
+      return false;
+    }
     if (
       actor.health?.state === 'dead' ||
       actor.health?.state === 'downed' ||
@@ -11236,7 +11316,7 @@ export class SnakeGame implements QuestRuntime {
     ) {
       return false;
     }
-    return actor.activity?.kind !== 'sleeping' && actor.activity?.kind !== 'sheltering';
+    return actor.activity?.kind !== 'sheltering';
   }
 
   private markCasualActorConversation(
@@ -11545,6 +11625,9 @@ export class SnakeGame implements QuestRuntime {
     playerPosition: Vector2Like,
     atmosphere: AtmosphereState,
   ): void {
+    if (!actorCanSpeakNow(actor)) {
+      return;
+    }
     if (actor.speech?.category && actor.speech.category !== 'ambient') {
       return;
     }
@@ -17295,6 +17378,15 @@ export class SnakeGame implements QuestRuntime {
       (key) => this.getFlag(key) !== undefined,
     );
     if (actor) {
+      if (!actorCanSpeakNow(actor)) {
+        return {
+          id: 'actor-silent:sleeping',
+          text: '',
+          priority: 0,
+          roles: [role],
+          tags: ['silent', 'sleeping'],
+        };
+      }
       const line = selectActorVoiceLine({
         actor,
         biomeId: room.biomeId,

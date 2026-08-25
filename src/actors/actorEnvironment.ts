@@ -1,6 +1,7 @@
 import type { AtmosphereEffectTag, AtmosphereState, SkyEvent } from '../world/atmosphereTypes.js';
 import { isTownShopRole } from '../world/townRoles.js';
 import type { Actor, ActorActivity, ActorGoal, ActorSpeechBubble } from './actorTypes.js';
+import { actorCanSpeakNow } from './actorSpeech.js';
 
 export interface ActorEnvironmentContext {
   roomNumber: number;
@@ -166,6 +167,9 @@ export function selectActorRadiantBark(
   actor: Actor,
   context: ActorRadiantBarkContext,
 ): ActorSpeechBubble | undefined {
+  if (!actorCanSpeakNow(actor)) {
+    return undefined;
+  }
   const chance = radiantBarkChance(actor);
   if (chance <= 0 || context.random() > chance) {
     return undefined;

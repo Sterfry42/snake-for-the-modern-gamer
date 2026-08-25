@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getActorActivityProp, getActorSleepMarker } from '../../../actors/actorActivityProps.js';
 import { getActorIndicators } from '../../../actors/actorIndicators.js';
+import { getActorPresentation } from '../../../actors/actorPresentation.js';
 import { createHeadlessScenario } from '../../../test/headless/headlessScenario.js';
 import { ensureScenarioActor, firstWalkableTile } from '../../../test/headless/scenarioFixtures.js';
 
@@ -53,6 +54,42 @@ describe('Town NPC living-world presentation stories', () => {
       kind: 'sleep-zzz',
       anchor: 'above-head',
     });
+    expect(getActorPresentation(sleeping)).toMatchObject({
+      activityProp: null,
+      sleepMarker: {
+        kind: 'sleep-zzz',
+        anchor: 'above-head',
+      },
+      canSpeak: false,
+      speech: undefined,
+    });
+    scenario.assertWorldIntegrity();
+  });
+
+  it('TOWN-HARDEN-032 - Sleeping actors do not produce direct or conversation dialogue', () => {
+    const scenario = createHeadlessScenario({ seed: 'town-harden-032-sleeping-dialogue-gate' });
+    const actor = ensureScenarioActor(scenario, {
+      id: 'sleeping-speaker',
+      name: 'Sleeping Speaker',
+      role: 'shopkeeper',
+      position: firstWalkableTile(scenario),
+    });
+    scenario.game
+      .getActorSystem()
+      .setActivity(actor.id, { kind: 'sleeping', source: 'schedule' }, 'town-harden-032');
+
+    expect(scenario.game.getNpcBark('shopkeeper', actor.id)).toMatchObject({
+      id: 'actor-silent:sleeping',
+      text: '',
+    });
+    expect(scenario.game.getActorConversation(actor.id, 'talk')).toBeNull();
+    expect(
+      scenario.game.getActorInteractionMenu(actor.id)?.options.map((option) => option.id),
+    ).toEqual(['wake', 'leave']);
+
+    expect(scenario.game.wakeActor(actor.id).ok).toBe(true);
+    expect(scenario.game.getNpcBark('shopkeeper', actor.id).text.length).toBeGreaterThan(0);
+    expect(scenario.game.getActorConversation(actor.id, 'talk')).not.toBeNull();
     scenario.assertWorldIntegrity();
   });
 

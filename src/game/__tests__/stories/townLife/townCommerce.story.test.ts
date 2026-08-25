@@ -13,6 +13,96 @@ import { isSolidTile } from '../../../../world/tiles.js';
 import type { RoomSnapshot } from '../../../../world/types.js';
 
 describe('Town life commerce hardening stories', () => {
+  it('TOWN-HARDEN-030 - offscreen unvisited shop workers do not generate interiors or recover', async () => {
+    const scenario = createHeadlessScenario({ seed: 'town-harden-030-unvisited-shop-logical' });
+    const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'potionMaker' });
+    const town = requireTown(room);
+    const resident = requireResident(town, 'potionMaker');
+    const actorId = actorIdForResident(scenario, town, resident);
+
+    scenario.enterRoom(room.id, walkableTileAwayFrom(scenario, room.id, entrance, 6));
+    scenario.setDayPhase('day');
+    await scenario.advanceActorTicks(1);
+
+    const unresolvedWorker = scenario.actor(actorId);
+    expect(unresolvedWorker.goal).toMatchObject({
+      kind: 'work',
+      roomId: entrance.layerId,
+    });
+    expect(unresolvedWorker.goal?.targetPosition).toBeUndefined();
+    expect(unresolvedWorker.schedule?.workPosition).toBeUndefined();
+
+    const roomIdsBefore = scenario.game.getGeneratedRoomIds();
+    const generatedBefore = roomIdsBefore.length;
+    await scenario.advanceActorTicks(1000, 100);
+
+    const roomIdsAfter = scenario.game.getGeneratedRoomIds();
+    expect(
+      roomIdsAfter.filter(
+        (roomId) => roomId.startsWith('layer:townInterior:') && !roomIdsBefore.includes(roomId),
+      ),
+    ).toEqual([]);
+    expect(roomIdsAfter.length).toBe(generatedBefore);
+    expect(
+      scenario
+        .actorTelemetryEvents()
+        .filter((event) => event.type === 'actor.travel_recovered' && event.actorId === actorId),
+    ).toEqual([]);
+    scenario.assertWorldIntegrity();
+  });
+
+  it('TOWN-HARDEN-031 - initially unvisited tavern staff materialize at work without recovery', async () => {
+    const scenario = createHeadlessScenario({ seed: 'town-harden-031-unvisited-tavern-staff' });
+    const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'tavern' });
+    const town = requireTown(room);
+    const bartenderId = actorIdForResident(scenario, town, requireResident(town, 'bartender'));
+    const dealerId = actorIdForResident(scenario, town, requireResident(town, 'cardDealer'));
+
+    scenario.enterRoom(room.id, walkableTileAwayFrom(scenario, room.id, entrance, 6));
+    scenario.setDayPhase('night');
+    await scenario.advanceActorTicks(1);
+
+    for (const actorId of [bartenderId, dealerId]) {
+      const actor = scenario.actor(actorId);
+      expect(actor.goal).toMatchObject({ kind: 'work', roomId: entrance.layerId });
+      expect(actor.goal?.targetPosition).toBeUndefined();
+      expect(actor.schedule?.workPosition).toBeUndefined();
+    }
+
+    const roomIdsBefore = scenario.game.getGeneratedRoomIds();
+    const generatedBefore = roomIdsBefore.length;
+    await scenario.advanceActorTicks(1000, 100);
+    const roomIdsAfter = scenario.game.getGeneratedRoomIds();
+    expect(
+      roomIdsAfter.filter(
+        (roomId) => roomId.startsWith('layer:townInterior:') && !roomIdsBefore.includes(roomId),
+      ),
+    ).toEqual([]);
+    expect(roomIdsAfter.length).toBeGreaterThanOrEqual(generatedBefore);
+
+    walkSnakeIntoDoor(scenario, room, entrance);
+    await scenario.advanceActorTicks(3);
+
+    const bartender = currentRoomActorWithRole(scenario, 'bartender');
+    const dealer = currentRoomActorWithRole(scenario, 'cardDealer');
+    expect(bartender.id).toBe(bartenderId);
+    expect(dealer.id).toBe(dealerId);
+    expect(bartender.activity?.kind).toBe('drinking');
+    expect(dealer.activity?.kind).toBe('dealing-cards');
+    expect(bartender.presence?.position).toBeDefined();
+    expect(dealer.presence?.position).toBeDefined();
+    expect(
+      scenario
+        .actorTelemetryEvents()
+        .filter(
+          (event) =>
+            event.type === 'actor.travel_recovered' &&
+            (event.actorId === bartenderId || event.actorId === dealerId),
+        ),
+    ).toEqual([]);
+    scenario.assertWorldIntegrity();
+  });
+
   it('TOWN-HARDEN-029 - shopkeeper completes a full station-home-station lifecycle without recovery', async () => {
     const scenario = createHeadlessScenario({ seed: 'town-harden-029-shopkeeper-lifecycle' });
     const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'generalStore' });

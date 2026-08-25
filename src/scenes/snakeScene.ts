@@ -87,7 +87,7 @@ import {
   molemanSpriteRecipe,
   type MolemanSpritePalette,
 } from '../ui/spriteRecipes/molemanRecipe.js';
-import { getActorActivityProp } from '../actors/actorActivityProps.js';
+import { getActorPresentation } from '../actors/actorPresentation.js';
 import {
   actorActivityPropRecipe,
   type ActorActivityPropPalette,
@@ -1986,6 +1986,7 @@ export default class SnakeScene extends Phaser.Scene {
   private readonly villageResidentSprites: Phaser.GameObjects.Sprite[] = [];
   private readonly villageResidentIndicatorTexts: Phaser.GameObjects.Text[] = [];
   private readonly villageResidentSpeechTexts: Phaser.GameObjects.Text[] = [];
+  private readonly villageResidentSleepTexts: Phaser.GameObjects.Text[] = [];
   private readonly villageResidentActivityPropSprites: Phaser.GameObjects.Sprite[] = [];
   private runtimeSpriteFactory!: RuntimeSpriteFactory;
   private houseRestCounter = 0;
@@ -10042,6 +10043,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.villageResidentSprites.forEach((sprite) => sprite.setVisible(false));
       this.villageResidentIndicatorTexts.forEach((text) => text.setVisible(false));
       this.villageResidentSpeechTexts.forEach((text) => text.setVisible(false));
+      this.villageResidentSleepTexts.forEach((text) => text.setVisible(false));
       this.villageResidentActivityPropSprites.forEach((sprite) => sprite.setVisible(false));
       this.isDirty = false;
       return;
@@ -22238,6 +22240,26 @@ export default class SnakeScene extends Phaser.Scene {
     return text;
   }
 
+  private ensureVillageResidentSleepText(index: number): Phaser.GameObjects.Text {
+    let text = this.villageResidentSleepTexts[index];
+    if (text) {
+      return text;
+    }
+    text = this.add
+      .text(0, 0, 'Zzz', {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: `${Math.max(7, Math.floor(this.grid.cell * 0.16))}px`,
+        color: '#dff5ff',
+        stroke: '#203040',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(31)
+      .setVisible(false);
+    this.villageResidentSleepTexts[index] = text;
+    return text;
+  }
+
   private ensureVillageResidentActivityPropSprite(index: number): Phaser.GameObjects.Sprite {
     let sprite = this.villageResidentActivityPropSprites[index];
     if (sprite) {
@@ -22364,6 +22386,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.villageResidentSprites.forEach((sprite) => sprite.setVisible(false));
     this.villageResidentIndicatorTexts.forEach((text) => text.setVisible(false));
     this.villageResidentSpeechTexts.forEach((text) => text.setVisible(false));
+    this.villageResidentSleepTexts.forEach((text) => text.setVisible(false));
     this.villageResidentActivityPropSprites.forEach((sprite) => sprite.setVisible(false));
     if (!this.snakeGame) {
       return;
@@ -22380,6 +22403,7 @@ export default class SnakeScene extends Phaser.Scene {
       const sprite = this.ensureVillageResidentSprite(index);
       const indicator = this.ensureVillageResidentIndicatorText(index);
       const speechText = this.ensureVillageResidentSpeechText(index);
+      const sleepText = this.ensureVillageResidentSleepText(index);
       const activityPropSprite = this.ensureVillageResidentActivityPropSprite(index);
       const isGoblin = resident.factionId === 'goblin-camps' || resident.species === 'goblin';
       const relationshipProfile: PresentRelationshipProfile = resident;
@@ -22399,6 +22423,7 @@ export default class SnakeScene extends Phaser.Scene {
         sprite.setVisible(false);
         indicator.setVisible(false);
         speechText.setVisible(false);
+        sleepText.setVisible(false);
         activityPropSprite.setVisible(false);
         return;
       }
@@ -22411,6 +22436,7 @@ export default class SnakeScene extends Phaser.Scene {
         sprite.setVisible(false);
         indicator.setVisible(false);
         speechText.setVisible(false);
+        sleepText.setVisible(false);
         activityPropSprite.setVisible(false);
         return;
       }
@@ -22437,16 +22463,19 @@ export default class SnakeScene extends Phaser.Scene {
         .setTexture(textures.idle)
         .setPosition(world.x, world.y - 2 + bobOffset)
         .setVisible(true);
-      const actorMenu = relationshipProfile.actorId
-        ? this.snakeGame.getActorInteractionMenu(relationshipProfile.actorId)
-        : null;
-      const activityProp = actor ? getActorActivityProp(actor) : null;
-      const glyphs = actorMenu?.indicators.map((entry) => entry.glyph).join(' ');
+      const presentation = actor ? getActorPresentation(actor) : null;
+      const activityProp = presentation?.activityProp ?? null;
+      const glyphs = presentation?.indicators.map((entry) => entry.glyph).join(' ');
       indicator
         .setText(glyphs ?? '')
         .setPosition(world.x, world.y - this.grid.cell * 0.58 + bobOffset)
         .setVisible(Boolean(glyphs));
-      const speech = actor?.speech;
+      const sleepMarker = presentation?.sleepMarker;
+      sleepText
+        .setText(sleepMarker ? 'Zzz' : '')
+        .setPosition(world.x, world.y - this.grid.cell * 0.66 + bobOffset)
+        .setVisible(Boolean(sleepMarker));
+      const speech = presentation?.speech;
       const nowMs = Number(this.snakeGame.getFlag<number>('timeMs') ?? 0);
       const roomNumber = Number(this.snakeGame.getFlag<number>('roomsVisited') ?? 0);
       const speechVisible = Boolean(

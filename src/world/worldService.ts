@@ -98,6 +98,14 @@ export class WorldService {
     return this.rooms.size;
   }
 
+  hasCachedRoom(roomId: string): boolean {
+    return this.rooms.has(roomId);
+  }
+
+  getCachedRoomIds(): string[] {
+    return [...this.rooms.keys()];
+  }
+
   getRoom(roomId: string): RoomSnapshot {
     assertValidRoomId(roomId);
     if (!this.rooms.has(roomId)) {
