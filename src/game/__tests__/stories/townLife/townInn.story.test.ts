@@ -11,30 +11,23 @@ import type { TownResident, TownStructure } from '../../../../world/town.js';
 import { isSolidTile } from '../../../../world/tiles.js';
 import type { RoomSnapshot } from '../../../../world/types.js';
 
-describe('Town life inn hardening stories', () => {
+describe('Town life tavern rest hardening stories', () => {
   it('TOWN-HARDEN-028 - hospitality schedules keep night services staffed without opening daytime specialists', async () => {
     const scenario = createHeadlessScenario({ seed: 'town-harden-028-hospitality-schedules' });
-    const { room: innRoom, entrance: innEntrance } = findGeneratedTownDoor(scenario, {
-      templateId: 'inn',
-    });
-    const { entrance: tavernEntrance } = findGeneratedTownDoor(scenario, {
+    const { room: tavernRoom, entrance: tavernEntrance } = findGeneratedTownDoor(scenario, {
       templateId: 'tavern',
     });
     const { entrance: storeEntrance } = findGeneratedTownDoor(scenario, {
       templateId: 'generalStore',
     });
-    const town = requireTown(innRoom);
+    const town = requireTown(tavernRoom);
     scenario.setDayPhase('night');
-    scenario.enterRoom(innRoom.id, walkableTileAwayFrom(scenario, innRoom.id, innEntrance, 6));
+    scenario.enterRoom(
+      tavernRoom.id,
+      walkableTileAwayFrom(scenario, tavernRoom.id, tavernEntrance, 6),
+    );
     await scenario.advanceActorTicks(1);
 
-    expect(
-      scenario.actor(actorIdForResident(scenario, town, requireResident(town, 'innkeeper'))).goal,
-    ).toMatchObject({
-      kind: 'work',
-      roomId: innEntrance.layerId,
-      reason: 'schedule:work',
-    });
     expect(
       scenario.actor(actorIdForResident(scenario, town, requireResident(town, 'bartender'))).goal,
     ).toMatchObject({
@@ -54,41 +47,41 @@ describe('Town life inn hardening stories', () => {
         .goal,
     ).toMatchObject({
       kind: 'sleep',
-      reason: 'night-schedule',
+      reason: 'schedule:sleep',
     });
     expect(storeEntrance.layerId).not.toBe(tavernEntrance.layerId);
     scenario.assertWorldIntegrity();
   });
 
-  it('TOWN-HARDEN-028 / TOWN-REGRESSION-019 - an unvisited inn works at night with a pre-existing innkeeper', async () => {
-    const scenario = createHeadlessScenario({ seed: 'town-harden-028-night-inn-unvisited' });
-    const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'inn' });
+  it('TOWN-HARDEN-028 / TOWN-REGRESSION-019 - an unvisited tavern works at night with a pre-existing bartender', async () => {
+    const scenario = createHeadlessScenario({ seed: 'town-harden-028-night-tavern-unvisited' });
+    const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'tavern' });
     const town = requireTown(room);
-    const innkeeper = requireResident(town, 'innkeeper');
-    const innkeeperActorId = actorIdForResident(scenario, town, innkeeper);
+    const bartender = requireResident(town, 'bartender');
+    const bartenderActorId = actorIdForResident(scenario, town, bartender);
 
     scenario.setDayPhase('night');
     scenario.enterRoom(room.id, walkableTileAwayFrom(scenario, room.id, entrance, 6));
     await scenario.advanceActorTicks(1);
 
     const beforeActorIds = townRegistryActorIds(scenario, town.id);
-    const logicalInnkeeper = scenario.actor(innkeeperActorId);
-    expect(beforeActorIds).toContain(innkeeperActorId);
-    expect(logicalInnkeeper.goal).toMatchObject({
+    const logicalBartender = scenario.actor(bartenderActorId);
+    expect(beforeActorIds).toContain(bartenderActorId);
+    expect(logicalBartender.goal).toMatchObject({
       kind: 'work',
       roomId: entrance.layerId,
     });
-    expect(logicalInnkeeper.activity?.kind).not.toBe('sleeping');
+    expect(logicalBartender.activity?.kind).not.toBe('sleeping');
     expect(scenario.game.resolveNearbyTownDoorAccess()).toBeNull();
 
     walkSnakeIntoDoor(scenario, room, entrance);
 
     expect(scenario.currentRoom().id).toBe(entrance.layerId);
     expect(townRegistryActorIds(scenario, town.id)).toEqual(beforeActorIds);
-    const materializedInnkeeper = scenario.game
+    const materializedBartender = scenario.game
       .getActorsInCurrentRoom()
-      .find((actor) => actor.role === 'innkeeper');
-    expect(materializedInnkeeper?.id).toBe(innkeeperActorId);
+      .find((actor) => actor.role === 'bartender');
+    expect(materializedBartender?.id).toBe(bartenderActorId);
     scenario.game.setScore(20);
     expect(scenario.game.getCurrentInnServiceView(12)).toMatchObject({
       available: true,
@@ -107,19 +100,19 @@ describe('Town life inn hardening stories', () => {
       endedPhase: 'dawn',
     });
     expect(rest.worldDayAfter).toBeGreaterThanOrEqual(beforeDay);
-    expect(scenario.actor(innkeeperActorId).id).toBe(innkeeperActorId);
+    expect(scenario.actor(bartenderActorId).id).toBe(bartenderActorId);
     scenario.assertWorldIntegrity();
   });
 
-  it('TOWN-HARDEN-019 / TOWN-REGRESSION-012 - paid inn rest is reachable through inn gameplay interaction', async () => {
-    const scenario = createHeadlessScenario({ seed: 'town-harden-019-player-inn-rest' });
-    const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'inn' });
+  it('TOWN-HARDEN-019 / TOWN-REGRESSION-012 - paid rest is reachable through tavern gameplay interaction', async () => {
+    const scenario = createHeadlessScenario({ seed: 'town-harden-019-player-tavern-rest' });
+    const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'tavern' });
 
     scenario.enterRoom(room.id, walkableTileAwayFrom(scenario, room.id, entrance, 6));
     walkSnakeIntoDoor(scenario, room, entrance);
     expect(scenario.currentRoom().layer).toMatchObject({
       parentRoomId: room.id,
-      templateId: 'inn',
+      templateId: 'tavern',
     });
 
     scenario.setDayPhase('night');
@@ -128,7 +121,7 @@ describe('Town life inn hardening stories', () => {
       available: false,
       cost: 12,
       score: 0,
-      reason: 'Inn rest costs 12 score.',
+      reason: 'Tavern rest costs 12 score.',
     });
     expect(await scenario.game.chooseCurrentInnRest(12)).toMatchObject({
       ok: false,
@@ -155,8 +148,8 @@ describe('Town life inn hardening stories', () => {
       wellRested: true,
     });
     expect(rest.worldDayAfter).toBeGreaterThanOrEqual(beforeDay);
-    expect(scenario.currentRoom().layer?.templateId).toBe('inn');
-    expect(scenario.game.getActorsInCurrentRoom().some((actor) => actor.role === 'innkeeper')).toBe(
+    expect(scenario.currentRoom().layer?.templateId).toBe('tavern');
+    expect(scenario.game.getActorsInCurrentRoom().some((actor) => actor.role === 'bartender')).toBe(
       true,
     );
     scenario.assertWorldIntegrity();
@@ -193,6 +186,9 @@ function playerLocalHead(scenario: HeadlessScenario): { x: number; y: number } {
   expect(head).toBeDefined();
   if (!head) {
     throw new Error('Player head is missing.');
+  }
+  if (room.layer) {
+    return { x: head.x, y: head.y };
   }
   const [roomX = 0, roomY = 0] = room.id.split(',').map(Number);
   return {

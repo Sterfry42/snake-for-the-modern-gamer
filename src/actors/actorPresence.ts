@@ -159,7 +159,7 @@ export function inferActorActivity(args: {
     return activity('guarding', 'schedule', args.roomNumber);
   }
   if (args.actor.goal?.kind === 'work' && isTownShopRole(args.actor.role)) {
-    return activity('merchant', 'schedule', args.roomNumber);
+    return activity(workActivityForRole(args.actor.role), 'schedule', args.roomNumber);
   }
   if (args.actor.goal?.kind === 'work' && args.actor.role === 'fisher') {
     return activity('fishing', 'schedule', args.roomNumber);
@@ -171,6 +171,27 @@ export function inferActorActivity(args: {
     return activity('guarding', 'schedule', args.roomNumber);
   }
   return activity('idle', 'brain', args.roomNumber);
+}
+
+function workActivityForRole(role: Actor['role']): ActorActivityKind {
+  switch (role) {
+    case 'bartender':
+      return 'drinking';
+    case 'cardDealer':
+      return 'dealing-cards';
+    case 'mapper':
+      return 'mapping';
+    case 'potionMaker':
+    case 'wizard':
+      return 'alchemy';
+    case 'butcher':
+    case 'cook':
+      return 'cooking';
+    case 'physicalTrainer':
+      return 'training';
+    default:
+      return 'merchant';
+  }
 }
 
 export function selectScheduleGoal(

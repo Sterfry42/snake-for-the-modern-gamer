@@ -7,6 +7,9 @@ export type ActorActivityPropKind =
   | 'beer-mug'
   | 'cards'
   | 'map-compass'
+  | 'potion-flask'
+  | 'chef-knife'
+  | 'training-dumbbell'
   | 'tool'
   | 'shield'
   | 'fishing-rod';
@@ -26,6 +29,9 @@ const ACTIVITY_PROP_BY_KIND: Partial<Record<ActorActivityKind, ActorActivityProp
   'dealing-cards': 'cards',
   drinking: 'beer-mug',
   mapping: 'map-compass',
+  alchemy: 'potion-flask',
+  cooking: 'chef-knife',
+  training: 'training-dumbbell',
   merchant: 'merchant-bag',
   repairing: 'tool',
   guarding: 'shield',
@@ -38,6 +44,9 @@ const PROP_LABELS: Record<ActorActivityPropKind, string> = {
   'beer-mug': 'Drinking',
   cards: 'Cards',
   'map-compass': 'Mapping',
+  'potion-flask': 'Alchemy',
+  'chef-knife': 'Cooking',
+  'training-dumbbell': 'Training',
   tool: 'Repairing',
   'merchant-bag': 'Merchant',
   shield: 'Guarding',

@@ -9,6 +9,7 @@ import { parseCoordinateRoomId } from '../../world/roomAddress.js';
 import { isSolidTile } from '../../world/tiles.js';
 import type { RoomSnapshot } from '../../world/types.js';
 import type { Actor, ActorGoal, ActorPresence } from '../../actors/actorTypes.js';
+import type { ActorTelemetryEvent } from '../../actors/actorTelemetry.js';
 
 export interface HeadlessScenarioOptions {
   seed: string;
@@ -52,6 +53,7 @@ export class HeadlessScenario {
   private simulatedMs = 0;
   private actorStepsDue = 0;
   private readonly recentEvents: string[] = [];
+  private readonly actorEvents: ActorTelemetryEvent[] = [];
 
   private constructor(game: SnakeGame) {
     this.game = game;
@@ -206,6 +208,10 @@ export class HeadlessScenario {
 
   actorsInRoom(roomId: string): Actor[] {
     return this.game.getActorSystem().getActorsInRoom(roomId);
+  }
+
+  actorTelemetryEvents(): readonly ActorTelemetryEvent[] {
+    return this.actorEvents;
   }
 
   player() {
@@ -400,13 +406,28 @@ export class HeadlessScenario {
 
   private captureActorTelemetry(): void {
     this.game.getActorSystem().setTelemetrySink((event) => {
+      this.actorEvents.push(event);
+      if (this.actorEvents.length > 256) {
+        this.actorEvents.shift();
+      }
       if (
         event.type === 'actor.goal_changed' ||
         event.type === 'actor.presence_changed' ||
         event.type === 'actor.combat_started' ||
-        event.type === 'actor.schedule_changed'
+        event.type === 'actor.schedule_changed' ||
+        event.type === 'actor.travel_recovered' ||
+        event.type === 'actor.travel_leg_selected' ||
+        event.type === 'actor.path_blocked' ||
+        event.type === 'actor.travel_blocked'
       ) {
-        this.recentEvents.push(`${event.type}:${event.actorId}:${event.reason}`);
+        const data =
+          event.type === 'actor.travel_leg_selected' ||
+          event.type === 'actor.path_blocked' ||
+          event.type === 'actor.travel_blocked' ||
+          event.type === 'actor.travel_recovered'
+            ? `:${JSON.stringify(event.data)}`
+            : '';
+        this.recentEvents.push(`${event.type}:${event.actorId}:${event.reason}${data}`);
         if (this.recentEvents.length > 32) {
           this.recentEvents.shift();
         }

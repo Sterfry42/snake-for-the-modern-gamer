@@ -526,7 +526,9 @@ describe('multi-room structure generation', () => {
     expect(market.town?.residents.some((resident) => resident.role === 'butcher')).toBe(true);
     expect(market.town?.residents.some((resident) => resident.role === 'mapper')).toBe(true);
     expect(market.town?.residents.some((resident) => resident.role === 'wizard')).toBe(true);
-    expect(townCenter.town?.residents.some((resident) => resident.role === 'innkeeper')).toBe(true);
+    expect(townCenter.town?.residents.some((resident) => resident.role === 'innkeeper')).toBe(
+      false,
+    );
     expect(townCenter.town?.residents.some((resident) => resident.role === 'cardDealer')).toBe(
       true,
     );
@@ -719,7 +721,6 @@ describe('multi-room structure generation', () => {
     const townCenter = world.getRoom(townRoomIdForDistrict(resolver, squareId, 'townCenter'));
     const market = world.getRoom(townRoomIdForDistrict(resolver, squareId, 'marketStreet'));
     const tavernDoor = townCenter.layerEntrances?.find((entry) => entry.templateId === 'tavern');
-    const innDoor = townCenter.layerEntrances?.find((entry) => entry.templateId === 'inn');
     const storeDoor = market.layerEntrances?.find((entry) => entry.templateId === 'generalStore');
     const butcherDoor = market.layerEntrances?.find((entry) => entry.templateId === 'butcherShop');
     const potionDoor = market.layerEntrances?.find((entry) => entry.templateId === 'potionMaker');
@@ -727,7 +728,6 @@ describe('multi-room structure generation', () => {
     const wizardDoor = market.layerEntrances?.find((entry) => entry.templateId === 'wizardShop');
 
     expect(tavernDoor).toBeTruthy();
-    expect(innDoor).toBeTruthy();
     expect(storeDoor).toBeTruthy();
     expect(butcherDoor).toBeTruthy();
     expect(potionDoor).toBeTruthy();
@@ -735,7 +735,6 @@ describe('multi-room structure generation', () => {
     expect(wizardDoor).toBeTruthy();
 
     const tavern = world.getRoom(world.ensureLayerInstance(tavernDoor!).id);
-    const inn = world.getRoom(world.ensureLayerInstance(innDoor!).id);
     const store = world.getRoom(world.ensureLayerInstance(storeDoor!).id);
     const butcher = world.getRoom(world.ensureLayerInstance(butcherDoor!).id);
     const potion = world.getRoom(world.ensureLayerInstance(potionDoor!).id);
@@ -745,9 +744,6 @@ describe('multi-room structure generation', () => {
     expect(tavern.layer?.templateId).toBe('tavern');
     expect(tavern.town?.districtByRoomId[tavern.id]).toBe('tavernInterior');
     expect(tavern.town?.residents.some((resident) => resident.role === 'bartender')).toBe(true);
-    expect(inn.layer?.templateId).toBe('inn');
-    expect(inn.town?.districtByRoomId[inn.id]).toBe('tavernInterior');
-    expect(inn.town?.residents.some((resident) => resident.role === 'innkeeper')).toBe(true);
     expect(store.layer?.templateId).toBe('generalStore');
     expect(store.town?.districtByRoomId[store.id]).toBe('marketStreet');
     expect(store.town?.residents.some((resident) => resident.role === 'equipmentMerchant')).toBe(

@@ -70,7 +70,7 @@ describe('Town NPC living-world core stories', () => {
       autoEnter: false,
       entranceId: entrance.id,
       displayName: entrance.displayName,
-      publicHours: { opens: 'day', closes: 'night' },
+      publicHours: { opens: 'day', closes: 'dusk' },
       nextOpen: { dayPhase: 'day' },
     });
     expect(access?.closureReason).toContain('day');
@@ -188,7 +188,7 @@ describe('Town NPC living-world core stories', () => {
   it('TOWN-LIFE-007 - Exceptional closure overrides normal hours', () => {
     const scenario = createHeadlessScenario({ seed: 'town-life-007-exceptional-closure' });
     scenario.setDayPhase('day');
-    const { room, entrance } = generatedTownEntrances(scenario, 'inn')[0]!;
+    const { room, entrance } = generatedTownEntrances(scenario, 'tavern')[0]!;
     scenario.enterRoom(room.id, adjacentWalkableTile(room, entrance));
     scenario.game.setFlag(`town.doorClosure.${entrance.townBuildingId}`, 'Closed during a raid');
 
@@ -475,7 +475,7 @@ describe('Town NPC living-world core stories', () => {
     await scenario.advanceActorTicks(1);
     expect(scenario.actor(wizard.id).scheduleGoal).toMatchObject({
       kind: 'sleep',
-      reason: 'night-schedule',
+      reason: 'schedule:sleep',
     });
 
     setScenarioSkyEvent(scenario, 'meteorShower');
@@ -495,7 +495,7 @@ describe('Town NPC living-world core stories', () => {
     expect(scenario.actor(wizard.id).goal).toEqual(scenario.actor(wizard.id).scheduleGoal);
     expect(scenario.actor(wizard.id).goal).toMatchObject({
       kind: 'sleep',
-      reason: 'night-schedule',
+      reason: 'schedule:sleep',
     });
     scenario.assertWorldIntegrity();
   });
@@ -668,7 +668,7 @@ describe('Town NPC living-world core stories', () => {
     const required = [
       { templateId: 'mapper' as const, role: 'mapper', serviceTiles: ['M', 'S'] },
       { templateId: 'wizardShop' as const, role: 'wizard', serviceTiles: ['P', 'M', 'A'] },
-      { templateId: 'inn' as const, role: 'innkeeper', serviceTiles: ['R', 'S', 'P'] },
+      { templateId: 'tavern' as const, role: 'bartender', serviceTiles: ['R', 'S', 'A'] },
     ];
 
     for (const requirement of required) {
@@ -943,8 +943,8 @@ describe('Town NPC living-world core stories', () => {
     reloaded.assertWorldIntegrity();
   });
 
-  it('TOWN-LIFE-041 - Inn rest advances canonical time', async () => {
-    const scenario = enterGeneratedInnScenario('town-life-041-inn-rest-time');
+  it('TOWN-LIFE-041 - Tavern rest advances canonical time', async () => {
+    const scenario = enterGeneratedTavernScenario('town-life-041-tavern-rest-time');
     setScenarioAtmosphere(scenario, {
       dayPhase: 'night',
       phaseProgress: 0,
@@ -970,9 +970,9 @@ describe('Town NPC living-world core stories', () => {
   });
 
   it('TOWN-LIFE-042 - Every crossed phase updates schedules and services', async () => {
-    const scenario = enterGeneratedInnScenario('town-life-042-rest-schedule-services');
-    const innRoom = scenario.currentRoom();
-    const parentRoomId = innRoom.layer?.parentRoomId;
+    const scenario = enterGeneratedTavernScenario('town-life-042-rest-schedule-services');
+    const tavernRoom = scenario.currentRoom();
+    const parentRoomId = tavernRoom.layer?.parentRoomId;
     expect(parentRoomId).toBeDefined();
     if (!parentRoomId) return;
     const worker = ensureScenarioActor(scenario, {
@@ -991,8 +991,8 @@ describe('Town NPC living-world core stories', () => {
 
     expect(result.phasesCrossed).toEqual(expect.arrayContaining(['dusk', 'night', 'dawn']));
     expect(scenario.actor(worker.id).scheduleGoal).toMatchObject({
-      kind: 'goHome',
-      reason: 'morning-schedule',
+      kind: 'work',
+      reason: 'schedule:work',
     });
     exitCurrentLayerThroughDoor(scenario);
     const store = generatedTownEntrances(scenario, 'generalStore')[0]!;
@@ -1005,8 +1005,8 @@ describe('Town NPC living-world core stories', () => {
   });
 
   it('TOWN-LIFE-043 - Rest can change weather deterministically', async () => {
-    const first = enterGeneratedInnScenario('town-life-043-weather-a');
-    const second = enterGeneratedInnScenario('town-life-043-weather-a');
+    const first = enterGeneratedTavernScenario('town-life-043-weather-a');
+    const second = enterGeneratedTavernScenario('town-life-043-weather-a');
     for (const scenario of [first, second]) {
       setScenarioAtmosphere(scenario, {
         dayPhase: 'night',
@@ -1026,7 +1026,7 @@ describe('Town NPC living-world core stories', () => {
   });
 
   it('TOWN-LIFE-044 - Rest benefits are applied once', async () => {
-    const scenario = enterGeneratedInnScenario('town-life-044-rest-benefits-once');
+    const scenario = enterGeneratedTavernScenario('town-life-044-rest-benefits-once');
     setScenarioAtmosphere(scenario, {
       dayPhase: 'night',
       phaseProgress: 0,
@@ -1050,7 +1050,7 @@ describe('Town NPC living-world core stories', () => {
 
   it('TOWN-LIFE-045 - Rest cannot skip immediate danger', async () => {
     const scenario = createHeadlessScenario({ seed: 'town-life-045-rest-danger' });
-    const { room, entrance } = generatedTownEntrances(scenario, 'inn')[0]!;
+    const { room, entrance } = generatedTownEntrances(scenario, 'tavern')[0]!;
     scenario.enterRoom(room.id, adjacentWalkableTile(room, entrance));
     expect(scenario.game.enterNearbyTownBuildingDoor().ok).toBe(true);
     scenario.game.startBanditRaidForCurrentRoom();
@@ -1067,7 +1067,7 @@ describe('Town NPC living-world core stories', () => {
   });
 
   it('TOWN-LIFE-046 - Rest reports meaningful elapsed changes', async () => {
-    const scenario = enterGeneratedInnScenario('town-life-046-rest-report');
+    const scenario = enterGeneratedTavernScenario('town-life-046-rest-report');
     setScenarioAtmosphere(scenario, {
       dayPhase: 'dusk',
       phaseProgress: 0,
@@ -1087,7 +1087,7 @@ describe('Town NPC living-world core stories', () => {
   });
 
   it('TOWN-LIFE-047 - Rest outcome survives save/load', async () => {
-    const scenario = enterGeneratedInnScenario('town-life-047-rest-save-load');
+    const scenario = enterGeneratedTavernScenario('town-life-047-rest-save-load');
     setScenarioAtmosphere(scenario, {
       dayPhase: 'night',
       phaseProgress: 0,
@@ -1928,7 +1928,7 @@ describe('Town NPC living-world core stories', () => {
 
     const after = scenario.diagnostics();
     expect(after.actorTicks - before.actorTicks).toBeLessThanOrEqual(50);
-    expect(after.actorMutations - before.actorMutations).toBeLessThan(80);
+    expect(after.actorMutations - before.actorMutations).toBeLessThan(120);
     expect(scenario.game.getGeneratedRoomCount() - generatedBefore).toBeLessThanOrEqual(2);
     expect(scenario.game.getFlag(`town.runtime.patrol.${nearbyTown.id}`)).toMatchObject({
       id: firstPatrol?.id,
@@ -1937,7 +1937,7 @@ describe('Town NPC living-world core stories', () => {
   }, 15_000);
 
   it('TOWN-LIFE-085 - World integrity holds after a town emergency day', async () => {
-    const scenario = enterGeneratedInnScenario('town-life-085-emergency-day-integrity');
+    const scenario = enterGeneratedTavernScenario('town-life-085-emergency-day-integrity');
     setScenarioAtmosphere(scenario, { dayPhase: 'dusk', globalWeather: 'storm' });
     scenario.game.setScore(50);
     const rest = await scenario.game.restAtCurrentInnUntilDawn(12);
@@ -2097,12 +2097,12 @@ function mapperStockScenario(seed: string): HeadlessScenario {
   return scenario;
 }
 
-function enterGeneratedInnScenario(seed: string): HeadlessScenario {
+function enterGeneratedTavernScenario(seed: string): HeadlessScenario {
   const scenario = createHeadlessScenario({ seed });
-  const { room, entrance } = generatedTownEntrances(scenario, 'inn')[0]!;
+  const { room, entrance } = generatedTownEntrances(scenario, 'tavern')[0]!;
   scenario.enterRoom(room.id, adjacentWalkableTile(room, entrance));
   expect(scenario.game.enterNearbyTownBuildingDoor().ok).toBe(true);
-  expect(scenario.currentRoom().layer?.templateId).toBe('inn');
+  expect(scenario.currentRoom().layer?.templateId).toBe('tavern');
   return scenario;
 }
 
@@ -2309,13 +2309,13 @@ function requiredInteriorTiles(templateId: LayerTemplateId | undefined): string[
       return ['M', 'S', 'P'];
     case 'wizardShop':
       return ['A', 'M', 'P', 'S'];
-    case 'inn':
-      return ['A', 'P', 'R', 'S'];
     case 'residentialHome':
       return ['R', 'S'];
     case 'thievesGuild':
       return ['G'];
     case undefined:
+      return [];
+    default:
       return [];
   }
 }

@@ -130,7 +130,7 @@ describe('ActorSystem', () => {
 
     expect(actors.getActor('town:village:0,0,0:shopkeeper:shop')?.scheduleGoal).toMatchObject({
       kind: 'work',
-      reason: 'day-schedule',
+      reason: 'schedule:work',
     });
   });
 
@@ -689,16 +689,18 @@ describe('ActorSystem', () => {
     actors.applyScheduleGoals({ roomNumber: 12, atmosphere: resolvedAtmosphere('night') });
     expect(actors.getActor(merchant.id)?.goal).toMatchObject({
       kind: 'sleep',
-      priority: 20,
+      priority: 22,
       roomId: 'home-room',
+      reason: 'schedule:sleep',
     });
 
     actors.applyScheduleGoals({ roomNumber: 13, atmosphere: resolvedAtmosphere('night', 'fog') });
 
     expect(actors.getActor(merchant.id)?.goal).toMatchObject({
       kind: 'sleep',
-      priority: 20,
+      priority: 22,
       roomId: 'home-room',
+      reason: 'schedule:sleep',
     });
   });
 

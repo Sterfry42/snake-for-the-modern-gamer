@@ -5,6 +5,7 @@ import type {
   ActorGoal,
   ActorPresence,
   ActorPromotionReason,
+  ActorSchedule,
   ActorSaveData,
 } from './actorTypes.js';
 import type {
@@ -162,6 +163,43 @@ export class ActorRegistry {
     const existing = this.actors.get(incoming.id);
     if (!existing) {
       return this.upsert(incoming);
+    }
+    if (existing.schedule && incoming.schedule) {
+      const mergedSchedule = {
+        ...existing.schedule,
+        homeRoomId: incoming.schedule.homeRoomId ?? existing.schedule.homeRoomId,
+        workRoomId: incoming.schedule.workRoomId ?? existing.schedule.workRoomId,
+        sleepRoomId: incoming.schedule.sleepRoomId ?? existing.schedule.sleepRoomId,
+        homePosition: mergeSchedulePosition(
+          existing.schedule.homePosition,
+          incoming.schedule.homePosition,
+        ),
+        workPosition: mergeSchedulePosition(
+          existing.schedule.workPosition,
+          incoming.schedule.workPosition,
+        ),
+        sleepPosition: mergeSchedulePosition(
+          existing.schedule.sleepPosition,
+          incoming.schedule.sleepPosition,
+        ),
+        fixedPostRoomId: incoming.schedule.fixedPostRoomId ?? existing.schedule.fixedPostRoomId,
+        fixedPostPosition:
+          incoming.schedule.fixedPostPosition ?? existing.schedule.fixedPostPosition,
+      };
+      if (
+        existing.homeRoomId !== (existing.homeRoomId ?? incoming.homeRoomId) ||
+        existing.workRoomId !== (incoming.workRoomId ?? existing.workRoomId) ||
+        !actorScheduleEquals(existing.schedule, mergedSchedule)
+      ) {
+        return (
+          this.update(existing.id, (actor) => ({
+            ...actor,
+            homeRoomId: actor.homeRoomId ?? incoming.homeRoomId,
+            workRoomId: incoming.workRoomId ?? actor.workRoomId,
+            schedule: mergedSchedule,
+          })) ?? existing
+        );
+      }
     }
     if (!existing.schedule && incoming.schedule) {
       return (
@@ -378,6 +416,37 @@ function actorActivityEquals(
       left?.startedAtRoomNumber === right?.startedAtRoomNumber &&
       left?.endsAtRoomNumber === right?.endsAtRoomNumber)
   );
+}
+
+function actorScheduleEquals(left: ActorSchedule, right: ActorSchedule): boolean {
+  return (
+    left.policyId === right.policyId &&
+    left.homeRoomId === right.homeRoomId &&
+    left.workRoomId === right.workRoomId &&
+    left.sleepRoomId === right.sleepRoomId &&
+    left.homePosition?.x === right.homePosition?.x &&
+    left.homePosition?.y === right.homePosition?.y &&
+    left.workPosition?.x === right.workPosition?.x &&
+    left.workPosition?.y === right.workPosition?.y &&
+    left.sleepPosition?.x === right.sleepPosition?.x &&
+    left.sleepPosition?.y === right.sleepPosition?.y &&
+    left.fixedPostRoomId === right.fixedPostRoomId &&
+    left.fixedPostPosition?.x === right.fixedPostPosition?.x &&
+    left.fixedPostPosition?.y === right.fixedPostPosition?.y
+  );
+}
+
+function mergeSchedulePosition(
+  existing: { x: number; y: number } | undefined,
+  incoming: { x: number; y: number } | undefined,
+): { x: number; y: number } | undefined {
+  if (!incoming) {
+    return existing;
+  }
+  if (existing && incoming.x === 0 && incoming.y === 0) {
+    return existing;
+  }
+  return incoming;
 }
 
 function mergeActor(existing: Actor, incoming: Actor): Actor {

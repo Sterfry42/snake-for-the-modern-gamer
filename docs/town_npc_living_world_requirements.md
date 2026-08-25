@@ -2,8 +2,8 @@
 
 ## Status and Completion Gate
 
-This document defines the next town, NPC, structure-locator, inn, patrol, faction,
-and humanoid-combat pass for **Snake for the Modern Gamer**.
+This document defines the next town, NPC, structure-locator, tavern rest, patrol,
+faction, and humanoid-combat pass for **Snake for the Modern Gamer**.
 
 > **NON-NEGOTIABLE DEFINITION OF DONE:** This feature set is not done until every
 > user story in this document has a passing headless integration test under
@@ -166,7 +166,7 @@ NPC records, room caches, faction tables, or combat identities.
 6. Interiors must include more functional dressing: beds, tables, chairs,
    shelves, storage, lamps, rugs, counters, tools, dishes, wall decoration, and
    role-specific work areas.
-7. The town center should support an expanded inn/tavern and civic/watch use.
+7. The town center should support an expanded tavern and civic/watch use.
 8. The market should support a mapper and rotating specialist shops.
 9. The service/back-alley quarter should support a wizard, workshops, deliveries,
    guild access, and hidden entrances where generated.
@@ -206,10 +206,10 @@ NPC records, room caches, faction tables, or combat identities.
 14. Generation versioning must preserve existing-world compatibility rather than
     silently moving structures in an old save.
 
-### 4.7 Inn Rest and Time Advancement
+### 4.7 Tavern Rest and Time Advancement
 
-1. An inn lets the player spend score to wait until the next phase, rest until a
-   named phase, sleep until dawn, or rent a longer stay where supported.
+1. A tavern lets the player spend score to wait until the next phase, rest until
+   a named phase, sleep until dawn, or rent a longer stay where supported.
 2. Price depends on elapsed time and may be modified by town reputation, room
    quality, relationships, or emergency state.
 3. Time advances through explicit canonical atmosphere APIs and every crossed
@@ -589,13 +589,13 @@ or household and return doorway.
 
 #### TOWN-LIFE-027 — Interior routing survives save/load
 
-**Given** the snake saved inside any generated residence, mapper, wizard shop, or
-inn, **when** the save is loaded and the exit crossed, **then** the snake returns
-to the correct exterior doorway.
+**Given** the snake saved inside any generated residence, tavern, mapper, or
+wizard shop, **when** the save is loaded and the exit crossed, **then** the snake
+returns to the correct exterior doorway.
 
 #### TOWN-LIFE-028 — Required businesses have functional interiors
 
-**Given** a town generated with mapper, wizard, and inn services, **when** their
+**Given** a town generated with tavern, mapper, and wizard services, **when** their
 interiors are inspected headlessly, **then** each contains its required service
 zone, valid movement space, entrance/exit, and role-appropriate interactables.
 
@@ -669,16 +669,16 @@ rooms or hanging.
 **when** it is loaded after a newer algorithm exists, **then** its locator and
 generated structure destinations remain compatible with the saved version.
 
-### Inn and Time Advancement
+### Tavern Rest and Time Advancement
 
-#### TOWN-LIFE-041 — Inn rest advances canonical time
+#### TOWN-LIFE-041 — Tavern rest advances canonical time
 
 **Given** sufficient score, **when** the snake sleeps until dawn, **then** score is
 deducted and `WorldAtmosphereSystem` reaches dawn through its phase transitions.
 
 #### TOWN-LIFE-042 — Every crossed phase updates schedules and services
 
-**Given** a long inn stay that crosses multiple phases, **when** it completes,
+**Given** a long tavern stay that crosses multiple phases, **when** it completes,
 **then** Actor schedule goals, locations, doors, and shop availability reflect the
 final phase and all required boundary processing occurred.
 
@@ -707,7 +707,7 @@ changes.
 
 #### TOWN-LIFE-047 — Rest outcome survives save/load
 
-**Given** a completed inn stay, **when** the resulting game is saved and loaded,
+**Given** a completed tavern stay, **when** the resulting game is saved and loaded,
 **then** time, weather, schedules, doors, score, benefits, and relevant events are
 unchanged.
 
@@ -942,7 +942,7 @@ full-room generation or per-Actor global pathfinding storm.
 
 #### TOWN-LIFE-085 — World integrity holds after a town emergency day
 
-**Given** weather changes, inn time advancement, patrol combat, a raid, shop
+**Given** weather changes, tavern time advancement, patrol combat, a raid, shop
 closures, Actor deaths, and save/load in one scenario, **when** the scenario ends,
 **then** headless world-integrity assertions report no duplicate Actors, invalid
 room ownership, contradictory presence, blocked spawn, or broken interior route.

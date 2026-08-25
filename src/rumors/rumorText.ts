@@ -176,7 +176,7 @@ export function distortWorldEventSummary(event: WorldEvent, exaggeration: number
       [summary],
       [
         `${summary} The person who posted it is already claiming the plan worked exactly as intended.`,
-        `${summary} Someone at the inn has promoted the snake from problem to contractor.`,
+        `${summary} Someone at the tavern has promoted the snake from problem to contractor.`,
       ],
       [
         `${summary} Half the town says it was impossible. The other half says they suggested it.`,

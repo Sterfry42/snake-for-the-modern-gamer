@@ -7,6 +7,7 @@ import {
   isTownShopRole,
   type TownResidentRole,
 } from '../world/townRoles.js';
+import { townBusinessPolicyForRole } from '../world/townBusinessPolicy.js';
 import type {
   RelationshipCandidateProfile,
   RelationshipPersonality,
@@ -437,28 +438,12 @@ function scheduleForTownResidentRole(
         ? { ...args.postPosition }
         : undefined,
   };
-  if (role === 'innkeeper') {
+  const businessPolicy = townBusinessPolicyForRole(role);
+  if (businessPolicy?.routines) {
     return {
       ...schedule,
-      policyId: 'town-hospitality-innkeeper',
-      routines: {
-        dawn: { behavior: 'work', goalKind: 'work', priority: 18, roomTarget: 'work' },
-        day: { behavior: 'work', goalKind: 'work', priority: 18, roomTarget: 'work' },
-        dusk: { behavior: 'work', goalKind: 'work', priority: 20, roomTarget: 'work' },
-        night: { behavior: 'work', goalKind: 'work', priority: 22, roomTarget: 'work' },
-      },
-    };
-  }
-  if (role === 'bartender' || role === 'cardDealer') {
-    return {
-      ...schedule,
-      policyId: `town-hospitality-${role}`,
-      routines: {
-        dawn: { behavior: 'goHome', goalKind: 'goHome', priority: 12, roomTarget: 'home' },
-        day: { behavior: 'work', goalKind: 'work', priority: 16, roomTarget: 'work' },
-        dusk: { behavior: 'work', goalKind: 'work', priority: 20, roomTarget: 'work' },
-        night: { behavior: 'work', goalKind: 'work', priority: 20, roomTarget: 'work' },
-      },
+      policyId: `town-business:${businessPolicy.id}`,
+      routines: businessPolicy.routines,
     };
   }
   return schedule;

@@ -820,11 +820,6 @@ export function createPhysicalHumanTown(args: {
       workDistrict: 'townCenter' as const,
     },
     {
-      role: 'innkeeper' as const,
-      name: pickNpcName('keeper', rng),
-      workDistrict: 'townCenter' as const,
-    },
-    {
       role: 'cardDealer' as const,
       name: pickNpcName('thief', rng),
       workDistrict: 'townCenter' as const,
@@ -1227,25 +1222,6 @@ function createTownBuildings(
       enterable: true,
       publicAccess: true,
       crimeTarget: true,
-    },
-    {
-      id: `${town.id}:building:inn`,
-      townId: town.id,
-      district: 'townCenter',
-      roomId: centerRoom,
-      kind: 'inn',
-      displayName: `${town.name} Inn`,
-      shortLabel: 'Inn',
-      interiorTitle: `${town.name} Inn`,
-      doorLabel: 'Enter Inn',
-      doorKind: 'tavernDoor',
-      door: { x: 24, y: 9 },
-      bounds: { left: 21, top: 5, width: 7, height: 5 },
-      templateId: 'inn',
-      ownerResidentId: ownerIdFor('innkeeper'),
-      ownerResidentRole: 'innkeeper',
-      enterable: true,
-      publicAccess: true,
     },
     residentialHome('home-west', 0, { x: 6, y: 9 }, { left: 3, top: 5, width: 7, height: 5 }),
     residentialHome(
@@ -2194,7 +2170,6 @@ export function createTownDistrictRoom(args: {
     case 'townCenter':
       {
         const tavern = townBuildingFor(town, 'tavern', 'townCenter');
-        const inn = townBuildingFor(town, 'inn', 'townCenter');
         drawConnectedRoad(layout, openSides);
         fillRect(layout, center.x - 4, center.y - 3, 9, 7, 'E');
         fillRect(layout, center.x - 1, center.y - 1, 3, 3, 'P');
@@ -2221,28 +2196,6 @@ export function createTownDistrictRoom(args: {
               x: tavern.door.x,
               y: tavern.door.y,
               building: tavern,
-            }),
-            context,
-          );
-        }
-        drawBuildingShell(layout, args.grid.cols - 11, 5, 7, 5, {
-          x: inn?.door.x ?? args.grid.cols - 8,
-          y: inn?.door.y ?? 9,
-          tile: townDoorTile(inn?.doorKind),
-        });
-        if (inn) {
-          addTownLayerEntrance(
-            layout,
-            layerEntrances,
-            createTownLayerEntrance({
-              townId: town.id,
-              parentRoomId: args.roomId,
-              templateId: 'inn',
-              key: 'inn-door',
-              label: 'Inn door',
-              x: inn.door.x,
-              y: inn.door.y,
-              building: inn,
             }),
             context,
           );
