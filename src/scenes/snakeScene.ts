@@ -19924,6 +19924,14 @@ export default class SnakeScene extends Phaser.Scene {
           this.showCardTableRoot(profile.displayName, false, actorRole === 'cardDealer', actorRole);
           return;
         }
+        if (id === 'tavern-rest') {
+          void this.snakeGame.chooseActorInteraction(profile.actorId ?? '', id).then((result) => {
+            this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
+            this.skillTree.getOverlay().refresh();
+            this.paused = false;
+          });
+          return;
+        }
         if (id === 'buy-rumor') {
           this.showQuestHintPopup(this.currentTownActorLine(profile.displayName), '#fff3a8');
           this.closeVillageShop();
@@ -20047,6 +20055,7 @@ export default class SnakeScene extends Phaser.Scene {
     const supported = new Set([
       'wake',
       'talk',
+      'tavern-rest',
       'ask-rumor',
       'ask-personal',
       'take-quest',
@@ -23025,6 +23034,8 @@ function actorInteractionDescription(id: string): string {
       return 'Wake them and interrupt their sleep.';
     case 'talk':
       return 'Get a line from them. This does not start romance.';
+    case 'tavern-rest':
+      return 'Rent a quiet room, pass time, and wake at dawn.';
     case 'ask-rumor':
       return 'Ask about rumors, town trouble, and the official story.';
     case 'ask-personal':

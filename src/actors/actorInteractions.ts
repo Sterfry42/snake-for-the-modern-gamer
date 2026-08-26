@@ -7,6 +7,7 @@ export type ActorInteractionId =
   | 'inspect'
   | 'wake'
   | 'talk'
+  | 'tavern-rest'
   | 'ask-rumor'
   | 'ask-personal'
   | 'take-quest'
@@ -45,6 +46,11 @@ export interface ActorInteractionContext {
   canUseRelationshipActions?: boolean;
   recentRumorCount?: number;
   shopClosedReason?: string;
+  tavernRest?: {
+    available: boolean;
+    cost: number;
+    reason?: string;
+  };
 }
 
 export function buildActorInteractionMenu(
@@ -80,6 +86,15 @@ export function buildActorInteractionMenu(
         label: tActor('takeQuest'),
         enabled: !hostile,
         priority: 86,
+      });
+    }
+    if (actor.role === 'bartender' && context.tavernRest) {
+      options.push({
+        id: 'tavern-rest',
+        label: tActor('tavernRest').replace('{cost}', String(context.tavernRest.cost)),
+        enabled: !hostile && context.tavernRest.available,
+        reason: hostile ? tActor('tooHostile') : context.tavernRest.reason,
+        priority: 84,
       });
     }
     options.push({

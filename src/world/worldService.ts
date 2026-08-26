@@ -351,9 +351,31 @@ export class WorldService {
     return entrance ? { ...entrance, returnPosition: { ...entrance.returnPosition } } : undefined;
   }
 
+  getLayerEntranceByLayerId(layerId: string): LayerEntrance | undefined {
+    for (const entrance of this.layerEntrances.values()) {
+      if (entrance.layerId === layerId) {
+        return { ...entrance, returnPosition: { ...entrance.returnPosition } };
+      }
+    }
+    return undefined;
+  }
+
   getLayerInstance(layerId: string): LayerInstance | undefined {
     const instance = this.layerInstances.get(layerId);
     return instance ? cloneLayerInstance(instance) : undefined;
+  }
+
+  getLayerInstances(): LayerInstance[] {
+    return [...this.layerInstances.values()].map((instance) => cloneLayerInstance(instance));
+  }
+
+  restoreLayerInstances(instances: readonly LayerInstance[] | undefined): void {
+    if (!instances) {
+      return;
+    }
+    for (const instance of instances) {
+      this.layerInstances.set(instance.id, cloneLayerInstance(instance));
+    }
   }
 
   setLayerInstanceState(layerId: string, state: LayerInstance['state']): LayerInstance | undefined {

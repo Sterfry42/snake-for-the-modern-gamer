@@ -13,6 +13,19 @@ import { isSolidTile } from '../../../../world/tiles.js';
 import type { RoomSnapshot } from '../../../../world/types.js';
 
 describe('Town life commerce hardening stories', () => {
+  it('TOWN-HARDEN-034 - player layer exits dematerialize actors without moving them outside', async () => {
+    const scenario = createHeadlessScenario({ seed: 'town-harden-034-layer-exit-presence' });
+
+    await assertLayerExitPreservesInteriorActors(scenario, { templateId: 'tavern' }, [
+      'bartender',
+      'cardDealer',
+    ]);
+    await assertLayerExitPreservesInteriorActors(scenario, { templateId: 'generalStore' }, [
+      'equipmentMerchant',
+    ]);
+    scenario.assertWorldIntegrity();
+  });
+
   it('TOWN-HARDEN-030 - offscreen unvisited shop workers do not generate interiors or recover', async () => {
     const scenario = createHeadlessScenario({ seed: 'town-harden-030-unvisited-shop-logical' });
     const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'potionMaker' });
@@ -378,6 +391,57 @@ async function advanceActorTicksUntil(
   );
 }
 
+async function assertLayerExitPreservesInteriorActors(
+  scenario: HeadlessScenario,
+  door: { templateId: NonNullable<LayerEntrance['templateId']> },
+  roles: readonly Actor['role'][],
+): Promise<void> {
+  const { room, entrance } = findGeneratedTownDoor(scenario, door);
+  scenario.setDayPhase(door.templateId === 'tavern' ? 'night' : 'day');
+  scenario.enterRoom(room.id, walkableTileAwayFrom(scenario, room.id, entrance, 6));
+  walkSnakeIntoDoor(scenario, room, entrance);
+  await scenario.advanceActorTicks(3);
+
+  const interiorRoomId = scenario.currentRoom().id;
+  const actors = roles.map((role) => currentRoomActorWithRole(scenario, role));
+  const actorIds = actors.map((actor) => actor.id);
+  expect(new Set(actorIds).size).toBe(actorIds.length);
+
+  for (let cycle = 0; cycle < 6; cycle += 1) {
+    for (const actor of actors) {
+      const current = scenario.actor(actor.id);
+      expect(current.currentRoomId).toBe(interiorRoomId);
+      expect(current.presence?.roomId).toBe(interiorRoomId);
+      expect(current.presence?.materialized).toBe(true);
+    }
+
+    exitCurrentLayerThroughDoor(scenario);
+    expect(scenario.currentRoom().id).toBe(room.id);
+    expect(scenario.game.getActorsInCurrentRoom().map((actor) => actor.id)).not.toEqual(
+      expect.arrayContaining(actorIds),
+    );
+    for (const actorId of actorIds) {
+      const actor = scenario.actor(actorId);
+      expect(actor.currentRoomId).toBe(interiorRoomId);
+      expect(actor.presence).toBeUndefined();
+    }
+
+    await scenario.advanceActorTicks(8);
+    for (const actorId of actorIds) {
+      const actor = scenario.actor(actorId);
+      expect(actor.currentRoomId).toBe(interiorRoomId);
+      expect(actor.presence).toBeUndefined();
+    }
+
+    walkSnakeIntoDoor(scenario, room, entrance);
+    await scenario.advanceActorTicks(3);
+    expect(scenario.currentRoom().id).toBe(interiorRoomId);
+    expect(scenario.game.getActorsInCurrentRoom().map((actor) => actor.id)).toEqual(
+      expect.arrayContaining(actorIds),
+    );
+  }
+}
+
 function walkSnakeIntoDoor(
   scenario: HeadlessScenario,
   room: RoomSnapshot,
@@ -418,9 +482,42 @@ function exitCurrentLayerThroughDoor(scenario: HeadlessScenario): void {
     throw new Error(`Current room ${room.id} is not a layer.`);
   }
   const approach = adjacentWalkableTile(room, exit);
-  walkToLocal(scenario, approach, [exit]);
+  placeSnakeForMovement(scenario, room.id, approach, {
+    x: exit.x - approach.x,
+    y: exit.y - approach.y,
+  });
+  scenario.game.setFlag('traversal.manualResumePending', undefined);
+  scenario.game.setFlag('traversal.exitDirectionLockTicks', undefined);
   scenario.game.forceDirection(exit.x - approach.x, exit.y - approach.y);
   scenario.advanceActionTicks(1);
+}
+
+function placeSnakeForMovement(
+  scenario: HeadlessScenario,
+  roomId: string,
+  local: { x: number; y: number },
+  direction: { x: number; y: number },
+): void {
+  const room = scenario.game.getRoom(roomId);
+  const world = room.id.startsWith('layer:') ? local : worldPosition(room, local);
+  const loaded = scenario.game.loadFromSaveData({
+    ...scenario.game.getSaveData(),
+    snakeRoomId: roomId,
+    snakeBody: Array.from({ length: scenario.game.getSnakeLength() }, () => ({ ...world })),
+    snakeDirection: direction,
+  });
+  expect(loaded).toBe(true);
+}
+
+function worldPosition(
+  room: RoomSnapshot,
+  local: { x: number; y: number },
+): { x: number; y: number } {
+  const [roomX = 0, roomY = 0] = room.id.split(',').map(Number);
+  return {
+    x: local.x + roomX * 32,
+    y: local.y + roomY * 24,
+  };
 }
 
 function playerLocalHead(scenario: HeadlessScenario): { x: number; y: number } {

@@ -331,7 +331,15 @@ export class HeadlessScenario {
       if (actor.health?.state === 'dead' || actor.hostility === 'dead' || !actor.presence) {
         continue;
       }
-      const room = this.game.getRoom(actor.presence.roomId);
+      let room: RoomSnapshot | undefined;
+      try {
+        room = this.game.getRoom(actor.presence.roomId);
+      } catch (error) {
+        if (actor.presence.roomId.startsWith('layer:') && !actor.presence.materialized) {
+          continue;
+        }
+        throw error;
+      }
       expect(
         actor.currentRoomId,
         `Actor ${actor.id} should keep currentRoomId with Presence.`,

@@ -225,6 +225,7 @@ export const COMMON_EN: CommonTranslations = {
     inspect: 'Inspect',
     wake: 'Wake',
     talk: 'Talk',
+    tavernRest: 'Sleep Until Dawn - {cost} score',
     takeQuest: 'Take Quest',
     askAround: 'Ask Around',
     askPersonally: 'Ask Personally',

@@ -7,6 +7,54 @@ import { adjacentWalkableTile } from '../../../../test/headless/scenarioFixtures
 import type { RoomSnapshot } from '../../../../world/types.js';
 
 describe('Town life household hardening stories', () => {
+  it('TOWN-HARDEN-035 - player residential exits dematerialize actors without moving them outside', async () => {
+    const scenario = createHeadlessScenario({ seed: 'town-harden-035-residential-exit-presence' });
+    scenario.setDayPhase('night');
+    const residence = findResidentialInteriorWithActor(scenario);
+
+    expect(residence).toBeDefined();
+    if (!residence) {
+      throw new Error('Expected a residential interior with at least one actor.');
+    }
+
+    const { room, entrance, actorIds, interiorRoomId } = residence;
+    for (let cycle = 0; cycle < 6; cycle += 1) {
+      for (const actorId of actorIds) {
+        const actor = scenario.actor(actorId);
+        expect(actor.currentRoomId).toBe(interiorRoomId);
+        expect(actor.presence?.roomId).toBe(interiorRoomId);
+        expect(actor.presence?.materialized).toBe(true);
+      }
+
+      exitCurrentLayerThroughDoor(scenario);
+      expect(scenario.currentRoom().id).toBe(room.id);
+      expect(scenario.game.getActorsInCurrentRoom().map((actor) => actor.id)).not.toEqual(
+        expect.arrayContaining(actorIds),
+      );
+      for (const actorId of actorIds) {
+        const actor = scenario.actor(actorId);
+        expect(actor.currentRoomId).toBe(interiorRoomId);
+        expect(actor.presence).toBeUndefined();
+      }
+
+      await scenario.advanceActorTicks(8);
+      for (const actorId of actorIds) {
+        const actor = scenario.actor(actorId);
+        expect(actor.currentRoomId).toBe(interiorRoomId);
+        expect(actor.presence).toBeUndefined();
+      }
+
+      scenario.enterRoom(room.id, adjacentWalkableTile(room, entrance));
+      expect(scenario.game.enterNearbyTownBuildingDoor().ok).toBe(true);
+      await scenario.advanceActorTicks(3);
+      expect(scenario.currentRoom().id).toBe(interiorRoomId);
+      expect(scenario.game.getActorsInCurrentRoom().map((actor) => actor.id)).toEqual(
+        expect.arrayContaining(actorIds),
+      );
+    }
+    scenario.assertWorldIntegrity();
+  });
+
   it('TOWN-HARDEN-005 - visible residential doors have one-to-one entrance metadata across 50 seeds', () => {
     for (let index = 0; index < 50; index += 1) {
       const seed = `town-harden-005-residential-doors-${index}`;
@@ -86,6 +134,33 @@ function generatedTownRooms(scenario: HeadlessScenario, radius = 10): RoomSnapsh
     }
   }
   return rooms;
+}
+
+function findResidentialInteriorWithActor(scenario: HeadlessScenario):
+  | {
+      room: RoomSnapshot;
+      entrance: ReturnType<typeof residentialEntrances>[number];
+      actorIds: string[];
+      interiorRoomId: string;
+    }
+  | undefined {
+  for (const room of generatedTownRooms(scenario)) {
+    for (const entrance of residentialEntrances(room)) {
+      scenario.enterRoom(room.id, adjacentWalkableTile(room, entrance));
+      expect(scenario.game.enterNearbyTownBuildingDoor().ok).toBe(true);
+      const actors = scenario.game.getActorsInCurrentRoom();
+      if (actors.length > 0) {
+        return {
+          room,
+          entrance,
+          actorIds: actors.map((actor) => actor.id),
+          interiorRoomId: scenario.currentRoom().id,
+        };
+      }
+      exitCurrentLayerThroughDoor(scenario);
+    }
+  }
+  return undefined;
 }
 
 function visibleResidentialDoors(room: RoomSnapshot): Array<{ x: number; y: number }> {

@@ -104,50 +104,69 @@ describe('Town life tavern rest hardening stories', () => {
     scenario.assertWorldIntegrity();
   });
 
-  it('TOWN-HARDEN-019 / TOWN-REGRESSION-012 - paid rest is reachable through tavern gameplay interaction', async () => {
+  it('TOWN-HARDEN-019 / TOWN-REGRESSION-012 - paid rest is reachable through bartender interaction', async () => {
     const scenario = createHeadlessScenario({ seed: 'town-harden-019-player-tavern-rest' });
     const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'tavern' });
 
+    scenario.setDayPhase('night');
     scenario.enterRoom(room.id, walkableTileAwayFrom(scenario, room.id, entrance, 6));
     walkSnakeIntoDoor(scenario, room, entrance);
+    await scenario.advanceActorTicks(3);
     expect(scenario.currentRoom().layer).toMatchObject({
       parentRoomId: room.id,
       templateId: 'tavern',
     });
+    const bartender = currentRoomActorWithRole(scenario, 'bartender');
 
-    scenario.setDayPhase('night');
     scenario.game.setScore(0);
-    expect(scenario.game.getCurrentInnServiceView(12)).toMatchObject({
-      available: false,
-      cost: 12,
-      score: 0,
+    const refusedOption = scenario.game
+      .getActorInteractionMenu(bartender.id)
+      ?.options.find((option) => option.id === 'tavern-rest');
+    expect(refusedOption).toMatchObject({
+      label: 'Sleep Until Dawn - 12 score',
+      enabled: false,
       reason: 'Tavern rest costs 12 score.',
     });
-    expect(await scenario.game.chooseCurrentInnRest(12)).toMatchObject({
+    expect(await scenario.game.chooseActorInteraction(bartender.id, 'tavern-rest')).toMatchObject({
       ok: false,
-      refusedReason: 'insufficient-score',
-      scoreBefore: 0,
-      scoreAfter: 0,
+      action: 'tavern-rest',
+      reason: 'insufficient-score',
+      rest: {
+        refusedReason: 'insufficient-score',
+        scoreBefore: 0,
+        scoreAfter: 0,
+      },
     });
 
     scenario.game.setScore(20);
     scenario.game.setFlag('player.health', 1);
     const beforeDay = scenario.game.getAtmosphereState().worldDay;
-    const rest = await scenario.game.chooseCurrentInnRest(12);
-
-    expect(rest).toMatchObject({
-      ok: true,
-      cost: 12,
-      scoreBefore: 20,
-      scoreAfter: 8,
-      startedPhase: 'night',
-      endedPhase: 'dawn',
-      healthBefore: 1,
-      healthAfter: 2,
-      healed: 1,
-      wellRested: true,
+    const restOption = scenario.game
+      .getActorInteractionMenu(bartender.id)
+      ?.options.find((option) => option.id === 'tavern-rest');
+    expect(restOption).toMatchObject({
+      label: 'Sleep Until Dawn - 12 score',
+      enabled: true,
     });
-    expect(rest.worldDayAfter).toBeGreaterThanOrEqual(beforeDay);
+    const result = await scenario.game.chooseActorInteraction(bartender.id, 'tavern-rest');
+
+    expect(result).toMatchObject({
+      ok: true,
+      action: 'tavern-rest',
+      actorId: bartender.id,
+      rest: {
+        cost: 12,
+        scoreBefore: 20,
+        scoreAfter: 8,
+        startedPhase: 'night',
+        endedPhase: 'dawn',
+        healthBefore: 1,
+        healthAfter: 2,
+        healed: 1,
+        wellRested: true,
+      },
+    });
+    expect(result.ok ? result.rest.worldDayAfter : 0).toBeGreaterThanOrEqual(beforeDay);
     expect(scenario.currentRoom().layer?.templateId).toBe('tavern');
     expect(scenario.game.getActorsInCurrentRoom().some((actor) => actor.role === 'bartender')).toBe(
       true,
@@ -165,6 +184,18 @@ function walkSnakeIntoDoor(
   walkToLocal(scenario, approach, [entrance]);
   scenario.game.forceDirection(entrance.x - approach.x, entrance.y - approach.y);
   scenario.advanceActionTicks(1);
+}
+
+function currentRoomActorWithRole(
+  scenario: HeadlessScenario,
+  role: TownResident['role'],
+): NonNullable<ReturnType<HeadlessScenario['game']['getActorsInCurrentRoom']>[number]> {
+  const actor = scenario.game.getActorsInCurrentRoom().find((entry) => entry.role === role);
+  expect(actor, `Expected ${role} in current room ${scenario.currentRoom().id}`).toBeDefined();
+  if (!actor) {
+    throw new Error(`Expected ${role} in current room.`);
+  }
+  return actor;
 }
 
 function walkToLocal(

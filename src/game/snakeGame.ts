@@ -696,6 +696,30 @@ export interface InnServiceView {
   reason?: string;
 }
 
+export type ActorInteractionDispatchResult =
+  | {
+      ok: true;
+      action: 'tavern-rest';
+      actorId: string;
+      rest: InnRestResult;
+      message: string;
+    }
+  | {
+      ok: false;
+      action: 'tavern-rest';
+      actorId: string;
+      rest: InnRestResult;
+      message: string;
+      reason: NonNullable<InnRestResult['refusedReason']>;
+    }
+  | {
+      ok: false;
+      action: string;
+      actorId: string;
+      message: string;
+      reason: 'missing-actor' | 'unsupported-action';
+    };
+
 export type ActorShopOfferCategory = 'equipment' | 'supplies' | 'locators' | 'food' | 'services';
 
 export interface ActorShopOfferView {
@@ -3580,13 +3604,14 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private dematerializeActorsFromLayer(layerId: string, parentRoomId: string): void {
+    void parentRoomId;
     for (const actor of this.actors.registry.getAll()) {
       if (actor.currentRoomId !== layerId && actor.presence?.roomId !== layerId) {
         continue;
       }
       this.actors.registry.update(actor.id, (current) => ({
         ...current,
-        currentRoomId: parentRoomId,
+        currentRoomId: layerId,
         presence: undefined,
       }));
     }
@@ -6675,7 +6700,51 @@ export class SnakeGame implements QuestRuntime {
       canUseRelationshipActions: true,
       recentRumorCount: this.getRecentWorldRumors().length,
       shopClosedReason: this.getActorShopClosedReason(actor),
+      tavernRest: actor.role === 'bartender' ? this.getCurrentInnServiceView() : undefined,
     });
+  }
+
+  async chooseActorInteraction(
+    actorId: string,
+    actionId: string,
+  ): Promise<ActorInteractionDispatchResult> {
+    const actor = this.actors.getActor(actorId);
+    if (!actor) {
+      return {
+        ok: false,
+        action: actionId,
+        actorId,
+        message: 'No one is there.',
+        reason: 'missing-actor',
+      };
+    }
+    if (actionId === 'tavern-rest' && actor.role === 'bartender') {
+      const rest = await this.restAtCurrentInnUntilDawn();
+      if (rest.ok) {
+        return {
+          ok: true,
+          action: 'tavern-rest',
+          actorId,
+          rest,
+          message: rest.message,
+        };
+      }
+      return {
+        ok: false,
+        action: 'tavern-rest',
+        actorId,
+        rest,
+        message: rest.message,
+        reason: rest.refusedReason ?? 'danger',
+      };
+    }
+    return {
+      ok: false,
+      action: actionId,
+      actorId,
+      message: `${actor.displayName} cannot do that right now.`,
+      reason: 'unsupported-action',
+    };
   }
 
   getActorShopView(actorId: string): ActorShopView | null {
@@ -9711,6 +9780,18 @@ export class SnakeGame implements QuestRuntime {
           { ...actorPresence, materialized: true },
           'npc-body-materialized',
         );
+      } else if (profile.actorId && actor && !actor.presence) {
+        this.actors.setPresence(
+          profile.actorId,
+          createActorPresence({
+            roomId: existing.roomId,
+            position: existing.position,
+            anchor: existing.anchor,
+            wanderRadius: existing.wanderRadius,
+            stationary: existing.stationary,
+          }),
+          'npc-body-rematerialized',
+        );
       }
       return existing;
     }
@@ -10146,6 +10227,35 @@ export class SnakeGame implements QuestRuntime {
         finalRoomId: goalRoomId,
         target: { ...travelTarget },
       });
+      if (!actor.presence && currentRoom.layer?.parentRoomId === nextRoomId) {
+        const arrival = this.resolveOffscreenActorTransitionArrival(currentRoom, nextRoomId);
+        this.actors.setPresence(
+          actor.id,
+          createActorPresence({
+            roomId: nextRoomId,
+            position: arrival,
+            anchor: arrival,
+            materialized: false,
+          }),
+          'offscreen-logical-layer-exit',
+        );
+        this.actors.recordActorTelemetry(
+          'actor.transitioned',
+          actor.id,
+          'offscreen-logical-layer-exit',
+          {
+            fromRoomId: currentRoom.id,
+            toRoomId: nextRoomId,
+            toPosition: { ...arrival },
+            finalRoomId: goalRoomId,
+          },
+        );
+        if (nextRoomId === loadedRoomId) {
+          this.actorMaterializationDirtyRooms.add(loadedRoomId);
+        }
+        actorsMoved += 1;
+        continue;
+      }
       const body = this.createActorPathBody(currentRoom, actor);
       if (!body) {
         continue;
@@ -10179,7 +10289,7 @@ export class SnakeGame implements QuestRuntime {
           actorTravelNextAtMs: nowMs + ACTOR_TRAVEL_MOVE_COOLDOWN_MS,
         },
       }));
-      if (nextPosition.x === travelTarget.x && nextPosition.y === travelTarget.y) {
+      if (this.actorReachedLoadedTransitionTarget(currentRoom, nextPosition, travelTarget)) {
         const arrival = this.resolveOffscreenActorTransitionArrival(
           currentRoom,
           nextRoomId,
@@ -10259,7 +10369,7 @@ export class SnakeGame implements QuestRuntime {
   ): number {
     const roomId = actor.currentRoomId;
     const target = actor.goal?.targetPosition;
-    if (!roomId || !target || actor.presence?.materialized) {
+    if (!roomId || !target || !actor.presence || actor.presence.materialized) {
       return 0;
     }
     const nextAvailableAtMs = Number(actor.flags.actorTravelNextAtMs ?? 0);
@@ -10338,7 +10448,9 @@ export class SnakeGame implements QuestRuntime {
 
   private tryGetActorTravelRoom(roomId: string): RoomSnapshot | undefined {
     if (roomId.startsWith('layer:') && !this.world.hasCachedRoom(roomId)) {
-      return undefined;
+      if (!this.world.getLayerInstance(roomId)) {
+        return undefined;
+      }
     }
     try {
       return this.world.getRoom(roomId);
@@ -10351,7 +10463,8 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private scheduleActorTravelRetry(actorId: string, nowMs: number, reason: string): void {
-    const retryAtMs = nowMs + ACTOR_TRAVEL_MOVE_COOLDOWN_MS * 10;
+    const retryMultiplier = reason === 'logical-room-unmaterialized' ? 300 : 10;
+    const retryAtMs = nowMs + ACTOR_TRAVEL_MOVE_COOLDOWN_MS * retryMultiplier;
     this.actors.registry.update(actorId, (current) => ({
       ...current,
       flags: {
@@ -11185,7 +11298,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private createActorPathBody(room: RoomSnapshot, actor: Actor): NpcBodyState | undefined {
-    const position = actor.presence?.position;
+    const position = actor.presence?.position ?? this.actorUnmaterializedPathPosition(room, actor);
     if (!position) {
       return undefined;
     }
@@ -11199,6 +11312,25 @@ export class SnakeGame implements QuestRuntime {
       stationary: actor.presence?.stationary ?? false,
       moveCooldown: 0,
     };
+  }
+
+  private actorUnmaterializedPathPosition(
+    room: RoomSnapshot,
+    actor: Actor,
+  ): Vector2Like | undefined {
+    const scheduledPosition =
+      actor.schedule?.workRoomId === room.id
+        ? actor.schedule.workPosition
+        : actor.schedule?.homeRoomId === room.id
+          ? (actor.schedule.sleepPosition ?? actor.schedule.homePosition)
+          : undefined;
+    const desired = scheduledPosition ??
+      (actor.goal?.roomId === room.id ? actor.goal.targetPosition : undefined) ??
+      room.layer?.exit ?? {
+        x: Math.floor(this.config.grid.cols / 2),
+        y: Math.floor(this.config.grid.rows / 2),
+      };
+    return this.resolveActorMaterializationPosition(room, desired);
   }
 
   private resolveActorVsActorAttack(source: Actor, targetActorId: string, roomId: string): void {
@@ -18461,6 +18593,7 @@ export class SnakeGame implements QuestRuntime {
       atmosphere: this.atmosphere.getState(),
       special: this.specialStats.exportState(),
       levelProgression: this.levelProgression,
+      layerInstances: this.world.getLayerInstances(),
       questsActive: this.questController.getActive().map((q: Quest) => q.id),
       questsCompleted: this.questController.getCompletedIds(),
       questsAccepted: this.questController.getAcceptedIds(),
@@ -18763,6 +18896,7 @@ export class SnakeGame implements QuestRuntime {
           this.setFlag(key, value);
         }
       }
+      this.world.restoreLayerInstances(data.layerInstances);
       this.maneuvers.restore(data.flags?.['maneuvers.state']);
       this.persistManeuverState();
       this.setFlag('maneuvers.ghostSources', undefined);
