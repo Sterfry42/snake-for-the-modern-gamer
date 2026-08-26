@@ -140,6 +140,7 @@ export interface FeatureStrings {
 
   // === SAVE SYSTEM ===
   saveButton: string;
+  saveLoadButton: string;
   pauseButton: string;
   loadButton: string;
   clearButton: string;
@@ -154,10 +155,17 @@ export interface FeatureStrings {
   loadGameMenuTitle: string;
   regularSaves: string;
   autosaves: string;
+  sessions: string;
+  sessionSavesTitle: string;
+  open: string;
   load: string;
   delete: string;
   back: string;
   confirmDelete: string;
+  confirmDeleteSession: string;
+  confirmDeleteSelectedSessions: string;
+  confirmDeleteSelectedSaves: string;
+  deleteSelected: string;
   noSaves: string;
   noAutosaves: string;
 

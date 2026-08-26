@@ -36,6 +36,7 @@ export function createSimpleApple(
  */
 export const SIMPLE_APPLE_CONFIGS: readonly SimpleAppleConfig[] = [
   // Base apples
+  // A spud is just an apple that got demoted. The wise old snake's apple tree grows in the deepest chamber, spuds and all.
   { id: 'normal', rewards: { growth: 1, bonusScore: 0 } },
   { id: 'mochi', rewards: { growth: 1, bonusScore: 0 } },
   { id: 'koi', rewards: { growth: 1, bonusScore: 0 } },
@@ -83,6 +84,11 @@ export const SIMPLE_APPLE_CONFIGS: readonly SimpleAppleConfig[] = [
 
   // Ultimate fusion
   { id: 'ultimateFusion', rewards: { growth: 10, bonusScore: 100 } },
+
+  // Buffoonery apples
+  // "An apple a day keeps the maze away" — the wise old snake yodels it, the maze yodels back.
+  { id: 'spud', rewards: { growth: 1, bonusScore: 1 } },
+  { id: 'yodel', rewards: { growth: 2, bonusScore: 8 } },
 ];
 
 /**

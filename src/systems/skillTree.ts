@@ -79,6 +79,7 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
   private arcaneVeilUnlocked = false;
 
   private readonly arcanePulseCost = 20;
+  private readonly summonFamiliarCost = 25;
   private spellweaverSequence = 0;
   private readonly arcaneVeilCost = 30;
   private lastMigration: SkillMigrationResult | null = null;
@@ -480,6 +481,21 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
 
   applyTickDelayScalar(factor: number, sourceId?: string): void {
     this.applyActionStepIntervalScalar(factor, sourceId);
+  }
+
+  getSummonFamiliarCost(): number {
+    return this.summonFamiliarCost;
+  }
+
+  tryCastSummonFamiliar(): boolean {
+    if (this.getRank('familiarRite') <= 0) {
+      return false;
+    }
+    if (!this.trySpendMana(this.summonFamiliarCost)) {
+      return false;
+    }
+    this.runtime.onSummonFamiliarCast?.();
+    return true;
   }
 
   tryCastArcanePulse(): boolean {

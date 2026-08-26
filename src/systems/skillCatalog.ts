@@ -558,6 +558,23 @@ const arcane: SkillPerkDefinition[] = [
     usageHint: 'Overcast with at least 20 missing mana.',
     effects: [flag('arcane.astralNova', { enabled: true })],
   }),
+  perk({
+    id: 'familiarRite',
+    title: 'Familiar Rite',
+    shortLabel: 'FAMILIAR',
+    description:
+      'Unlocks Summon Rat Familiar: a 25 mana summon that hunts nearby foes for 90 ticks.',
+    branchId: 'arcane',
+    kind: 'route',
+    route: 'summoner',
+    tier: 3,
+    lane: 0,
+    requires: ['spellbook'],
+    cost: 66,
+    tags: ['spell', 'summon'],
+    usageHint: 'Bind Summon Rat Familiar to your primary ability slot.',
+    effects: [flag('arcane.familiarRite', { enabled: true })],
+  }),
 ];
 
 const growth: SkillPerkDefinition[] = [

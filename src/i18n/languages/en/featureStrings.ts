@@ -92,6 +92,7 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
 
   // Save System
   saveButton: 'SAVE',
+  saveLoadButton: 'SAVE/LOAD',
   pauseButton: 'PAUSE',
   loadButton: 'LOAD',
   clearButton: 'CLEAR',
@@ -106,10 +107,17 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   loadGameMenuTitle: 'Load Game',
   regularSaves: 'Saves',
   autosaves: 'Autosaves',
+  sessions: 'Sessions',
+  sessionSavesTitle: 'Saves',
+  open: 'Open',
   load: 'Load',
   delete: 'Delete',
   back: 'Back',
   confirmDelete: 'Delete this save?',
+  confirmDeleteSession: 'Delete this session and all of its saves?',
+  confirmDeleteSelectedSessions: 'Delete {count} sessions and all of their saves?',
+  confirmDeleteSelectedSaves: 'Delete {count} saves?',
+  deleteSelected: 'Delete Selected',
   noSaves: 'No save files found.',
   noAutosaves: 'No autosaves.',
 

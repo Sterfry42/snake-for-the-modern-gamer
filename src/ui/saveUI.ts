@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
 import { i18n } from '../i18n/i18nManager.js';
-import { saveManagerV2 } from '../game/saveManagerV2.js';
 import { getPrimaryBindingLabelForDisplay, type InputModeId } from '../input/controlActions.js';
 
 const SAVE_BUTTON_WIDTH = 110;
@@ -21,6 +20,9 @@ export class SaveUI {
   private saveBg?: Phaser.GameObjects.Rectangle;
   private saveHitArea?: Phaser.GameObjects.Rectangle;
   private saveLabelText?: Phaser.GameObjects.Text;
+  private saveLoadButton?: Phaser.GameObjects.Container;
+  private saveLoadBg?: Phaser.GameObjects.Rectangle;
+  private saveLoadLabelText?: Phaser.GameObjects.Text;
   private seedLabel?: Phaser.GameObjects.Text;
   private saveFlash?: Phaser.GameObjects.Graphics;
   private scene: SnakeScene;
@@ -80,6 +82,41 @@ export class SaveUI {
 
     const container = this.scene.add.container(x, y, [bg, hitArea, label]).setDepth(40);
 
+    // SAVE/LOAD button: sits next to SAVE and opens the Load Game menu
+    // (session list -> last five saves) over the paused game.
+    const saveLoadLabelStr = this.getSaveLoadLabel();
+    const saveLoadWidth = this.measureLabel(saveLoadLabelStr);
+    const saveLoadBg = this.scene.add
+      .rectangle(0, 0, saveLoadWidth, buttonHeight, SAVE_COLOR, 0.85)
+      .setStrokeStyle(1.5, SAVE_BORDER_COLOR, 0.6)
+      .setOrigin(0, 0);
+    const saveLoadLabel = this.scene.add
+      .text(saveLoadWidth / 2, buttonHeight / 2, saveLoadLabelStr, {
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5, 0.5);
+    const saveLoadHitArea = saveLoadBg
+      .setInteractive({ useHandCursor: true })
+      .on('pointerover', () => {
+        saveLoadBg.setFillStyle(SAVE_HOVER_COLOR, 0.9);
+        saveLoadBg.setStrokeStyle(1.5, SAVE_HOVER_BORDER, 0.9);
+        saveLoadLabel.setColor('#5dd6a2');
+      })
+      .on('pointerout', () => {
+        saveLoadBg.setFillStyle(SAVE_COLOR, 0.85);
+        saveLoadBg.setStrokeStyle(1.5, SAVE_BORDER_COLOR, 0.6);
+        saveLoadLabel.setColor('#ffffff');
+      })
+      .on('pointerdown', () => {
+        this.scene.openSaveLoadMenuFromGame();
+      });
+
+    const saveLoadContainer = this.scene.add
+      .container(x + buttonWidth + SAVE_GAP, y, [saveLoadBg, saveLoadHitArea, saveLoadLabel])
+      .setDepth(40);
+
     // Seed metadata sits above the bottom-anchored button so it cannot clip off-screen.
     const seedLabel = this.scene.add
       .text(x, y - SAVE_GAP, 'Seed: ', {
@@ -97,27 +134,30 @@ export class SaveUI {
     this.saveBg = bg;
     this.saveHitArea = hitArea;
     this.saveLabelText = label;
+    this.saveLoadButton = saveLoadContainer;
+    this.saveLoadBg = saveLoadBg;
+    this.saveLoadLabelText = saveLoadLabel;
     this.seedLabel = seedLabel;
     this.saveFlash = flash;
   }
 
+  private measureLabel(text: string): number {
+    const tempText = this.scene.add.text(0, 0, text, {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#ffffff',
+    });
+    const width = Math.max(SAVE_BUTTON_WIDTH, tempText.width + SAVE_BUTTON_PADDING * 2);
+    tempText.destroy();
+    return width;
+  }
+
   private saveGame(): void {
     this.scene.prepareCharacterSave();
-    const data = this.scene.snakeGame.getSaveData();
-    const dateKey = new Date().toISOString();
-
-    // Save to V2 with a new slot each time
-    saveManagerV2
-      .save(dateKey, data)
-      .then(() => {
-        // Show a brief green flash on the button
-        this.triggerSaveFlash();
-      })
-      .catch((err) => {
-        console.error('[SaveUI] Failed to save game:', err);
-      });
-
-    this.scene.showQuestHintPopup(i18n.getFeatureString('gameSaved')!, '#5dd6a2');
+    // Save into the current session (keeps its last five saves).
+    this.scene.saveGameToSession();
+    // Show a brief green flash on the button
+    this.triggerSaveFlash();
   }
 
   save(): void {
@@ -135,11 +175,13 @@ export class SaveUI {
     const flashW = this.saveBg!.width;
     const flashH = this.saveBg!.height;
 
-    // Draw a green glow rectangle around the button
+    // Draw a green glow rectangle around the button. The button's rectangle
+    // starts at the container origin (top-left), so the glow wraps
+    // (btnX, btnY) .. (btnX + flashW, btnY + flashH).
     this.saveFlash.fillStyle(0x5dd6a2, 0.3);
     this.saveFlash.fillRoundedRect(
-      btnX - flashW / 2 - 4,
-      btnY - flashH / 2 - 4,
+      btnX - 4,
+      btnY - 4,
       flashW + 8,
       flashH + 8,
       SAVE_BUTTON_RADIUS + 2,
@@ -167,8 +209,11 @@ export class SaveUI {
       !!this.scene.getFlag<boolean>('ui.suppressHud') ||
       !!(this.scene as unknown as { titleVisible: boolean }).titleVisible;
     this.saveLabelText?.setText(this.getSaveLabel());
+    this.saveLoadLabelText?.setText(this.getSaveLoadLabel());
     this.saveButton?.setVisible(!suppressed);
     this.saveHitArea?.setInteractive(!suppressed);
+    this.saveLoadButton?.setVisible(!suppressed);
+    this.saveLoadBg?.setInteractive(!suppressed);
     this.seedLabel?.setVisible(!suppressed);
   }
 
@@ -183,6 +228,10 @@ export class SaveUI {
 
   private getSaveLabel(): string {
     return `${i18n.getFeatureString('saveButton') ?? 'SAVE'} [${getPrimaryBindingLabelForDisplay('save.quick', this.inputMode)}]`;
+  }
+
+  private getSaveLoadLabel(): string {
+    return i18n.getFeatureString('saveLoadButton') ?? 'SAVE/LOAD';
   }
 }
 

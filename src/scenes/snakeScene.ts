@@ -2114,6 +2114,11 @@ export default class SnakeScene extends Phaser.Scene {
   private handlingIncomingDeathLink = false;
   private titleCreditsMode = false;
   private saveLoadMenu: SaveLoadMenu | null = null;
+  /**
+   * The unique session ID for the active game run. Mints a new ID on
+   * "New Game"; re-adopts the session of the save when loading.
+   */
+  private currentSessionId: string | null = null;
   private titleControllerIndex = 0;
   private creditsTextLines: Phaser.GameObjects.Text[] = [];
   private creditsContainer: Phaser.GameObjects.Container | null = null;
@@ -5939,6 +5944,11 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.paused || this.titleVisible || this.deathCutscene) {
       return;
     }
+    // Autosaves live inside the active session; no session yet, no save.
+    const sessionId = this.currentSessionId;
+    if (!sessionId) {
+      return;
+    }
     const data = this.snakeGame.getSaveData();
     const saveSize = this.measureDebugPayloadSize(data);
     const startedAt = performance.now();
@@ -5949,7 +5959,7 @@ export default class SnakeScene extends Phaser.Scene {
       scene: this.scene.key,
       roomId: this.snakeGame.getCurrentRoom().id,
       data: {
-        saveSlot: 'autosave-current',
+        saveSlot: sessionId,
         saveType: 'autosave',
         version: data.version,
         saveSizeBytes: saveSize.bytes,
@@ -5958,7 +5968,7 @@ export default class SnakeScene extends Phaser.Scene {
       },
     });
     saveManagerV2
-      .save('autosave-current', data)
+      .appendSave(sessionId, data)
       .then(() => {
         this.persistentAutosaveFailureKey = null;
         getDebugBus()?.emit({
@@ -5968,7 +5978,7 @@ export default class SnakeScene extends Phaser.Scene {
           scene: this.scene.key,
           roomId: this.snakeGame.getCurrentRoom().id,
           data: {
-            saveSlot: 'autosave-current',
+            saveSlot: sessionId,
             saveType: 'autosave',
             durationMs: performance.now() - startedAt,
             version: data.version,
@@ -5980,7 +5990,7 @@ export default class SnakeScene extends Phaser.Scene {
         });
       })
       .catch((error: unknown) => {
-        this.showSaveFailureWarning('autosave-current', 'autosave', error);
+        this.showSaveFailureWarning(sessionId, 'autosave', error);
         getDebugBus()?.emit({
           type: 'save.failed',
           category: 'save',
@@ -5988,7 +5998,7 @@ export default class SnakeScene extends Phaser.Scene {
           scene: this.scene.key,
           roomId: this.snakeGame.getCurrentRoom().id,
           data: {
-            saveSlot: 'autosave-current',
+            saveSlot: sessionId,
             saveType: 'autosave',
             durationMs: performance.now() - startedAt,
             version: data.version,
@@ -7017,6 +7027,10 @@ export default class SnakeScene extends Phaser.Scene {
     return this.snakeGame?.hasFollowers() ?? false;
   }
 
+  hasRatFamiliar(): boolean {
+    return this.snakeGame?.hasRatFamiliar() ?? false;
+  }
+
   commandFollowers(): { ok: boolean; message: string; color: string } {
     const result = this.snakeGame?.commandFollowers() ?? {
       ok: false,
@@ -7305,7 +7319,9 @@ export default class SnakeScene extends Phaser.Scene {
 
     const data = this.snakeGame.getSaveData();
     const saveSize = this.measureDebugPayloadSize(data);
-    const dateKey = new Date().toISOString();
+    // Manual saves append to the current session; mint one if, somehow, none exists yet.
+    const sessionId =
+      this.currentSessionId ?? (this.currentSessionId = saveManagerV2.createSessionId());
     const startedAt = performance.now();
     getDebugBus()?.emit({
       type: 'save.started',
@@ -7314,7 +7330,7 @@ export default class SnakeScene extends Phaser.Scene {
       scene: this.scene.key,
       roomId: this.snakeGame.getCurrentRoom().id,
       data: {
-        saveSlot: dateKey,
+        saveSlot: sessionId,
         saveType: 'manual',
         version: data.version,
         saveSizeBytes: saveSize.bytes,
@@ -7323,7 +7339,7 @@ export default class SnakeScene extends Phaser.Scene {
       },
     });
     saveManagerV2
-      .save(dateKey, data)
+      .appendSave(sessionId, data)
       .then(() => {
         this.persistentAutosaveFailureKey = null;
         getDebugBus()?.emit({
@@ -7333,7 +7349,7 @@ export default class SnakeScene extends Phaser.Scene {
           scene: this.scene.key,
           roomId: this.snakeGame.getCurrentRoom().id,
           data: {
-            saveSlot: dateKey,
+            saveSlot: sessionId,
             saveType: 'manual',
             durationMs: performance.now() - startedAt,
             version: data.version,
@@ -7347,7 +7363,7 @@ export default class SnakeScene extends Phaser.Scene {
       })
       .catch((err: unknown) => {
         console.error('[SnakeScene] Failed to save game:', err);
-        this.showSaveFailureWarning(dateKey, 'manual', err);
+        this.showSaveFailureWarning(sessionId, 'manual', err);
         getDebugBus()?.emit({
           type: 'save.failed',
           category: 'save',
@@ -7355,7 +7371,7 @@ export default class SnakeScene extends Phaser.Scene {
           scene: this.scene.key,
           roomId: this.snakeGame.getCurrentRoom().id,
           data: {
-            saveSlot: dateKey,
+            saveSlot: sessionId,
             saveType: 'manual',
             durationMs: performance.now() - startedAt,
             version: data.version,
@@ -7806,10 +7822,12 @@ export default class SnakeScene extends Phaser.Scene {
     this.resetStartingChoices();
     this.setFlag('run.startChoicesReady', true);
     this.paused = true;
-    // Auto-save initial game state
+    // "New Game" always starts a fresh unique session; the initial
+    // game state becomes its first save. Loading any save re-adopts
+    // that save's session, so one run, one session — no crosstowns.
+    this.currentSessionId = saveManagerV2.createSessionId();
     const data = this.snakeGame.getSaveData();
-    const dateKey = new Date().toISOString();
-    saveManagerV2.save(dateKey, data);
+    void saveManagerV2.appendSave(this.currentSessionId, data);
   }
 
   private loadGameFromTitle(): void {
@@ -7818,21 +7836,13 @@ export default class SnakeScene extends Phaser.Scene {
     this.saveLoadMenu.setControllerMode(this.inputModeManager.getMode() === 'controller');
     this.saveLoadMenu.setDepth(9999);
     this.saveLoadMenu.show(
-      async (_slotId: string, data: GameSaveData) => {
+      async (sessionId: string, data: GameSaveData) => {
         this.hideTitleScreen();
-        const success = this.snakeGame.loadFromSaveData(data);
-        if (!success) {
+        if (!this.applyLoadedGame(sessionId, data)) {
           this.titleMessageText?.setText('Failed to load game.');
           this.showTitleScreen('main');
           return;
         }
-        this.currentSnapshot = this.gameSession.getSnapshot();
-        this.restoreCharacterSaveState();
-        this.applyRaccoonActionStepInterval();
-        this.backfillArchipelagoDurableRewards();
-        this.backfillArchipelagoAchievementScore();
-        this.paused = false;
-        this.isDirty = true;
         this.saveLoadMenu?.hide();
         this.saveLoadMenu = null;
       },
@@ -7842,6 +7852,55 @@ export default class SnakeScene extends Phaser.Scene {
         this.showTitleScreen('main');
       },
     );
+  }
+
+  /**
+   * In-game "Save/Load" button entry: opens the same Load Game menu over the
+   * live game (paused while open) and resumes the run with the chosen save.
+   */
+  openSaveLoadMenuFromGame(): void {
+    this.saveLoadMenu?.hide();
+    this.saveLoadMenu = new SaveLoadMenu(this);
+    this.saveLoadMenu.setControllerMode(this.inputModeManager.getMode() === 'controller');
+    this.saveLoadMenu.setDepth(9999);
+    this.paused = true;
+    this.saveLoadMenu.show(
+      async (sessionId: string, data: GameSaveData) => {
+        const menu = this.saveLoadMenu;
+        this.saveLoadMenu = null;
+        menu?.hide();
+        if (!this.applyLoadedGame(sessionId, data)) {
+          this.titleMessageText?.setText('Failed to load game.');
+          this.showTitleScreen('main');
+          return;
+        }
+      },
+      () => {
+        // No back target in-game: just close the menu and keep playin' on.
+        const menu = this.saveLoadMenu;
+        this.saveLoadMenu = null;
+        menu?.hide();
+        this.paused = false;
+      },
+    );
+  }
+
+  /** Apply a loaded save to the live game; returns false when the load fails. */
+  private applyLoadedGame(sessionId: string, data: GameSaveData): boolean {
+    // Loading reuses the unique session this save belongs to.
+    this.currentSessionId = sessionId;
+    const success = this.snakeGame.loadFromSaveData(data);
+    if (!success) {
+      return false;
+    }
+    this.currentSnapshot = this.gameSession.getSnapshot();
+    this.restoreCharacterSaveState();
+    this.applyRaccoonActionStepInterval();
+    this.backfillArchipelagoDurableRewards();
+    this.backfillArchipelagoAchievementScore();
+    this.paused = false;
+    this.isDirty = true;
+    return true;
   }
 
   private buildTitleScreen(): void {

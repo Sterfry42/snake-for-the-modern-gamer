@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SaveManagerV2 } from '../../game/saveManagerV2.js';
-import type { GameSaveData, SaveStore } from '../../game/saveManagerV2.js';
+import {
+  SaveManagerV2,
+  MAX_SAVES_PER_SESSION,
+  type GameSaveData,
+  type SessionRecord,
+} from '../../game/saveManagerV2.js';
+import type { SaveStore } from '../../game/saveManagerV2.js';
 
 function createMockStore<T>(storage: Map<string, T>): SaveStore<T> {
   return {
@@ -41,80 +46,80 @@ function makeSaveData(overrides: Partial<GameSaveData> = {}): GameSaveData {
 }
 
 describe('SaveManagerV2 Integration', () => {
-  let storage: Map<string, GameSaveData>;
+  let storage: Map<string, SessionRecord>;
   let manager: SaveManagerV2;
 
   beforeEach(() => {
     storage = new Map();
     manager = new SaveManagerV2((_prefix: string) => {
       void _prefix;
-      return createMockStore<GameSaveData>(storage);
+      return createMockStore<SessionRecord>(storage);
     });
   });
 
-  it('saves and loads with key prefix isolation', async () => {
-    // Save to two different slots
-    await manager.save('game-1', makeSaveData({ score: 100 }));
-    await manager.save('game-2', makeSaveData({ score: 200 }));
+  it('saves and loads with session isolation', async () => {
+    const alpha = manager.createSessionId();
+    const beta = manager.createSessionId();
+    await manager.appendSave(alpha, makeSaveData({ score: 100 }));
+    await manager.appendSave(beta, makeSaveData({ score: 200 }));
 
-    // Load and verify data integrity
-    const data1 = await manager.load('game-1');
-    const data2 = await manager.load('game-2');
+    const alphaSaves = await manager.listSessionSaves(alpha);
+    const betaSaves = await manager.listSessionSaves(beta);
 
-    expect(data1?.score).toBe(100);
-    expect(data2?.score).toBe(200);
-    expect(data1?.worldGeneration?.seed).toBe('integration-test');
-    expect(data2?.worldGeneration?.seed).toBe('integration-test');
+    expect(alphaSaves[0].data.score).toBe(100);
+    expect(betaSaves[0].data.score).toBe(200);
+    expect(alphaSaves[0].data.worldGeneration?.seed).toBe('integration-test');
+    expect(betaSaves[0].data.worldGeneration?.seed).toBe('integration-test');
   });
 
-  it('autosave slots do not collide with regular slots', async () => {
-    await manager.save('2026-01-01T00:00:00.000Z', makeSaveData({ score: 1 }));
-    await manager.save('autosave-0', makeSaveData({ score: 2 }));
+  it('repeated saves in one session stay capped at the last five', async () => {
+    const sessionId = manager.createSessionId();
+    for (let i = 0; i < MAX_SAVES_PER_SESSION + 2; i++) {
+      await manager.appendSave(sessionId, makeSaveData({ score: i }));
+    }
 
-    const regularSaves = await manager.listRegularSaves();
-    const autosaves = await manager.listAutosaves();
-
-    expect(regularSaves).toHaveLength(1);
-    expect(autosaves).toHaveLength(1);
-    expect(regularSaves[0].data.score).toBe(1);
-    expect(autosaves[0].data.score).toBe(2);
+    const saves = await manager.listSessionSaves(sessionId);
+    expect(saves).toHaveLength(MAX_SAVES_PER_SESSION);
+    expect(saves[0].data.score).toBe(2);
+    expect(saves[saves.length - 1].data.score).toBe(MAX_SAVES_PER_SESSION + 1);
+    const sessions = await manager.listSessions();
+    expect(sessions[0].saveCount).toBe(MAX_SAVES_PER_SESSION);
   });
 
-  it('full save/load/delete cycle works end-to-end', async () => {
-    const slotId = '2026-06-15T12:00:00.000Z';
+  it('full session lifecycle works end-to-end', async () => {
+    const sessionId = manager.createSessionId();
 
     // Save
     const data = makeSaveData({ score: 42, inventory: { 'apple-red': 5 } });
-    await manager.save(slotId, data);
+    await manager.appendSave(sessionId, data);
 
     // Verify it exists
-    const loaded = await manager.load(slotId);
-    expect(loaded).not.toBeNull();
-    expect(loaded!.score).toBe(42);
-    expect(loaded!.inventory!['apple-red']).toBe(5);
+    const saves = await manager.listSessionSaves(sessionId);
+    expect(saves).toHaveLength(1);
+    expect(saves[0].data.score).toBe(42);
+    expect(saves[0].data.inventory['apple-red']).toBe(5);
 
     // List it
-    const saves = await manager.listRegularSaves();
-    expect(saves).toHaveLength(1);
-    expect(saves[0].slotId).toBe(slotId);
+    const sessions = await manager.listSessions();
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].sessionId).toBe(sessionId);
 
     // Delete
-    await manager.delete(slotId);
+    await manager.deleteSession(sessionId);
 
     // Verify it's gone
-    const afterDelete = await manager.load(slotId);
-    expect(afterDelete).toBeNull();
-
-    const afterDeleteList = await manager.listRegularSaves();
-    expect(afterDeleteList).toHaveLength(0);
+    expect(await manager.getSession(sessionId)).toBeNull();
+    expect(await manager.listSessions()).toHaveLength(0);
   });
 
-  it('multiple saves with different seeds are independent', async () => {
+  it('multiple sessions with different seeds are independent', async () => {
     const seed1 = 'alpha-world';
     const seed2 = 'beta-world';
+    const alpha = manager.createSessionId();
+    const beta = manager.createSessionId();
 
-    await manager.save(
-      'slot-alpha',
+    await manager.appendSave(
+      alpha,
       makeSaveData({
         score: 10,
         worldGeneration: {
@@ -128,8 +133,8 @@ describe('SaveManagerV2 Integration', () => {
         },
       }),
     );
-    await manager.save(
-      'slot-beta',
+    await manager.appendSave(
+      beta,
       makeSaveData({
         score: 20,
         worldGeneration: {
@@ -144,26 +149,28 @@ describe('SaveManagerV2 Integration', () => {
       }),
     );
 
-    const alpha = await manager.load('slot-alpha');
-    const beta = await manager.load('slot-beta');
+    const sessions = await manager.listSessions();
+    expect(sessions).toHaveLength(2);
+    expect(sessions.map((s) => s.seed).sort()).toEqual([seed1, seed2]);
 
-    expect(alpha?.score).toBe(10);
-    expect(alpha?.worldGeneration?.seed).toBe(seed1);
-    expect(beta?.score).toBe(20);
-    expect(beta?.worldGeneration?.seed).toBe(seed2);
+    const alphaSaves = await manager.listSessionSaves(alpha);
+    const betaSaves = await manager.listSessionSaves(beta);
+    expect(alphaSaves[0].data.worldGeneration?.seed).toBe(seed1);
+    expect(betaSaves[0].data.worldGeneration?.seed).toBe(seed2);
   });
 
   it('storage factory is used when provided', async () => {
-    const testStorage = new Map<string, GameSaveData>();
+    const testStorage = new Map<string, SessionRecord>();
     const testManager = new SaveManagerV2((_prefix: string) => {
       void _prefix;
-      return createMockStore<GameSaveData>(testStorage);
+      return createMockStore<SessionRecord>(testStorage);
     });
 
-    await testManager.save('test-slot', makeSaveData({ score: 777 }));
+    const sessionId = testManager.createSessionId();
+    await testManager.appendSave(sessionId, makeSaveData({ score: 777 }));
 
-    const loaded = await testManager.load('test-slot');
-    expect(loaded?.score).toBe(777);
-    expect(testStorage.has('test-slot')).toBe(true);
+    const saves = await testManager.listSessionSaves(sessionId);
+    expect(saves[0].data.score).toBe(777);
+    expect(testStorage.has(`sess:${sessionId}`)).toBe(true);
   });
 });
