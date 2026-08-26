@@ -8,6 +8,9 @@ export type LayerTemplateId =
   | 'generalStore'
   | 'butcherShop'
   | 'potionMaker'
+  | 'mapper'
+  | 'wizardShop'
+  | 'inn'
   | 'residentialHome';
 
 export type TownDoorKind =

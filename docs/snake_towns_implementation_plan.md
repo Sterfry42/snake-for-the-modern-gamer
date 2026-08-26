@@ -1811,7 +1811,7 @@ Implement:
 2. Trial.
 3. Disguises/fake papers.
 4. Town secrets.
-5. Town property/inn.
+5. Town property/tavern.
 6. Public events.
 7. Rival NPC movement.
 8. Town dungeon/sewer.

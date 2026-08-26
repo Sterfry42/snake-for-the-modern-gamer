@@ -5,9 +5,11 @@ import { SnakeGame } from '../../game/snakeGame.js';
 import { QuestRegistry } from '../../quests/questRegistry.js';
 import { LocalGameSession } from '../../session/LocalGameSession.js';
 import { SimulationScheduler, type ClockRule } from '../../systems/simulationScheduler.js';
+import { parseCoordinateRoomId } from '../../world/roomAddress.js';
 import { isSolidTile } from '../../world/tiles.js';
 import type { RoomSnapshot } from '../../world/types.js';
 import type { Actor, ActorGoal, ActorPresence } from '../../actors/actorTypes.js';
+import type { ActorTelemetryEvent } from '../../actors/actorTelemetry.js';
 
 export interface HeadlessScenarioOptions {
   seed: string;
@@ -51,6 +53,7 @@ export class HeadlessScenario {
   private simulatedMs = 0;
   private actorStepsDue = 0;
   private readonly recentEvents: string[] = [];
+  private readonly actorEvents: ActorTelemetryEvent[] = [];
 
   private constructor(game: SnakeGame) {
     this.game = game;
@@ -207,6 +210,10 @@ export class HeadlessScenario {
     return this.game.getActorSystem().getActorsInRoom(roomId);
   }
 
+  actorTelemetryEvents(): readonly ActorTelemetryEvent[] {
+    return this.actorEvents;
+  }
+
   player() {
     const player = this.game.getPlayer(this.game.getLocalPlayerId());
     if (!player) {
@@ -254,7 +261,10 @@ export class HeadlessScenario {
   }
 
   readNineRoomsRepeatedly(iterations: number): void {
-    const [x, y, z] = parseCoordinateRoomId(this.game.getCurrentRoom().id);
+    const address = parseCoordinateRoomId(this.game.getCurrentRoom().id);
+    const x = address?.x ?? 0;
+    const y = address?.y ?? 0;
+    const z = address?.z ?? 0;
     for (let index = 0; index < iterations; index += 1) {
       for (let dy = -1; dy <= 1; dy += 1) {
         for (let dx = -1; dx <= 1; dx += 1) {
@@ -282,11 +292,19 @@ export class HeadlessScenario {
     }
 
     for (const roomId of roomsToCheck) {
-      expect(() => this.game.getRoom(roomId), `Room should exist: ${roomId}`).not.toThrow();
+      try {
+        this.game.getRoom(roomId);
+      } catch (error) {
+        if (roomId.startsWith('layer:')) {
+          continue;
+        }
+        throw error;
+      }
     }
 
     this.assertPlayerPositionValid();
     this.assertActorPositionsValid(actors);
+    this.assertLayerRuntimeConsistent();
   }
 
   private async drainActorSteps(): Promise<void> {
@@ -313,7 +331,15 @@ export class HeadlessScenario {
       if (actor.health?.state === 'dead' || actor.hostility === 'dead' || !actor.presence) {
         continue;
       }
-      const room = this.game.getRoom(actor.presence.roomId);
+      let room: RoomSnapshot | undefined;
+      try {
+        room = this.game.getRoom(actor.presence.roomId);
+      } catch (error) {
+        if (actor.presence.roomId.startsWith('layer:') && !actor.presence.materialized) {
+          continue;
+        }
+        throw error;
+      }
       expect(
         actor.currentRoomId,
         `Actor ${actor.id} should keep currentRoomId with Presence.`,
@@ -329,6 +355,38 @@ export class HeadlessScenario {
       expect(previous, `Actors ${previous} and ${actor.id} overlap at ${key}.`).toBeUndefined();
       occupied.set(key, actor.id);
     }
+  }
+
+  private assertLayerRuntimeConsistent(): void {
+    const currentRoom = this.currentRoom();
+    const activeLayer = this.game.getFlag<{
+      layerId?: string;
+      parentRoomId?: string;
+      entranceId?: string;
+      returnPosition?: { x: number; y: number };
+    }>('layers.active');
+    if (currentRoom.layer) {
+      expect(activeLayer, `Layer room ${currentRoom.id} requires layers.active.`).toBeDefined();
+      expect(activeLayer?.layerId, `Active layer should match ${currentRoom.id}.`).toBe(
+        currentRoom.id,
+      );
+      expect(activeLayer?.parentRoomId, `Active parent should match ${currentRoom.id}.`).toBe(
+        currentRoom.layer.parentRoomId,
+      );
+      expect(
+        activeLayer?.entranceId,
+        `Active entrance should exist for ${currentRoom.id}.`,
+      ).toBeDefined();
+      expect(
+        activeLayer?.returnPosition,
+        `Active return position should exist for ${currentRoom.id}.`,
+      ).toBeDefined();
+      return;
+    }
+    expect(
+      activeLayer,
+      `Coordinate room ${currentRoom.id} must not keep stale layers.active.`,
+    ).toBeUndefined();
   }
 
   private describeTimeout(timeoutMs: number): string {
@@ -356,13 +414,28 @@ export class HeadlessScenario {
 
   private captureActorTelemetry(): void {
     this.game.getActorSystem().setTelemetrySink((event) => {
+      this.actorEvents.push(event);
+      if (this.actorEvents.length > 256) {
+        this.actorEvents.shift();
+      }
       if (
         event.type === 'actor.goal_changed' ||
         event.type === 'actor.presence_changed' ||
         event.type === 'actor.combat_started' ||
-        event.type === 'actor.schedule_changed'
+        event.type === 'actor.schedule_changed' ||
+        event.type === 'actor.travel_recovered' ||
+        event.type === 'actor.travel_leg_selected' ||
+        event.type === 'actor.path_blocked' ||
+        event.type === 'actor.travel_blocked'
       ) {
-        this.recentEvents.push(`${event.type}:${event.actorId}:${event.reason}`);
+        const data =
+          event.type === 'actor.travel_leg_selected' ||
+          event.type === 'actor.path_blocked' ||
+          event.type === 'actor.travel_blocked' ||
+          event.type === 'actor.travel_recovered'
+            ? `:${JSON.stringify(event.data)}`
+            : '';
+        this.recentEvents.push(`${event.type}:${event.actorId}:${event.reason}${data}`);
         if (this.recentEvents.length > 32) {
           this.recentEvents.shift();
         }
@@ -394,20 +467,18 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function parseCoordinateRoomId(roomId: string): [number, number, number] {
-  const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
-  return [x, y, z];
-}
-
 function toLocalPosition(
   roomId: string,
   position: { x: number; y: number },
   grid: GameConfig['grid'],
 ): { x: number; y: number } {
-  const [roomX, roomY] = parseCoordinateRoomId(roomId);
+  const address = parseCoordinateRoomId(roomId);
+  if (!address) {
+    return { ...position };
+  }
   return {
-    x: position.x - roomX * grid.cols,
-    y: position.y - roomY * grid.rows,
+    x: position.x - address.x * grid.cols,
+    y: position.y - address.y * grid.rows,
   };
 }
 

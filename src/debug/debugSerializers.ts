@@ -52,30 +52,8 @@ export const DEBUG_ROOM_TILE_LEGEND = {
 } as const;
 
 export function safeDebugValue(value: unknown): unknown {
-  const seen = new WeakSet<object>();
   try {
-    return JSON.parse(
-      JSON.stringify(value, (_key, nested) => {
-        if (typeof nested === 'object' && nested !== null) {
-          if (seen.has(nested)) {
-            return {
-              serializationError: true,
-              valueType: 'object',
-              stringValue: '[Circular]',
-            };
-          }
-          seen.add(nested);
-        }
-        if (typeof nested === 'function') {
-          return {
-            serializationError: true,
-            valueType: 'function',
-            stringValue: nested.name ? `[Function ${nested.name}]` : '[Function]',
-          };
-        }
-        return nested;
-      }),
-    );
+    return toSafeDebugValue(value, new WeakSet<object>());
   } catch (error) {
     return {
       serializationError: true,
@@ -84,6 +62,44 @@ export function safeDebugValue(value: unknown): unknown {
       errorMessage: error instanceof Error ? error.message : String(error),
     };
   }
+}
+
+function toSafeDebugValue(value: unknown, ancestors: WeakSet<object>): unknown {
+  if (typeof value === 'function') {
+    return {
+      serializationError: true,
+      valueType: 'function',
+      stringValue: value.name ? `[Function ${value.name}]` : '[Function]',
+    };
+  }
+  if (typeof value === 'bigint') {
+    return value.toString();
+  }
+  if (typeof value !== 'object' || value === null) {
+    return value;
+  }
+  if (ancestors.has(value)) {
+    return {
+      serializationError: true,
+      valueType: 'object',
+      stringValue: '[Circular]',
+    };
+  }
+  ancestors.add(value);
+  if (Array.isArray(value)) {
+    const result = value.map((entry) => toSafeDebugValue(entry, ancestors));
+    ancestors.delete(value);
+    return result;
+  }
+  const result: Record<string, unknown> = {};
+  for (const [key, nested] of Object.entries(value)) {
+    const serialized = toSafeDebugValue(nested, ancestors);
+    if (serialized !== undefined) {
+      result[key] = serialized;
+    }
+  }
+  ancestors.delete(value);
+  return result;
 }
 
 export function serializeErrorLike(error: unknown): Record<string, unknown> {

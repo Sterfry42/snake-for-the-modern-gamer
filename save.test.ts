@@ -14,6 +14,7 @@ describe('Save and Load System', () => {
     game = new SnakeGame(
       {
         ...defaultGameConfig,
+        rng: { ...defaultGameConfig.rng, seed: 'save-test' },
         quests: { ...defaultGameConfig.quests, initialQuestCount: 3 },
       },
       registry,

@@ -32,6 +32,9 @@ export type ActorRole =
   | 'butcher'
   | 'cardDealer'
   | 'physicalTrainer'
+  | 'mapper'
+  | 'wizard'
+  | 'innkeeper'
   | 'guard'
   | 'gateGuard'
   | 'bartender'
@@ -184,8 +187,19 @@ export interface ActorCombatProfile {
   ranged: boolean;
   melee: boolean;
   canBeEatenWhenHostile: boolean;
+  weapons?: ActorWeaponEntry[];
+  activeWeaponId?: string;
   slashCooldown?: number;
   surrenderChance?: number;
+}
+
+export interface ActorWeaponEntry {
+  id: string;
+  kind: 'firearm' | 'sword';
+  label: string;
+  damage: number;
+  range: number;
+  cooldownRooms: number;
 }
 
 export type ActorHostilityState =
@@ -265,11 +279,19 @@ export type ActorActivityKind =
   | 'idle'
   | 'walking'
   | 'merchant'
+  | 'drinking'
+  | 'dealing-cards'
+  | 'mapping'
+  | 'alchemy'
+  | 'cooking'
+  | 'training'
+  | 'repairing'
   | 'talking'
   | 'combat-melee'
   | 'combat-ranged'
   | 'guarding'
   | 'fishing'
+  | 'observing-sky'
   | 'fleeing'
   | 'sheltering'
   | 'sleeping'

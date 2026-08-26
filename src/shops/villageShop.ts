@@ -112,6 +112,13 @@ export const VILLAGE_SHOP_EQUIPMENT: readonly VillageShopEquipmentOffer[] = [
     note: 'Throws bombs in any direction. Accuracy by confidence, liability by distance.',
   },
   {
+    id: 'binoculars',
+    itemId: 'weapon-binoculars',
+    price: 32,
+    slot: 'weapon',
+    note: 'Surveys the neighboring rooms before trouble walks over and introduces itself.',
+  },
+  {
     id: 'lead-flippers',
     itemId: 'boots-lead-flippers',
     price: 28,

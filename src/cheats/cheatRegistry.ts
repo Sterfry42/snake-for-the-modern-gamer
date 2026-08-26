@@ -439,6 +439,14 @@ export const CHEAT_DEFINITIONS: readonly CheatDefinition[] = [
     category: 'tools',
   },
   {
+    name: 'BINOCULARS',
+    code: 'binoculars / eagleeye',
+    primaryCode: 'binoculars',
+    description: 'Acquire and equip binoculars in the weapon slot.',
+    aliases: ['binoculars', 'eagleeye'],
+    category: 'tools',
+  },
+  {
     name: 'BOMB SLINGSHOT',
     code: 'bombs / boomstick',
     primaryCode: 'bombs',

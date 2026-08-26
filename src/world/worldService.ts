@@ -94,6 +94,18 @@ export class WorldService {
     return this.worldGenerationIdentity;
   }
 
+  getCachedRoomCount(): number {
+    return this.rooms.size;
+  }
+
+  hasCachedRoom(roomId: string): boolean {
+    return this.rooms.has(roomId);
+  }
+
+  getCachedRoomIds(): string[] {
+    return [...this.rooms.keys()];
+  }
+
   getRoom(roomId: string): RoomSnapshot {
     assertValidRoomId(roomId);
     if (!this.rooms.has(roomId)) {
@@ -339,9 +351,31 @@ export class WorldService {
     return entrance ? { ...entrance, returnPosition: { ...entrance.returnPosition } } : undefined;
   }
 
+  getLayerEntranceByLayerId(layerId: string): LayerEntrance | undefined {
+    for (const entrance of this.layerEntrances.values()) {
+      if (entrance.layerId === layerId) {
+        return { ...entrance, returnPosition: { ...entrance.returnPosition } };
+      }
+    }
+    return undefined;
+  }
+
   getLayerInstance(layerId: string): LayerInstance | undefined {
     const instance = this.layerInstances.get(layerId);
     return instance ? cloneLayerInstance(instance) : undefined;
+  }
+
+  getLayerInstances(): LayerInstance[] {
+    return [...this.layerInstances.values()].map((instance) => cloneLayerInstance(instance));
+  }
+
+  restoreLayerInstances(instances: readonly LayerInstance[] | undefined): void {
+    if (!instances) {
+      return;
+    }
+    for (const instance of instances) {
+      this.layerInstances.set(instance.id, cloneLayerInstance(instance));
+    }
   }
 
   setLayerInstanceState(layerId: string, state: LayerInstance['state']): LayerInstance | undefined {
@@ -591,7 +625,14 @@ export class WorldService {
     if (!template || !townDistrictForInteriorTemplate(template)) {
       return undefined;
     }
-    const townId = parts.slice(2, -1).join(':');
+    const townParts = parts.slice(2, -1);
+    for (let length = townParts.length; length > 0; length -= 1) {
+      const candidate = townParts.slice(0, length).join(':');
+      if (this.townsById.has(candidate)) {
+        return candidate;
+      }
+    }
+    const townId = townParts.join(':');
     return townId || undefined;
   }
 
@@ -1289,7 +1330,11 @@ function townDistrictForInteriorTemplate(templateId: LayerTemplateId): TownRoomK
     case 'generalStore':
     case 'butcherShop':
     case 'potionMaker':
+    case 'mapper':
+    case 'wizardShop':
       return 'marketStreet';
+    case 'inn':
+      return 'tavernInterior';
     case 'residentialHome':
       return 'residentialStreet';
   }
@@ -1311,6 +1356,9 @@ function townInteriorResidentsForBuilding(
     case 'generalStore':
     case 'butcherShop':
     case 'potionMaker':
+    case 'mapper':
+    case 'wizardShop':
+    case 'inn':
     case 'residentialHome':
       return owner ? [owner] : [];
     case 'tavern': {
@@ -1390,6 +1438,27 @@ function townInteriorPalette(
         wallColor: 0x354d7c,
         wallOutlineColor: 0x9ab8ff,
       };
+    case 'mapper':
+      return {
+        title: titleOverride ?? 'Mapper',
+        backgroundColor: 0x1d2118,
+        wallColor: 0x5f6d42,
+        wallOutlineColor: 0xd7e09b,
+      };
+    case 'wizardShop':
+      return {
+        title: titleOverride ?? 'Wizard Shop',
+        backgroundColor: 0x181528,
+        wallColor: 0x4a367a,
+        wallOutlineColor: 0xc1a4ff,
+      };
+    case 'inn':
+      return {
+        title: titleOverride ?? 'Inn',
+        backgroundColor: 0x201a15,
+        wallColor: 0x68482f,
+        wallOutlineColor: 0xe0b378,
+      };
     case 'residentialHome':
       return {
         title: titleOverride ?? 'Town Home',
@@ -1413,7 +1482,11 @@ function townInteriorBounds(
     case 'generalStore':
     case 'butcherShop':
     case 'potionMaker':
+    case 'mapper':
+    case 'wizardShop':
       return { left: 7, top: 5, width: cols - 14, height: rows - 7 };
+    case 'inn':
+      return { left: 5, top: 4, width: cols - 10, height: rows - 6 };
     case 'residentialHome':
       return { left: 9, top: 6, width: cols - 18, height: rows - 9 };
   }
@@ -1469,6 +1542,29 @@ function stampTownInteriorTemplate(
       setTile(centerX - 3, bottom - 4, 'M');
       setTile(centerX + 3, bottom - 4, 'P');
       break;
+    case 'mapper':
+      fillTile(left + 2, top + 3, bounds.width - 4, 1, 'A');
+      setTile(centerX, top + 2, 'M');
+      setTile(centerX - 4, centerY, 'S');
+      setTile(centerX + 4, centerY, 'S');
+      setTile(centerX, bottom - 4, 'P');
+      break;
+    case 'wizardShop':
+      fillTile(left + 2, top + 3, bounds.width - 4, 1, 'A');
+      setTile(centerX - 4, top + 2, 'P');
+      setTile(centerX, top + 2, 'M');
+      setTile(centerX + 4, top + 2, 'P');
+      setTile(centerX - 3, bottom - 4, 'S');
+      setTile(centerX + 3, bottom - 4, 'A');
+      break;
+    case 'inn':
+      fillTile(left + 2, top + 2, bounds.width - 4, 2, 'A');
+      setTile(left + 4, top + 5, 'R');
+      setTile(right - 4, top + 5, 'R');
+      setTile(centerX - 5, bottom - 4, 'S');
+      setTile(centerX + 5, bottom - 4, 'S');
+      setTile(centerX, centerY + 1, 'P');
+      break;
     case 'residentialHome':
       setTile(left + 3, top + 3, 'R');
       setTile(right - 3, top + 3, 'S');
@@ -1503,6 +1599,10 @@ function townInteriorResidentPositions(
     case 'generalStore':
     case 'butcherShop':
     case 'potionMaker':
+    case 'mapper':
+    case 'wizardShop':
+      return [{ x: centerX, y: bounds.top + 5 }];
+    case 'inn':
       return [{ x: centerX, y: bounds.top + 5 }];
     case 'residentialHome':
       return [

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createBaseActor } from '../actorFactory.js';
-import { getActorActivityProp } from '../actorActivityProps.js';
+import { getActorActivityProp, getActorSleepMarker } from '../actorActivityProps.js';
 import { selectActorEnvironmentReaction, selectActorRadiantBark } from '../actorEnvironment.js';
 import { findActorGridPath } from '../actorNavigation.js';
 import { decideActorBrain } from '../actorBrains.js';
@@ -278,8 +278,10 @@ describe('actor presence simulation', () => {
     });
 
     merchant.activity = { kind: 'sleeping', source: 'schedule' };
-    expect(getActorActivityProp(merchant)).toMatchObject({
+    expect(getActorActivityProp(merchant)).toBeNull();
+    expect(getActorSleepMarker(merchant)).toMatchObject({
       kind: 'sleep-zzz',
+      anchor: 'above-head',
       label: 'Sleeping',
     });
   });

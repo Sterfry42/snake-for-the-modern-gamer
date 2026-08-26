@@ -7,6 +7,7 @@ export type ActorInteractionId =
   | 'inspect'
   | 'wake'
   | 'talk'
+  | 'tavern-rest'
   | 'ask-rumor'
   | 'ask-personal'
   | 'take-quest'
@@ -44,6 +45,12 @@ export interface ActorInteractionContext {
   canPickpocket?: boolean;
   canUseRelationshipActions?: boolean;
   recentRumorCount?: number;
+  shopClosedReason?: string;
+  tavernRest?: {
+    available: boolean;
+    cost: number;
+    reason?: string;
+  };
 }
 
 export function buildActorInteractionMenu(
@@ -81,6 +88,15 @@ export function buildActorInteractionMenu(
         priority: 86,
       });
     }
+    if (actor.role === 'bartender' && context.tavernRest) {
+      options.push({
+        id: 'tavern-rest',
+        label: tActor('tavernRest').replace('{cost}', String(context.tavernRest.cost)),
+        enabled: !hostile && context.tavernRest.available,
+        reason: hostile ? tActor('tooHostile') : context.tavernRest.reason,
+        priority: 84,
+      });
+    }
     options.push({
       id: 'ask-rumor',
       label: tActor('askAround'),
@@ -104,13 +120,14 @@ export function buildActorInteractionMenu(
     }
   }
 
-  if (isTownShopRole(actor.role)) {
+  if (hasShopInteraction(actor)) {
     const shopClosedReason =
-      typeof actor.flags.shopClosedReason === 'string'
+      context.shopClosedReason ??
+      (typeof actor.flags.shopClosedReason === 'string'
         ? actor.flags.shopClosedReason
         : sleepInterrupted && !allowsOffHoursShop(actor)
           ? tActor('shopClosedSleep')
-          : undefined;
+          : undefined);
     options.push({
       id: 'shop',
       label: tActor('shop'),
@@ -203,6 +220,10 @@ export function allowsOffHoursShop(actor: Actor): boolean {
     actor.role === 'goblinMerchant' ||
     actor.role === 'blackMarketMerchant'
   );
+}
+
+function hasShopInteraction(actor: Actor): boolean {
+  return isTownShopRole(actor.role) || actor.role === 'goblinMerchant';
 }
 
 function menu(actor: Actor, options: ActorInteractionOption[]): ActorInteractionMenuModel {

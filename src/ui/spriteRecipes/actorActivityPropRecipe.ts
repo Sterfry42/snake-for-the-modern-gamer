@@ -15,9 +15,15 @@ const VARIANTS: readonly ActorActivityPropVariant[] = [
   'sword',
   'bow',
   'merchant-bag',
+  'beer-mug',
+  'cards',
+  'map-compass',
+  'potion-flask',
+  'chef-knife',
+  'training-dumbbell',
+  'tool',
   'shield',
   'fishing-rod',
-  'sleep-zzz',
 ];
 
 export const actorActivityPropRecipe: RuntimeSpriteRecipe<
@@ -52,14 +58,32 @@ export const actorActivityPropRecipe: RuntimeSpriteRecipe<
       case 'merchant-bag':
         drawBag(context, size, palette);
         break;
+      case 'beer-mug':
+        drawBeerMug(context, size, palette);
+        break;
+      case 'cards':
+        drawCards(context, size, palette);
+        break;
+      case 'map-compass':
+        drawMapCompass(context, size, palette);
+        break;
+      case 'potion-flask':
+        drawPotionFlask(context, size, palette);
+        break;
+      case 'chef-knife':
+        drawChefKnife(context, size, palette);
+        break;
+      case 'training-dumbbell':
+        drawTrainingDumbbell(context, size, palette);
+        break;
+      case 'tool':
+        drawTool(context, size, palette);
+        break;
       case 'shield':
         drawShield(context, size, palette);
         break;
       case 'fishing-rod':
         drawFishingRod(context, size, palette);
-        break;
-      case 'sleep-zzz':
-        drawSleepZzz(context, size, palette);
         break;
     }
 
@@ -128,6 +152,154 @@ function drawBag(
   context.fillRect(size * 0.45, size * 0.52, size * 0.1, size * 0.1);
 }
 
+function drawBeerMug(
+  context: CanvasRenderingContext2D,
+  size: number,
+  palette: ActorActivityPropPalette,
+): void {
+  context.fillStyle = palette.outlineColor;
+  context.fillRect(size * 0.22, size * 0.28, size * 0.48, size * 0.54);
+  context.fillStyle = palette.accentColor;
+  context.fillRect(size * 0.3, size * 0.36, size * 0.32, size * 0.36);
+  context.strokeStyle = palette.outlineColor;
+  context.lineWidth = Math.max(2, size * 0.1);
+  context.strokeRect(size * 0.64, size * 0.42, size * 0.2, size * 0.24);
+  context.fillStyle = palette.clothColor;
+  context.fillRect(size * 0.26, size * 0.2, size * 0.4, size * 0.16);
+}
+
+function drawCards(
+  context: CanvasRenderingContext2D,
+  size: number,
+  palette: ActorActivityPropPalette,
+): void {
+  context.save();
+  context.translate(size * 0.5, size * 0.5);
+  context.rotate(-0.22);
+  drawCard(context, size, palette, -size * 0.2, -size * 0.28);
+  context.rotate(0.42);
+  drawCard(context, size, palette, -size * 0.08, -size * 0.24);
+  context.restore();
+}
+
+function drawCard(
+  context: CanvasRenderingContext2D,
+  size: number,
+  palette: ActorActivityPropPalette,
+  x: number,
+  y: number,
+): void {
+  context.fillStyle = palette.outlineColor;
+  context.fillRect(x, y, size * 0.34, size * 0.5);
+  context.fillStyle = palette.clothColor;
+  context.fillRect(x + size * 0.04, y + size * 0.04, size * 0.26, size * 0.42);
+  context.fillStyle = palette.accentColor;
+  context.fillRect(x + size * 0.12, y + size * 0.16, size * 0.1, size * 0.1);
+}
+
+function drawMapCompass(
+  context: CanvasRenderingContext2D,
+  size: number,
+  palette: ActorActivityPropPalette,
+): void {
+  context.fillStyle = palette.outlineColor;
+  context.fillRect(size * 0.18, size * 0.24, size * 0.62, size * 0.48);
+  context.fillStyle = palette.clothColor;
+  context.fillRect(size * 0.24, size * 0.3, size * 0.5, size * 0.36);
+  context.strokeStyle = palette.leatherColor;
+  context.lineWidth = Math.max(1, size * 0.04);
+  context.beginPath();
+  context.moveTo(size * 0.34, size * 0.32);
+  context.lineTo(size * 0.4, size * 0.66);
+  context.moveTo(size * 0.58, size * 0.3);
+  context.lineTo(size * 0.52, size * 0.66);
+  context.stroke();
+  context.fillStyle = palette.accentColor;
+  context.beginPath();
+  context.moveTo(size * 0.64, size * 0.42);
+  context.lineTo(size * 0.7, size * 0.56);
+  context.lineTo(size * 0.58, size * 0.54);
+  context.closePath();
+  context.fill();
+}
+
+function drawTool(
+  context: CanvasRenderingContext2D,
+  size: number,
+  palette: ActorActivityPropPalette,
+): void {
+  context.strokeStyle = palette.outlineColor;
+  context.lineWidth = Math.max(2, size * 0.14);
+  context.beginPath();
+  context.moveTo(size * 0.24, size * 0.76);
+  context.lineTo(size * 0.72, size * 0.28);
+  context.stroke();
+  context.strokeStyle = palette.metalColor;
+  context.lineWidth = Math.max(1, size * 0.08);
+  context.stroke();
+  context.fillStyle = palette.leatherColor;
+  context.fillRect(size * 0.18, size * 0.68, size * 0.2, size * 0.16);
+  context.fillStyle = palette.metalColor;
+  context.fillRect(size * 0.62, size * 0.18, size * 0.22, size * 0.16);
+}
+
+function drawPotionFlask(
+  context: CanvasRenderingContext2D,
+  size: number,
+  palette: ActorActivityPropPalette,
+): void {
+  context.fillStyle = palette.outlineColor;
+  context.fillRect(size * 0.38, size * 0.16, size * 0.24, size * 0.22);
+  context.fillRect(size * 0.24, size * 0.36, size * 0.52, size * 0.44);
+  context.fillStyle = palette.metalColor;
+  context.fillRect(size * 0.42, size * 0.18, size * 0.16, size * 0.2);
+  context.fillStyle = palette.accentColor;
+  context.fillRect(size * 0.3, size * 0.48, size * 0.4, size * 0.24);
+  context.fillStyle = palette.clothColor;
+  context.fillRect(size * 0.36, size * 0.4, size * 0.28, size * 0.08);
+}
+
+function drawChefKnife(
+  context: CanvasRenderingContext2D,
+  size: number,
+  palette: ActorActivityPropPalette,
+): void {
+  context.fillStyle = palette.outlineColor;
+  context.beginPath();
+  context.moveTo(size * 0.2, size * 0.66);
+  context.lineTo(size * 0.7, size * 0.18);
+  context.lineTo(size * 0.82, size * 0.3);
+  context.lineTo(size * 0.34, size * 0.78);
+  context.closePath();
+  context.fill();
+  context.fillStyle = palette.metalColor;
+  context.beginPath();
+  context.moveTo(size * 0.34, size * 0.62);
+  context.lineTo(size * 0.68, size * 0.28);
+  context.lineTo(size * 0.74, size * 0.34);
+  context.lineTo(size * 0.4, size * 0.68);
+  context.closePath();
+  context.fill();
+  context.fillStyle = palette.leatherColor;
+  context.fillRect(size * 0.16, size * 0.66, size * 0.22, size * 0.16);
+}
+
+function drawTrainingDumbbell(
+  context: CanvasRenderingContext2D,
+  size: number,
+  palette: ActorActivityPropPalette,
+): void {
+  context.fillStyle = palette.outlineColor;
+  context.fillRect(size * 0.2, size * 0.32, size * 0.14, size * 0.36);
+  context.fillRect(size * 0.66, size * 0.32, size * 0.14, size * 0.36);
+  context.fillRect(size * 0.28, size * 0.42, size * 0.44, size * 0.16);
+  context.fillStyle = palette.metalColor;
+  context.fillRect(size * 0.24, size * 0.38, size * 0.08, size * 0.24);
+  context.fillRect(size * 0.68, size * 0.38, size * 0.08, size * 0.24);
+  context.fillStyle = palette.accentColor;
+  context.fillRect(size * 0.42, size * 0.45, size * 0.16, size * 0.1);
+}
+
 function drawShield(
   context: CanvasRenderingContext2D,
   size: number,
@@ -169,25 +341,4 @@ function drawFishingRod(
   context.moveTo(size * 0.72, size * 0.22);
   context.quadraticCurveTo(size * 0.86, size * 0.48, size * 0.62, size * 0.62);
   context.stroke();
-}
-
-function drawSleepZzz(
-  context: CanvasRenderingContext2D,
-  size: number,
-  palette: ActorActivityPropPalette,
-): void {
-  context.font = `bold ${Math.floor(size * 0.38)}px sans-serif`;
-  context.textAlign = 'center';
-  context.textBaseline = 'middle';
-  context.lineWidth = Math.max(2, size * 0.08);
-  context.strokeStyle = palette.outlineColor;
-  context.fillStyle = palette.accentColor;
-  context.strokeText('Z', size * 0.34, size * 0.7);
-  context.fillText('Z', size * 0.34, size * 0.7);
-  context.font = `bold ${Math.floor(size * 0.28)}px sans-serif`;
-  context.strokeText('z', size * 0.58, size * 0.48);
-  context.fillText('z', size * 0.58, size * 0.48);
-  context.font = `bold ${Math.floor(size * 0.2)}px sans-serif`;
-  context.strokeText('z', size * 0.76, size * 0.28);
-  context.fillText('z', size * 0.76, size * 0.28);
 }

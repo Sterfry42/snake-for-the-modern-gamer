@@ -12,6 +12,7 @@ import {
   CARDINAL_DIRECTIONS,
   isWithinEuclideanRadius,
   manhattanDistance,
+  stableStringHashPositive,
   vectorKey,
   type Vector2Like,
 } from '../core/math.js';
@@ -140,9 +141,11 @@ import {
 import { getSpawnPolicy } from '../world/safeZones.js';
 import { WorldAtmosphereSystem } from '../world/atmosphereSystem.js';
 import { resolveBiomeAtmosphere } from '../world/atmosphereResolver.js';
+import { DAY_PHASE_DURATIONS_MS } from '../world/atmosphereTypes.js';
 import type {
   AtmosphereConfig,
   AtmosphereState,
+  DayPhase,
   GlobalWeather,
   ResolvedAtmosphereView,
   ShelterMode,
@@ -176,6 +179,11 @@ import {
   isTownShopRole,
   type TownResidentRole,
 } from '../world/townRoles.js';
+import {
+  isTownBusinessOpenForPhase,
+  townBusinessPolicyForRole,
+  townBusinessPolicyForTemplate,
+} from '../world/townBusinessPolicy.js';
 import { tryPlaceVillage } from '../world/village.js';
 import { tryPlaceGoblinCamp } from '../world/goblinCamp.js';
 import { tryPlaceQuestHouse } from '../world/questHouse.js';
@@ -216,12 +224,19 @@ import type { FactionCurrentEvent, FactionSaveData } from '../factions/factionTy
 import { RumorSystem } from '../rumors/rumorSystem.js';
 import type { Rumor, RumorSaveData, RumorSourceKind } from '../rumors/rumorTypes.js';
 import type { WardDeathSource } from '../shops/goblinShop.js';
+import { buildMapperStock, type MapperStockOffer } from '../shops/mapperShop.js';
 import {
   createFoodConsumptionResult,
   getRestaurantFoodHunger,
   type FoodConsumptionResult,
   type RestaurantId,
 } from '../shops/restaurants.js';
+import {
+  getBlackMarketDefinition,
+  getVillageShopDefinition,
+  type VillageShopSupplyOffer,
+  type VillageShopEquipmentOffer,
+} from '../shops/villageShop.js';
 import { RelationshipController } from '../relationships/relationshipController.js';
 import type {
   DatingCandidateView,
@@ -253,6 +268,7 @@ import {
   type ActorBrainSocialTarget,
 } from '../actors/actorBrains.js';
 import {
+  allowsOffHoursShop,
   buildActorInteractionMenu,
   isActorSleeping,
   type ActorInteractionMenuModel,
@@ -266,6 +282,7 @@ import type {
   ActorFactionConversationState,
 } from '../actors/voice/voiceTypes.js';
 import { selectActorVoiceLine } from '../actors/actorVoice.js';
+import { actorCanSpeakNow } from '../actors/actorSpeech.js';
 import { findActorGridPath } from '../actors/actorNavigation.js';
 import {
   ActorOccupancyResolver,
@@ -385,6 +402,66 @@ interface BanditRaidRuntimeState {
   startedAtRoom: number;
   aftermathRecorded?: boolean;
 }
+
+export interface ApproachingBanditRaidState {
+  id: string;
+  eventId: string;
+  townId: string;
+  gateRoomId: string;
+  targetRoomId: string;
+  routeRoomIds: string[];
+  currentRouteIndex: number;
+  strength: number;
+  originalStrength: number;
+  warning: boolean;
+  delayedByRooms: number;
+  banditActorIds: string[];
+  phase: 'approaching' | 'at-gate' | 'inside' | 'aftermath';
+  casualties: number;
+  damage: number;
+}
+
+export interface PatrolRaidInterceptionResult {
+  raid: ApproachingBanditRaidState;
+  patrol: TownPatrolExcursion;
+  warningCreated: boolean;
+  strengthBefore: number;
+  strengthAfter: number;
+  delayedByRooms: number;
+  patrolSurvivors: number;
+}
+
+export type ActorAttackFacing = 'north' | 'south' | 'east' | 'west';
+
+export interface ActorSwordAttackEvent {
+  id: string;
+  actorId: string;
+  roomId: string;
+  weaponId: string;
+  selectedWeaponKind: 'sword';
+  activityKind: 'combat-melee';
+  facing: ActorAttackFacing;
+  origin: Vector2Like;
+  target: Vector2Like;
+  cells: Vector2Like[];
+  visualCells: Vector2Like[];
+  blocked: boolean;
+  cooldownActive: boolean;
+  damagedPlayer: boolean;
+  damagedActorIds: string[];
+  createdAtRoomNumber: number;
+}
+
+export interface ActorRangedAttackDecision {
+  actorId: string;
+  roomId: string;
+  weaponId: string;
+  selectedWeaponKind: 'firearm';
+  activityKind: 'combat-ranged';
+  cooldownActive: boolean;
+}
+
+export type ActorAttackDecision = ActorSwordAttackEvent | ActorRangedAttackDecision;
 
 export interface ActorJournalEntry {
   id: string;
@@ -573,6 +650,123 @@ export type QuestInteraction =
       title: string;
       options: Array<{ id: string; title: string; description: string }>;
     };
+
+export type DoorAction = 'enter' | 'knock' | 'use-key' | 'pick-lock' | 'inspect' | 'leave';
+
+export interface DoorAccessResolution {
+  access: 'open' | 'closed' | 'locked';
+  autoEnter: boolean;
+  entranceId: string;
+  buildingId?: string;
+  displayName: string;
+  serviceId?: string;
+  publicHours?: { opens: DayPhase; closes: DayPhase; label: string };
+  nextOpen?: { dayPhase: DayPhase; label: string };
+  closureReason?: string;
+  actions: DoorAction[];
+}
+
+export interface InnRestResult {
+  ok: boolean;
+  message: string;
+  cost: number;
+  elapsedMs: number;
+  startedPhase: DayPhase;
+  endedPhase: DayPhase;
+  phasesCrossed: DayPhase[];
+  weatherBefore: GlobalWeather;
+  weatherAfter: GlobalWeather;
+  worldDayBefore: number;
+  worldDayAfter: number;
+  scoreBefore: number;
+  scoreAfter: number;
+  healthBefore: number;
+  healthAfter: number;
+  healed: number;
+  wellRested: boolean;
+  refusedReason?: 'not-inn' | 'insufficient-score' | 'danger';
+}
+
+export interface InnServiceView {
+  available: boolean;
+  roomId: string;
+  cost: number;
+  score: number;
+  label: string;
+  reason?: string;
+}
+
+export type ActorInteractionDispatchResult =
+  | {
+      ok: true;
+      action: 'tavern-rest';
+      actorId: string;
+      rest: InnRestResult;
+      message: string;
+    }
+  | {
+      ok: false;
+      action: 'tavern-rest';
+      actorId: string;
+      rest: InnRestResult;
+      message: string;
+      reason: NonNullable<InnRestResult['refusedReason']>;
+    }
+  | {
+      ok: false;
+      action: string;
+      actorId: string;
+      message: string;
+      reason: 'missing-actor' | 'unsupported-action';
+    };
+
+export type ActorShopOfferCategory = 'equipment' | 'supplies' | 'locators' | 'food' | 'services';
+
+export interface ActorShopOfferView {
+  id: string;
+  category: ActorShopOfferCategory;
+  label: string;
+  price: number;
+  note: string;
+  itemId?: string;
+}
+
+export interface ActorShopView {
+  actorId: string;
+  role: Actor['role'];
+  title: string;
+  open: boolean;
+  closedReason?: string;
+  categories: ActorShopOfferCategory[];
+  offers: ActorShopOfferView[];
+}
+
+export interface ActorShopPurchaseResult {
+  ok: boolean;
+  message: string;
+  actorId: string;
+  offerId: string;
+  scoreBefore: number;
+  scoreAfter: number;
+  offer?: ActorShopOfferView;
+  reason?: 'missing-actor' | 'closed' | 'missing-offer' | 'insufficient-score';
+}
+
+export interface TownPatrolMember {
+  actorId: string;
+  health: number;
+  roomId: string;
+}
+
+export interface TownPatrolExcursion {
+  id: string;
+  townId: string;
+  homeRoomId: string;
+  routeRoomIds: string[];
+  currentRouteIndex: number;
+  members: TownPatrolMember[];
+  retreating: boolean;
+}
 
 export interface ArchipelagoLocalRewardCheck {
   kind: 'item' | 'card' | 'artifact';
@@ -3344,6 +3538,17 @@ export class SnakeGame implements QuestRuntime {
     if (!entrance || previousRoom !== room.id) {
       return;
     }
+    if (entrance.kind === 'townInterior') {
+      const access = this.resolveTownDoorAccess(entrance);
+      if (access.access !== 'open') {
+        this.setFlag('ui.questInteraction', {
+          message: access.closureReason
+            ? `${access.displayName} is closed: ${access.closureReason}.`
+            : `${access.displayName} is closed.`,
+        });
+        return;
+      }
+    }
     this.enterLayer(entrance, roomsChanged);
   }
 
@@ -3377,6 +3582,8 @@ export class SnakeGame implements QuestRuntime {
       this.applyTownRuntimeToRoom(layerRoom);
       this.maybeMarkTownHostility(layerRoom);
     }
+    this.ensureActorsFromRoomContent(layerRoom, true);
+    this.materializeActorsForRoom(layerRoom);
     roomsChanged.add(instance.parentRoomId);
     roomsChanged.add(instance.id);
   }
@@ -3387,12 +3594,27 @@ export class SnakeGame implements QuestRuntime {
       return;
     }
     this.snake.teleportTo(runtime.parentRoomId, runtime.returnPosition, { x: 0, y: 1 });
+    this.dematerializeActorsFromLayer(runtime.layerId, runtime.parentRoomId);
     this.world.setLayerInstanceState(runtime.layerId, 'completed');
     this.setFlag('layers.active', undefined);
     this.setFlag('traversal.manualResumePending', true);
     this.setFlag('ui.questInteraction', { message: 'You step back outside.' });
     roomsChanged.add(runtime.layerId);
     roomsChanged.add(runtime.parentRoomId);
+  }
+
+  private dematerializeActorsFromLayer(layerId: string, parentRoomId: string): void {
+    void parentRoomId;
+    for (const actor of this.actors.registry.getAll()) {
+      if (actor.currentRoomId !== layerId && actor.presence?.roomId !== layerId) {
+        continue;
+      }
+      this.actors.registry.update(actor.id, (current) => ({
+        ...current,
+        currentRoomId: layerId,
+        presence: undefined,
+      }));
+    }
   }
 
   private prepareSavedLayerRoomForLoad(): void {
@@ -3929,6 +4151,7 @@ export class SnakeGame implements QuestRuntime {
           Number(this.getFlag<number>('timeMs') ?? 0),
         ),
     });
+    this.recoverOverdueTownBusinessActors(this.getRoomsVisitedCount());
 
     return { enemyStep, animalStep };
   }
@@ -5178,6 +5401,18 @@ export class SnakeGame implements QuestRuntime {
     return this.world.getRoom(this.snake.currentRoomId);
   }
 
+  getGeneratedRoomCount(): number {
+    return this.world.getCachedRoomCount();
+  }
+
+  getGeneratedRoomIds(): string[] {
+    return this.world.getCachedRoomIds();
+  }
+
+  getWorldGenerationIdentity(): WorldGenerationIdentity {
+    return this.world.getWorldGenerationIdentity();
+  }
+
   getDebugSnapshot(): Record<string, unknown> {
     const room = this.getCurrentRoom();
     const head = this.snake.bodySegments[0];
@@ -5558,6 +5793,91 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
+  resolveNearbyTownDoorAccess(): DoorAccessResolution | null {
+    const hit = this.getNearbyTownBuildingDoor();
+    if (!hit) {
+      return null;
+    }
+    const room = this.world.getRoom(this.snake.currentRoomId);
+    const entrance = room.layerEntrances?.find((entry) => entry.id === hit.entranceId);
+    return entrance ? this.resolveTownDoorAccess(entrance) : null;
+  }
+
+  private resolveTownDoorAccess(entrance: LayerEntrance): DoorAccessResolution {
+    const displayName = entrance.displayName ?? entrance.label ?? 'Town Interior';
+    const buildingId = entrance.townBuildingId;
+    const closureFlag = buildingId && this.getFlag<string>(`town.doorClosure.${buildingId}`);
+    if (closureFlag) {
+      return {
+        access: 'closed',
+        autoEnter: false,
+        entranceId: entrance.id,
+        buildingId,
+        displayName,
+        serviceId: buildingId,
+        closureReason: closureFlag,
+        actions: ['leave'],
+      };
+    }
+    if (entrance.doorKind === 'homeDoorClosed') {
+      return {
+        access: 'locked',
+        autoEnter: false,
+        entranceId: entrance.id,
+        buildingId,
+        displayName,
+        closureReason: 'Private residence',
+        actions: ['knock', 'use-key', 'pick-lock', 'leave'],
+      };
+    }
+    if (entrance.doorKind === 'guildGrateClosed') {
+      return {
+        access: 'locked',
+        autoEnter: false,
+        entranceId: entrance.id,
+        buildingId,
+        displayName,
+        closureReason: 'Hidden entrance locked',
+        actions: ['inspect', 'leave'],
+      };
+    }
+    if (entrance.doorKind === 'shopDoorClosed') {
+      const policy = townBusinessPolicyForTemplate(entrance.templateId, entrance.ownerResidentRole);
+      const publicHours = policy?.publicHours ?? {
+        opens: 'day' as const,
+        closes: 'dusk' as const,
+        label: 'day',
+      };
+      const serviceOpen = this.isTownBusinessOpenNow(policy);
+      return {
+        access: serviceOpen ? 'open' : 'closed',
+        autoEnter: serviceOpen,
+        entranceId: entrance.id,
+        buildingId,
+        displayName,
+        serviceId: buildingId,
+        publicHours,
+        nextOpen: serviceOpen ? undefined : { dayPhase: 'day', label: 'day' },
+        closureReason: serviceOpen ? undefined : `Closed until ${publicHours.opens}`,
+        actions: serviceOpen ? ['enter', 'leave'] : ['knock', 'leave'],
+      };
+    }
+    return {
+      access: 'open',
+      autoEnter: true,
+      entranceId: entrance.id,
+      buildingId,
+      displayName,
+      serviceId: buildingId,
+      actions: ['enter', 'leave'],
+    };
+  }
+
+  private isTownBusinessOpenNow(policy = townBusinessPolicyForRole('shopkeeper')): boolean {
+    const phase = this.getAtmosphereState().dayPhase;
+    return isTownBusinessOpenForPhase(policy, phase);
+  }
+
   enterNearbyTownBuildingDoor(): { ok: boolean; message: string } {
     const hit = this.getNearbyTownBuildingDoor();
     if (!hit) {
@@ -5573,6 +5893,15 @@ export class SnakeGame implements QuestRuntime {
       return guildResult.ok
         ? guildResult
         : { ok: false, message: entrance.doorLabel ?? guildResult.message };
+    }
+    const access = this.resolveTownDoorAccess(entrance);
+    if (access.access !== 'open' && entrance.doorKind !== 'homeDoorClosed') {
+      return {
+        ok: false,
+        message: access.closureReason
+          ? `${access.displayName} is closed: ${access.closureReason}.`
+          : `${access.displayName} is closed.`,
+      };
     }
     const effectiveEntrance =
       entrance.doorKind === 'homeDoorClosed' ? { ...entrance, locked: false } : entrance;
@@ -6370,7 +6699,254 @@ export class SnakeGame implements QuestRuntime {
       canPickpocket,
       canUseRelationshipActions: true,
       recentRumorCount: this.getRecentWorldRumors().length,
+      shopClosedReason: this.getActorShopClosedReason(actor),
+      tavernRest: actor.role === 'bartender' ? this.getCurrentInnServiceView() : undefined,
     });
+  }
+
+  async chooseActorInteraction(
+    actorId: string,
+    actionId: string,
+  ): Promise<ActorInteractionDispatchResult> {
+    const actor = this.actors.getActor(actorId);
+    if (!actor) {
+      return {
+        ok: false,
+        action: actionId,
+        actorId,
+        message: 'No one is there.',
+        reason: 'missing-actor',
+      };
+    }
+    if (actionId === 'tavern-rest' && actor.role === 'bartender') {
+      const rest = await this.restAtCurrentInnUntilDawn();
+      if (rest.ok) {
+        return {
+          ok: true,
+          action: 'tavern-rest',
+          actorId,
+          rest,
+          message: rest.message,
+        };
+      }
+      return {
+        ok: false,
+        action: 'tavern-rest',
+        actorId,
+        rest,
+        message: rest.message,
+        reason: rest.refusedReason ?? 'danger',
+      };
+    }
+    return {
+      ok: false,
+      action: actionId,
+      actorId,
+      message: `${actor.displayName} cannot do that right now.`,
+      reason: 'unsupported-action',
+    };
+  }
+
+  getActorShopView(actorId: string): ActorShopView | null {
+    const actor = this.actors.getActor(actorId);
+    if (!actor) {
+      return null;
+    }
+    const shopOption = this.getActorInteractionMenu(actorId)?.options.find(
+      (option) => option.id === 'shop',
+    );
+    if (!shopOption) {
+      return null;
+    }
+    if (!shopOption.enabled) {
+      return {
+        actorId,
+        role: actor.role,
+        title: actor.displayName,
+        open: false,
+        closedReason: shopOption.reason ?? 'Closed.',
+        categories: [],
+        offers: [],
+      };
+    }
+    const offers = this.buildActorShopOffers(actor);
+    return {
+      actorId,
+      role: actor.role,
+      title: actor.displayName,
+      open: true,
+      categories: [...new Set(offers.map((offer) => offer.category))],
+      offers,
+    };
+  }
+
+  purchaseActorShopOffer(actorId: string, offerId: string): ActorShopPurchaseResult {
+    const scoreBefore = this.getScore();
+    const closed = (
+      reason: ActorShopPurchaseResult['reason'],
+      message: string,
+      offer?: ActorShopOfferView,
+    ): ActorShopPurchaseResult => ({
+      ok: false,
+      message,
+      actorId,
+      offerId,
+      scoreBefore,
+      scoreAfter: this.getScore(),
+      offer,
+      reason,
+    });
+    const view = this.getActorShopView(actorId);
+    if (!view) {
+      return closed('missing-actor', 'No shop is available here.');
+    }
+    if (!view.open) {
+      return closed('closed', view.closedReason ?? 'Closed.');
+    }
+    const offer = view.offers.find((entry) => entry.id === offerId);
+    if (!offer) {
+      return closed('missing-offer', 'That offer is not on the counter.');
+    }
+    if (this.getScore() < offer.price) {
+      return closed('insufficient-score', `${offer.label} costs ${offer.price} score.`, offer);
+    }
+    this.addScore(-offer.price);
+    if (offer.itemId) {
+      this.addItem(offer.itemId, 1);
+    }
+    const result = {
+      ok: true,
+      message: `Purchased ${offer.label}.`,
+      actorId,
+      offerId,
+      scoreBefore,
+      scoreAfter: this.getScore(),
+      offer,
+    } satisfies ActorShopPurchaseResult;
+    this.setFlag('ui.questInteraction', { message: result.message });
+    this.setFlag('shop.lastPurchase', result);
+    return result;
+  }
+
+  private getActorShopClosedReason(actor: Actor): string | undefined {
+    if (typeof actor.flags.shopClosedReason === 'string') {
+      return actor.flags.shopClosedReason;
+    }
+    if (isActorSleeping(actor) && !allowsOffHoursShop(actor)) {
+      return undefined;
+    }
+    const policy = townBusinessPolicyForRole(actor.role);
+    if (
+      isTownShopRole(actor.role) &&
+      !allowsOffHoursShop(actor) &&
+      !this.isTownBusinessOpenNow(policy)
+    ) {
+      return 'Closed until day.';
+    }
+    return undefined;
+  }
+
+  private buildActorShopOffers(actor: Actor): ActorShopOfferView[] {
+    const room = this.world.getRoom(this.snake.currentRoomId);
+    const definition =
+      actor.role === 'blackMarketMerchant'
+        ? getBlackMarketDefinition()
+        : getVillageShopDefinition(room.biomeId);
+    switch (actor.role) {
+      case 'mapper':
+        return this.buildMapperActorOffers(actor, room);
+      case 'potionMaker':
+        return definition.supplies
+          .filter((offer) =>
+            ['healing-potion', 'life-tonic', 'orange-juice', 'ofuda-cache'].includes(offer.id),
+          )
+          .map((offer) => this.shopSupplyOffer(offer, 'supplies'));
+      case 'butcher':
+      case 'cook':
+        return definition.supplies
+          .filter((offer) => ['senbei', 'ramen', 'animal-bait'].includes(offer.id))
+          .map((offer) => this.shopSupplyOffer(offer, 'food'));
+      case 'wizard':
+        return definition.supplies
+          .filter((offer) =>
+            ['life-tonic', 'ofuda-cache', 'orange-juice', 'get-out-of-hell-free-card'].includes(
+              offer.id,
+            ),
+          )
+          .map((offer) => this.shopSupplyOffer(offer, 'supplies'));
+      case 'equipmentMerchant':
+      case 'shopkeeper':
+      case 'goblinMerchant':
+      case 'blackMarketMerchant':
+        return [
+          ...definition.equipment.map((offer) => this.shopEquipmentOffer(offer)),
+          ...definition.supplies.map((offer) => this.shopSupplyOffer(offer, 'supplies')),
+        ];
+      case 'bartender':
+        return definition.supplies
+          .filter((offer) => ['beer', 'wine', 'ramen'].includes(offer.id))
+          .map((offer) => this.shopSupplyOffer(offer, 'food'));
+      case 'cardDealer':
+        return CARD_SHOP_OFFERS.map((cardId) => {
+          const card = getCardDefinition(cardId);
+          return {
+            id: card.id,
+            category: 'services',
+            label: card.name,
+            price: card.price,
+            note: card.description,
+          } satisfies ActorShopOfferView;
+        });
+      default:
+        return [];
+    }
+  }
+
+  private buildMapperActorOffers(actor: Actor, room: RoomSnapshot): ActorShopOfferView[] {
+    const townId = actor.townId ?? room.town?.id ?? 'unknown-town';
+    const stockPeriod = this.getAtmosphereState().worldDay;
+    return buildMapperStock({
+      townId,
+      worldSeed: this.worldSeed,
+      currentBiomeId: room.biomeId,
+      stockPeriod,
+    }).map((offer) => this.mapperShopOffer(offer));
+  }
+
+  private mapperShopOffer(offer: MapperStockOffer): ActorShopOfferView {
+    return {
+      id: offer.id,
+      category: 'locators',
+      label: getItem(offer.itemId)?.name ?? offer.id,
+      price: offer.price,
+      note: offer.note,
+      itemId: offer.itemId,
+    };
+  }
+
+  private shopSupplyOffer(
+    offer: VillageShopSupplyOffer,
+    category: ActorShopOfferCategory,
+  ): ActorShopOfferView {
+    return {
+      id: offer.id,
+      category,
+      label: getItem(offer.itemId)?.name ?? offer.id,
+      price: offer.price,
+      note: offer.note,
+      itemId: offer.itemId,
+    };
+  }
+
+  private shopEquipmentOffer(offer: VillageShopEquipmentOffer): ActorShopOfferView {
+    return {
+      id: offer.id,
+      category: 'equipment',
+      label: getItem(offer.itemId)?.name ?? offer.id,
+      price: offer.price,
+      note: offer.note,
+      itemId: offer.itemId,
+    };
   }
 
   wakeActor(actorId: string): { ok: boolean; pages: string[] } {
@@ -6554,6 +7130,9 @@ export class SnakeGame implements QuestRuntime {
   ): ActorConversationResult | null {
     const actor = this.actors.getActor(actorId);
     if (!actor) {
+      return null;
+    }
+    if (!actorCanSpeakNow(actor)) {
       return null;
     }
     const room = this.getCurrentRoom();
@@ -7566,6 +8145,460 @@ export class SnakeGame implements QuestRuntime {
     return event.summary;
   }
 
+  escalateGoblinAggressionAgainstGuards(
+    goblinActorId: string,
+    roomId = this.snake.currentRoomId,
+  ): FactionCurrentEvent | null {
+    const room = this.world.getRoom(roomId);
+    this.ensureActorsFromRoomContent(room);
+    this.materializeActorsForRoom(room);
+    const goblin = this.actors.getActor(goblinActorId);
+    if (!goblin || goblin.factionId !== 'goblin-camps') {
+      return null;
+    }
+    const guards = this.actors
+      .getActorsInRoom(roomId)
+      .filter((actor) => actor.id !== goblinActorId && isTownGuardRole(actor.role));
+    if (guards.length === 0) {
+      return null;
+    }
+    const event = this.factionEvents.createEvent({
+      type: 'skirmish',
+      factionIds: ['goblin-camps', 'guards'],
+      actorIds: [goblinActorId, ...guards.map((guard) => guard.id)],
+      townId: room.town?.id,
+      roomId,
+      severity: 42,
+      phase: 'active',
+      createdAt: this.getRoomsVisitedCount(),
+      summary: 'Goblin aggression broke the tense truce with the guards.',
+      tags: ['goblin', 'guard', 'hostile', 'skirmish'],
+    });
+    this.recordRumorFromFactionEvent(event);
+    this.actors.registry.update(goblinActorId, (actor) => ({
+      ...actor,
+      hostility: actor.hostility === 'dead' ? actor.hostility : 'hostile',
+      mood: {
+        ...actor.mood,
+        anger: Math.min(100, actor.mood.anger + 35),
+        stress: Math.min(100, actor.mood.stress + 20),
+      },
+      flags: {
+        ...actor.flags,
+        activeFactionEventId: event.id,
+      },
+    }));
+    for (const guard of guards) {
+      this.actors.setTargetThreat(
+        guard.id,
+        {
+          targetActorId: goblinActorId,
+          source: 'faction',
+          reason: 'goblin-aggression',
+          startedAtRoomNumber: this.getRoomsVisitedCount(),
+        },
+        'goblin-aggression',
+      );
+      this.actors.requestGoal(
+        guard.id,
+        {
+          kind: 'attackActor',
+          priority: 42,
+          targetActorId: goblinActorId,
+          roomId,
+          reason: 'goblin-aggression',
+        },
+        { interrupt: true },
+      );
+    }
+    this.setFlag('factions.v2.save', this.factionEvents.save());
+    return event;
+  }
+
+  startApproachingBanditRaidForCurrentTown(severity = 56): ApproachingBanditRaidState | null {
+    const town = this.getCurrentRoom().town;
+    if (!town) {
+      return null;
+    }
+    const existing = this.getFlag<ApproachingBanditRaidState>(this.approachingRaidFlagKey(town.id));
+    if (existing && existing.phase !== 'aftermath') {
+      this.materializeApproachingRaid(existing);
+      return existing;
+    }
+    const gateRoomId = town.entranceRoomId;
+    const routeRoomIds = this.createApproachingRaidRoute(town);
+    const strength = severity >= 64 ? 4 : severity >= 48 ? 3 : 2;
+    const event = this.factionEvents.createEvent({
+      type: 'raid-warning',
+      factionIds: ['bandits', 'guards', 'shopkeepers'],
+      townId: town.id,
+      roomId: routeRoomIds[0],
+      severity,
+      phase: 'brewing',
+      createdAt: this.getRoomsVisitedCount(),
+      expiresAt: this.getRoomsVisitedCount() + 12,
+      summary: 'Bandits are approaching town from the road outside the wall.',
+      tags: ['bandit', 'raid', 'warning', 'approaching', 'outside-town'],
+    });
+    const state: ApproachingBanditRaidState = {
+      id: `town-raid:${town.id}:${this.hashText(event.id)}`,
+      eventId: event.id,
+      townId: town.id,
+      gateRoomId,
+      targetRoomId: gateRoomId,
+      routeRoomIds,
+      currentRouteIndex: 0,
+      strength,
+      originalStrength: strength,
+      warning: false,
+      delayedByRooms: 0,
+      banditActorIds: Array.from(
+        { length: strength },
+        (_, index) => `town-raid-bandit:${town.id}:${this.hashText(event.id)}:${index}`,
+      ),
+      phase: 'approaching',
+      casualties: 0,
+      damage: 0,
+    };
+    this.setFlag(this.approachingRaidFlagKey(town.id), state);
+    this.recordRumorFromFactionEvent(event);
+    this.materializeApproachingRaid(state);
+    this.setFlag('factions.v2.save', this.factionEvents.save());
+    return state;
+  }
+
+  advanceApproachingBanditRaid(raidId: string): ApproachingBanditRaidState | null {
+    const current = this.findApproachingBanditRaidById(raidId);
+    if (!current) {
+      return null;
+    }
+    if (current.phase === 'inside' || current.phase === 'aftermath') {
+      return current;
+    }
+    const nextIndex = Math.min(current.routeRoomIds.length - 1, current.currentRouteIndex + 1);
+    const reachedGate = nextIndex === current.routeRoomIds.length - 1;
+    const next: ApproachingBanditRaidState = {
+      ...current,
+      currentRouteIndex: nextIndex,
+      phase: reachedGate ? 'at-gate' : 'approaching',
+    };
+    this.setFlag(this.approachingRaidFlagKey(next.townId), next);
+    this.materializeApproachingRaid(next);
+    if (reachedGate) {
+      return this.activateApproachingRaidInsideTown(next);
+    }
+    return next;
+  }
+
+  resolvePatrolRaidInterception(
+    raidId: string,
+    patrolId: string,
+  ): PatrolRaidInterceptionResult | null {
+    const raid = this.findApproachingBanditRaidById(raidId);
+    const patrol = this.findTownPatrolById(patrolId);
+    if (!raid || !patrol) {
+      return null;
+    }
+    const livingPatrol = patrol.members.filter((member) => member.health > 0);
+    const strengthBefore = raid.strength;
+    const losses = Math.min(raid.strength, Math.max(1, Math.ceil(livingPatrol.length / 2)));
+    const woundedPatrol = livingPatrol.slice(0, losses);
+    const nextPatrol: TownPatrolExcursion = {
+      ...patrol,
+      retreating: true,
+      members: patrol.members.map((member) =>
+        woundedPatrol.some((wounded) => wounded.actorId === member.actorId)
+          ? { ...member, health: Math.max(1, member.health - 1), roomId: patrol.homeRoomId }
+          : member,
+      ),
+    };
+    const nextRaid: ApproachingBanditRaidState = {
+      ...raid,
+      strength: Math.max(0, raid.strength - losses),
+      warning: true,
+      delayedByRooms: raid.delayedByRooms + 1,
+      casualties: raid.casualties + losses,
+    };
+    this.setFlag(this.townPatrolFlagKey(nextPatrol.townId), nextPatrol);
+    this.setFlag(this.approachingRaidFlagKey(nextRaid.townId), nextRaid);
+    this.materializeTownPatrol(nextPatrol);
+    this.materializeApproachingRaid(nextRaid);
+    this.emitWorldEvent({
+      type: 'faction-skirmish-started',
+      roomId: raid.routeRoomIds[raid.currentRouteIndex],
+      sourceActorId: livingPatrol[0]?.actorId,
+      targetActorIds: raid.banditActorIds.slice(0, strengthBefore),
+      witnessActorIds: livingPatrol.map((member) => member.actorId),
+      severity: 38 + losses * 6,
+      loudness: 50,
+      tags: ['bandit', 'raid', 'patrol', 'warning'],
+      summary: 'A town patrol intercepted approaching raiders outside the wall.',
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { townId: raid.townId, raidId: raid.id },
+    });
+    return {
+      raid: nextRaid,
+      patrol: nextPatrol,
+      warningCreated: true,
+      strengthBefore,
+      strengthAfter: nextRaid.strength,
+      delayedByRooms: nextRaid.delayedByRooms,
+      patrolSurvivors: nextPatrol.members.filter((member) => member.health > 0).length,
+    };
+  }
+
+  resolveApproachingBanditRaidAftermath(
+    raidId: string,
+    input: { casualties?: number; damage?: number } = {},
+  ): FactionCurrentEvent | null {
+    const raid = this.findApproachingBanditRaidById(raidId);
+    if (!raid) {
+      return null;
+    }
+    const room = this.world.getRoom(raid.targetRoomId);
+    const state = this.getFlag<BanditRaidRuntimeState>(this.banditRaidFlagKey(raid.eventId)) ?? {
+      eventId: raid.eventId,
+      roomId: raid.targetRoomId,
+      banditEnemyIds: [],
+      banditsKilled: 0,
+      banditsEaten: 0,
+      startedAtRoom: this.getRoomsVisitedCount(),
+    };
+    const defeated = Math.max(input.casualties ?? raid.casualties, state.banditsKilled);
+    const aftermath = this.factionEvents.recordRaidAftermath({
+      roomId: raid.targetRoomId,
+      townId: raid.townId,
+      createdAt: this.getRoomsVisitedCount(),
+      banditsKilled: defeated,
+      banditsEaten: state.banditsEaten,
+      playerHelped: defeated > 0,
+    });
+    const nextState = {
+      ...state,
+      banditsKilled: defeated,
+      aftermathRecorded: true,
+    } satisfies BanditRaidRuntimeState;
+    const nextRaid: ApproachingBanditRaidState = {
+      ...raid,
+      phase: 'aftermath',
+      strength: 0,
+      casualties: defeated,
+      damage: Math.max(input.damage ?? raid.damage, raid.damage),
+    };
+    this.setFlag(this.banditRaidFlagKey(raid.eventId), nextState);
+    this.setFlag(this.approachingRaidFlagKey(raid.townId), nextRaid);
+    this.resolveBanditRaidDefenders(aftermath, room, nextState);
+    this.recordRumorFromFactionEvent(aftermath);
+    this.setFlag('factions.v2.save', this.factionEvents.save());
+    return aftermath;
+  }
+
+  chooseActorAttackAgainstPlayer(actorId: string): ActorAttackDecision | null {
+    const actor = this.actors.getActor(actorId);
+    if (!actor?.presence || !actor.combat?.armed) {
+      return null;
+    }
+    const room = this.world.getRoom(actor.presence.roomId);
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return null;
+    }
+    const target = this.worldToLocalInRoom(room.id, head);
+    const sword = actor.combat.weapons?.find((weapon) => weapon.kind === 'sword');
+    const firearm = actor.combat.weapons?.find((weapon) => weapon.kind === 'firearm');
+    if (
+      sword &&
+      this.isActorSwordReady(actor) &&
+      this.isTargetInsideActorSwordArc(room, actor, target)
+    ) {
+      return this.resolveActorSwordAttackAgainstPlayer(actorId);
+    }
+    if (firearm) {
+      this.actors.setActivity(
+        actor.id,
+        {
+          kind: 'combat-ranged',
+          source: 'combat',
+          startedAtRoomNumber: this.getRoomsVisitedCount(),
+        },
+        'actor-ranged-attack-choice',
+      );
+      this.actors.registry.update(actor.id, (current) => ({
+        ...current,
+        combat: current.combat
+          ? {
+              ...current.combat,
+              activeWeaponId: firearm.id,
+            }
+          : current.combat,
+      }));
+      return {
+        actorId: actor.id,
+        roomId: room.id,
+        weaponId: firearm.id,
+        selectedWeaponKind: 'firearm',
+        activityKind: 'combat-ranged',
+        cooldownActive: false,
+      };
+    }
+    return null;
+  }
+
+  previewActorSwordAttack(actorId: string, target: Vector2Like): ActorSwordAttackEvent | null {
+    return this.createActorSwordAttackEvent(actorId, target, { applyDamage: false });
+  }
+
+  resolveActorSwordAttackAgainstPlayer(actorId: string): ActorSwordAttackEvent | null {
+    const actor = this.actors.getActor(actorId);
+    const head = this.snake.bodySegments[0];
+    if (!actor?.presence || !head) {
+      return null;
+    }
+    return this.createActorSwordAttackEvent(
+      actorId,
+      this.worldToLocalInRoom(actor.presence.roomId, head),
+      {
+        applyDamage: true,
+        playerTarget: true,
+      },
+    );
+  }
+
+  resolveActorSwordAttackAgainstActor(
+    actorId: string,
+    targetActorId: string,
+  ): ActorSwordAttackEvent | null {
+    const target = this.actors.getActor(targetActorId);
+    if (!target?.presence) {
+      return null;
+    }
+    return this.createActorSwordAttackEvent(actorId, target.presence.position, {
+      applyDamage: true,
+      targetActorId,
+    });
+  }
+
+  clearActorCombatState(actorId: string): void {
+    this.actors.setTargetThreat(actorId, undefined, 'combat-ended');
+    this.actors.setActivity(
+      actorId,
+      { kind: 'idle', source: 'system', startedAtRoomNumber: this.getRoomsVisitedCount() },
+      'combat-ended',
+    );
+    this.actors.registry.update(actorId, (actor) => ({
+      ...actor,
+      goal: undefined,
+      combat: actor.combat
+        ? {
+            ...actor.combat,
+            activeWeaponId: undefined,
+          }
+        : actor.combat,
+      flags: {
+        ...actor.flags,
+        actorSwordAttack: undefined,
+      },
+    }));
+    this.actors.resumeGoal(actorId);
+  }
+
+  resolveTownPatrolExcursion(townId?: string): TownPatrolExcursion | null {
+    const town = this.findTownForPatrol(townId);
+    if (!town) {
+      return null;
+    }
+    const key = this.townPatrolFlagKey(town.id);
+    const existing = this.getFlag<TownPatrolExcursion>(key);
+    if (existing) {
+      this.materializeTownPatrol(existing);
+      return existing;
+    }
+    const routeRoomIds = this.createTownPatrolRoute(town);
+    const memberCount = 1 + (stableStringHashPositive(`${town.id}:patrol:size`) % 4);
+    const members: TownPatrolMember[] = Array.from({ length: memberCount }, (_, index) => ({
+      actorId: `town-patrol:${town.id}:${index}`,
+      health: 3,
+      roomId: routeRoomIds[0]!,
+    }));
+    const excursion: TownPatrolExcursion = {
+      id: `town-patrol:${town.id}`,
+      townId: town.id,
+      homeRoomId: town.entranceRoomId,
+      routeRoomIds,
+      currentRouteIndex: 0,
+      members,
+      retreating: false,
+    };
+    this.setFlag(key, excursion);
+    this.materializeTownPatrol(excursion);
+    return excursion;
+  }
+
+  advanceTownPatrolExcursion(excursionId: string): TownPatrolExcursion | null {
+    const excursion = this.findTownPatrolById(excursionId);
+    if (!excursion) {
+      return null;
+    }
+    const nextIndex = excursion.retreating
+      ? Math.max(0, excursion.currentRouteIndex - 1)
+      : Math.min(excursion.routeRoomIds.length - 1, excursion.currentRouteIndex + 1);
+    const nextRoomId =
+      excursion.retreating && nextIndex === 0
+        ? excursion.homeRoomId
+        : excursion.routeRoomIds[nextIndex]!;
+    const next = {
+      ...excursion,
+      currentRouteIndex: nextIndex,
+      members: excursion.members.map((member) => ({ ...member, roomId: nextRoomId })),
+    };
+    this.setFlag(this.townPatrolFlagKey(excursion.townId), next);
+    this.materializeTownPatrol(next);
+    return next;
+  }
+
+  woundTownPatrolMember(actorId: string, health: number): TownPatrolExcursion | null {
+    const excursion = this.findTownPatrolForActor(actorId);
+    if (!excursion) {
+      return null;
+    }
+    const next = {
+      ...excursion,
+      members: excursion.members.map((member) =>
+        member.actorId === actorId
+          ? { ...member, health: Math.max(0, Math.floor(health)) }
+          : member,
+      ),
+    };
+    this.setFlag(this.townPatrolFlagKey(next.townId), next);
+    this.materializeTownPatrol(next);
+    return next;
+  }
+
+  evaluateTownPatrolRetreat(excursionId: string): TownPatrolExcursion | null {
+    const excursion = this.findTownPatrolById(excursionId);
+    if (!excursion) {
+      return null;
+    }
+    const living = excursion.members.filter((member) => member.health > 0);
+    const shouldRetreat =
+      living.length <= Math.max(1, Math.floor(excursion.members.length / 2)) ||
+      living.some((member) => member.health <= 1);
+    const next = shouldRetreat ? { ...excursion, retreating: true } : excursion;
+    this.setFlag(this.townPatrolFlagKey(next.townId), next);
+    this.materializeTownPatrol(next);
+    if (shouldRetreat) {
+      for (const member of living) {
+        this.actors.requestGoal(member.actorId, {
+          kind: 'travelToRoom',
+          priority: 26,
+          roomId: excursion.homeRoomId,
+          reason: 'patrol-retreat',
+        });
+      }
+    }
+    return next;
+  }
+
   getPeopleJournalView(limit = 24): ActorJournalEntry[] {
     const knownFacts = this.getFlag<ActorKnownFact[]>('actors.knownFacts') ?? [];
     return this.actors.registry
@@ -7774,6 +8807,15 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private activateBanditRaidDefenders(event: FactionCurrentEvent, room: RoomSnapshot): void {
+    for (const building of room.town?.buildings ?? []) {
+      if (
+        building.enterable &&
+        building.publicAccess !== false &&
+        building.kind !== 'residentialHome'
+      ) {
+        this.setFlag(`town.doorClosure.${building.id}`, 'Closed during the raid');
+      }
+    }
     for (const actor of this.actors.registry.getByRoom(room.id)) {
       if (actor.kind === 'animal' || actor.kind === 'enemy' || actor.factionId === 'bandits') {
         continue;
@@ -7828,6 +8870,9 @@ export class SnakeGame implements QuestRuntime {
     room: RoomSnapshot,
     state: BanditRaidRuntimeState,
   ): void {
+    for (const building of room.town?.buildings ?? []) {
+      this.setFlag(`town.doorClosure.${building.id}`, undefined);
+    }
     for (const actor of this.actors.registry.getByRoom(room.id)) {
       if (actor.flags.activeFactionEventId !== state.eventId) {
         continue;
@@ -7917,6 +8962,239 @@ export class SnakeGame implements QuestRuntime {
 
   private banditRaidFlagKey(eventId: string): string {
     return `factions.raid.${this.hashText(eventId)}`;
+  }
+
+  private findTownForPatrol(townId?: string): TownStructure | null {
+    const current = this.getCurrentRoom().town;
+    if (current && (!townId || current.id === townId)) {
+      return current;
+    }
+    return null;
+  }
+
+  private createTownPatrolRoute(town: TownStructure): string[] {
+    const coords = town.physicalRoomIds.map((roomId) => this.parseRoomCoordinates(roomId));
+    const xs = coords.map(([x]) => x);
+    const ys = coords.map(([, y]) => y);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    const centerY = Math.floor((minY + maxY) / 2);
+    const z = coords[0]?.[2] ?? 0;
+    const eastBand = [`${maxX + 2},${centerY},${z}`, `${maxX + 3},${centerY},${z}`];
+    return eastBand.every((roomId) => !town.districtByRoomId[roomId])
+      ? eastBand
+      : [`${minX - 2},${centerY},${z}`, `${minX - 3},${centerY},${z}`];
+  }
+
+  private materializeTownPatrol(excursion: TownPatrolExcursion): void {
+    for (const [index, member] of excursion.members.entries()) {
+      if (member.health <= 0) {
+        continue;
+      }
+      const room = this.world.getRoom(member.roomId);
+      const position = this.findTownPatrolPosition(room, index);
+      this.actors.registry.ensureTownResidentActor({
+        actorId: member.actorId,
+        residentId: member.actorId,
+        name: `Patrol Guard ${index + 1}`,
+        role: 'guard',
+        factionId: 'guards',
+        townId: excursion.townId,
+        currentRoomId: member.roomId,
+        homeRoomId: excursion.homeRoomId,
+        workRoomId: member.roomId,
+        postPosition: position,
+        createdAtRoomNumber: this.getRoomsVisitedCount(),
+      });
+      this.actors.registry.update(member.actorId, (actor) => ({
+        ...actor,
+        health: {
+          current: member.health,
+          max: 3,
+          state: member.health < 3 ? 'wounded' : 'healthy',
+        },
+        flags: {
+          ...actor.flags,
+          patrolExcursionId: excursion.id,
+        },
+      }));
+      this.actors.setPresence(
+        member.actorId,
+        {
+          roomId: member.roomId,
+          position,
+          anchor: position,
+          materialized: true,
+        },
+        'town-patrol-materialize',
+      );
+    }
+  }
+
+  private findTownPatrolPosition(room: RoomSnapshot, index: number): Vector2Like {
+    const cols = room.layout[0]?.length ?? this.config.grid.cols;
+    const rows = room.layout.length;
+    for (let radius = 0; radius < Math.max(cols, rows); radius += 1) {
+      const y = Math.min(rows - 2, 4 + index + radius);
+      for (let x = 4; x < cols - 4; x += 1) {
+        const tile = room.layout[y]?.[x];
+        if (tile && tile !== '~' && !this.isSolidTile(tile) && !isBlockingTownTile(tile)) {
+          return { x, y };
+        }
+      }
+    }
+    return { x: 5 + index, y: 5 };
+  }
+
+  private findTownPatrolById(excursionId: string): TownPatrolExcursion | null {
+    for (const [key, value] of Object.entries(this.snake.flags)) {
+      if (!key.startsWith('town.runtime.patrol.')) {
+        continue;
+      }
+      const excursion = value as TownPatrolExcursion;
+      if (excursion?.id === excursionId) {
+        return excursion;
+      }
+    }
+    return null;
+  }
+
+  private findTownPatrolForActor(actorId: string): TownPatrolExcursion | null {
+    for (const [key, value] of Object.entries(this.snake.flags)) {
+      if (!key.startsWith('town.runtime.patrol.')) {
+        continue;
+      }
+      const excursion = value as TownPatrolExcursion;
+      if (excursion?.members?.some((member) => member.actorId === actorId)) {
+        return excursion;
+      }
+    }
+    return null;
+  }
+
+  private townPatrolFlagKey(townId: string): string {
+    return `town.runtime.patrol.${townId}`;
+  }
+
+  private createApproachingRaidRoute(town: TownStructure): string[] {
+    const patrolRoute = this.createTownPatrolRoute(town);
+    return [...patrolRoute].reverse().concat(town.entranceRoomId);
+  }
+
+  private materializeApproachingRaid(raid: ApproachingBanditRaidState): void {
+    if (raid.phase === 'aftermath') {
+      return;
+    }
+    const roomId =
+      raid.phase === 'inside' ? raid.targetRoomId : raid.routeRoomIds[raid.currentRouteIndex]!;
+    const room = this.world.getRoom(roomId);
+    const livingBanditIds = raid.banditActorIds.slice(0, raid.strength);
+    for (const [index, actorId] of livingBanditIds.entries()) {
+      const position = this.findTownPatrolPosition(room, index + 3);
+      this.actors.registry.ensureEnemyActor({
+        actorId,
+        enemyId: actorId,
+        roomId,
+        name: `Approaching Raider ${index + 1}`,
+        encounterKind: 'bandit',
+        currentHearts: 1,
+        maxHearts: 1,
+        createdAtRoomNumber: this.getRoomsVisitedCount(),
+      });
+      this.actors.registry.update(actorId, (actor) => ({
+        ...actor,
+        currentRoomId: roomId,
+        flags: {
+          ...actor.flags,
+          approachingRaidId: raid.id,
+        },
+      }));
+      this.actors.setPresence(
+        actorId,
+        {
+          roomId,
+          position,
+          anchor: position,
+          materialized: true,
+        },
+        'approaching-raid-materialize',
+      );
+      this.actors.requestGoal(
+        actorId,
+        raid.phase === 'inside'
+          ? {
+              kind: 'attackActor',
+              priority: 40,
+              roomId,
+              reason: 'town-raid',
+            }
+          : {
+              kind: 'travelToRoom',
+              priority: 34,
+              roomId: raid.phase === 'at-gate' ? raid.targetRoomId : raid.gateRoomId,
+              reason: 'approaching-raid',
+            },
+        { replaceLowerPriority: true },
+      );
+    }
+  }
+
+  private activateApproachingRaidInsideTown(
+    raid: ApproachingBanditRaidState,
+  ): ApproachingBanditRaidState {
+    const room = this.world.getRoom(raid.targetRoomId);
+    this.ensureActorsFromRoomContent(room);
+    this.materializeActorsForRoom(room);
+    const active = this.factionEvents.createEvent({
+      type: 'raid-active',
+      factionIds: ['bandits', 'guards', 'shopkeepers'],
+      actorIds: raid.banditActorIds.slice(0, raid.strength),
+      townId: raid.townId,
+      roomId: raid.targetRoomId,
+      severity: Math.max(35, 36 + raid.strength * 8),
+      phase: 'active',
+      createdAt: this.getRoomsVisitedCount(),
+      expiresAt: this.getRoomsVisitedCount() + 10 + raid.delayedByRooms,
+      summary: 'Raiders came through the gate and the town emergency snapped into place.',
+      tags: ['bandit', 'raid', 'active', 'danger', 'gate-entry'],
+      flags: {
+        sourceApproachId: raid.id,
+        delayedByRooms: raid.delayedByRooms,
+        warning: raid.warning,
+      },
+    });
+    const inside: ApproachingBanditRaidState = {
+      ...raid,
+      eventId: active.id,
+      phase: 'inside',
+      currentRouteIndex: raid.routeRoomIds.length - 1,
+      targetRoomId: room.id,
+    };
+    this.setFlag(this.approachingRaidFlagKey(inside.townId), inside);
+    this.recordRumorFromFactionEvent(active);
+    this.spawnBanditRaidForEvent(active, room);
+    this.materializeApproachingRaid(inside);
+    this.setFlag('factions.v2.save', this.factionEvents.save());
+    return inside;
+  }
+
+  private findApproachingBanditRaidById(raidId: string): ApproachingBanditRaidState | null {
+    for (const [key, value] of Object.entries(this.snake.flags)) {
+      if (!key.startsWith('town.runtime.raid.')) {
+        continue;
+      }
+      const raid = value as ApproachingBanditRaidState;
+      if (raid?.id === raidId) {
+        return raid;
+      }
+    }
+    return null;
+  }
+
+  private approachingRaidFlagKey(townId: string): string {
+    return `town.runtime.raid.${townId}`;
   }
 
   private recordRumorFromWorldEvent(event: WorldEvent): void {
@@ -8152,6 +9430,9 @@ export class SnakeGame implements QuestRuntime {
           room.id,
         );
         activeIds.add(body.relationshipId);
+        if (actor) {
+          this.recordActorMaterializedWorkPosition(actor, room.id, body.position);
+        }
       }
     }
     for (const actor of this.actors.getActorsInRoom(room.id)) {
@@ -8161,13 +9442,16 @@ export class SnakeGame implements QuestRuntime {
       const candidate = candidatesByActorId.get(actor.id);
       const profile = candidate?.profile ?? this.createActorBodyProfile(actor, room.id);
       const stationary = candidate?.stationary ?? actor.presence?.stationary ?? false;
+      const fallbackPosition = actor.presence?.position ??
+        actor.goal?.targetPosition ?? { x: 3, y: 3 };
       const body = this.ensureNpcBody(
         profile,
-        actor.presence?.position ?? { x: 3, y: 3 },
+        candidate?.position ?? this.resolveActorMaterializationPosition(room, fallbackPosition),
         stationary,
         room.id,
       );
       activeIds.add(body.relationshipId);
+      this.recordActorMaterializedWorkPosition(actor, room.id, body.position);
     }
     for (const [id, body] of this.npcBodies) {
       if (body.roomId === room.id && !activeIds.has(id)) {
@@ -8179,6 +9463,43 @@ export class SnakeGame implements QuestRuntime {
       .getActorsInRoom(room.id)
       .filter((actor) => actor.presence?.materialized).length;
     return Math.max(0, materializedAfter - materializedBefore);
+  }
+
+  private recordActorMaterializedWorkPosition(
+    actor: Actor,
+    roomId: string,
+    position: Vector2Like,
+  ): void {
+    if (!isTownShopRole(actor.role) || !roomId.startsWith('layer:townInterior:')) {
+      return;
+    }
+    const schedule = actor.schedule;
+    if (!schedule) {
+      return;
+    }
+    const current = schedule.workPosition;
+    if (current?.x === position.x && current.y === position.y) {
+      return;
+    }
+    this.actors.registry.update(actor.id, (entry) => ({
+      ...entry,
+      workRoomId: roomId,
+      schedule: entry.schedule
+        ? {
+            ...entry.schedule,
+            workRoomId: roomId,
+            workPosition: { ...position },
+          }
+        : entry.schedule,
+      scheduleGoal:
+        entry.scheduleGoal?.kind === 'work' && entry.scheduleGoal.roomId === roomId
+          ? { ...entry.scheduleGoal, targetPosition: { ...position } }
+          : entry.scheduleGoal,
+      goal:
+        entry.goal?.kind === 'work' && entry.goal.roomId === roomId
+          ? { ...entry.goal, targetPosition: { ...position } }
+          : entry.goal,
+    }));
   }
 
   private materializeDirtyActorsForRoom(room: RoomSnapshot): number {
@@ -8205,7 +9526,11 @@ export class SnakeGame implements QuestRuntime {
       ) {
         return;
       }
-      if (actor?.currentRoomId && actor.currentRoomId !== room.id) {
+      if (
+        actor?.currentRoomId &&
+        actor.currentRoomId !== room.id &&
+        actor.goal?.roomId !== room.id
+      ) {
         return;
       }
       const actorPosition =
@@ -8382,7 +9707,7 @@ export class SnakeGame implements QuestRuntime {
 
   private shouldMaterializeActorInRoom(actor: Actor, roomId: string): boolean {
     return Boolean(
-      actor.presence?.roomId === roomId &&
+      (actor.presence?.roomId === roomId || (!actor.presence && actor.currentRoomId === roomId)) &&
       (actor.species === 'human' || actor.species === 'goblin') &&
       actor.health?.state !== 'dead' &&
       actor.hostility !== 'dead' &&
@@ -8454,6 +9779,18 @@ export class SnakeGame implements QuestRuntime {
           profile.actorId,
           { ...actorPresence, materialized: true },
           'npc-body-materialized',
+        );
+      } else if (profile.actorId && actor && !actor.presence) {
+        this.actors.setPresence(
+          profile.actorId,
+          createActorPresence({
+            roomId: existing.roomId,
+            position: existing.position,
+            anchor: existing.anchor,
+            wanderRadius: existing.wanderRadius,
+            stationary: existing.stationary,
+          }),
+          'npc-body-rematerialized',
         );
       }
       return existing;
@@ -8715,8 +10052,7 @@ export class SnakeGame implements QuestRuntime {
         actor.goal?.roomId &&
         actor.goal.roomId !== room.id &&
         travelTarget &&
-        body.position.x === travelTarget.x &&
-        body.position.y === travelTarget.y
+        this.actorReachedLoadedTransitionTarget(room, body.position, travelTarget)
       ) {
         const goalRoomId = actor.goal.roomId;
         const nextRoomId = this.selectNextActorTravelRoomForActor(actor, room, goalRoomId);
@@ -8842,7 +10178,6 @@ export class SnakeGame implements QuestRuntime {
       const goalRoomId = actor.goal?.roomId;
       if (
         !goalRoomId ||
-        goalRoomId === actor.currentRoomId ||
         actor.currentRoomId === loadedRoomId ||
         this.actorsTransitionedFromLoadedRoomThisTick.has(actor.id) ||
         actor.health?.state === 'dead' ||
@@ -8850,17 +10185,26 @@ export class SnakeGame implements QuestRuntime {
       ) {
         continue;
       }
+      if (goalRoomId === actor.currentRoomId) {
+        actorsMoved += this.advanceActorWithinUnloadedGoalRoom(actor, roomNumber, nowMs);
+        continue;
+      }
       const currentRoomId = actor.currentRoomId;
       if (!currentRoomId) {
         continue;
       }
-      const currentRoom = this.world.getRoom(currentRoomId);
+      const currentRoom = this.tryGetActorTravelRoom(currentRoomId);
+      if (!currentRoom) {
+        this.scheduleActorTravelRetry(actor.id, nowMs, 'logical-room-unmaterialized');
+        continue;
+      }
       const nextAvailableAtMs = Number(actor.flags.actorTravelNextAtMs ?? 0);
       if (nextAvailableAtMs > nowMs) {
         continue;
       }
       const nextRoomId = this.selectNextActorTravelRoomForActor(actor, currentRoom, goalRoomId);
       if (nextRoomId === currentRoom.id) {
+        this.scheduleActorTravelRetry(actor.id, nowMs, 'blocked-route');
         this.actors.recordActorTelemetry('actor.travel_blocked', actor.id, 'offscreen-travel', {
           currentRoomId,
           goalRoomId,
@@ -8869,6 +10213,7 @@ export class SnakeGame implements QuestRuntime {
       }
       const travelTarget = this.getLoadedActorTravelLegTarget(actor, currentRoom, nextRoomId);
       if (!travelTarget) {
+        this.scheduleActorTravelRetry(actor.id, nowMs, 'missing-leg-target');
         this.actors.recordActorTelemetry('actor.path_blocked', actor.id, 'offscreen-travel-path', {
           currentRoomId,
           goalRoomId,
@@ -8882,6 +10227,35 @@ export class SnakeGame implements QuestRuntime {
         finalRoomId: goalRoomId,
         target: { ...travelTarget },
       });
+      if (!actor.presence && currentRoom.layer?.parentRoomId === nextRoomId) {
+        const arrival = this.resolveOffscreenActorTransitionArrival(currentRoom, nextRoomId);
+        this.actors.setPresence(
+          actor.id,
+          createActorPresence({
+            roomId: nextRoomId,
+            position: arrival,
+            anchor: arrival,
+            materialized: false,
+          }),
+          'offscreen-logical-layer-exit',
+        );
+        this.actors.recordActorTelemetry(
+          'actor.transitioned',
+          actor.id,
+          'offscreen-logical-layer-exit',
+          {
+            fromRoomId: currentRoom.id,
+            toRoomId: nextRoomId,
+            toPosition: { ...arrival },
+            finalRoomId: goalRoomId,
+          },
+        );
+        if (nextRoomId === loadedRoomId) {
+          this.actorMaterializationDirtyRooms.add(loadedRoomId);
+        }
+        actorsMoved += 1;
+        continue;
+      }
       const body = this.createActorPathBody(currentRoom, actor);
       if (!body) {
         continue;
@@ -8892,6 +10266,7 @@ export class SnakeGame implements QuestRuntime {
         canStandAt: (position) => this.canNpcBodyStandAt(currentRoom, body, position),
       });
       if (!path) {
+        this.scheduleActorTravelRetry(actor.id, nowMs, 'path-blocked');
         this.actors.recordActorTelemetry('actor.path_blocked', actor.id, 'offscreen-travel-path', {
           currentRoomId,
           goalRoomId,
@@ -8914,8 +10289,12 @@ export class SnakeGame implements QuestRuntime {
           actorTravelNextAtMs: nowMs + ACTOR_TRAVEL_MOVE_COOLDOWN_MS,
         },
       }));
-      if (nextPosition.x === travelTarget.x && nextPosition.y === travelTarget.y) {
-        const arrival = this.resolveActorTransitionArrival(currentRoom, nextRoomId, nextPosition);
+      if (this.actorReachedLoadedTransitionTarget(currentRoom, nextPosition, travelTarget)) {
+        const arrival = this.resolveOffscreenActorTransitionArrival(
+          currentRoom,
+          nextRoomId,
+          nextPosition,
+        );
         const presence = actor.presence
           ? {
               ...actor.presence,
@@ -8961,10 +10340,18 @@ export class SnakeGame implements QuestRuntime {
             });
         this.actors.setPresence(actor.id, presence, 'offscreen-travel-step');
       }
+      const arrivedAtUntargetedGoal =
+        nextPosition.x === travelTarget.x &&
+        nextPosition.y === travelTarget.y &&
+        nextRoomId === goalRoomId &&
+        !actor.goal?.targetPosition;
       this.actors.setActivity(
         actor.id,
         {
-          kind: 'walking',
+          kind:
+            arrivedAtUntargetedGoal && actor.goal?.kind === 'work'
+              ? this.actorWorkActivityKind(actor)
+              : 'walking',
           source: 'schedule',
           startedAtRoomNumber: roomNumber,
         },
@@ -8973,6 +10360,268 @@ export class SnakeGame implements QuestRuntime {
       actorsMoved += 1;
     }
     return actorsMoved;
+  }
+
+  private advanceActorWithinUnloadedGoalRoom(
+    actor: Actor,
+    roomNumber: number,
+    nowMs: number,
+  ): number {
+    const roomId = actor.currentRoomId;
+    const target = actor.goal?.targetPosition;
+    if (!roomId || !target || !actor.presence || actor.presence.materialized) {
+      return 0;
+    }
+    const nextAvailableAtMs = Number(actor.flags.actorTravelNextAtMs ?? 0);
+    if (nextAvailableAtMs > nowMs) {
+      return 0;
+    }
+    const room = this.tryGetActorTravelRoom(roomId);
+    if (!room) {
+      return 0;
+    }
+    const body = this.createActorPathBody(room, actor);
+    if (!body) {
+      return 0;
+    }
+    if (body.position.x === target.x && body.position.y === target.y) {
+      this.actors.setActivity(
+        actor.id,
+        {
+          kind: actor.goal?.kind === 'work' ? this.actorWorkActivityKind(actor) : 'idle',
+          source: 'schedule',
+          startedAtRoomNumber: roomNumber,
+        },
+        'offscreen-goal-arrived',
+      );
+      return 0;
+    }
+    const path = findActorGridPath({
+      start: body.position,
+      goals: [target],
+      canStandAt: (position) => this.canNpcBodyStandAt(room, body, position),
+    });
+    if (!path?.directions[0]) {
+      this.scheduleActorTravelRetry(actor.id, nowMs, 'goal-room-path-blocked');
+      this.actors.recordActorTelemetry('actor.path_blocked', actor.id, 'offscreen-goal-room-path', {
+        currentRoomId: room.id,
+        target: { ...target },
+      });
+      return 0;
+    }
+    const direction = path.directions[0];
+    const nextPosition = {
+      x: body.position.x + direction.x,
+      y: body.position.y + direction.y,
+    };
+    this.actors.registry.update(actor.id, (current) => ({
+      ...current,
+      flags: {
+        ...current.flags,
+        actorTravelNextAtMs: nowMs + ACTOR_TRAVEL_MOVE_COOLDOWN_MS,
+      },
+    }));
+    this.actors.setPresence(
+      actor.id,
+      createActorPresence({
+        roomId: room.id,
+        position: nextPosition,
+        anchor: nextPosition,
+        materialized: false,
+      }),
+      'offscreen-goal-room-step',
+    );
+    this.actors.setActivity(
+      actor.id,
+      {
+        kind:
+          nextPosition.x === target.x && nextPosition.y === target.y && actor.goal?.kind === 'work'
+            ? this.actorWorkActivityKind(actor)
+            : 'walking',
+        source: 'schedule',
+        startedAtRoomNumber: roomNumber,
+      },
+      'offscreen-goal-room-step',
+    );
+    return 1;
+  }
+
+  private tryGetActorTravelRoom(roomId: string): RoomSnapshot | undefined {
+    if (roomId.startsWith('layer:') && !this.world.hasCachedRoom(roomId)) {
+      if (!this.world.getLayerInstance(roomId)) {
+        return undefined;
+      }
+    }
+    try {
+      return this.world.getRoom(roomId);
+    } catch (error) {
+      if (roomId.startsWith('layer:')) {
+        return undefined;
+      }
+      throw error;
+    }
+  }
+
+  private scheduleActorTravelRetry(actorId: string, nowMs: number, reason: string): void {
+    const retryMultiplier = reason === 'logical-room-unmaterialized' ? 300 : 10;
+    const retryAtMs = nowMs + ACTOR_TRAVEL_MOVE_COOLDOWN_MS * retryMultiplier;
+    this.actors.registry.update(actorId, (current) => ({
+      ...current,
+      flags: {
+        ...current.flags,
+        actorTravelNextAtMs: retryAtMs,
+        actorTravelRetryReason: reason,
+      },
+    }));
+    this.actors.recordActorTelemetry('actor.travel_retry_scheduled', actorId, reason, {
+      retryAtMs,
+    });
+  }
+
+  private recoverOverdueTownBusinessActors(roomNumber: number): number {
+    const atmosphere = this.getAtmosphereState();
+    const elapsedPhaseMs =
+      (DAY_PHASE_DURATIONS_MS[atmosphere.dayPhase] ?? 0) * atmosphere.phaseProgress;
+    let recovered = 0;
+    for (const actor of this.actors.registry.getAll()) {
+      const policy = townBusinessPolicyForRole(actor.role);
+      const deadlineMs = policy?.recoveryDeadlineMs[atmosphere.dayPhase];
+      if (
+        !policy ||
+        !deadlineMs ||
+        elapsedPhaseMs < deadlineMs ||
+        actor.health?.state === 'dead' ||
+        actor.hostility === 'dead'
+      ) {
+        continue;
+      }
+      const target = this.actorBusinessRecoveryTarget(actor);
+      if (!target || !this.actorMissedBusinessRecoveryTarget(actor, target)) {
+        continue;
+      }
+      const recoveryKey = this.actorBusinessRecoveryKey(actor, target, atmosphere.dayPhase);
+      if (actor.flags.actorBusinessRecoveryKey === recoveryKey) {
+        continue;
+      }
+      const room = this.tryGetActorTravelRoom(target.roomId);
+      if (!room) {
+        continue;
+      }
+      const position = this.resolveActorMaterializationPosition(room, target.position);
+      this.actors.setPresence(
+        actor.id,
+        createActorPresence({
+          roomId: room.id,
+          position,
+          anchor: position,
+          materialized: actor.currentRoomId === this.snake.currentRoomId,
+        }),
+        'business-deadline-recovery',
+      );
+      this.actors.setActivity(
+        actor.id,
+        {
+          kind: target.activityKind,
+          source: 'schedule',
+          startedAtRoomNumber: roomNumber,
+        },
+        'business-deadline-recovery',
+      );
+      this.actors.recordActorTelemetry('actor.travel_recovered', actor.id, target.reason, {
+        roomId: room.id,
+        position,
+        dayPhase: atmosphere.dayPhase,
+      });
+      this.actors.registry.update(actor.id, (current) => ({
+        ...current,
+        flags: {
+          ...current.flags,
+          actorBusinessRecoveryKey: recoveryKey,
+          actorBusinessRecoveryPosition: `${position.x},${position.y}`,
+        },
+      }));
+      recovered += 1;
+    }
+    return recovered;
+  }
+
+  private actorBusinessRecoveryTarget(actor: Actor):
+    | {
+        roomId: string;
+        position: Vector2Like;
+        activityKind: NonNullable<Actor['activity']>['kind'];
+        reason: string;
+      }
+    | undefined {
+    const goal = actor.goal;
+    if (!goal?.roomId || !goal.targetPosition) {
+      return undefined;
+    }
+    if (goal.kind === 'work') {
+      return {
+        roomId: goal.roomId,
+        position: goal.targetPosition,
+        activityKind: this.actorWorkActivityKind(actor),
+        reason: 'missed-work-deadline',
+      };
+    }
+    if (goal.kind === 'sleep') {
+      return {
+        roomId: goal.roomId,
+        position: goal.targetPosition,
+        activityKind: 'sleeping',
+        reason: 'missed-home-deadline',
+      };
+    }
+    return undefined;
+  }
+
+  private actorMissedBusinessRecoveryTarget(
+    actor: Actor,
+    target: { roomId: string; position: Vector2Like },
+  ): boolean {
+    return (
+      actor.currentRoomId !== target.roomId ||
+      actor.presence?.position.x !== target.position.x ||
+      actor.presence.position.y !== target.position.y
+    );
+  }
+
+  private actorBusinessRecoveryKey(
+    actor: Actor,
+    target: { roomId: string; position: Vector2Like; reason: string },
+    dayPhase: AtmosphereState['dayPhase'],
+  ): string {
+    return [
+      actor.scheduleGoal?.reason ?? actor.goal?.reason ?? 'unknown-schedule',
+      actor.goal?.kind ?? 'unknown-goal',
+      target.reason,
+      dayPhase,
+      target.roomId,
+      target.position.x,
+      target.position.y,
+    ].join('|');
+  }
+
+  private actorWorkActivityKind(actor: Actor): NonNullable<Actor['activity']>['kind'] {
+    switch (actor.role) {
+      case 'bartender':
+        return 'drinking';
+      case 'cardDealer':
+        return 'dealing-cards';
+      case 'mapper':
+        return 'mapping';
+      case 'potionMaker':
+      case 'wizard':
+        return 'alchemy';
+      case 'butcher':
+      case 'cook':
+        return 'cooking';
+      case 'physicalTrainer':
+        return 'training';
+      default:
+        return 'merchant';
+    }
   }
 
   private selectNextActorTravelRoomForActor(
@@ -9014,6 +10663,32 @@ export class SnakeGame implements QuestRuntime {
       return neighbor;
     }
     return currentRoom.id;
+  }
+
+  private resolveOffscreenActorTransitionArrival(
+    sourceRoom: RoomSnapshot,
+    destinationRoomId: string,
+    sourcePosition?: Vector2Like,
+  ): Vector2Like {
+    const layerEntrance = sourceRoom.layerEntrances?.find(
+      (entry) => entry.layerId === destinationRoomId,
+    );
+    if (layerEntrance) {
+      return { ...this.world.ensureLayerInstance(layerEntrance).spawn };
+    }
+    if (sourceRoom.layer?.parentRoomId === destinationRoomId) {
+      return { ...sourceRoom.layer.returnPosition };
+    }
+    const portal = sourceRoom.portals.find((entry) => entry.destRoomId === destinationRoomId);
+    if (portal) {
+      return { x: portal.destX, y: portal.destY };
+    }
+    return (
+      this.edgeArrivalForNeighbor(sourceRoom.id, destinationRoomId, sourcePosition) ?? {
+        x: Math.floor(this.config.grid.cols / 2),
+        y: Math.floor(this.config.grid.rows / 2),
+      }
+    );
   }
 
   private resolveActorTransitionArrival(
@@ -9089,6 +10764,25 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
+  private resolveActorMaterializationPosition(
+    room: RoomSnapshot,
+    desired: Vector2Like,
+  ): Vector2Like {
+    const nearest = this.nearestValidActorArrival(room, desired);
+    if (this.isWalkableUnoccupiedActorTile(room, nearest)) {
+      return nearest;
+    }
+    for (let y = 1; y < room.layout.length - 1; y += 1) {
+      for (let x = 1; x < (room.layout[0]?.length ?? 0) - 1; x += 1) {
+        const candidate = { x, y };
+        if (this.isWalkableUnoccupiedActorTile(room, candidate)) {
+          return candidate;
+        }
+      }
+    }
+    return nearest;
+  }
+
   private isWalkableUnoccupiedActorTile(room: RoomSnapshot, position: Vector2Like): boolean {
     if (
       position.x < 1 ||
@@ -9161,6 +10855,283 @@ export class SnakeGame implements QuestRuntime {
     return Math.abs(ax - bx) + Math.abs(ay - by) + Math.abs(az - bz);
   }
 
+  private createActorSwordAttackEvent(
+    actorId: string,
+    target: Vector2Like,
+    options: { applyDamage: boolean; playerTarget?: boolean; targetActorId?: string },
+  ): ActorSwordAttackEvent | null {
+    const actor = this.actors.getActor(actorId);
+    if (!actor?.presence || !actor.combat?.melee) {
+      return null;
+    }
+    const sword = actor.combat.weapons?.find((weapon) => weapon.kind === 'sword');
+    if (!sword) {
+      return null;
+    }
+    const room = this.world.getRoom(actor.presence.roomId);
+    const nowRoom = this.getRoomsVisitedCount();
+    const cooldownUntil = Number(actor.flags.actorSwordCooldownUntilRoom ?? 0);
+    const cooldownActive = cooldownUntil > nowRoom;
+    const facing = this.chooseActorAttackFacing(actor.presence.position, target);
+    const footprint = this.resolveActorSwordFootprint(room, actor.presence.position, facing);
+    const targetKey = vectorKey(target);
+    const targetReachable = footprint.cells.some((cell) => vectorKey(cell) === targetKey);
+    const event: ActorSwordAttackEvent = {
+      id: `actor-sword:${actor.id}:${nowRoom}:${facing}`,
+      actorId: actor.id,
+      roomId: room.id,
+      weaponId: sword.id,
+      selectedWeaponKind: 'sword',
+      activityKind: 'combat-melee',
+      facing,
+      origin: { ...actor.presence.position },
+      target: { ...target },
+      cells: footprint.cells,
+      visualCells: footprint.cells,
+      blocked: footprint.blocked || !targetReachable,
+      cooldownActive,
+      damagedPlayer: false,
+      damagedActorIds: [],
+      createdAtRoomNumber: nowRoom,
+    };
+    this.actors.setActivity(
+      actor.id,
+      {
+        kind: 'combat-melee',
+        source: 'combat',
+        targetActorId: options.targetActorId,
+        startedAtRoomNumber: nowRoom,
+        endsAtRoomNumber: nowRoom + sword.cooldownRooms,
+      },
+      'actor-sword-attack',
+    );
+    this.actors.registry.update(actor.id, (current) => ({
+      ...current,
+      combat: current.combat
+        ? {
+            ...current.combat,
+            activeWeaponId: sword.id,
+          }
+        : current.combat,
+      flags: {
+        ...current.flags,
+        actorSwordAttack: event,
+      },
+    }));
+    if (!options.applyDamage || cooldownActive || !targetReachable) {
+      return event;
+    }
+    if (options.playerTarget) {
+      const damagedPlayer = this.damagePlayerIfHeadInSwordArc(room, event);
+      const resolved = { ...event, damagedPlayer };
+      this.recordActorSwordCooldown(actor.id, sword.cooldownRooms, resolved);
+      return resolved;
+    }
+    if (options.targetActorId) {
+      const damagedActorIds = this.damageHostileActorInSwordArc(
+        actor,
+        options.targetActorId,
+        event,
+      );
+      const resolved = { ...event, damagedActorIds };
+      this.recordActorSwordCooldown(actor.id, sword.cooldownRooms, resolved);
+      return resolved;
+    }
+    return event;
+  }
+
+  private isActorSwordReady(actor: Actor): boolean {
+    return Number(actor.flags.actorSwordCooldownUntilRoom ?? 0) <= this.getRoomsVisitedCount();
+  }
+
+  private isTargetInsideActorSwordArc(
+    room: RoomSnapshot,
+    actor: Actor,
+    target: Vector2Like,
+  ): boolean {
+    if (!actor.presence) {
+      return false;
+    }
+    const facing = this.chooseActorAttackFacing(actor.presence.position, target);
+    const footprint = this.resolveActorSwordFootprint(room, actor.presence.position, facing);
+    return footprint.cells.some((cell) => cell.x === target.x && cell.y === target.y);
+  }
+
+  private chooseActorAttackFacing(origin: Vector2Like, target: Vector2Like): ActorAttackFacing {
+    const dx = target.x - origin.x;
+    const dy = target.y - origin.y;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      return dx >= 0 ? 'east' : 'west';
+    }
+    return dy >= 0 ? 'south' : 'north';
+  }
+
+  private resolveActorSwordFootprint(
+    room: RoomSnapshot,
+    origin: Vector2Like,
+    facing: ActorAttackFacing,
+  ): { cells: Vector2Like[]; blocked: boolean } {
+    const lanes = [-1, 0, 1];
+    const cells: Vector2Like[] = [];
+    let blocked = false;
+    for (const lane of lanes) {
+      let laneBlocked = false;
+      for (let depth = 1; depth <= 2; depth += 1) {
+        const cell = this.swordFootprintCell(origin, facing, depth, lane);
+        if (laneBlocked || !this.isInRoomBounds(room, cell)) {
+          continue;
+        }
+        const tile = room.layout[cell.y]?.[cell.x];
+        if (!tile || this.isSolidTile(tile) || isBlockingTownTile(tile)) {
+          blocked = true;
+          laneBlocked = true;
+          continue;
+        }
+        cells.push(cell);
+      }
+    }
+    return { cells, blocked };
+  }
+
+  private swordFootprintCell(
+    origin: Vector2Like,
+    facing: ActorAttackFacing,
+    depth: number,
+    lane: number,
+  ): Vector2Like {
+    switch (facing) {
+      case 'east':
+        return { x: origin.x + depth, y: origin.y + lane };
+      case 'west':
+        return { x: origin.x - depth, y: origin.y + lane };
+      case 'south':
+        return { x: origin.x + lane, y: origin.y + depth };
+      case 'north':
+        return { x: origin.x + lane, y: origin.y - depth };
+    }
+  }
+
+  private isInRoomBounds(room: RoomSnapshot, position: Vector2Like): boolean {
+    return (
+      position.y >= 0 &&
+      position.y < room.layout.length &&
+      position.x >= 0 &&
+      position.x < (room.layout[position.y]?.length ?? 0)
+    );
+  }
+
+  private damagePlayerIfHeadInSwordArc(room: RoomSnapshot, event: ActorSwordAttackEvent): boolean {
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return false;
+    }
+    const headLocal = this.worldToLocalInRoom(room.id, head);
+    const headHit = event.cells.some((cell) => cell.x === headLocal.x && cell.y === headLocal.y);
+    if (!headHit) {
+      return false;
+    }
+    this.applySwordDamageToPlayer();
+    return true;
+  }
+
+  private applySwordDamageToPlayer(): void {
+    const max = Number(this.getFlag<number>('player.maxHealth') ?? 3);
+    const current = Number(this.getFlag<number>('player.health') ?? max);
+    const next = Math.max(0, current - 1);
+    this.setFlag('player.health', next);
+    this.emitHealthDebug('snake.damaged', 'npc-hostile', current, next, max, {
+      damage: current - next,
+      hitStyle: 'sword',
+      hitCount: 1,
+    });
+    this.emitPlayerLowHealthEvent(next, max, 'npc-hostile');
+    this.setFlag('ui.healthRevealed', true);
+    const head = this.snake.bodySegments[0];
+    if (head) {
+      this.setFlag('ui.playerHit', {
+        x: head.x,
+        y: head.y,
+        roomId: this.snake.currentRoomId,
+        health: next,
+        maxHealth: max,
+        source: 'sword',
+      });
+    }
+  }
+
+  private damageHostileActorInSwordArc(
+    source: Actor,
+    targetActorId: string,
+    event: ActorSwordAttackEvent,
+  ): string[] {
+    const target = this.actors.getActor(targetActorId);
+    if (!target?.presence || target.currentRoomId !== event.roomId) {
+      return [];
+    }
+    if (source.factionId && target.factionId === source.factionId) {
+      return [];
+    }
+    const hit = event.cells.some(
+      (cell) => cell.x === target.presence?.position.x && cell.y === target.presence?.position.y,
+    );
+    if (!hit) {
+      return [];
+    }
+    this.applyActorSwordDamage(source, target, event.roomId);
+    return [target.id];
+  }
+
+  private applyActorSwordDamage(source: Actor, target: Actor, roomId: string): void {
+    const nowRoom = this.getRoomsVisitedCount();
+    const max = Math.max(1, target.health?.max ?? 1);
+    const nextCurrent = Math.max(0, (target.health?.current ?? max) - 1);
+    this.actors.registry.update(target.id, (actor) => ({
+      ...actor,
+      health: {
+        current: nextCurrent,
+        max,
+        state: nextCurrent <= 0 ? 'dead' : 'wounded',
+      },
+      hostility: nextCurrent <= 0 ? 'dead' : actor.hostility,
+      activity:
+        nextCurrent <= 0
+          ? { kind: 'dead', source: 'combat', startedAtRoomNumber: nowRoom }
+          : actor.activity,
+    }));
+    if (nextCurrent <= 0) {
+      this.actors.setTargetThreat(source.id, undefined, 'target-defeated');
+      this.actors.recordActorTelemetry('actor.combat_ended', source.id, 'target-defeated', {
+        targetActorId: target.id,
+      });
+      this.actors.emitWorldEvent({
+        type: 'enemy-defeated',
+        roomId,
+        sourceActorId: source.id,
+        targetActorIds: [target.id],
+        severity: 42,
+        loudness: 20,
+        tags: ['combat', 'actor-vs-actor', 'faction', 'sword'],
+        summary: `${source.displayName} defeated ${target.displayName}.`,
+        createdAtRoomNumber: nowRoom,
+      });
+    }
+  }
+
+  private recordActorSwordCooldown(
+    actorId: string,
+    cooldownRooms: number,
+    event: ActorSwordAttackEvent,
+  ): void {
+    this.actors.registry.update(actorId, (actor) => ({
+      ...actor,
+      flags: {
+        ...actor.flags,
+        actorSwordCooldownUntilRoom: this.getRoomsVisitedCount() + cooldownRooms,
+        actorSwordAttack: event,
+      },
+    }));
+  }
+
   private getActorLoadedTravelTarget(
     actor: Actor,
     room: RoomSnapshot,
@@ -9189,6 +11160,22 @@ export class SnakeGame implements QuestRuntime {
       });
     }
     return target;
+  }
+
+  private actorReachedLoadedTransitionTarget(
+    room: RoomSnapshot,
+    position: Vector2Like,
+    travelTarget: Vector2Like,
+  ): boolean {
+    if (position.x === travelTarget.x && position.y === travelTarget.y) {
+      return true;
+    }
+    const interactionTargets = [
+      room.layer?.exit,
+      ...(room.layerEntrances ?? []),
+      ...room.portals,
+    ].filter((target): target is Vector2Like => Boolean(target));
+    return interactionTargets.some((target) => manhattanDistance(position, target) <= 1);
   }
 
   private reachableActorPlayerApproachTile(
@@ -9311,7 +11298,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private createActorPathBody(room: RoomSnapshot, actor: Actor): NpcBodyState | undefined {
-    const position = actor.presence?.position;
+    const position = actor.presence?.position ?? this.actorUnmaterializedPathPosition(room, actor);
     if (!position) {
       return undefined;
     }
@@ -9325,6 +11312,25 @@ export class SnakeGame implements QuestRuntime {
       stationary: actor.presence?.stationary ?? false,
       moveCooldown: 0,
     };
+  }
+
+  private actorUnmaterializedPathPosition(
+    room: RoomSnapshot,
+    actor: Actor,
+  ): Vector2Like | undefined {
+    const scheduledPosition =
+      actor.schedule?.workRoomId === room.id
+        ? actor.schedule.workPosition
+        : actor.schedule?.homeRoomId === room.id
+          ? (actor.schedule.sleepPosition ?? actor.schedule.homePosition)
+          : undefined;
+    const desired = scheduledPosition ??
+      (actor.goal?.roomId === room.id ? actor.goal.targetPosition : undefined) ??
+      room.layer?.exit ?? {
+        x: Math.floor(this.config.grid.cols / 2),
+        y: Math.floor(this.config.grid.rows / 2),
+      };
+    return this.resolveActorMaterializationPosition(room, desired);
   }
 
   private resolveActorVsActorAttack(source: Actor, targetActorId: string, roomId: string): void {
@@ -9422,6 +11428,9 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private canActorCasuallySocialize(actor: Actor): boolean {
+    if (!actorCanSpeakNow(actor)) {
+      return false;
+    }
     if (
       actor.health?.state === 'dead' ||
       actor.health?.state === 'downed' ||
@@ -9439,7 +11448,7 @@ export class SnakeGame implements QuestRuntime {
     ) {
       return false;
     }
-    return actor.activity?.kind !== 'sleeping' && actor.activity?.kind !== 'sheltering';
+    return actor.activity?.kind !== 'sheltering';
   }
 
   private markCasualActorConversation(
@@ -9748,6 +11757,9 @@ export class SnakeGame implements QuestRuntime {
     playerPosition: Vector2Like,
     atmosphere: AtmosphereState,
   ): void {
+    if (!actorCanSpeakNow(actor)) {
+      return;
+    }
     if (actor.speech?.category && actor.speech.category !== 'ambient') {
       return;
     }
@@ -10391,11 +12403,194 @@ export class SnakeGame implements QuestRuntime {
   }
 
   updateAtmosphere(deltaMs: number): AtmosphereState {
-    return this.atmosphere.update(deltaMs);
+    const before = this.atmosphere.getState();
+    const after = this.atmosphere.update(deltaMs);
+    if (after.dayPhase !== before.dayPhase || after.worldDay !== before.worldDay) {
+      this.actors.markSchedulesDirty();
+    }
+    return after;
   }
 
   getAtmosphereState(): AtmosphereState {
     return this.atmosphere.getState();
+  }
+
+  getCurrentInnServiceView(cost = 12): InnServiceView {
+    const room = this.getCurrentRoom();
+    const base = {
+      roomId: room.id,
+      cost,
+      score: this.getScore(),
+      label: 'Rest until dawn',
+    };
+    if (room.layer?.templateId !== 'tavern') {
+      return {
+        ...base,
+        available: false,
+        reason: 'You need to be inside a tavern to rest.',
+      };
+    }
+    if (this.hasImmediateRestDanger(room)) {
+      return {
+        ...base,
+        available: false,
+        reason: 'Too dangerous to sleep right now.',
+      };
+    }
+    if (this.getScore() < cost) {
+      return {
+        ...base,
+        available: false,
+        reason: `Tavern rest costs ${cost} score.`,
+      };
+    }
+    return {
+      ...base,
+      available: true,
+    };
+  }
+
+  async chooseCurrentInnRest(cost = 12): Promise<InnRestResult> {
+    return this.restAtCurrentInnUntilDawn(cost);
+  }
+
+  async restAtCurrentInnUntilDawn(cost = 12): Promise<InnRestResult> {
+    const room = this.getCurrentRoom();
+    const beforeAtmosphere = this.getAtmosphereState();
+    const scoreBefore = this.getScore();
+    const healthBefore = this.getPlayerHealth().current;
+    const refused = (
+      message: string,
+      refusedReason: NonNullable<InnRestResult['refusedReason']>,
+    ): InnRestResult => ({
+      ok: false,
+      message,
+      cost,
+      elapsedMs: 0,
+      startedPhase: beforeAtmosphere.dayPhase,
+      endedPhase: beforeAtmosphere.dayPhase,
+      phasesCrossed: [],
+      weatherBefore: beforeAtmosphere.globalWeather,
+      weatherAfter: beforeAtmosphere.globalWeather,
+      worldDayBefore: beforeAtmosphere.worldDay,
+      worldDayAfter: beforeAtmosphere.worldDay,
+      scoreBefore,
+      scoreAfter: scoreBefore,
+      healthBefore,
+      healthAfter: healthBefore,
+      healed: 0,
+      wellRested: false,
+      refusedReason,
+    });
+    if (room.layer?.templateId !== 'tavern') {
+      return refused('You need to be inside a tavern to rest.', 'not-inn');
+    }
+    if (this.getScore() < cost) {
+      return refused(`Tavern rest costs ${cost} score.`, 'insufficient-score');
+    }
+    if (this.hasImmediateRestDanger(room)) {
+      return refused('Too dangerous to sleep right now.', 'danger');
+    }
+
+    this.addScore(-cost);
+    const phasesCrossed: DayPhase[] = [];
+    let elapsedMs = 0;
+    let previous = beforeAtmosphere;
+    for (let guard = 0; guard < 80; guard += 1) {
+      const next = this.updateAtmosphere(5_000);
+      elapsedMs += 5_000;
+      if (next.dayPhase !== previous.dayPhase || next.worldDay !== previous.worldDay) {
+        phasesCrossed.push(next.dayPhase);
+      }
+      await this.actorClockStep(5_000);
+      previous = next;
+      if (next.dayPhase === 'dawn' && elapsedMs > 0) {
+        break;
+      }
+    }
+    const healed = this.healPlayer(1);
+    const afterAtmosphere = this.getAtmosphereState();
+    const healthAfter = this.getPlayerHealth().current;
+    this.setFlag('inn.lastRestResult', {
+      elapsedMs,
+      phasesCrossed,
+      weatherBefore: beforeAtmosphere.globalWeather,
+      weatherAfter: afterAtmosphere.globalWeather,
+      worldDayBefore: beforeAtmosphere.worldDay,
+      worldDayAfter: afterAtmosphere.worldDay,
+      scoreAfter: this.getScore(),
+      healed,
+    });
+    this.setFlag('inn.wellRestedUntilRoom', this.getRoomsVisitedCount() + 6);
+    const result: InnRestResult = {
+      ok: true,
+      message: this.formatInnRestMessage({
+        phasesCrossed,
+        weatherBefore: beforeAtmosphere.globalWeather,
+        weatherAfter: afterAtmosphere.globalWeather,
+        healed,
+      }),
+      cost,
+      elapsedMs,
+      startedPhase: beforeAtmosphere.dayPhase,
+      endedPhase: afterAtmosphere.dayPhase,
+      phasesCrossed,
+      weatherBefore: beforeAtmosphere.globalWeather,
+      weatherAfter: afterAtmosphere.globalWeather,
+      worldDayBefore: beforeAtmosphere.worldDay,
+      worldDayAfter: afterAtmosphere.worldDay,
+      scoreBefore,
+      scoreAfter: this.getScore(),
+      healthBefore,
+      healthAfter,
+      healed,
+      wellRested: true,
+    };
+    this.setFlag('ui.innRest', result);
+    return result;
+  }
+
+  private hasImmediateRestDanger(room: RoomSnapshot): boolean {
+    const parentRoomId = room.layer?.parentRoomId;
+    if (this.isCurrentRoomRaidActive()) {
+      return true;
+    }
+    if (
+      parentRoomId &&
+      this.factionEvents
+        .getEventsForRoom(parentRoomId, 8)
+        .some((event) => event.type === 'raid-active' && event.phase === 'active')
+    ) {
+      return true;
+    }
+    const head = this.snake.bodySegments[0];
+    const headLocal = head ? this.worldToLocalInRoom(room.id, head) : undefined;
+    return this.enemies.getEnemiesInRoom(room.id).some((enemy) => {
+      if (!headLocal) {
+        return true;
+      }
+      return (
+        Math.abs(enemy.position.x - headLocal.x) + Math.abs(enemy.position.y - headLocal.y) <= 1
+      );
+    });
+  }
+
+  private formatInnRestMessage(args: {
+    phasesCrossed: readonly DayPhase[];
+    weatherBefore: GlobalWeather;
+    weatherAfter: GlobalWeather;
+    healed: number;
+  }): string {
+    const changes = [`rested through ${args.phasesCrossed.join(', ') || 'the quiet hours'}`];
+    if (args.weatherBefore !== args.weatherAfter) {
+      changes.push(`weather changed from ${args.weatherBefore} to ${args.weatherAfter}`);
+    }
+    if (args.healed > 0) {
+      changes.push(`healed ${args.healed}`);
+    }
+    changes.push(`businesses are ${this.isTownBusinessOpenNow() ? 'open' : 'closed'}`);
+    changes.push('well rested');
+    return `Tavern rest complete: ${changes.join('; ')}.`;
   }
 
   forceAtmosphereWeather(weather: GlobalWeather): AtmosphereState {
@@ -15315,6 +17510,15 @@ export class SnakeGame implements QuestRuntime {
       (key) => this.getFlag(key) !== undefined,
     );
     if (actor) {
+      if (!actorCanSpeakNow(actor)) {
+        return {
+          id: 'actor-silent:sleeping',
+          text: '',
+          priority: 0,
+          roles: [role],
+          tags: ['silent', 'sleeping'],
+        };
+      }
       const line = selectActorVoiceLine({
         actor,
         biomeId: room.biomeId,
@@ -16352,6 +18556,8 @@ export class SnakeGame implements QuestRuntime {
       if (
         (key.startsWith('town.runtime.') ||
           key.startsWith('town.gateOpened.') ||
+          key.startsWith('town.doorClosure.') ||
+          key.startsWith('inn.') ||
           key.startsWith('custom.') ||
           key.startsWith('relationships.')) &&
         value !== undefined
@@ -16387,6 +18593,7 @@ export class SnakeGame implements QuestRuntime {
       atmosphere: this.atmosphere.getState(),
       special: this.specialStats.exportState(),
       levelProgression: this.levelProgression,
+      layerInstances: this.world.getLayerInstances(),
       questsActive: this.questController.getActive().map((q: Quest) => q.id),
       questsCompleted: this.questController.getCompletedIds(),
       questsAccepted: this.questController.getAcceptedIds(),
@@ -16689,6 +18896,7 @@ export class SnakeGame implements QuestRuntime {
           this.setFlag(key, value);
         }
       }
+      this.world.restoreLayerInstances(data.layerInstances);
       this.maneuvers.restore(data.flags?.['maneuvers.state']);
       this.persistManeuverState();
       this.setFlag('maneuvers.ghostSources', undefined);
@@ -17620,9 +19828,11 @@ export class SnakeGame implements QuestRuntime {
     });
   }
 
-  getEquippedActiveTool(): 'gun' | 'gopro' | 'bomb-slingshot' | undefined {
-    if (this.getFlag<'gun' | 'gopro' | 'bomb-slingshot'>('equipment.activeTool')) {
-      return this.getFlag<'gun' | 'gopro' | 'bomb-slingshot'>('equipment.activeTool');
+  getEquippedActiveTool(): 'gun' | 'gopro' | 'bomb-slingshot' | 'binoculars' | undefined {
+    if (this.getFlag<'gun' | 'gopro' | 'bomb-slingshot' | 'binoculars'>('equipment.activeTool')) {
+      return this.getFlag<'gun' | 'gopro' | 'bomb-slingshot' | 'binoculars'>(
+        'equipment.activeTool',
+      );
     }
     return this.getFlag<boolean>('equipment.gunEnabled') ? 'gun' : undefined;
   }

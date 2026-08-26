@@ -130,7 +130,7 @@ describe('ActorSystem', () => {
 
     expect(actors.getActor('town:village:0,0,0:shopkeeper:shop')?.scheduleGoal).toMatchObject({
       kind: 'work',
-      reason: 'day-schedule',
+      reason: 'schedule:work',
     });
   });
 
@@ -240,7 +240,7 @@ describe('ActorSystem', () => {
     expect(menu.options.map((option) => option.id)).toContain('ask-personal');
     expect(menu.options.find((option) => option.id === 'ask-rumor')?.enabled).toBe(true);
     expect(menu.options.find((option) => option.id === 'pickpocket')?.enabled).toBe(false);
-    expect(menu.indicators.map((indicator) => indicator.kind)).toContain('shop');
+    expect(menu.indicators.map((indicator) => indicator.kind)).not.toContain('shop');
 
     const initiationMenu = buildActorInteractionMenu(actors.getActor(shopkeeper.id) ?? shopkeeper, {
       thievesGuildUnlocked: false,
@@ -390,7 +390,7 @@ describe('ActorSystem', () => {
     expect(line.id).toBe('actor-soul-wound');
   });
 
-  it('surfaces rumor and personal reveal indicators', () => {
+  it('keeps routine rumor and personal reveal state out of world indicators', () => {
     const actors = new ActorSystem();
     const resident = actors.registry.ensureTownResidentActor({
       residentId: 'marta',
@@ -420,8 +420,8 @@ describe('ActorSystem', () => {
     const kinds = getActorIndicators(actors.getActor(resident.id)!, 6).map(
       (indicator) => indicator.kind,
     );
-    expect(kinds).toContain('rumor');
-    expect(kinds).toContain('secret');
+    expect(kinds).not.toContain('rumor');
+    expect(kinds).not.toContain('secret');
   });
 
   it('marks eaten humanoid targets dead and alarms witnesses', () => {
@@ -689,16 +689,18 @@ describe('ActorSystem', () => {
     actors.applyScheduleGoals({ roomNumber: 12, atmosphere: resolvedAtmosphere('night') });
     expect(actors.getActor(merchant.id)?.goal).toMatchObject({
       kind: 'sleep',
-      priority: 20,
+      priority: 22,
       roomId: 'home-room',
+      reason: 'schedule:sleep',
     });
 
     actors.applyScheduleGoals({ roomNumber: 13, atmosphere: resolvedAtmosphere('night', 'fog') });
 
     expect(actors.getActor(merchant.id)?.goal).toMatchObject({
       kind: 'sleep',
-      priority: 20,
+      priority: 22,
       roomId: 'home-room',
+      reason: 'schedule:sleep',
     });
   });
 

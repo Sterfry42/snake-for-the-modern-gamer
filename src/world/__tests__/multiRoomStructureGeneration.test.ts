@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { defaultGameConfig } from '../../config/gameConfig.js';
 import { createRng } from '../../core/rng.js';
+import { actorIdForTownResident } from '../../actors/actorFactory.js';
 import { ActorSystem } from '../../actors/actorSystem.js';
 import type { GameSaveData } from '../../game/saveManager.js';
 import { LAYER_EXIT_TILE } from '../../layers/layerTypes.js';
@@ -214,12 +215,23 @@ describe('multi-room structure generation', () => {
     expect(perimeterAfter.layout).toEqual(layoutBefore);
   });
 
-  it('uses physical room ids for town residents and relationship homes', () => {
+  it('uses physical work ids and real private-home ids for town residents', () => {
     const squareId = findTownRoom();
     const room = generateRoomsInOrder([squareId])[0]!;
     expect(room.town).toBeTruthy();
+    const privateHomeOwnerIds = new Set(
+      room
+        .town!.buildings.filter(
+          (building) => building.kind === 'residentialHome' && building.ownerResidentId,
+        )
+        .map((building) => building.ownerResidentId),
+    );
     for (const resident of room.town!.residents) {
-      expect(resident.homeRoomId).toMatch(/^-?\d+,-?\d+,-?\d+$/);
+      if (privateHomeOwnerIds.has(resident.id)) {
+        expect(resident.homeRoomId).toMatch(/^layer:townInterior:.+:residentialHome$/);
+      } else {
+        expect(resident.homeRoomId).toMatch(/^-?\d+,-?\d+,-?\d+$/);
+      }
       expect(resident.workRoomId).toMatch(/^-?\d+,-?\d+,-?\d+$/);
     }
   });
@@ -512,6 +524,11 @@ describe('multi-room structure generation', () => {
     );
     expect(market.town?.residents.some((resident) => resident.role === 'potionMaker')).toBe(true);
     expect(market.town?.residents.some((resident) => resident.role === 'butcher')).toBe(true);
+    expect(market.town?.residents.some((resident) => resident.role === 'mapper')).toBe(true);
+    expect(market.town?.residents.some((resident) => resident.role === 'wizard')).toBe(true);
+    expect(townCenter.town?.residents.some((resident) => resident.role === 'innkeeper')).toBe(
+      false,
+    );
     expect(townCenter.town?.residents.some((resident) => resident.role === 'cardDealer')).toBe(
       true,
     );
@@ -526,7 +543,9 @@ describe('multi-room structure generation', () => {
     expect(market.layerEntrances?.map((entry) => entry.templateId).sort()).toEqual([
       'butcherShop',
       'generalStore',
+      'mapper',
       'potionMaker',
+      'wizardShop',
     ]);
     expect(market.layerEntrances?.every((entry) => entry.townBuildingId && entry.displayName)).toBe(
       true,
@@ -537,7 +556,7 @@ describe('multi-room structure generation', () => {
         .filter((building) => building.district === 'marketStreet' && building.enterable)
         .map((building) => building.kind)
         .sort(),
-    ).toEqual(['butcherShop', 'generalStore', 'potionMaker']);
+    ).toEqual(['butcherShop', 'generalStore', 'mapper', 'potionMaker', 'wizardShop']);
     expect(
       alley.town?.residents.filter(
         (resident) => resident.role === 'thief' || resident.role === 'thiefContact',
@@ -705,16 +724,22 @@ describe('multi-room structure generation', () => {
     const storeDoor = market.layerEntrances?.find((entry) => entry.templateId === 'generalStore');
     const butcherDoor = market.layerEntrances?.find((entry) => entry.templateId === 'butcherShop');
     const potionDoor = market.layerEntrances?.find((entry) => entry.templateId === 'potionMaker');
+    const mapperDoor = market.layerEntrances?.find((entry) => entry.templateId === 'mapper');
+    const wizardDoor = market.layerEntrances?.find((entry) => entry.templateId === 'wizardShop');
 
     expect(tavernDoor).toBeTruthy();
     expect(storeDoor).toBeTruthy();
     expect(butcherDoor).toBeTruthy();
     expect(potionDoor).toBeTruthy();
+    expect(mapperDoor).toBeTruthy();
+    expect(wizardDoor).toBeTruthy();
 
     const tavern = world.getRoom(world.ensureLayerInstance(tavernDoor!).id);
     const store = world.getRoom(world.ensureLayerInstance(storeDoor!).id);
     const butcher = world.getRoom(world.ensureLayerInstance(butcherDoor!).id);
     const potion = world.getRoom(world.ensureLayerInstance(potionDoor!).id);
+    const mapper = world.getRoom(world.ensureLayerInstance(mapperDoor!).id);
+    const wizard = world.getRoom(world.ensureLayerInstance(wizardDoor!).id);
 
     expect(tavern.layer?.templateId).toBe('tavern');
     expect(tavern.town?.districtByRoomId[tavern.id]).toBe('tavernInterior');
@@ -740,8 +765,20 @@ describe('multi-room structure generation', () => {
         .filter((resident) => resident.workRoomId === potion.id)
         .map((resident) => resident.role)
         .sort() ?? [];
+    const positionedMapperRoles =
+      mapper.town?.residents
+        .filter((resident) => resident.workRoomId === mapper.id)
+        .map((resident) => resident.role)
+        .sort() ?? [];
+    const positionedWizardRoles =
+      wizard.town?.residents
+        .filter((resident) => resident.workRoomId === wizard.id)
+        .map((resident) => resident.role)
+        .sort() ?? [];
     expect(positionedButcherRoles).toEqual(['butcher']);
     expect(positionedPotionRoles).toEqual(['potionMaker']);
+    expect(positionedMapperRoles).toEqual(['mapper']);
+    expect(positionedWizardRoles).toEqual(['wizard']);
     expect(positionedStoreRoles).not.toContain('butcher');
     expect(positionedStoreRoles).not.toContain('potionMaker');
     expect(store.layout[store.layer!.exit.y]?.[store.layer!.exit.x]).toBe(LAYER_EXIT_TILE);
@@ -776,7 +813,15 @@ describe('multi-room structure generation', () => {
     expect(outsideMarketRoles).not.toContain('butcher');
     expect(outsideMarketRoles).not.toContain('potionMaker');
     expect(storeRoles).toEqual(['equipmentMerchant']);
-    expect(syncedMarket.some((actor) => actor.role === 'equipmentMerchant')).toBe(false);
+    expect(syncedMarket.map((actor) => actor.id).sort()).toEqual(
+      market
+        .town!.residents.map(
+          (resident) =>
+            resident.actorId ?? actorIdForTownResident(market.town!.id, resident.id, resident.role),
+        )
+        .sort(),
+    );
+    expect(syncedMarket.some((actor) => actor.role === 'equipmentMerchant')).toBe(true);
     expect(
       townResidentsForRoom(market.town!, market.id).some(
         (resident) => resident.x === 0 && resident.y === 0,
