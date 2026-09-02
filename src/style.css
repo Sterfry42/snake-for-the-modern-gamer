@@ -131,7 +131,8 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  min-height: min(46vh, 390px);
+  min-height: clamp(120px, min(46vh, 38vmin), 390px);
+  max-height: min(46vh, 420px);
   box-sizing: border-box;
   padding: 24px max(18px, env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom))
     max(18px, env(safe-area-inset-left));
@@ -180,8 +181,8 @@ body {
 
 .mobile-controls__dpad-cross {
   position: relative;
-  width: clamp(280px, 54vw, 420px);
-  height: clamp(280px, 54vw, 420px);
+  width: clamp(132px, 54vmin, 300px);
+  height: clamp(132px, 54vmin, 300px);
   filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.5));
 }
 
@@ -226,7 +227,7 @@ body {
   border-radius: 16px;
   background: transparent;
   color: rgba(255, 255, 255, 0.82);
-  font-size: clamp(22px, 5vw, 34px);
+  font-size: clamp(14px, 5vmin, 34px);
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.6);
 }
 
@@ -271,11 +272,11 @@ body {
   display: flex;
   gap: clamp(10px, 2vw, 16px);
   justify-content: center;
-  padding-bottom: clamp(12px, 5vh, 34px);
+  padding-bottom: clamp(8px, 4vmin, 34px);
 }
 
 .mobile-controls__utility-button {
-  min-width: clamp(72px, 17vw, 104px);
+  min-width: clamp(44px, 17vmin, 104px);
   min-height: 40px;
   padding: 0 18px;
   border-radius: 999px;
@@ -285,20 +286,20 @@ body {
     0 7px 0 #090c12,
     0 13px 18px rgba(0, 0, 0, 0.38);
   color: #dbe4ff;
-  font-size: clamp(12px, 2.4vw, 15px);
+  font-size: clamp(11px, 2.4vmin, 15px);
   text-transform: uppercase;
 }
 
 .mobile-controls__action-panel {
   justify-self: end;
-  width: clamp(156px, 30vw, 220px);
-  height: clamp(148px, 28vw, 210px);
+  width: clamp(104px, 30vmin, 220px);
+  height: clamp(100px, 28vmin, 210px);
 }
 
 .mobile-controls__action-button {
   position: absolute;
-  width: clamp(72px, 14vw, 96px);
-  height: clamp(72px, 14vw, 96px);
+  width: clamp(30px, 14vmin, 96px);
+  height: clamp(30px, 14vmin, 96px);
   border-radius: 50%;
   background: radial-gradient(circle at 34% 28%, #ff8fc6, #a91f65 68%, #55113a);
   box-shadow:
@@ -306,7 +307,7 @@ body {
     inset 0 -8px 9px rgba(0, 0, 0, 0.28),
     0 9px 0 #27091d,
     0 16px 22px rgba(0, 0, 0, 0.42);
-  font-size: clamp(28px, 6vw, 42px);
+  font-size: clamp(14px, 6vmin, 42px);
 }
 
 .mobile-controls__action-button--a {
@@ -334,6 +335,96 @@ body {
   .mobile-controls__shell {
     grid-template-columns: 1fr 0.8fr 1fr;
     padding-top: 18px;
+  }
+}
+
+/* Portrait phones are narrow; keep the control deck compact so the game stays visible. */
+@media (orientation: portrait), (max-width: 480px) {
+  .mobile-controls__shell {
+    min-height: clamp(108px, min(34vh, 30vmin), 260px);
+    padding: 14px max(14px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom))
+      max(14px, env(safe-area-inset-left));
+  }
+
+  .mobile-controls__dpad-cross {
+    width: clamp(76px, 38vmin, 240px);
+    height: clamp(76px, 38vmin, 240px);
+  }
+
+  .mobile-controls__action-panel {
+    width: clamp(52px, 22vmin, 160px);
+    height: clamp(50px, 20vmin, 150px);
+  }
+
+  /* Two pills side by side is too wide on a narrow screen; stack them. */
+  .mobile-controls__center-panel {
+    flex-direction: column;
+  }
+}
+
+/* Tiny screens (e.g. 240x400): drop every floor so the deck still fits and scales fluidly. */
+@media (max-width: 380px), (max-height: 460px) {
+  .mobile-controls__shell {
+    min-height: clamp(84px, min(30vh, 26vmin), 200px);
+    gap: 8px;
+    padding: 10px max(10px, env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom))
+      max(10px, env(safe-area-inset-left));
+  }
+
+  .mobile-controls__dpad-cross {
+    width: clamp(64px, 31vmin, 150px);
+    height: clamp(64px, 31vmin, 150px);
+  }
+
+  .mobile-controls__dpad-button {
+    font-size: clamp(10px, 4vmin, 20px);
+  }
+
+  .mobile-controls__center-panel {
+    flex-direction: column;
+    gap: 6px;
+    padding-bottom: 4px;
+  }
+
+  .mobile-controls__utility-button {
+    min-width: 40px;
+    min-height: 28px;
+    padding: 0 8px;
+    font-size: 10px;
+  }
+
+  .mobile-controls__action-panel {
+    width: clamp(48px, 20vmin, 120px);
+    height: clamp(46px, 18vmin, 110px);
+  }
+
+  .mobile-controls__action-button {
+    width: clamp(24px, 12vmin, 72px);
+    height: clamp(24px, 12vmin, 72px);
+    font-size: clamp(10px, 4vmin, 26px);
+  }
+}
+
+/* Short, wide landscape screens: never let the deck swallow the play area. */
+@media (orientation: landscape) and (max-height: 520px) and (min-width: 520px) {
+  .mobile-controls__shell {
+    min-height: min(58vh, 300px);
+    max-height: 58vh;
+    padding-top: 12px;
+  }
+
+  .mobile-controls__dpad-cross {
+    width: clamp(120px, 40vmin, 240px);
+    height: clamp(120px, 40vmin, 240px);
+  }
+
+  .mobile-controls__action-panel {
+    width: clamp(92px, 26vmin, 180px);
+    height: clamp(88px, 24vmin, 160px);
+  }
+
+  .mobile-controls__center-panel {
+    padding-bottom: 6px;
   }
 }
 
