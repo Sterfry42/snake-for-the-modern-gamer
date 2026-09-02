@@ -1,12 +1,13 @@
 /**
- * Lindsey's 25th Birthday Feature
+ * Birthday Feature
  *
- * A little celebration to honor Lindsey on her 25th birthday.
- * The wise old snake says 25 is the ripe age for a legendary run.
+ * A little daily celebration for whoever's birthday it is.
+ * The wise old snake says 25 apples is the ripe number for a wish.
  */
 import Phaser from 'phaser';
 import { Feature } from '../feature.js';
 import type SnakeScene from '../../scenes/snakeScene.js';
+import { formatBirthdayMessage, getBirthdaysForDate } from '../birthdays.js';
 
 export const BIRTHDAY_AGE = 25;
 
@@ -15,13 +16,14 @@ const MILESTONE_APPLES = BIRTHDAY_AGE;
 /** Score bonus granted when the milestone is reached. */
 const MILESTONE_BONUS_SCORE = BIRTHDAY_AGE;
 
-class LindseyBirthdayFeature extends Feature {
+class BirthdayFeature extends Feature {
   private applesEaten = 0;
   private bannerShownThisRound = false;
   private callout?: Phaser.GameObjects.Text;
 
   constructor() {
-    super('lindseyBirthday25', "Lindsey's 25th Birthday");
+    // The id stays 'lindseyBirthday25' so existing saves keep the feature.
+    super('lindseyBirthday25', 'Birthday');
   }
 
   override onRegister(scene: SnakeScene): void {
@@ -32,16 +34,20 @@ class LindseyBirthdayFeature extends Feature {
 
   // The scene only runs action steps while actively playing (the title screen
   // and pause screens keep the scene paused), so the first action step of a
-  // round is the moment the birthday girl deserves a shout-out.
+  // round is the moment whoever is celebrating deserves a shout-out.
   override onActionStep(scene: SnakeScene): void {
     if (this.bannerShownThisRound) {
       return;
     }
     this.bannerShownThisRound = true;
+    const today = new Date();
+    const birthdays = getBirthdaysForDate(today.getMonth() + 1, today.getDate());
     this.showBanner(
       scene,
-      '🎂 Happy 25th Birthday, Lindsey! 🎂',
-      'Eat 25 apples to toast the birthday girl',
+      formatBirthdayMessage(today.getMonth() + 1, today.getDate()),
+      `Eat ${MILESTONE_APPLES} apples to toast ${
+        birthdays.length === 0 ? 'the wise old snake' : birthdays.length === 1 ? 'them' : 'you all'
+      }`,
     );
   }
 
@@ -57,7 +63,7 @@ class LindseyBirthdayFeature extends Feature {
     scene.addScore(MILESTONE_BONUS_SCORE);
     this.showBanner(
       scene,
-      `Aaah! ${this.applesEaten} apples! 🎉`,
+      `Aaah! ${this.applesEaten} apples!`,
       `Happy Birthday bonus: +${MILESTONE_BONUS_SCORE} score`,
     );
   }
@@ -114,4 +120,4 @@ class LindseyBirthdayFeature extends Feature {
   }
 }
 
-export default new LindseyBirthdayFeature();
+export default new BirthdayFeature();
