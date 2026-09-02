@@ -24,6 +24,15 @@ import {
 import type { CosmeticCategoryId } from '../cosmetics/cosmeticTypes.js';
 import { CARD_DEFINITIONS, type CardCollection } from '../cards/cardGame.js';
 import { getCheatsByCategory, getCategoryLabel } from '../cheats/cheatRegistry.js';
+import {
+  BIRTHDAYS,
+  MONTH_NAMES,
+  formatBirthdayCellNames,
+  formatBirthdayMessage,
+  formatBirthdayNames,
+  formatDateLabel,
+  getBirthdaysForDate,
+} from '../features/birthdays.js';
 
 import type { ActionAbilityView } from '../systems/actionSlots.js';
 import type { DatingCandidateView } from '../relationships/relationshipTypes.js';
@@ -192,6 +201,7 @@ type TabId =
   | 'graph'
   | 'achievements'
   | 'controls'
+  | 'calendar'
   | 'cheats'
   | 'spotify'
   | 'youtube'
@@ -236,6 +246,7 @@ const TAB_DEFINITIONS: readonly TabDefinition[] = [
   { id: 'graph', i18nKey: 'tabGraph', group: 'system' },
   { id: 'achievements', i18nKey: 'tabInfo', label: 'Progress', group: 'system' },
   { id: 'controls', i18nKey: 'tabInfo', label: 'Controls', group: 'system' },
+  { id: 'calendar', i18nKey: 'tabInfo', label: 'Calendar', group: 'system' },
   {
     id: 'cheats',
     i18nKey: 'tabCheats',
@@ -280,6 +291,7 @@ const TAB_ICON_KEYS: Record<TabId, string> = {
   graph: uiTabIconKeys.graph,
   achievements: uiTabIconKeys.info,
   controls: uiTabIconKeys.info,
+  calendar: uiTabIconKeys.info,
   cheats: uiTabIconKeys.cheats,
   spotify: uiTabIconKeys.info,
   youtube: uiTabIconKeys.info,
@@ -337,6 +349,8 @@ export class SkillTreeOverlay {
   private readonly structuredGraphics: Phaser.GameObjects.Graphics;
   private readonly controllerFocusGraphics: Phaser.GameObjects.Graphics;
   private controllerActions: Array<{ rect: UiRect; onClick: () => void }> = [];
+  private calendarMonthOffset = 0;
+  private calendarSelectedDay: number | null = null;
   private controllerActionIndex = 0;
   private controllerSkillIndex = 0;
   private currentInputMode: InputModeId = 'keyboardMouse';
@@ -2981,6 +2995,9 @@ export class SkillTreeOverlay {
       case 'controls':
         this.buildControlsCards(renderRect);
         break;
+      case 'calendar':
+        this.buildCalendarPanel(renderRect);
+        break;
       case 'cheats':
         this.buildCheatsCards(renderRect);
         break;
@@ -4954,6 +4971,225 @@ export class SkillTreeOverlay {
       .setVisible(true);
   }
 
+  private buildCalendarPanel(rect: UiRect): void {
+    const content = insetRect(rect, 14);
+    const now = new Date();
+    const baseMonthIndex = now.getFullYear() * 12 + now.getMonth();
+    const monthIndex = baseMonthIndex + this.calendarMonthOffset;
+    const year = Math.floor(monthIndex / 12);
+    const month = ((monthIndex % 12) + 12) % 12;
+    const monthNumber = month + 1;
+    const monthLabel = MONTH_NAMES[month];
+    const isCurrentMonth = this.calendarMonthOffset === 0;
+    const firstWeekday = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'BIRTHDAY CALENDAR', {
+      color: uiColors.textPrimary,
+      fontSize: '14px',
+      fontStyle: 'bold',
+    });
+
+    const navY = content.y + 24;
+    const navWidth = 48;
+    const prevRect: UiRect = { x: content.x, y: navY, width: navWidth, height: 24 };
+    const nextRect: UiRect = {
+      x: content.x + content.width - navWidth,
+      y: navY,
+      width: navWidth,
+      height: 24,
+    };
+    drawUiCard(this.structuredGraphics, {
+      rect: prevRect,
+      fill: uiColors.panelBgInset,
+      stroke: uiColors.accentSocial,
+      alpha: 0.48,
+      strokeAlpha: 0.5,
+      radius: 6,
+    });
+    drawUiCard(this.structuredGraphics, {
+      rect: nextRect,
+      fill: uiColors.panelBgInset,
+      stroke: uiColors.accentSocial,
+      alpha: 0.48,
+      strokeAlpha: 0.5,
+      radius: 6,
+    });
+    addUiText(this.scene, this.structuredContainer, prevRect.x + navWidth / 2, navY + 6, '\u25c0', {
+      align: 'center',
+      color: uiColors.textSecondary,
+      fontSize: '12px',
+    }).setOrigin(0.5, 0);
+    addUiText(this.scene, this.structuredContainer, nextRect.x + navWidth / 2, navY + 6, '\u25b6', {
+      align: 'center',
+      color: uiColors.textSecondary,
+      fontSize: '12px',
+    }).setOrigin(0.5, 0);
+    addUiText(
+      this.scene,
+      this.structuredContainer,
+      content.x + content.width / 2,
+      navY + 6,
+      `${monthLabel.toUpperCase()} ${year}`,
+      { align: 'center', color: uiColors.textPrimary, fontSize: '12px', fontStyle: 'bold' },
+    ).setOrigin(0.5, 0);
+    this.addStructuredZone(prevRect, () => {
+      this.calendarMonthOffset -= 1;
+      this.calendarSelectedDay = null;
+      this.refresh();
+    });
+    this.addStructuredZone(nextRect, () => {
+      this.calendarMonthOffset += 1;
+      this.calendarSelectedDay = null;
+      this.refresh();
+    });
+
+    const gridTop = navY + 36;
+    const gridGap = 3;
+    const cellWidth = Math.floor((content.width - gridGap * 6) / 7);
+    const cellHeight = 36;
+    const weekdayLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    for (let col = 0; col < 7; col += 1) {
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        content.x + col * (cellWidth + gridGap) + cellWidth / 2,
+        gridTop,
+        weekdayLetters[col],
+        { align: 'center', color: uiColors.textMuted, fontSize: '10px', fontStyle: 'bold' },
+      ).setOrigin(0.5, 0);
+    }
+
+    const rows = Math.ceil((firstWeekday + daysInMonth) / 7);
+    let bottomY = gridTop + 16;
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < 7; col += 1) {
+        const day = row * 7 + col - firstWeekday + 1;
+        if (day < 1 || day > daysInMonth) {
+          continue;
+        }
+        const x = content.x + col * (cellWidth + gridGap);
+        const y = bottomY;
+        const cellRect: UiRect = { x, y, width: cellWidth, height: cellHeight };
+        const birthdays = getBirthdaysForDate(monthNumber, day);
+        const isToday = isCurrentMonth && day === now.getDate();
+        const isSelected = this.calendarSelectedDay === day;
+
+        if (birthdays.length > 0) {
+          drawUiCard(this.structuredGraphics, {
+            rect: cellRect,
+            fill: uiColors.accentSocial,
+            stroke: isSelected ? uiColors.accentCore : uiColors.accentSocial,
+            alpha: 0.3,
+            strokeAlpha: isSelected ? 1 : 0.6,
+            radius: 5,
+          });
+        } else if (isToday || isSelected) {
+          drawUiCard(this.structuredGraphics, {
+            rect: cellRect,
+            fill: uiColors.panelBgInset,
+            stroke: isToday ? uiColors.accentApples : uiColors.accentCore,
+            alpha: 0.42,
+            strokeAlpha: 0.9,
+            radius: 5,
+          });
+        }
+
+        addUiText(this.scene, this.structuredContainer, x + 5, y + 4, String(day), {
+          color: isToday ? uiColors.valuePositive : uiColors.textSecondary,
+          fontSize: '10px',
+        });
+        if (birthdays.length > 0) {
+          addUiText(
+            this.scene,
+            this.structuredContainer,
+            x + cellWidth / 2,
+            y + 20,
+            formatBirthdayCellNames(birthdays),
+            { align: 'center', color: '#ffb3e6', fontSize: '8px', wordWrapWidth: cellWidth - 6 },
+          ).setOrigin(0.5, 0);
+        }
+
+        this.addStructuredZone(cellRect, () => {
+          this.calendarSelectedDay = isSelected ? null : day;
+          this.refresh();
+        });
+      }
+      bottomY += cellHeight + gridGap;
+    }
+
+    bottomY += 12;
+    addUiText(
+      this.scene,
+      this.structuredContainer,
+      content.x,
+      bottomY,
+      `BIRTHDAYS IN ${monthLabel.toUpperCase()}`,
+      { color: uiColors.textPrimary, fontSize: '12px', fontStyle: 'bold' },
+    );
+    bottomY += 20;
+
+    const monthBirthdays = BIRTHDAYS.filter((entry) => entry.month === monthNumber).sort(
+      (a, b) => a.day - b.day,
+    );
+    if (monthBirthdays.length === 0) {
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        content.x,
+        bottomY,
+        'Nobody celebrates this month.',
+        { color: uiColors.textMuted, fontSize: '10px' },
+      );
+      bottomY += 18;
+    }
+    for (const entry of monthBirthdays) {
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        content.x,
+        bottomY,
+        `${formatDateLabel(entry.month, entry.day)} \u2014 ${formatBirthdayNames(
+          getBirthdaysForDate(entry.month, entry.day),
+        )}`,
+        { color: '#ffb3e6', fontSize: '10px' },
+      );
+      bottomY += 16;
+    }
+
+    bottomY += 8;
+    addUiText(
+      this.scene,
+      this.structuredContainer,
+      content.x,
+      bottomY,
+      `Today (${formatDateLabel(now.getMonth() + 1, now.getDate())}): ${formatBirthdayMessage(
+        now.getMonth() + 1,
+        now.getDate(),
+      )}`,
+      { color: uiColors.valueWarning, fontSize: '10px', wordWrapWidth: content.width - 8 },
+    );
+    bottomY += 26;
+
+    this.setStructuredContentHeight(content, bottomY);
+
+    this.detailTitle.setText('Calendar').setVisible(true);
+    this.detailSubtitle.setText(`${monthLabel} ${year}`).setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    const selectedDay = this.calendarSelectedDay;
+    let body: string;
+    if (selectedDay !== null) {
+      const selectedBirthdays = getBirthdaysForDate(monthNumber, selectedDay);
+      body =
+        selectedBirthdays.length > 0
+          ? `${formatDateLabel(monthNumber, selectedDay)}: ${formatBirthdayNames(selectedBirthdays)}`
+          : `${formatDateLabel(monthNumber, selectedDay)}: no birthdays, but the wise old snake still makes a wish.`;
+    } else {
+      body = `${formatBirthdayMessage(now.getMonth() + 1, now.getDate())}\n\nTap a day to inspect its birthdays. Pink cells celebrate the month; the green-outlined cell is today.`;
+    }
+    this.detailBody.setText(body).setVisible(true);
+  }
+
   private buildControlsModeButtons(content: UiRect): void {
     const gap = 8;
     const resetWidth = 56;
@@ -6042,6 +6278,7 @@ export class SkillTreeOverlay {
       tab === 'destiny' ||
       tab === 'artifacts' ||
       tab === 'controls' ||
+      tab === 'calendar' ||
       tab === 'spotify' ||
       tab === 'youtube' ||
       tab === 'info' ||
@@ -6842,6 +7079,7 @@ export class SkillTreeOverlay {
     const graphActive = this.activeTab === 'graph';
     const achievementsActive = this.activeTab === 'achievements';
     const controlsActive = this.activeTab === 'controls';
+    const calendarActive = this.activeTab === 'calendar';
     const spotifyActive = this.activeTab === 'spotify';
     const youtubeActive = this.activeTab === 'youtube';
     const structuredActive =
@@ -6859,6 +7097,7 @@ export class SkillTreeOverlay {
       destinyActive ||
       artifactsActive ||
       controlsActive ||
+      calendarActive ||
       spotifyActive ||
       youtubeActive ||
       infoActive ||
@@ -6991,6 +7230,7 @@ export class SkillTreeOverlay {
         !questsActive &&
         !factionsActive &&
         !controlsActive &&
+        !calendarActive &&
         !spotifyActive &&
         !infoActive &&
         !achievementsActive;
@@ -7058,6 +7298,7 @@ export class SkillTreeOverlay {
           quests: i18n.getFeatureString('hintQuests'),
           destiny: i18n.getFeatureString('hintDestiny'),
           artifacts: i18n.getFeatureString('hintArtifacts'),
+          calendar: 'Calendar: browse months and tap a day to see its birthdays.',
           controls: 'Controls: browse canonical actions and defaults by input mode.',
           cheats: 'Cheats: click to view codes, then type and apply.',
           spotify: 'Spotify: paste a link and use the embedded player controls.',
@@ -7311,6 +7552,7 @@ export class SkillTreeOverlay {
       this.activeTab !== 'map' &&
       this.activeTab !== 'info' &&
       this.activeTab !== 'controls' &&
+      this.activeTab !== 'calendar' &&
       this.activeTab !== 'spotify' &&
       this.activeTab !== 'cheats' &&
       this.activeTab !== 'graph' &&

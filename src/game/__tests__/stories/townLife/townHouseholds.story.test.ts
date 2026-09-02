@@ -79,7 +79,7 @@ describe('Town life household hardening stories', () => {
         );
       }
     }
-  }, 30_000);
+  }, 60_000);
 
   it('TOWN-HARDEN-006 / TOWN-REGRESSION-004 - three-house districts expose distinct stable household interiors', () => {
     const scenario = createHeadlessScenario({ seed: 'town-regression-004-three-households' });

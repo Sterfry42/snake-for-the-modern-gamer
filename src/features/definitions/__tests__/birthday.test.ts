@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type SnakeScene from '../../../scenes/snakeScene.js';
-import { BIRTHDAY_AGE, default as lindseyBirthdayFeature } from '../lindseyBirthday.js';
+import { formatBirthdayMessage } from '../../birthdays.js';
+import { BIRTHDAY_AGE, default as birthdayFeature } from '../birthday.js';
 
 interface FakeScene {
   grid: { cols: number; cell: number };
@@ -39,29 +40,30 @@ function createFakeScene(): FakeScene {
 }
 
 // The wise old snake says a test that never runs is a candle never blown out.
-describe('LindseyBirthdayFeature', () => {
+describe('BirthdayFeature', () => {
   let scene: SnakeScene;
 
   beforeEach(() => {
     const fake = createFakeScene();
     scene = fake as unknown as SnakeScene;
-    lindseyBirthdayFeature.onGameOver(scene);
+    birthdayFeature.onGameOver(scene);
   });
 
-  it('carries the birthday feature id and label', () => {
-    expect(lindseyBirthdayFeature.id).toBe('lindseyBirthday25');
-    expect(lindseyBirthdayFeature.label).toBe("Lindsey's 25th Birthday");
+  it('keeps the original feature id and carries the generic label', () => {
+    expect(birthdayFeature.id).toBe('lindseyBirthday25');
+    expect(birthdayFeature.label).toBe('Birthday');
   });
 
   it('shows the birthday banner once when play begins', () => {
     const fake = createFakeScene();
     scene = fake as unknown as SnakeScene;
 
-    lindseyBirthdayFeature.onActionStep(scene);
+    birthdayFeature.onActionStep(scene);
     expect(fake.add.text).toHaveBeenCalledTimes(1);
-    expect(fake.add.text.mock.calls[0][2]).toContain('Happy 25th Birthday, Lindsey');
+    const text = fake.add.text.mock.calls[0][2] as string;
+    expect(text).toContain(formatBirthdayMessage(new Date().getMonth() + 1, new Date().getDate()));
 
-    lindseyBirthdayFeature.onActionStep(scene);
+    birthdayFeature.onActionStep(scene);
     expect(fake.add.text).toHaveBeenCalledTimes(1);
   });
 
@@ -69,9 +71,9 @@ describe('LindseyBirthdayFeature', () => {
     const fake = createFakeScene();
     scene = fake as unknown as SnakeScene;
 
-    lindseyBirthdayFeature.onActionStep(scene);
-    lindseyBirthdayFeature.onGameOver(scene);
-    lindseyBirthdayFeature.onActionStep(scene);
+    birthdayFeature.onActionStep(scene);
+    birthdayFeature.onGameOver(scene);
+    birthdayFeature.onActionStep(scene);
     expect(fake.add.text).toHaveBeenCalledTimes(2);
   });
 
@@ -80,7 +82,7 @@ describe('LindseyBirthdayFeature', () => {
     scene = fake as unknown as SnakeScene;
 
     for (let i = 0; i < BIRTHDAY_AGE - 1; i += 1) {
-      lindseyBirthdayFeature.onAppleEaten(scene);
+      birthdayFeature.onAppleEaten(scene);
     }
     expect(fake.addScore).not.toHaveBeenCalled();
   });
@@ -90,7 +92,7 @@ describe('LindseyBirthdayFeature', () => {
     scene = fake as unknown as SnakeScene;
 
     for (let i = 0; i < BIRTHDAY_AGE; i += 1) {
-      lindseyBirthdayFeature.onAppleEaten(scene);
+      birthdayFeature.onAppleEaten(scene);
     }
     expect(fake.addScore).toHaveBeenCalledTimes(1);
     expect(fake.addScore).toHaveBeenCalledWith(BIRTHDAY_AGE);
@@ -101,12 +103,12 @@ describe('LindseyBirthdayFeature', () => {
     scene = fake as unknown as SnakeScene;
 
     for (let i = 0; i < BIRTHDAY_AGE - 1; i += 1) {
-      lindseyBirthdayFeature.onAppleEaten(scene);
+      birthdayFeature.onAppleEaten(scene);
     }
-    lindseyBirthdayFeature.onGameOver(scene);
+    birthdayFeature.onGameOver(scene);
 
     for (let i = 0; i < BIRTHDAY_AGE; i += 1) {
-      lindseyBirthdayFeature.onAppleEaten(scene);
+      birthdayFeature.onAppleEaten(scene);
     }
     expect(fake.addScore).toHaveBeenCalledTimes(1);
   });
