@@ -40,8 +40,11 @@ import {
   applyRuntimeModifierSource,
   createRuntimeModifierTotals,
 } from '../stats/gameplayModifierAccumulator.js';
+import { getAlchemyDerivedStatSource } from '../alchemy/potionEffects.js';
 import { SnakeGame } from '../game/snakeGame.js';
 import type {
+  ActorShopOfferCategory,
+  ActorShopView,
   ActorJournalEntry,
   PresentRelationshipProfile,
   QuestObjectiveSummary,
@@ -3311,6 +3314,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.tryInteractMcDonaldsCashier()) return;
     if (this.tryInteractMcDonaldsToilet()) return;
     if (this.tryInteractSnakeCanesCashier()) return;
+    if (this.tryInteractAlchemyStation()) return;
     if (this.tryInteractTownQuestBoard()) return;
     if (this.tryInteractTownBuildingDoor()) return;
     if (this.tryInteractTownGuildGrate()) return;
@@ -3614,6 +3618,10 @@ export default class SnakeScene extends Phaser.Scene {
     const result = this.gameSession.actionStep(this.paused);
     this.updateHouseAmbience();
     this.updateSwimmingTerrainDrag();
+    if (this.snakeGame.getFlag<boolean>('status.alchemyEffectsDirty')) {
+      this.applyEquipmentEffects();
+      this.snakeGame.setFlag('status.alchemyEffectsDirty', undefined);
+    }
 
     if (this.handleStepDeath(result) || this.handlePhoenixReviveTrigger()) {
       this.skillTree.applyActionStepIntervalScalar(1, SnakeScene.SWIMMING_TERRAIN_DRAG_SOURCE);
@@ -9692,7 +9700,11 @@ export default class SnakeScene extends Phaser.Scene {
 
   useInventoryItem(itemId: string): { ok: boolean; message: string; color?: string } {
     const result = this.snakeGame.useInventoryItem(itemId);
-    if (result.ok) this.recordAchievementEvent({ type: 'item:consumed', itemId });
+    if (result.ok) {
+      this.recordAchievementEvent({ type: 'item:consumed', itemId });
+      this.applyEquipmentEffects();
+      this.snakeGame.setFlag('status.alchemyEffectsDirty', undefined);
+    }
     getDebugBus()?.emit({
       type: result.ok ? 'item.consumed' : 'item.consume_failed',
       category: 'game',
@@ -9818,6 +9830,9 @@ export default class SnakeScene extends Phaser.Scene {
       this.classMods.derivedModifiers,
     );
     setProgressionSource('status.orangeJuice', 'status', orangeJuiceSpeedBoost > 0 ? 0.75 : 1, 0);
+    this.skillTree.setDerivedStatSource(
+      getAlchemyDerivedStatSource(this.snakeGame.getAlchemyState().activeEffects),
+    );
     if (orangeJuiceSpeedBoost > 0) {
       totals.tickDelayScalar *= 0.75;
     }
@@ -11356,6 +11371,7 @@ export default class SnakeScene extends Phaser.Scene {
     const snakeBody = localPlayer?.body ?? Array.from(this.snakeGame.getSnakeBody());
     const renderedSnakeBody = this.drivingCar?.roomId === room.id ? [] : snakeBody;
     const currentApple = roomSnapshot?.apples ?? this.currentApple;
+    const placedAlchemyStation = this.snakeGame.getAlchemyState().placedStation;
     const baseSense = this.getFlag<number>('geometry.wallSenseRadius') ?? 0;
     const equipSense = this.getFlag<number>('equipment.wallSenseRadiusBonus') ?? 0;
     const wallSenseRadius = Math.max(0, baseSense + equipSense);
@@ -11424,6 +11440,13 @@ export default class SnakeScene extends Phaser.Scene {
       footballs: roomSnapshot?.footballs ?? this.snakeGame.getFootballs(room.id),
       bombs: visibleBombs,
       animals: roomSnapshot?.animals ?? this.snakeGame.getAnimals(room.id),
+      alchemyStation: placedAlchemyStation
+        ? {
+            roomId: placedAlchemyStation.roomId,
+            x: placedAlchemyStation.position.x,
+            y: placedAlchemyStation.position.y,
+          }
+        : null,
       atmosphere,
       thermalBody: temperature,
       lightningStrike: binocularsView ? null : this.snakeGame.getLightningStrikeView(room.id),
@@ -12395,69 +12418,6 @@ export default class SnakeScene extends Phaser.Scene {
     };
   }
 
-  private getFilteredVillageShop(actorRole?: string): VillageShopDefinition | null {
-    const shop = this.getCurrentVillageShop();
-    if (!shop) {
-      return null;
-    }
-    switch (actorRole) {
-      case 'equipmentMerchant':
-        return {
-          ...shop,
-          supplies: shop.supplies.filter((offer) => offer.itemId === 'animal-bait'),
-          styles: [],
-          hats: [],
-          emoticons: [],
-        };
-      case 'potionMaker':
-        return {
-          ...shop,
-          equipment: [],
-          styles: [],
-          hats: [],
-          cowbells: [],
-          emoticons: [],
-          supplies: shop.supplies.filter((offer) =>
-            ['healing-potion', 'life-tonic', 'senbei', 'ramen'].includes(offer.itemId),
-          ),
-        };
-      case 'bartender':
-        return {
-          ...shop,
-          equipment: [],
-          styles: [],
-          hats: [],
-          cowbells: [],
-          emoticons: [],
-          supplies: shop.supplies.filter(
-            (offer) => offer.itemId === 'beer' || offer.itemId === 'wine',
-          ),
-        };
-      case 'cardDealer':
-        return {
-          ...shop,
-          equipment: [],
-          supplies: [],
-          styles: [],
-          hats: [],
-          cowbells: [],
-          emoticons: [],
-        };
-      case 'butcher':
-        return {
-          ...shop,
-          equipment: [],
-          supplies: [],
-          styles: [],
-          hats: [],
-          cowbells: [],
-          emoticons: [],
-        };
-      default:
-        return shop;
-    }
-  }
-
   private getCurrentVillageMarketStock(): VillageMarketStock {
     const room = this.snakeGame.getCurrentRoom();
     const key = room.town ? `town.market.stock.${room.town.id}` : `market.stock.${room.id}`;
@@ -13251,7 +13211,7 @@ export default class SnakeScene extends Phaser.Scene {
     message: string;
     color: string;
   } {
-    const shop = this.getFilteredVillageShop();
+    const shop = this.getCurrentVillageShop();
     if (!shop) {
       return { ok: false, message: 'No shop available.', color: '#ff6b6b' };
     }
@@ -14364,6 +14324,10 @@ export default class SnakeScene extends Phaser.Scene {
     if (digSite && this.distanceFromHeadToLocal(digSite.foreman) <= 2) {
       return { text: `Start excavation with ${digSite.foreman.name} (${interact})` };
     }
+    const alchemyStation = this.snakeGame.getNearbyAlchemyStationInteraction();
+    if (alchemyStation) {
+      return { text: `${alchemyStation.title} (${interact})` };
+    }
     if (this.isNearTownQuestBoard()) {
       return { text: `Read quest board (${interact})` };
     }
@@ -14467,6 +14431,44 @@ export default class SnakeScene extends Phaser.Scene {
         this.isDirty = true;
         this.applyPendingQuestCosmeticRewards();
       }
+    });
+    return true;
+  }
+
+  private tryInteractAlchemyStation(): boolean {
+    if (this.paused || this.offeredQuest || this.choicePopupVisible) {
+      return false;
+    }
+    const station = this.snakeGame.getNearbyAlchemyStationInteraction();
+    if (!station) {
+      return false;
+    }
+    const options: ChoiceOption[] = station.options.map((option) => ({
+      id: option.id,
+      title: option.title,
+      description: option.enabled ? 'Ready.' : (option.reason ?? 'Not ready.'),
+      disabled: !option.enabled,
+    }));
+    if (options.length === 0) {
+      options.push({
+        id: 'empty',
+        title: 'No Known Brews',
+        description: 'Learn a recipe scroll first.',
+        disabled: true,
+      });
+    }
+    options.push({ id: 'leave', title: 'Leave', description: 'Step away from the station.' });
+    this.paused = true;
+    this.villageShopPopup.show(station.title, options, (id) => {
+      if (id === 'leave' || id === 'empty') {
+        this.closeVillageShop();
+        return;
+      }
+      const result = this.snakeGame.chooseAlchemyStationInteraction(id);
+      this.showQuestHintPopup(result.message, result.ok ? '#5dd6a2' : '#ff6b6b');
+      this.skillTree.getOverlay().refresh();
+      this.isDirty = true;
+      this.paused = false;
     });
     return true;
   }
@@ -15117,13 +15119,9 @@ export default class SnakeScene extends Phaser.Scene {
     };
   }
 
-  private showVillageShopRoot(shopkeeperName: string, skipBark = false, actorRole?: string): void {
+  private showVillageShopRoot(shopkeeperName: string, skipBark = false): void {
     this.paused = true;
     this.skillTree.hideOverlay();
-    if (actorRole === 'physicalTrainer') {
-      this.showManeuverTrainerShop(shopkeeperName);
-      return;
-    }
     const bark = this.snakeGame.getNpcBark('shopkeeper');
     if (!skipBark) {
       this.showQuestDialogue(
@@ -15132,7 +15130,7 @@ export default class SnakeScene extends Phaser.Scene {
         {
           onClose: () => {
             this.closeQuestPopup();
-            this.showVillageShopRoot(shopkeeperName, true, actorRole);
+            this.showVillageShopRoot(shopkeeperName, true);
           },
         },
         { closeLabel: 'Shop', nextLabel: 'Listen' },
@@ -15141,7 +15139,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const title = shopkeeperName;
-    const shop = this.getFilteredVillageShop(actorRole);
+    const shop = this.getCurrentVillageShop();
     const options: ChoiceOption[] = [];
     if ((shop?.equipment.length ?? 0) > 0) {
       options.push({
@@ -15189,12 +15187,7 @@ export default class SnakeScene extends Phaser.Scene {
     const isBlackMarket = Boolean(
       room.town && getTownDistrictForRoom(room.town, room.id) === 'guildHideout',
     );
-    const cardOffers =
-      actorRole === 'cardDealer'
-        ? this.getCurrentMarketCardOffers()
-        : isBlackMarket || room.town
-          ? []
-          : this.getCurrentMarketCardOffers();
+    const cardOffers = isBlackMarket || room.town ? [] : this.getCurrentMarketCardOffers();
     if (cardOffers.length > 0) {
       options.push({
         id: 'cards',
@@ -15202,19 +15195,7 @@ export default class SnakeScene extends Phaser.Scene {
         description: 'Buy tiny competition cards for your personal deck.',
       });
     }
-    if (this.snakeGame.isRaccoonMode() && (actorRole === 'butcher' || actorRole)) {
-      options.push({
-        id: 'stash-apples',
-        title: 'Stash Apples',
-        description: 'Cash out carried apples for score and drop back to a fast raccoon load.',
-      });
-    } else if (actorRole === 'butcher') {
-      options.push({
-        id: 'sell-length',
-        title: 'Sell Length',
-        description: 'Sell snake length for score. No exhaustion cap, just minimum safe length.',
-      });
-    } else if (room.village && !actorRole) {
+    if (room.village) {
       const trimKey = this.villageTrimServiceKey();
       const remaining = Number(
         this.snakeGame.getFlag<number>(`village.trim.remaining.${trimKey}`) ?? 2,
@@ -15238,22 +15219,20 @@ export default class SnakeScene extends Phaser.Scene {
           this.currentShopActorIdForRole('butcher'),
         );
         this.showQuestHintPopup(result.message, result.color);
-        this.showVillageShopRoot(shopkeeperName, true, actorRole);
+        this.showVillageShopRoot(shopkeeperName, true);
         return;
       }
       if (id === 'stash-apples') {
-        const result = this.snakeGame.stashRaccoonApples(
-          actorRole ? this.currentShopActorIdForRole(actorRole) : undefined,
-        );
+        const result = this.snakeGame.stashRaccoonApples(undefined);
         this.showQuestHintPopup(result.message, result.color);
         this.applyRaccoonActionStepInterval();
-        this.showVillageShopRoot(shopkeeperName, true, actorRole);
+        this.showVillageShopRoot(shopkeeperName, true);
         return;
       }
       if (id === 'trim-length') {
         const result = this.snakeGame.trimSnakeLengthAtVillageShop(this.villageTrimServiceKey());
         this.showQuestHintPopup(result.message, result.color);
-        this.showVillageShopRoot(shopkeeperName, true, actorRole);
+        this.showVillageShopRoot(shopkeeperName, true);
         return;
       }
       if (
@@ -15265,7 +15244,7 @@ export default class SnakeScene extends Phaser.Scene {
         id === 'emoticons' ||
         id === 'cards'
       ) {
-        this.showVillageShopCategory(shopkeeperName, id, 0, actorRole);
+        this.showVillageShopCategory(shopkeeperName, id, 0);
       }
     });
   }
@@ -15358,10 +15337,9 @@ export default class SnakeScene extends Phaser.Scene {
     shopkeeperName: string,
     category: 'equipment' | 'supplies' | 'styles' | 'hats' | 'cowbells' | 'emoticons' | 'cards',
     page = 0,
-    actorRole?: string,
   ): void {
     this.paused = true;
-    const shop = this.getFilteredVillageShop(actorRole);
+    const shop = this.getCurrentVillageShop();
     if (!shop) {
       this.closeVillageShop();
       return;
@@ -15482,12 +15460,12 @@ export default class SnakeScene extends Phaser.Scene {
     options.push({ id: 'back', title: 'Back', description: 'Return to the shop counter.' });
     this.villageShopPopup.show(shopkeeperName, options, (id) => {
       if (id === 'back') {
-        this.showVillageShopRoot(shopkeeperName, true, actorRole);
+        this.showVillageShopRoot(shopkeeperName, true);
         return;
       }
       if (id.startsWith('cards-page:')) {
         const [, nextPage] = id.split(':');
-        this.showVillageShopCategory(shopkeeperName, category, Number(nextPage), actorRole);
+        this.showVillageShopCategory(shopkeeperName, category, Number(nextPage));
         return;
       }
       const [kind, value] = id.split(':');
@@ -15508,10 +15486,84 @@ export default class SnakeScene extends Phaser.Scene {
                       ? this.purchaseVillageCard(value as CardId)
                       : null;
       if (result) {
-        if (result.ok) this.maybeCompleteGeneralShopBuyout(actorRole);
+        if (result.ok) this.maybeCompleteGeneralShopBuyout();
         this.showQuestHintPopup(result.message, result.color);
-        this.showVillageShopCategory(shopkeeperName, category, page, actorRole);
+        this.showVillageShopCategory(shopkeeperName, category, page);
       }
+    });
+  }
+
+  private showActorShopRoot(shop: ActorShopView): void {
+    this.paused = true;
+    const options = shop.categories.map((category) => ({
+      id: `actor-category:${category}`,
+      title: actorShopCategoryTitle(category),
+      description: actorShopCategoryDescription(category),
+    }));
+    options.push({ id: 'leave', title: 'Leave', description: 'Step away from the counter.' });
+    this.villageShopPopup.show(shop.title, options, (id) => {
+      if (id === 'leave') {
+        this.closeVillageShop();
+        return;
+      }
+      if (id.startsWith('actor-category:')) {
+        const [, category] = id.split(':');
+        this.showActorShopCategory(shop.actorId, category as ActorShopOfferCategory, 0);
+      }
+    });
+  }
+
+  private showActorShopCategory(actorId: string, category: ActorShopOfferCategory, page = 0): void {
+    this.paused = true;
+    const shop = this.snakeGame.getActorShopView(actorId);
+    if (!shop?.open) {
+      this.closeVillageShop();
+      return;
+    }
+    const offers = shop.offers.filter((offer) => offer.category === category);
+    const pageSize = 5;
+    const pageCount = Math.max(1, Math.ceil(offers.length / pageSize));
+    const safePage = Math.max(0, Math.min(page, pageCount - 1));
+    const pageOffers = offers.slice(safePage * pageSize, safePage * pageSize + pageSize);
+    const options: ChoiceOption[] = pageOffers.map((offer) => ({
+      id: `actor-offer:${offer.id}`,
+      title: `${offer.label} - ${offer.price} score${offer.itemId ? actorOfferOwnedText(this.snakeGame.getInventory().getItemCount(offer.itemId)) : ''}`,
+      description: offer.note,
+    }));
+    if (safePage > 0) {
+      options.push({
+        id: `actor-page:${safePage - 1}`,
+        title: 'Previous',
+        description: 'Browse the previous shelf.',
+      });
+    }
+    if (safePage < pageCount - 1) {
+      options.push({
+        id: `actor-page:${safePage + 1}`,
+        title: 'More',
+        description: 'Browse the next shelf.',
+      });
+    }
+    options.push({ id: 'back', title: 'Back', description: 'Return to the shop counter.' });
+    this.villageShopPopup.show(shop.title, options, (id) => {
+      if (id === 'back') {
+        this.showActorShopRoot(shop);
+        return;
+      }
+      if (id.startsWith('actor-page:')) {
+        const [, nextPage] = id.split(':');
+        this.showActorShopCategory(actorId, category, Number(nextPage));
+        return;
+      }
+      if (!id.startsWith('actor-offer:')) {
+        return;
+      }
+      const offerId = id.slice('actor-offer:'.length);
+      const result = this.snakeGame.purchaseActorShopOffer(actorId, offerId);
+      this.isDirty = true;
+      this.showQuestHintPopup(result.message, result.ok ? '#5dd6a2' : '#ff6b6b');
+      this.skillTree.getOverlay().refresh();
+      this.showActorShopCategory(actorId, category, safePage);
     });
   }
 
@@ -15583,7 +15635,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.villageShopPopup.show(`${shopkeeperName}'s Card Table`, options, (id) => {
       if (id === 'back') {
         if (fromVillageShop) {
-          this.showVillageShopRoot(shopkeeperName, true, actorRole);
+          this.showVillageShopRoot(shopkeeperName, true);
         } else {
           this.closeVillageShop();
         }
@@ -20034,11 +20086,13 @@ export default class SnakeScene extends Phaser.Scene {
             this.showGarageMechanicShop();
             return;
           }
-          if (profile.species === 'goblin') {
-            this.showGoblinShopRoot(profile.displayName);
-          } else {
-            this.showVillageShopRoot(profile.displayName, true, actorRole);
-          }
+          void this.snakeGame.chooseActorInteraction(profile.actorId ?? '', id).then((result) => {
+            if (result.ok && result.action === 'shop') {
+              this.showActorShopRoot(result.shop);
+              return;
+            }
+            this.showQuestHintPopup(result.message, '#ff6b6b');
+          });
           return;
         }
         if (id === 'pickpocket') {
@@ -23118,4 +23172,62 @@ function actorInteractionDescription(id: string): string {
     default:
       return 'Do the available actor interaction.';
   }
+}
+
+function actorShopCategoryTitle(category: ActorShopOfferCategory): string {
+  switch (category) {
+    case 'equipment':
+      return 'Equipment';
+    case 'consumables':
+      return 'Consumables';
+    case 'items':
+      return 'Items';
+    case 'locators':
+      return 'Locators';
+    case 'food':
+      return 'Food';
+    case 'services':
+      return 'Services';
+    case 'styles':
+      return 'Styles';
+    case 'hats':
+      return 'Hats';
+    case 'cowbells':
+      return 'Cowbells';
+    case 'emoticons':
+      return 'Emoticons';
+    case 'cards':
+      return 'Cards';
+  }
+}
+
+function actorShopCategoryDescription(category: ActorShopOfferCategory): string {
+  switch (category) {
+    case 'equipment':
+      return 'Role-specific tools and gear.';
+    case 'consumables':
+      return 'Potions, food, scrolls, bombs, and other usable goods.';
+    case 'items':
+      return 'Ingredients, stations, tools, and other inventory objects.';
+    case 'locators':
+      return 'Maps and directions for nearby oddities.';
+    case 'food':
+      return 'Something edible enough to sell.';
+    case 'services':
+      return 'Table stakes, favors, and professional nonsense.';
+    case 'styles':
+      return 'Palettes and patterns.';
+    case 'hats':
+      return 'Headwear with questionable aerodynamics.';
+    case 'cowbells':
+      return 'Noisy accessories.';
+    case 'emoticons':
+      return 'Thought bubbles for the road.';
+    case 'cards':
+      return 'Tiny competition cards for your deck.';
+  }
+}
+
+function actorOfferOwnedText(owned: number): string {
+  return owned > 0 ? `, owned x${owned}` : '';
 }

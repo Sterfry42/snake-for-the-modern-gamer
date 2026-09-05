@@ -9,7 +9,7 @@ import {
 import type { TownResident, TownStructure } from '../../../../world/town.js';
 import type { RoomSnapshot } from '../../../../world/types.js';
 
-describe('Town actor lifecycle hardening stories', () => {
+describe('Town actor lifecycle integration hardening', () => {
   it('TOWN-HARDEN-026 / TOWN-REGRESSION-017 - discovered town owns its whole Actor roster', async () => {
     const scenario = createHeadlessScenario({ seed: 'town-harden-026-full-roster' });
     const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'generalStore' });

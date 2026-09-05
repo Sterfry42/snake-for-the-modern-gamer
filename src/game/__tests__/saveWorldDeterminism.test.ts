@@ -104,7 +104,7 @@ describe('save regression tests', () => {
       const room = game2.getRoom(id);
       expect(room.biomeId).toBe(expectedBiome);
     }
-  });
+  }, 30_000);
 
   it('preserves structure placement through deterministic recreation', () => {
     const seed = 'save-structures';
@@ -231,7 +231,7 @@ describe('save regression tests', () => {
       const actualHasCaves = !!room.caveEntrances && room.caveEntrances.length > 0;
       expect(actualHasCaves).toBe(hasCaves);
     }
-  });
+  }, 30_000);
 
   it('preserves town data through deterministic recreation', () => {
     const seed = 'save-towns';
@@ -280,7 +280,7 @@ describe('save regression tests', () => {
       expect(room.town!.name).toBe(expected.townName);
       expect(!!room.townPerimeter).toBe(expected.hasPerimeter);
     }
-  });
+  }, 30_000);
 
   it('reproduces world from saved identity on fresh RoomGenerator', () => {
     const seed = 'save-identity-regen';

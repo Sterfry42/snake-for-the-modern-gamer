@@ -14,6 +14,7 @@ export interface ChoiceOption {
   id: string;
   title: string;
   description: string;
+  disabled?: boolean;
 }
 
 export class ChoicePopup {
