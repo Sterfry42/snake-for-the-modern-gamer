@@ -8,7 +8,6 @@ import type {
   RelationshipSpecies,
   RelationshipStage,
 } from '../relationships/relationshipTypes.js';
-import type { TownResidentRole } from '../world/townRoles.js';
 import type { DayPhase } from '../world/atmosphereTypes.js';
 
 export type ActorKind =
@@ -46,6 +45,7 @@ export type ActorRole =
   | 'thiefContact'
   | 'guildContact'
   | 'blackMarketMerchant'
+  | 'scribe'
   | 'goblinMerchant'
   | 'goblinClerk'
   | 'goblinPriest'
@@ -462,7 +462,7 @@ export interface EnsureTownResidentActorArgs {
   actorId?: string;
   residentId: string;
   name: string;
-  role: TownResidentRole;
+  role: ActorRole;
   factionId?: string;
   townId: string;
   currentRoomId?: string;
