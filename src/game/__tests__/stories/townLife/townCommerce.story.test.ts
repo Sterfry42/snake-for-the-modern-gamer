@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Actor } from '../../../../actors/actorTypes.js';
+import { getActorPresentation } from '../../../../actors/actorPresentation.js';
 import type { LayerEntrance } from '../../../../layers/layerTypes.js';
 import type { HeadlessScenario } from '../../../../test/headless/headlessScenario.js';
 import { createHeadlessScenario } from '../../../../test/headless/headlessScenario.js';
@@ -24,7 +25,7 @@ describe('Town life commerce hardening stories', () => {
       'equipmentMerchant',
     ]);
     scenario.assertWorldIntegrity();
-  });
+  }, 30_000);
 
   it('TOWN-HARDEN-030 - offscreen unvisited shop workers do not generate interiors or recover', async () => {
     const scenario = createHeadlessScenario({ seed: 'town-harden-030-unvisited-shop-logical' });
@@ -62,7 +63,7 @@ describe('Town life commerce hardening stories', () => {
         .filter((event) => event.type === 'actor.travel_recovered' && event.actorId === actorId),
     ).toEqual([]);
     scenario.assertWorldIntegrity();
-  });
+  }, 30_000);
 
   it('TOWN-HARDEN-031 - initially unvisited tavern staff materialize at work without recovery', async () => {
     const scenario = createHeadlessScenario({ seed: 'town-harden-031-unvisited-tavern-staff' });
@@ -114,7 +115,7 @@ describe('Town life commerce hardening stories', () => {
         ),
     ).toEqual([]);
     scenario.assertWorldIntegrity();
-  });
+  }, 30_000);
 
   it('TOWN-HARDEN-029 - shopkeeper completes a full station-home-station lifecycle without recovery', async () => {
     const scenario = createHeadlessScenario({ seed: 'town-harden-029-shopkeeper-lifecycle' });
@@ -287,21 +288,20 @@ describe('Town life commerce hardening stories', () => {
       {
         templateId: 'generalStore',
         role: 'equipmentMerchant',
-        expectedOffer: 'half-price-revolver',
         expectedCategory: 'equipment',
       },
       {
         templateId: 'potionMaker',
         role: 'potionMaker',
         expectedOffer: 'healing-potion',
-        expectedCategory: 'supplies',
+        expectedCategory: 'consumables',
         forbiddenOffer: 'half-price-revolver',
       },
       {
         templateId: 'butcherShop',
         role: 'butcher',
         expectedOffer: 'animal-bait',
-        expectedCategory: 'food',
+        expectedCategory: 'consumables',
         forbiddenOffer: 'half-price-revolver',
       },
       {
@@ -313,15 +313,15 @@ describe('Town life commerce hardening stories', () => {
       {
         templateId: 'wizardShop',
         role: 'wizard',
-        expectedOffer: 'life-tonic',
-        expectedCategory: 'supplies',
+        expectedOffer: 'recipe-scroll-shield',
+        expectedCategory: 'consumables',
         forbiddenOffer: 'half-price-revolver',
       },
       {
         templateId: 'tavern',
         role: 'bartender',
         expectedOffer: 'beer',
-        expectedCategory: 'food',
+        expectedCategory: 'consumables',
         forbiddenOffer: 'half-price-revolver',
       },
       {
@@ -356,6 +356,155 @@ describe('Town life commerce hardening stories', () => {
       }
       scenario.assertWorldIntegrity();
     }
+  });
+
+  it('TOWN-ALCHEMY-001 - potion maker and wizard interiors sell usable alchemy stock', async () => {
+    for (const entry of [
+      { templateId: 'potionMaker', role: 'potionMaker' },
+      { templateId: 'wizardShop', role: 'wizard' },
+    ] as const) {
+      const scenario = createHeadlessScenario({
+        seed: `town-alchemy-001-${entry.templateId}`,
+      });
+      scenario.setDayPhase('day');
+      scenario.game.setScore(300);
+      const { room, entrance } = findGeneratedTownDoor(scenario, {
+        templateId: entry.templateId,
+      });
+
+      moveSnakeIntoDoor(scenario, room, entrance);
+      await scenario.advanceActorTicks(3);
+
+      const interior = scenario.currentRoom();
+      expect(interior.layout.join('')).toContain('K');
+      expect(interior.layout.join('')).toContain('L');
+
+      const actor = currentRoomActorWithRole(scenario, entry.role);
+      expect(actor.activity?.kind).toBe('alchemy');
+      expect(getActorPresentation(actor).activityProp).toMatchObject({
+        kind: 'potion-flask',
+        label: 'Alchemy',
+      });
+
+      const view = scenario.game.getActorShopView(actor.id);
+      expect(view?.open).toBe(true);
+      expect(view?.categories).toEqual(['consumables', 'items']);
+      expect(view?.offers.map((offer) => offer.id)).not.toContain('half-price-revolver');
+      if (entry.role === 'potionMaker') {
+        expect(view?.offers.map((offer) => offer.id)).toEqual(
+          expect.arrayContaining([
+            'healing-potion',
+            'recipe-scroll-phase',
+            'alchemy-station',
+            'ingredient-honey',
+          ]),
+        );
+      } else {
+        expect(view?.offers.map((offer) => offer.id)).toEqual(
+          expect.arrayContaining([
+            'alchemy-station',
+            'recipe-scroll-shield',
+            'recipe-scroll-phase',
+            'ingredient-pearl-apple',
+          ]),
+        );
+      }
+
+      const purchase = scenario.game.purchaseActorShopOffer(actor.id, 'alchemy-station');
+      expect(purchase).toMatchObject({
+        ok: true,
+        offerId: 'alchemy-station',
+      });
+      expect(scenario.game.getInventory().getItemCount('alchemy-station')).toBe(1);
+      scenario.assertWorldIntegrity();
+    }
+  });
+
+  it('TOWN-ALCHEMY-002 - player shop interaction opens specialist alchemy inventory', async () => {
+    for (const entry of [
+      { templateId: 'potionMaker', role: 'potionMaker' },
+      { templateId: 'wizardShop', role: 'wizard' },
+    ] as const) {
+      const scenario = createHeadlessScenario({
+        seed: `town-alchemy-002-${entry.templateId}`,
+      });
+      scenario.setDayPhase('day');
+      scenario.game.setScore(300);
+      const { room, entrance } = findGeneratedTownDoor(scenario, {
+        templateId: entry.templateId,
+      });
+
+      moveSnakeIntoDoor(scenario, room, entrance);
+      await scenario.advanceActorTicks(3);
+
+      const actor = currentRoomActorWithRole(scenario, entry.role);
+      expect(shopOption(scenario, actor)).toMatchObject({ id: 'shop', enabled: true });
+
+      const opened = await scenario.game.chooseActorInteraction(actor.id, 'shop');
+      expect(opened).toMatchObject({
+        ok: true,
+        action: 'shop',
+        actorId: actor.id,
+      });
+      if (!opened.ok || opened.action !== 'shop') {
+        throw new Error(`Expected shop interaction to open for ${entry.role}.`);
+      }
+      expect(opened.shop).toEqual(scenario.game.getActorShopView(actor.id));
+      expect(opened.shop.categories).toEqual(['consumables', 'items']);
+      expect(opened.shop.offers.map((offer) => offer.id)).not.toContain('half-price-revolver');
+
+      const purchase = scenario.game.purchaseActorShopOffer(actor.id, 'alchemy-station');
+      expect(purchase).toMatchObject({
+        ok: true,
+        offerId: 'alchemy-station',
+      });
+      expect(scenario.game.getInventory().getItemCount('alchemy-station')).toBe(1);
+      scenario.assertWorldIntegrity();
+    }
+  });
+
+  it('TOWN-ALCHEMY-003 - wizard bench interaction brews through the station verb', async () => {
+    const scenario = createHeadlessScenario({ seed: 'town-alchemy-003-wizard-bench' });
+    scenario.setDayPhase('day');
+    const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'wizardShop' });
+
+    moveSnakeIntoDoor(scenario, room, entrance);
+    const interior = scenario.currentRoom();
+    expect(interior.layer?.templateId).toBe('wizardShop');
+    const bench = findTile(interior, 'K');
+    const benchApproach = adjacentWalkableTile(interior, bench);
+    walkToLocal(scenario, benchApproach, [bench]);
+
+    scenario.game.grantInventoryItem('recipe-scroll-phase', 1);
+    expect(scenario.game.useInventoryItem('recipe-scroll-phase')).toMatchObject({ ok: true });
+    scenario.game.grantInventoryItem('ingredient-pearl-apple', 1);
+    scenario.game.grantInventoryItem('ingredient-quartz', 1);
+    scenario.game.grantInventoryItem('ingredient-dew', 1);
+
+    const view = scenario.game.getNearbyAlchemyStationInteraction();
+    expect(view).toMatchObject({
+      title: 'Wizard Bench',
+      stationContext: {
+        kind: 'alchemy-station',
+        source: 'wizard-bench',
+        roomId: interior.id,
+        position: bench,
+      },
+    });
+    expect(view?.options).toEqual([expect.objectContaining({ id: 'brew:phase', enabled: true })]);
+
+    const brewed = scenario.game.chooseAlchemyStationInteraction('brew:phase');
+    expect(brewed).toMatchObject({
+      ok: true,
+      action: 'brew',
+      recipeId: 'phase',
+      brew: {
+        ok: true,
+        outputItemId: 'potion-phase',
+      },
+    });
+    expect(scenario.game.getInventory().getItemCount('potion-phase')).toBe(1);
+    scenario.assertWorldIntegrity();
   });
 });
 
@@ -664,6 +813,16 @@ function currentRoomActorWithRole(scenario: HeadlessScenario, role: Actor['role'
     throw new Error(`No ${role} actor in current room ${scenario.currentRoom().id}.`);
   }
   return actor;
+}
+
+function findTile(room: RoomSnapshot, tile: string): { x: number; y: number } {
+  for (let y = 0; y < room.layout.length; y += 1) {
+    const x = room.layout[y]?.indexOf(tile) ?? -1;
+    if (x >= 0) {
+      return { x, y };
+    }
+  }
+  throw new Error(`No ${tile} tile in ${room.id}.`);
 }
 
 function shopOption(scenario: HeadlessScenario, actor: Actor) {

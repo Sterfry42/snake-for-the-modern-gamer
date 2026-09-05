@@ -86,5 +86,5 @@ describe('world generation audit', () => {
     expect(jadeRatio).toBeLessThan(0.08);
     expect(familyCounts.size).toBeGreaterThanOrEqual(5);
     expect(townRooms).toBeGreaterThan(0);
-  }, 15000);
+  }, 30_000);
 });

@@ -403,6 +403,7 @@ export interface Actor {
   displayName: string;
   shortName?: string;
   epithet?: string;
+  shopProfileId?: string;
   factionId?: FactionId | string;
   townId?: string;
   homeRoomId?: string;
