@@ -4,6 +4,28 @@ body {
   background-color: #000;
 }
 
+/*
+  Game viewport shell. Phaser's Scale Manager (FIT mode) scales the canvas
+  inside this shell, so the game keeps its 4:3 aspect ratio on any screen.
+  main.ts drives the width/height and --game-shell-reserved: on touch
+  devices in portrait, the shell shrinks up above the fixed mobile
+  controls deck so the play area never hides under the dpad.
+*/
+#game-shell {
+  position: fixed;
+  left: 50%;
+  top: calc(50% - var(--game-shell-reserved, 0px) / 2);
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Phaser centers the canvas with margins, which only work when the canvas is block-level. */
+#game-shell canvas {
+  display: block;
+}
+
 .spotify-panel,
 .youtube-panel {
   position: fixed;
