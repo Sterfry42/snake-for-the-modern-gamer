@@ -12,6 +12,10 @@
  * Vite import.meta.glob() edges, and unreachable strongly connected components
  * so dead subsystems can be removed as units.
  *
+ * Test-support infrastructure under src/test is tracked by the graph but is not
+ * counted as production merely because browsers do not import the headless test
+ * harness.
+ *
  * Usage:
  *   node scripts/check-unused-files.mjs
  *   node scripts/check-unused-files.mjs --json
@@ -31,6 +35,7 @@ const TSCONFIG = join(ROOT, 'tsconfig.json');
 const ENCYCLOPEDIA = join(ROOT, 'docs', 'core', 'Snake Encyclopedia.md');
 
 const TEST_FILE_PATTERN = /(?:^|\/)__tests__\/|\.(?:test|spec)\.[cm]?[jt]sx?$/;
+const TEST_SUPPORT_PATTERN = /(?:^|\/)src\/test\//;
 const SOURCE_FILE_PATTERN = /\.(?:ts|tsx)$/;
 const DECLARATION_FILE_PATTERN = /\.d\.ts$/;
 
@@ -70,12 +75,14 @@ function collectFiles(parsedConfig) {
     const filePath = resolve(rawPath);
     if (!isInside(SRC, filePath) || !SOURCE_FILE_PATTERN.test(filePath)) continue;
     const content = readFileSync(filePath, 'utf-8');
+    const posixPath = toPosix(filePath);
     files.set(filePath, {
       path: filePath,
       relative: repoRelative(filePath),
       content,
       lines: content.length === 0 ? 0 : content.split(/\r?\n/).length,
-      isTest: TEST_FILE_PATTERN.test(toPosix(filePath)),
+      isTest: TEST_FILE_PATTERN.test(posixPath),
+      isTestSupport: TEST_SUPPORT_PATTERN.test(posixPath),
       isDeclaration: DECLARATION_FILE_PATTERN.test(filePath),
     });
   }
@@ -316,7 +323,10 @@ function buildReport(files, graph, runtimeRoots, encyclopedia, unresolved) {
   const testRoots = [...files.values()].filter((file) => file.isTest).map((file) => file.path);
   const testReachable = reachableFrom(graph, testRoots);
   const reverse = reverseGraph(graph);
-  const production = [...files.values()].filter((file) => !file.isTest && !file.isDeclaration);
+  const production = [...files.values()].filter(
+    (file) => !file.isTest && !file.isTestSupport && !file.isDeclaration,
+  );
+  const testSupport = [...files.values()].filter((file) => file.isTestSupport && !file.isTest);
   const unreachable = production.filter((file) => !runtimeReachable.has(file.path));
   const unreachableSet = new Set(unreachable.map((file) => file.path));
 
@@ -342,6 +352,7 @@ function buildReport(files, graph, runtimeRoots, encyclopedia, unresolved) {
     totals: {
       sourceFiles: files.size,
       productionFiles: production.length,
+      testSupportFiles: testSupport.length,
       runtimeReachableFiles: production.filter((file) => runtimeReachable.has(file.path)).length,
       unreachableFiles: unreachable.length,
       unreachableLines: unreachable.reduce((sum, file) => sum + file.lines, 0),
@@ -368,6 +379,7 @@ function printHuman(report) {
   console.log(`  Runtime roots: ${report.runtimeRoots.join(', ') || '(none found)'}`);
   console.log(`  Source files: ${report.totals.sourceFiles}`);
   console.log(`  Production files: ${report.totals.productionFiles}`);
+  console.log(`  Test-support files: ${report.totals.testSupportFiles}`);
   console.log(`  Runtime reachable: ${report.totals.runtimeReachableFiles}`);
   console.log(
     `  Unreachable production: ${report.totals.unreachableFiles} files / ${report.totals.unreachableLines} lines`,
