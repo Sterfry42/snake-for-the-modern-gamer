@@ -15,7 +15,10 @@ import { FrostApple } from './behaviors/frostApple.js';
 import { AmberApple } from './behaviors/amberApple.js';
 import { FossilApple } from './behaviors/fossilApple.js';
 import { RelicApple } from './behaviors/relicApple.js';
-import { createSimpleApple, getSimpleAppleConfig } from './behaviors/simpleAppleFactory.js';
+import {
+  createSimpleApple,
+  getSimpleAppleConfig,
+} from './behaviors/simpleAppleFactory.js';
 import type { AppleInstance } from './types.js';
 
 export class AppleRegistry {
