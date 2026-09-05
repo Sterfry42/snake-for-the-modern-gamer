@@ -2,7 +2,6 @@
  * Archaeology Module
  */
 
-// Fossil Registry
 export {
   type FossilRarity,
   type FragmentType,
@@ -32,7 +31,6 @@ export {
   getDigSiteParams,
 } from './fossilRegistry.js';
 
-// Excavation System
 export {
   type ExcavationState,
   type TimingBarState,
@@ -51,7 +49,6 @@ export {
   simulateProgress,
 } from './ExcavationSystem.js';
 
-// Museum Manager
 export {
   type MuseumState,
   type MuseumBonuses,
@@ -69,27 +66,3 @@ export {
   serializeMuseumState,
   deserializeMuseumState,
 } from './MuseumManager.js';
-
-// Mini-Game
-export {
-  type MiniGameVisualState,
-  type TimingBarVisual,
-  type ProgressIndicator,
-  type FragmentDisplay,
-  type ParticleEffect,
-  type QualityMeter,
-  type MiniGameNotification,
-  createVisualState,
-  updateVisualState,
-  handleTimingInput,
-  processTimingHit as processMiniGameTimingHit,
-  tryCompleteAssembly,
-  processAssemblyPhase,
-  getAssemblyProgress,
-  createNotification,
-  isNotificationExpired,
-  getFragmentLabel,
-  getFragmentColor,
-  getConditionColor,
-  getTargetZoneColor,
-} from './ArchaeologyMiniGame.js';
