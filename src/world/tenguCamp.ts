@@ -1,8 +1,8 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import { vectorKey } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
-import { buildHouseNpcProfile } from '../npcs/profiles.js';
 import type { Vector2Like } from '../core/math.js';
+import { createHumanoidSpawn } from './humanoidSpawn.js';
 import type { RoomSnapshot } from './types.js';
 
 const TENGU_NAMES = [
@@ -153,11 +153,12 @@ export function tryPlaceTenguCamp(
   const chieftainName = randomTenguName(rng);
 
   return {
-    chieftain: {
-      ...buildHouseNpcProfile(`${chieftainName} the Elder`, 'sage-2'),
-      x: chieftainSpot.x,
-      y: chieftainSpot.y,
-    },
+    chieftain: createHumanoidSpawn(
+      `${chieftainName} the Elder`,
+      chieftainSpot.x,
+      chieftainSpot.y,
+      'sage-2',
+    ),
     feathers,
   };
 }
