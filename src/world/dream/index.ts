@@ -57,7 +57,3 @@ export {
   type DreamAppleBehavior,
   type DreamAppleTypeConfig,
 } from './dreamAppleTypes.js';
-
-export { DreamWorldScene, type DreamWorldSceneConfig } from './DreamWorldScene.js';
-
-export { NightmareScene } from './NightmareScene.js';
