@@ -1,8 +1,5 @@
 /**
  * Shared save data types and migration utilities.
- *
- * Both SaveManager and SaveManagerV2 import from here to avoid
- * duplicating type definitions and migration functions.
  */
 import type { WorldGenerationIdentity } from '../world/generation/worldGenerationIdentity.js';
 import type { CharacterMode } from '../player/raccoonMode.js';
@@ -13,6 +10,11 @@ import type { ArcadeSnakeSaveData } from '../arcade/arcadeSnakeTypes.js';
 import type { AtmosphereState } from '../world/atmosphereTypes.js';
 import type { DrivingCarState } from '../vehicles/car.js';
 import type { LayerInstance } from '../layers/layerTypes.js';
+
+export interface ChoiceWithMods {
+  id: string;
+  mods: Record<string, unknown>;
+}
 
 export interface MinecraftBlockEntry {
   roomId: string;
