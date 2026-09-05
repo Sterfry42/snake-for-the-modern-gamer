@@ -75,18 +75,21 @@ describe('SaveManagerV2', () => {
     const beta = manager.createSessionId();
     await manager.appendSave(alpha, makeSaveData({ score: 10 }));
     await manager.appendSave(beta, makeSaveData({ score: 20 }));
-    await manager.appendSave(alpha, makeSaveData({
-      score: 30,
-      worldGeneration: {
-        seed: 'alpha-latest',
-        worldSalt: 1,
-        biomeSalt: 2,
-        riverSalt: 3,
-        barrierSalt: 4,
-        structureSalt: 5,
-        townSalt: 6,
-      },
-    }));
+    await manager.appendSave(
+      alpha,
+      makeSaveData({
+        score: 30,
+        worldGeneration: {
+          seed: 'alpha-latest',
+          worldSalt: 1,
+          biomeSalt: 2,
+          riverSalt: 3,
+          barrierSalt: 4,
+          structureSalt: 5,
+          townSalt: 6,
+        },
+      }),
+    );
 
     const sessions = await manager.listSessions();
     const alphaInfo = sessions.find((entry) => entry.sessionId === alpha);
@@ -104,13 +107,15 @@ describe('SaveManagerV2', () => {
     await manager.appendSave(sessionId, makeSaveData({ score: 2 }));
 
     const saves = await manager.listSessionSaves(sessionId);
-    const newest = saves.at(-1);
+    const newest = saves[saves.length - 1];
     expect(newest).toBeDefined();
     if (!newest) return;
 
     expect((await manager.loadSave(sessionId, newest.timestamp))?.score).toBe(2);
     await manager.deleteSave(sessionId, newest.timestamp);
-    expect((await manager.listSessionSaves(sessionId)).map((entry) => entry.data.score)).toEqual([1]);
+    expect(
+      (await manager.listSessionSaves(sessionId)).map((entry) => entry.data.score),
+    ).toEqual([1]);
   });
 
   it('deletes whole sessions', async () => {
@@ -122,20 +127,23 @@ describe('SaveManagerV2', () => {
     expect(await manager.getSession(sessionId)).toBeNull();
   });
 
-  it('migrates v1 saves to the live v3 schema without synthesizing removed Minecraft state', async () => {
-    const sessionId = manager.createSessionId();
-    await manager.appendSave(sessionId, makeSaveData({ version: '1.0.0' }));
+  it(
+    'migrates v1 saves to the live v3 schema without synthesizing removed Minecraft state',
+    async () => {
+      const sessionId = manager.createSessionId();
+      await manager.appendSave(sessionId, makeSaveData({ version: '1.0.0' }));
 
-    const [entry] = await manager.listSessionSaves(sessionId);
-    expect(entry.data.version).toBe('3.0.0');
-    expect(entry.data.fishing).toEqual({
-      caughtFish: {},
-      catchJournal: [],
-      equippedRod: 'none',
-    });
-    expect('minecraftBlocks' in entry.data).toBe(false);
-    expect('minecraftPlayerState' in entry.data).toBe(false);
-  });
+      const [entry] = await manager.listSessionSaves(sessionId);
+      expect(entry.data.version).toBe('3.0.0');
+      expect(entry.data.fishing).toEqual({
+        caughtFish: {},
+        catchJournal: [],
+        equippedRod: 'none',
+      });
+      expect('minecraftBlocks' in entry.data).toBe(false);
+      expect('minecraftPlayerState' in entry.data).toBe(false);
+    },
+  );
 
   it('migrates v2 fishing data without losing existing catches', async () => {
     const sessionId = manager.createSessionId();
