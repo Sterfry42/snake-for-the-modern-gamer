@@ -28,7 +28,7 @@ When restoring one of these features:
 
 ### Gardening
 
-**Removed:** garden manager, plants, seed registry, pest system, garden types/barrel, garden NPC, and isolated garden tests. Dead garden localization strings may also be removed as cleanup continues.
+**Removed:** garden manager, plants, seed registry, pest system, garden types/barrel, garden NPC, English/Spanish garden localization, and isolated garden tests.
 
 **Why:** the garden package had no production entrance and existed as a self-contained simulation package.
 
@@ -36,11 +36,11 @@ When restoring one of these features:
 
 ### Alchemy
 
-**Removed:** AlchemyManager, AlchemyStation, PotionSystem, RecipeManager, AlchemyJournal, ingredient catalog, alchemy types/barrel, alchemy overlay, and isolated unit tests.
+**Removed:** AlchemyManager, AlchemyStation, PotionSystem, RecipeManager, AlchemyJournal, ingredient catalog, alchemy types/barrel, alchemy overlay, Hermes the Alchemist/trade data, and isolated unit tests.
 
-**Why:** the entire parallel alchemy framework was runtime-unreachable. Live item/potion behavior elsewhere in the game remains.
+**Why:** the entire parallel alchemy framework was runtime-unreachable. Hermes only referenced recipes/ingredients from that detached framework. Live item/potion behavior elsewhere in the game remains.
 
-**If restored:** recipes and potion effects should plug into the canonical inventory/item-effect pipeline and a real station/shop/world interaction. Do not recreate a second inventory/effect architecture.
+**If restored:** recipes and potion effects should plug into the canonical inventory/item-effect pipeline and a real station/shop/world interaction. Reintroduce Hermes as a canonical Actor/shopkeeper if the character is still wanted; do not recreate a second NPC or inventory architecture around him.
 
 ### Crafting workshop
 
@@ -96,13 +96,49 @@ When restoring one of these features:
 
 **If restored:** treat each mechanic independently and integrate it into existing item/world/weather/combat systems rather than restoring a `minecraft` parallel namespace by default.
 
-### Animal kingdom / seasonal leaves
+### Animal ecosystem simulation
 
-**Removed so far:** `KingdomSystem.ts` and `seasonal.ts`.
+**Removed:** EcosystemManager, ecosystem balance/photo types, ecosystem HUD, standalone predator/prey ecology helper, standalone animal AI state helper, animal weather-behavior rules, and their isolated ecosystem/weather tests.
+
+**Preserved:** the runtime-reachable `animalManager`, `animalRegistry`, animal definitions, drops, and other animal behavior that the real game actually reaches.
+
+**Why:** the ecosystem package and related helpers formed a simulation layer beside the live animal system but had no production path.
+
+**If restored:** put ecosystem consequences behind actual animal/world simulation events. Predator/prey and weather behavior should be behavior owned by the live animal simulation rather than a second detached model.
+
+### Wildlife photography / journal
+
+**Removed:** CameraSystem, wildlife journal overlay, photo data that lived only in the detached ecosystem types, and the camera system's isolated test.
+
+**Preserved:** live animal registry/content.
+
+**Why:** the player could not reach the photography system; the journal was likewise unreachable presentation for it.
+
+**If restored:** introduce a real camera item/verb, capture photos from live Actor/animal/world state, and test the complete loop: acquire camera -> photograph animal -> journal records observation.
+
+### Animal settlements / civilization
+
+**Removed:** AnimalSettlement and its isolated unit test. `KingdomSystem.ts` had already been removed as an unreachable leaf.
+
+**Why:** animal civilization existed as detached strategy/simulation code rather than something spawned or observed by the production world.
+
+**If restored:** represent settlements as real world structures plus persistent actors/animals. Avoid a second world-state graph owned only by the civilization subsystem.
+
+### Detached companion manager
+
+**Removed:** `src/animals/companion/CompanionManager.ts` and its isolated test.
+
+**Preserved:** the separately existing runtime-reachable animal/companion behavior such as `src/animals/companions.ts`.
+
+**Why:** this was a second manager with no production route, not evidence that companion animals themselves should disappear.
+
+**If restored:** extend the live companion path and canonical animal/actor identity rather than reviving a parallel companion state owner.
+
+### Animal seasonal leaf
+
+**Removed:** `seasonal.ts`.
 
 **Why:** no production/test/Encyclopedia reachability at deletion time.
-
-**Note:** additional animal simulation packages remain under investigation; record them here if removed.
 
 ### Unsupported generic layer kinds
 
@@ -114,9 +150,17 @@ When restoring one of these features:
 
 **If restored:** add a new layer kind only when a real second runtime implementation exists.
 
+### Wise Old Snake lore dump
+
+**Removed:** the standalone `wiseOldSnakeLore.ts` quote/lore/quest-idea catalog.
+
+**Why:** nothing in production, tests, or the Encyclopedia consumed it. It was content sitting beside the game rather than content registered into it.
+
+**If restored:** keep the character/lore if desired, but put it in the canonical dialogue/rumor/quest/content registries that the game actually reads.
+
 ### Miscellaneous dead presentation/helpers
 
-Removed dead leaves include presentation or helper code such as the bullet-train renderer and mutation journal overlay when no production route or supported subsystem consumed them.
+Removed dead leaves include presentation or helper code such as the bullet-train renderer, mutation journal overlay, unused generic scrollable tabbed-menu model, and unused NPC portrait registry when no production route or supported subsystem consumed them.
 
 These are intentionally lower-level than the feature entries above. Recover from the base commit if a future integrated feature genuinely needs the old presentation/content.
 
