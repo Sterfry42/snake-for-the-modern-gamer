@@ -11,7 +11,6 @@ import type { AchievementState } from '../achievements/achievementTypes.js';
 import type { LevelProgressionState } from '../stats/levelProgression.js';
 import type { ArcadeSnakeSaveData } from '../arcade/arcadeSnakeTypes.js';
 import type { AtmosphereState } from '../world/atmosphereTypes.js';
-import type { DreamSaveData } from '../world/dream/types.js';
 import type { DrivingCarState } from '../vehicles/car.js';
 import type { LayerInstance } from '../layers/layerTypes.js';
 
@@ -109,7 +108,6 @@ export interface GameSaveData {
   achievements?: AchievementState;
   arcadeSnake?: ArcadeSnakeSaveData;
   atmosphere?: AtmosphereState;
-  dreamWorld?: DreamSaveData;
   activeVehicle?: DrivingCarState;
   layerInstances?: LayerInstance[];
 }
