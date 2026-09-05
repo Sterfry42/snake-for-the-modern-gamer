@@ -10,7 +10,6 @@ export type LayerTemplateId =
   | 'potionMaker'
   | 'mapper'
   | 'wizardShop'
-  | 'inn'
   | 'residentialHome';
 
 export type TownDoorKind =
