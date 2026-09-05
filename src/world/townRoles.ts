@@ -26,7 +26,7 @@ const TOWN_RESIDENT_ROLE_VALUES = [
   'blackMarketMerchant',
   'scribe',
   'questGiver',
-] as const satisfies readonly (ActorRole | 'scribe')[];
+] as const satisfies readonly ActorRole[];
 
 export type TownResidentRole = (typeof TOWN_RESIDENT_ROLE_VALUES)[number];
 
