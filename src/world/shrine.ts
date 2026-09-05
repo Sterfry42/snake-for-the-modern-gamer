@@ -1,7 +1,7 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import { vectorKey } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
-import { buildHouseNpcProfile } from '../npcs/profiles.js';
+import { createHumanoidSpawn } from './humanoidSpawn.js';
 import type { RoomSnapshot } from './types.js';
 
 const MIKO_NAMES = ['Hana', 'Saki', 'Yuki', 'Ren', 'Mio', 'Aoi', 'Kiri'] as const;
@@ -156,14 +156,8 @@ export function tryPlaceShrine(
   const maidenY = offeringBoxY + 1;
   setChar(layout, maidenX, maidenY, 'G');
 
-  const mikoName = randomName(rng);
-
   return {
-    maiden: {
-      ...buildHouseNpcProfile(mikoName, 'sage-1'),
-      x: maidenX,
-      y: maidenY,
-    },
+    maiden: createHumanoidSpawn(randomName(rng), maidenX, maidenY, 'sage-1'),
     hasBlessings: false,
   };
 }
