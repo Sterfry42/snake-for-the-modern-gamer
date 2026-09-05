@@ -134,6 +134,16 @@ When restoring one of these features:
 
 **If restored:** extend the live companion path and canonical animal/actor identity rather than reviving a parallel companion state owner.
 
+### Apple mutation / trait framework
+
+**Removed:** MutationRegistry, MutationSystem, mutation types, TraitManager, trait types, the mutation journal overlay, and the isolated mutation/trait unit tests.
+
+**Preserved:** runtime-reachable apple definitions, spawning, item behavior, and effects outside this detached framework.
+
+**Why:** mutation and trait simulation existed only as a self-tested subsystem; the production game had no route into it, and mutation-related achievement branches were already disabled.
+
+**If restored:** make mutation a property or transformation of apples the live world can actually generate and the snake can actually encounter/consume. Reuse canonical apple/item-effect ownership, and prove the full player-facing loop with a headless story instead of restoring a parallel evolution simulator.
+
 ### Animal seasonal leaf
 
 **Removed:** `seasonal.ts`.
@@ -160,7 +170,7 @@ When restoring one of these features:
 
 ### Miscellaneous dead presentation/helpers
 
-Removed dead leaves include presentation or helper code such as the bullet-train renderer, mutation journal overlay, unused generic scrollable tabbed-menu model, and unused NPC portrait registry when no production route or supported subsystem consumed them.
+Removed dead leaves include presentation or helper code such as the bullet-train renderer, mutation journal overlay, unused generic scrollable tabbed-menu model, unused NPC portrait registry, and a duplicate TypeScript Vite debug middleware implementation when no production route or canonical owner consumed them.
 
 These are intentionally lower-level than the feature entries above. Recover from the base commit if a future integrated feature genuinely needs the old presentation/content.
 
