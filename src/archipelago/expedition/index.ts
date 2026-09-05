@@ -52,5 +52,4 @@ export {
   EXPEDITION_BOSS_BY_ID,
 } from './ExpeditionBoss.js';
 export { ExpeditionLogManager } from './ExpeditionLog.js';
-export { ExpeditionScene } from './ExpeditionScene.js';
 export { EXPEDITION_APPLE_TYPES, EXPEDITION_APPLE_COLORS } from './ExpeditionAppleTypes.js';
