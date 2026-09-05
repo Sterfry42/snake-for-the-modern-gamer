@@ -1,5 +1,18 @@
 import type { WorldHumanoidSpawn } from './types.js';
 
+export type WorldHumanoidIdentity = Pick<WorldHumanoidSpawn, 'id' | 'name' | 'portraitId'>;
+
+export function createHumanoidIdentity(
+  name: string,
+  portraitId?: string,
+): WorldHumanoidIdentity {
+  return {
+    id: `npc-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+    name,
+    portraitId,
+  };
+}
+
 export function createHumanoidSpawn(
   name: string,
   x: number,
@@ -7,9 +20,7 @@ export function createHumanoidSpawn(
   portraitId?: string,
 ): WorldHumanoidSpawn {
   return {
-    id: `npc-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-    name,
-    portraitId,
+    ...createHumanoidIdentity(name, portraitId),
     x,
     y,
   };
