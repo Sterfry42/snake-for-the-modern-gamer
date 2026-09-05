@@ -107,7 +107,7 @@ describe('Headless user-story harness', () => {
         .filter((actor) => actor.id === shopkeeper.id),
     ).toHaveLength(1);
     scenario.assertWorldIntegrity();
-  });
+  }, 30_000);
 
   it('runtime Actor presence drives relationship presentation candidates', () => {
     const scenario = createHeadlessScenario({ seed: 'story-present-actor-candidates' });

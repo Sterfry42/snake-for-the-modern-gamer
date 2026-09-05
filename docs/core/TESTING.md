@@ -822,20 +822,6 @@ Examples in this file that **do** fit the world-story model include:
 
 ---
 
-## `townLife/townActorLifecycle.story.test.ts`
-
-Both current tests violate the E2E classification:
-
-* `TOWN-HARDEN-026 / TOWN-REGRESSION-017 - discovered town owns its whole Actor roster`
-
-  * Actor registry/invariant test
-
-* `TOWN-HARDEN-027 / TOWN-REGRESSION-018 - materialization is not resident creation`
-
-  * Actor identity/materialization integration test
-
----
-
 ## `townLife/townCommerce.story.test.ts`
 
 The following currently violate the E2E classification:
@@ -888,74 +874,6 @@ No current violation identified.
 `TOWN-HARDEN-001 / TOWN-REGRESSION-001` moves the snake through the real action path into a closed/open mapper door and observes the resulting room/closure behavior.
 
 This is the model player-based E2E style.
-
----
-
-## `townLife/townHouseholds.story.test.ts`
-
-The following currently violate the strict E2E classification:
-
-* `TOWN-HARDEN-005 - visible residential doors have one-to-one entrance metadata across 50 seeds`
-
-  * generation/property invariant
-
-* `TOWN-HARDEN-006 / TOWN-REGRESSION-004 - three-house districts expose distinct stable household interiors`
-
-  * routing/integration test that directly invokes door entry
-
-* `TOWN-HARDEN-035 - player residential exits dematerialize actors without moving them outside`
-
-  * mostly a materialization invariant and uses direct door entry for repeated re-entry
-
-The behavior protected by `TOWN-HARDEN-035` is worth keeping.
-
-A strict E2E rewrite should have the snake leave and re-enter through gameplay movement, then observe that the household members are still inside.
-
----
-
-## `townLife/townInn.story.test.ts`
-
-The following currently violate the E2E classification:
-
-* `TOWN-HARDEN-028 - hospitality schedules keep night services staffed without opening daytime specialists`
-
-  * schedule integration test
-
-* `TOWN-HARDEN-028 / TOWN-REGRESSION-019 - an unvisited tavern works at night with a pre-existing bartender`
-
-  * useful cross-system integration, but the rest operation is invoked directly through `chooseCurrentInnRest()`
-
-The following **does** fit the player-based E2E model:
-
-* `TOWN-HARDEN-019 / TOWN-REGRESSION-012 - paid rest is reachable through bartender interaction`
-
-This test:
-
-* makes the snake enter the tavern
-* finds the bartender
-* proves the interaction exists
-* selects `tavern-rest` through `chooseActorInteraction()`
-* verifies both failure and success behavior
-
-That is the style to copy.
-
----
-
-## `townNpcLivingWorldPresentation.story.test.ts`
-
-Every current test in this file violates the E2E classification and should be presentation/unit/integration coverage instead:
-
-* `TOWN-LIFE-019 - Activity props describe current actions`
-* `TOWN-LIFE-020 - Sleeping uses an above-head presentation contract`
-* `TOWN-HARDEN-032 - Sleeping actors do not produce direct or conversation dialogue`
-* `TOWN-LIFE-021 - Routine roles do not create indicator clutter`
-* `TOWN-LIFE-022 - Urgent states remain visible`
-
-These tests directly call presentation/dialogue helpers or directly manufacture Actor activity.
-
-They are useful.
-
-They are not E2E stories.
 
 ---
 

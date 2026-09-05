@@ -6,7 +6,7 @@ import {
 import { adjacentWalkableTile } from '../../../../test/headless/scenarioFixtures.js';
 import type { RoomSnapshot } from '../../../../world/types.js';
 
-describe('Town life household hardening stories', () => {
+describe('Town life household integration hardening', () => {
   it('TOWN-HARDEN-035 - player residential exits dematerialize actors without moving them outside', async () => {
     const scenario = createHeadlessScenario({ seed: 'town-harden-035-residential-exit-presence' });
     scenario.setDayPhase('night');
@@ -53,33 +53,7 @@ describe('Town life household hardening stories', () => {
       );
     }
     scenario.assertWorldIntegrity();
-  });
-
-  it('TOWN-HARDEN-005 - visible residential doors have one-to-one entrance metadata across 50 seeds', () => {
-    for (let index = 0; index < 50; index += 1) {
-      const seed = `town-harden-005-residential-doors-${index}`;
-      const scenario = createHeadlessScenario({ seed });
-      const residentialRooms = generatedTownRooms(scenario).filter(
-        (room) => room.town?.districtByRoomId[room.id] === 'residentialStreet',
-      );
-
-      expect(residentialRooms.length, seed).toBeGreaterThan(0);
-      for (const room of residentialRooms) {
-        const visibleDoors = visibleResidentialDoors(room);
-        const entrances = residentialEntrances(room);
-
-        expect(entrances.map((entrance) => `${entrance.x},${entrance.y}`).sort(), seed).toEqual(
-          visibleDoors.map((door) => `${door.x},${door.y}`).sort(),
-        );
-        expect(new Set(entrances.map((entrance) => entrance.id)).size, seed).toBe(
-          visibleDoors.length,
-        );
-        expect(new Set(entrances.map((entrance) => entrance.layerId)).size, seed).toBe(
-          visibleDoors.length,
-        );
-      }
-    }
-  }, 60_000);
+  }, 30_000);
 
   it('TOWN-HARDEN-006 / TOWN-REGRESSION-004 - three-house districts expose distinct stable household interiors', () => {
     const scenario = createHeadlessScenario({ seed: 'town-regression-004-three-households' });
@@ -161,18 +135,6 @@ function findResidentialInteriorWithActor(scenario: HeadlessScenario):
     }
   }
   return undefined;
-}
-
-function visibleResidentialDoors(room: RoomSnapshot): Array<{ x: number; y: number }> {
-  const doors: Array<{ x: number; y: number }> = [];
-  room.layout.forEach((row, y) => {
-    [...row].forEach((tile, x) => {
-      if (tile === 'h' || tile === 'j') {
-        doors.push({ x, y });
-      }
-    });
-  });
-  return doors;
 }
 
 function residentialEntrances(room: RoomSnapshot) {

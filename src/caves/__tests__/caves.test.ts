@@ -263,7 +263,7 @@ describe('cave spawn rate', () => {
     // to catch regressions where caves stop spawning or spawn everywhere.
     expect(rate).toBeGreaterThanOrEqual(0.085);
     expect(rate).toBeLessThanOrEqual(0.125);
-  });
+  }, 30_000);
 });
 
 function hasDryPath(

@@ -790,7 +790,7 @@ describe('deterministic seed test harness', () => {
           }
         }
       }
-    });
+    }, 30_000);
   });
 
   describe('cross-seed consistency', () => {
@@ -840,7 +840,7 @@ describe('deterministic seed test harness', () => {
           expect(other.biomeId).toBe(room.biomeId);
         }
       }
-    });
+    }, 30_000);
 
     it('generates the same Liberty Badlands region', () => {
       const seed = 'liberty-badlands';

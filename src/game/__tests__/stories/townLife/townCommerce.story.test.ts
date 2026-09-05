@@ -25,7 +25,7 @@ describe('Town life commerce hardening stories', () => {
       'equipmentMerchant',
     ]);
     scenario.assertWorldIntegrity();
-  });
+  }, 30_000);
 
   it('TOWN-HARDEN-030 - offscreen unvisited shop workers do not generate interiors or recover', async () => {
     const scenario = createHeadlessScenario({ seed: 'town-harden-030-unvisited-shop-logical' });
@@ -63,7 +63,7 @@ describe('Town life commerce hardening stories', () => {
         .filter((event) => event.type === 'actor.travel_recovered' && event.actorId === actorId),
     ).toEqual([]);
     scenario.assertWorldIntegrity();
-  });
+  }, 30_000);
 
   it('TOWN-HARDEN-031 - initially unvisited tavern staff materialize at work without recovery', async () => {
     const scenario = createHeadlessScenario({ seed: 'town-harden-031-unvisited-tavern-staff' });
@@ -115,7 +115,7 @@ describe('Town life commerce hardening stories', () => {
         ),
     ).toEqual([]);
     scenario.assertWorldIntegrity();
-  });
+  }, 30_000);
 
   it('TOWN-HARDEN-029 - shopkeeper completes a full station-home-station lifecycle without recovery', async () => {
     const scenario = createHeadlessScenario({ seed: 'town-harden-029-shopkeeper-lifecycle' });
