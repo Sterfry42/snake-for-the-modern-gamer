@@ -169,11 +169,7 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
     getClassChoice?: () => ChoiceWithMods | undefined,
     getBackgroundChoice?: () => ChoiceWithMods | undefined,
   ): boolean {
-    const loaded = this.game.loadGame(
-      getReligionChoice,
-      getClassChoice,
-      getBackgroundChoice,
-    );
+    const loaded = this.game.loadGame(getReligionChoice, getClassChoice, getBackgroundChoice);
     if (loaded) {
       this.emitSnapshot();
     }
