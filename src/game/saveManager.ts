@@ -4,7 +4,7 @@ const SAVE_KEY = 'snakeGameSave';
 const DEFAULT_SAVE_SLOT = '';
 const saveStore = new LocalStorageStringSaveStore(SAVE_KEY);
 
-export { type GameSaveData } from './saveTypes.js';
+export { type ChoiceWithMods, type GameSaveData } from './saveTypes.js';
 
 /**
  * Legacy single-slot storage helpers.
