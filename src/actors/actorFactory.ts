@@ -1,12 +1,7 @@
 import type { AnimalDefinition, AnimalInstance } from '../animals/types.js';
 import type { EnemyInstance } from '../systems/enemies.js';
 import type { TownResident, TownStructure } from '../world/town.js';
-import {
-  isTownCriminalRole,
-  isTownGuardRole,
-  isTownShopRole,
-  type TownResidentRole,
-} from '../world/townRoles.js';
+import { isTownCriminalRole, isTownGuardRole, isTownShopRole } from '../world/townRoles.js';
 import { townBusinessPolicyForRole } from '../world/townBusinessPolicy.js';
 import type {
   RelationshipCandidateProfile,
@@ -323,33 +318,9 @@ function pick<T>(items: readonly T[], seed: number): T {
 export function actorIdForTownResident(
   townId: string,
   residentId: string,
-  role: TownResidentRole,
+  role: ActorRole,
 ): string {
-  const actorRole =
-    role === 'shopkeeper'
-      ? 'shopkeeper'
-      : role === 'equipmentMerchant'
-        ? 'equipmentMerchant'
-        : role === 'potionMaker'
-          ? 'potionMaker'
-          : role === 'butcher'
-            ? 'butcher'
-            : role === 'cardDealer'
-              ? 'cardDealer'
-              : role === 'physicalTrainer'
-                ? 'physicalTrainer'
-                : role === 'mapper'
-                  ? 'mapper'
-                  : role === 'wizard'
-                    ? 'wizard'
-                    : role === 'innkeeper'
-                      ? 'innkeeper'
-                      : role === 'guard'
-                        ? 'guard'
-                        : role === 'questGiver'
-                          ? 'questGiver'
-                          : 'resident';
-  return `town:${townId}:${actorRole}:${residentId}`;
+  return `town:${townId}:${role}:${residentId}`;
 }
 
 export function actorIdForAnimal(roomId: string, animalId: string): string {
@@ -369,7 +340,7 @@ export function actorIdForWanderer(encounterId: string): string {
 }
 
 export function createActorFromTownResident(args: EnsureTownResidentActorArgs): Actor {
-  const role = mapTownResidentRole(args.role);
+  const role = args.role;
   const kind = mapTownResidentKind(role);
   const species: ActorSpecies = args.factionId === 'goblin-camps' ? 'goblin' : 'human';
   const personality = personalityForTownRole(role, species);
@@ -384,7 +355,7 @@ export function createActorFromTownResident(args: EnsureTownResidentActorArgs): 
     kind,
     role,
     species,
-    thickness: role === 'resident' ? 'medium' : 'medium',
+    thickness: 'medium',
     displayName: args.name,
     personality,
     factionId: args.factionId,
@@ -675,48 +646,6 @@ export function createActorFromWanderer(args: EnsureWandererActorArgs): Actor {
   });
 }
 
-function mapTownResidentRole(role: TownResidentRole): ActorRole {
-  switch (role) {
-    case 'shopkeeper':
-      return 'shopkeeper';
-    case 'equipmentMerchant':
-      return 'equipmentMerchant';
-    case 'potionMaker':
-      return 'potionMaker';
-    case 'butcher':
-      return 'butcher';
-    case 'cardDealer':
-      return 'cardDealer';
-    case 'physicalTrainer':
-      return 'physicalTrainer';
-    case 'mapper':
-      return 'mapper';
-    case 'wizard':
-      return 'wizard';
-    case 'innkeeper':
-      return 'innkeeper';
-    case 'bartender':
-      return 'bartender';
-    case 'guard':
-      return 'guard';
-    case 'gateGuard':
-      return 'gateGuard';
-    case 'questGiver':
-      return 'questGiver';
-    case 'thiefContact':
-      return 'thiefContact';
-    case 'guildContact':
-      return 'guildContact';
-    case 'blackMarketMerchant':
-      return 'blackMarketMerchant';
-    case 'thief':
-      return 'thief';
-    case 'scribe':
-    case 'resident':
-      return 'resident';
-  }
-}
-
 function mapTownResidentKind(role: ActorRole): ActorKind {
   if (isTownShopRole(role)) {
     return 'shopkeeper';
@@ -769,6 +698,8 @@ function personalityForTownRole(role: ActorRole, species: ActorSpecies): ActorPe
     case 'thief':
     case 'thiefContact':
       return ['criminal', 'sharp', 'paranoid'];
+    case 'scribe':
+      return ['nosy', 'sharp', 'practical'];
     default:
       return ['practical'];
   }
