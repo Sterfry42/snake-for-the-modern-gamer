@@ -20,7 +20,7 @@ When restoring one of these features:
 
 ### Dream world
 
-**Removed:** the detached Dream/Nightmare scene and simulation stack: Dream world scene, Nightmare scene, DreamManager, DreamPuzzles, dream apples, lore, dream shop, types/barrel, and their isolated unit tests.
+**Removed:** the detached Dream/Nightmare scene and simulation stack: Dream world scene, Nightmare scene, DreamManager, DreamPuzzles, dream apples, lore, dream shop, types/barrel, zero-weight Dream apple runtime constructors, Dream save schema, and their isolated unit tests.
 
 **Why:** no production route remained into the Dream subsystem. Its scenes had already become unreachable and the remaining manager/puzzle/data stack was reachable only from its own tests.
 
@@ -118,7 +118,7 @@ When restoring one of these features:
 
 ### Animal settlements / civilization
 
-**Removed:** AnimalSettlement and its isolated unit test. `KingdomSystem.ts` had already been removed as an unreachable leaf.
+**Removed:** AnimalSettlement, the settlement-backed AnimalMarketShop, and their isolated unit tests/parents. `KingdomSystem.ts` had already been removed as an unreachable leaf.
 
 **Why:** animal civilization existed as detached strategy/simulation code rather than something spawned or observed by the production world.
 
@@ -144,6 +144,14 @@ When restoring one of these features:
 
 **If restored:** make mutation a property or transformation of apples the live world can actually generate and the snake can actually encounter/consume. Reuse canonical apple/item-effect ownership, and prove the full player-facing loop with a headless story instead of restoring a parallel evolution simulator.
 
+### Multiplayer shell
+
+**Removed:** the standalone multiplayer shell and its self-test.
+
+**Why:** it had no production route and implemented only an "Under Construction" screen, local display-name persistence, and an echo-WebSocket smoke test rather than multiplayer game/session state.
+
+**If restored:** build multiplayer around the canonical game session, commands, snapshots, player identity, and authoritative runtime. Add a headless/multi-client story that proves two players can affect the same game rather than reviving the old smoke-test shell.
+
 ### Animal seasonal leaf
 
 **Removed:** `seasonal.ts`.
@@ -160,17 +168,25 @@ When restoring one of these features:
 
 **If restored:** add a new layer kind only when a real second runtime implementation exists.
 
-### Wise Old Snake lore dump
+### Wise Old Snake legacy content path
 
-**Removed:** the standalone `wiseOldSnakeLore.ts` quote/lore/quest-idea catalog.
+**Removed:** the standalone `wiseOldSnakeLore.ts` quote/lore/quest-idea catalog plus the obsolete global `registerNpc()` Wise Old Snake entry and registry.
 
-**Why:** nothing in production, tests, or the Encyclopedia consumed it. It was content sitting beside the game rather than content registered into it.
+**Why:** nothing in production, tests, or the Encyclopedia consumed the lore dump, and the global registry was a separate NPC representation with no production consumer.
 
-**If restored:** keep the character/lore if desired, but put it in the canonical dialogue/rumor/quest/content registries that the game actually reads.
+**If restored:** keep the character/lore if desired, but put it in the canonical Actor/dialogue/rumor/quest/content registries that the game actually reads.
+
+### Orphaned starter quests
+
+**Removed:** standalone `EatApplesQuest` (`eat-5-apples`, "Novice Eater") and `ReachLengthTenQuest` (`reach-length-10`, "Getting Longer") instances.
+
+**Why:** neither quest file was registered or reachable from production. They were complete definitions sitting outside the actual quest registry.
+
+**If restored:** register equivalent quest content through the canonical quest/content pipeline and prove acceptance, progress, completion, and reward through a headless player story.
 
 ### Miscellaneous dead presentation/helpers
 
-Removed dead leaves include presentation or helper code such as the bullet-train renderer, mutation journal overlay, unused generic scrollable tabbed-menu model, unused NPC portrait registry, and a duplicate TypeScript Vite debug middleware implementation when no production route or canonical owner consumed them.
+Removed dead leaves include presentation or helper code such as the bullet-train renderer, mutation journal overlay, unused generic scrollable tabbed-menu model, unused NPC portrait registry, a duplicate TypeScript Vite debug middleware implementation, a no-op Bullet Train generation "future hook", and unused Bullet Train localization packs when no production route or canonical owner consumed them.
 
 These are intentionally lower-level than the feature entries above. Recover from the base commit if a future integrated feature genuinely needs the old presentation/content.
 
