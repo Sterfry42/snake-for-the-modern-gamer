@@ -2,7 +2,7 @@ import type { GridConfig } from '../config/gameConfig.js';
 import { vectorKey } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 import { pickNpcName } from '../npcs/npcNames.js';
-import { buildHouseNpcProfile } from '../npcs/profiles.js';
+import { createHumanoidSpawn } from './humanoidSpawn.js';
 import type { RoomSnapshot } from './types.js';
 
 const CAMP_NAMES = [
@@ -155,15 +155,12 @@ export function tryPlaceGoblinCamp(
     safeArea,
     tents,
     fires,
-    guards: guardSpots.map((spot) => ({
-      ...buildHouseNpcProfile(randomName(rng), 'sage-2'),
-      x: spot.x,
-      y: spot.y,
-    })),
-    shopkeeper: {
-      ...buildHouseNpcProfile(`${randomName(rng)} the Clerk`, 'sage-1'),
-      x: shopSpot.x,
-      y: shopSpot.y,
-    },
+    guards: guardSpots.map((spot) => createHumanoidSpawn(randomName(rng), spot.x, spot.y, 'sage-2')),
+    shopkeeper: createHumanoidSpawn(
+      `${randomName(rng)} the Clerk`,
+      shopSpot.x,
+      shopSpot.y,
+      'sage-1',
+    ),
   };
 }
