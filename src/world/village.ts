@@ -1,7 +1,7 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import { vectorKey } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
-import { buildHouseNpcProfile } from '../npcs/profiles.js';
+import { createHumanoidSpawn } from './humanoidSpawn.js';
 import type { RoomSnapshot } from './types.js';
 import type { BiomeId } from './biomes.js';
 
@@ -287,32 +287,25 @@ export function tryPlaceVillage(
       VILLAGER_PORTRAITS[
         (Math.floor(rng() * VILLAGER_PORTRAITS.length) + index) % VILLAGER_PORTRAITS.length
       ];
-    return {
-      ...buildHouseNpcProfile(name, residentPortrait),
-      x: spot.x,
-      y: spot.y,
-    };
+    return createHumanoidSpawn(name, spot.x, spot.y, residentPortrait);
   });
   const shopkeeperName = SHOPKEEPER_NAMES[Math.floor(rng() * SHOPKEEPER_NAMES.length)];
   const shopkeeperPortrait = VILLAGER_PORTRAITS[Math.floor(rng() * VILLAGER_PORTRAITS.length)];
 
   return {
-    questGiver: {
-      ...buildHouseNpcProfile(villagerName, portraitId),
-      x: questSpot.x,
-      y: questSpot.y,
-    },
+    questGiver: createHumanoidSpawn(villagerName, questSpot.x, questSpot.y, portraitId),
     village: {
       name: villageName,
       center: { x: questSpot.x, y: questSpot.y },
       safeArea,
       lanterns,
       residents,
-      shopkeeper: {
-        ...buildHouseNpcProfile(shopkeeperName, shopkeeperPortrait),
-        x: shopSpot.x,
-        y: shopSpot.y,
-      },
+      shopkeeper: createHumanoidSpawn(
+        shopkeeperName,
+        shopSpot.x,
+        shopSpot.y,
+        shopkeeperPortrait,
+      ),
     },
   };
 }
