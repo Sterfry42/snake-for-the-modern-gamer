@@ -113,9 +113,7 @@ describe('SaveManagerV2', () => {
 
     expect((await manager.loadSave(sessionId, newest.timestamp))?.score).toBe(2);
     await manager.deleteSave(sessionId, newest.timestamp);
-    expect(
-      (await manager.listSessionSaves(sessionId)).map((entry) => entry.data.score),
-    ).toEqual([1]);
+    expect((await manager.listSessionSaves(sessionId)).map((entry) => entry.data.score)).toEqual([1]);
   });
 
   it('deletes whole sessions', async () => {
