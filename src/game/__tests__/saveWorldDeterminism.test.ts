@@ -51,8 +51,16 @@ describe('save world identity', () => {
     expect(identity).toBeDefined();
     if (!identity) return;
 
-    const generatorA = new RoomGenerator(defaultGameConfig.world, createRng(identity.seed), identity);
-    const generatorB = new RoomGenerator(defaultGameConfig.world, createRng(identity.seed), identity);
+    const generatorA = new RoomGenerator(
+      defaultGameConfig.world,
+      createRng(identity.seed),
+      identity,
+    );
+    const generatorB = new RoomGenerator(
+      defaultGameConfig.world,
+      createRng(identity.seed),
+      identity,
+    );
     const roomIds = ['0,0,0', '0,1,0', '1,0,0', '-1,0,0', '0,-1,0', '1,1,0'];
 
     for (const roomId of roomIds) {
