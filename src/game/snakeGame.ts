@@ -730,12 +730,27 @@ export type ActorInteractionDispatchResult =
       message: string;
     }
   | {
+      ok: true;
+      action: 'shop';
+      actorId: string;
+      shop: ActorShopView;
+      message: string;
+    }
+  | {
       ok: false;
       action: 'tavern-rest';
       actorId: string;
       rest: InnRestResult;
       message: string;
       reason: NonNullable<InnRestResult['refusedReason']>;
+    }
+  | {
+      ok: false;
+      action: 'shop';
+      actorId: string;
+      shop?: ActorShopView;
+      message: string;
+      reason: 'missing-actor' | 'closed' | 'unsupported-action';
     }
   | {
       ok: false;
@@ -6746,6 +6761,26 @@ export class SnakeGame implements QuestRuntime {
         actorId,
         message: 'No one is there.',
         reason: 'missing-actor',
+      };
+    }
+    if (actionId === 'shop') {
+      const shop = this.getActorShopView(actorId);
+      if (shop?.open) {
+        return {
+          ok: true,
+          action: 'shop',
+          actorId,
+          shop,
+          message: `${shop.title}'s shop is open.`,
+        };
+      }
+      return {
+        ok: false,
+        action: 'shop',
+        actorId,
+        shop: shop ?? undefined,
+        message: shop?.closedReason ?? `${actor.displayName} is not selling anything right now.`,
+        reason: shop ? 'closed' : 'unsupported-action',
       };
     }
     if (actionId === 'tavern-rest' && actor.role === 'bartender') {

@@ -166,7 +166,10 @@ describe('Town life tavern rest hardening stories', () => {
         wellRested: true,
       },
     });
-    expect(result.ok ? result.rest.worldDayAfter : 0).toBeGreaterThanOrEqual(beforeDay);
+    if (!result.ok || result.action !== 'tavern-rest') {
+      throw new Error('Expected tavern rest interaction to succeed.');
+    }
+    expect(result.rest.worldDayAfter).toBeGreaterThanOrEqual(beforeDay);
     expect(scenario.currentRoom().layer?.templateId).toBe('tavern');
     expect(scenario.game.getActorsInCurrentRoom().some((actor) => actor.role === 'bartender')).toBe(
       true,

@@ -43,6 +43,8 @@ import {
 import { getAlchemyDerivedStatSource } from '../alchemy/potionEffects.js';
 import { SnakeGame } from '../game/snakeGame.js';
 import type {
+  ActorShopOfferCategory,
+  ActorShopView,
   ActorJournalEntry,
   PresentRelationshipProfile,
   QuestObjectiveSummary,
@@ -15129,7 +15131,12 @@ export default class SnakeScene extends Phaser.Scene {
     };
   }
 
-  private showVillageShopRoot(shopkeeperName: string, skipBark = false, actorRole?: string): void {
+  private showVillageShopRoot(
+    shopkeeperName: string,
+    skipBark = false,
+    actorRole?: string,
+    actorId?: string,
+  ): void {
     this.paused = true;
     this.skillTree.hideOverlay();
     if (actorRole === 'physicalTrainer') {
@@ -15144,7 +15151,7 @@ export default class SnakeScene extends Phaser.Scene {
         {
           onClose: () => {
             this.closeQuestPopup();
-            this.showVillageShopRoot(shopkeeperName, true, actorRole);
+            this.showVillageShopRoot(shopkeeperName, true, actorRole, actorId);
           },
         },
         { closeLabel: 'Shop', nextLabel: 'Listen' },
@@ -15153,9 +15160,18 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const title = shopkeeperName;
+    const actorShop = this.getSpecialistActorShopView(actorId, actorRole);
     const shop = this.getFilteredVillageShop(actorRole);
     const options: ChoiceOption[] = [];
-    if ((shop?.equipment.length ?? 0) > 0) {
+    if (actorShop) {
+      for (const category of actorShop.categories) {
+        options.push({
+          id: `actor-category:${category}`,
+          title: actorShopCategoryTitle(category),
+          description: actorShopCategoryDescription(category),
+        });
+      }
+    } else if ((shop?.equipment.length ?? 0) > 0) {
       options.push({
         id: 'equipment',
         title: 'Equipment',
@@ -15250,7 +15266,7 @@ export default class SnakeScene extends Phaser.Scene {
           this.currentShopActorIdForRole('butcher'),
         );
         this.showQuestHintPopup(result.message, result.color);
-        this.showVillageShopRoot(shopkeeperName, true, actorRole);
+        this.showVillageShopRoot(shopkeeperName, true, actorRole, actorId);
         return;
       }
       if (id === 'stash-apples') {
@@ -15259,13 +15275,24 @@ export default class SnakeScene extends Phaser.Scene {
         );
         this.showQuestHintPopup(result.message, result.color);
         this.applyRaccoonActionStepInterval();
-        this.showVillageShopRoot(shopkeeperName, true, actorRole);
+        this.showVillageShopRoot(shopkeeperName, true, actorRole, actorId);
         return;
       }
       if (id === 'trim-length') {
         const result = this.snakeGame.trimSnakeLengthAtVillageShop(this.villageTrimServiceKey());
         this.showQuestHintPopup(result.message, result.color);
-        this.showVillageShopRoot(shopkeeperName, true, actorRole);
+        this.showVillageShopRoot(shopkeeperName, true, actorRole, actorId);
+        return;
+      }
+      if (id.startsWith('actor-category:') && actorId) {
+        const [, category] = id.split(':');
+        this.showActorShopCategory(
+          shopkeeperName,
+          actorId,
+          category as ActorShopOfferCategory,
+          0,
+          actorRole,
+        );
         return;
       }
       if (
@@ -15277,7 +15304,7 @@ export default class SnakeScene extends Phaser.Scene {
         id === 'emoticons' ||
         id === 'cards'
       ) {
-        this.showVillageShopCategory(shopkeeperName, id, 0, actorRole);
+        this.showVillageShopCategory(shopkeeperName, id, 0, actorRole, actorId);
       }
     });
   }
@@ -15371,6 +15398,7 @@ export default class SnakeScene extends Phaser.Scene {
     category: 'equipment' | 'supplies' | 'styles' | 'hats' | 'cowbells' | 'emoticons' | 'cards',
     page = 0,
     actorRole?: string,
+    actorId?: string,
   ): void {
     this.paused = true;
     const shop = this.getFilteredVillageShop(actorRole);
@@ -15494,12 +15522,18 @@ export default class SnakeScene extends Phaser.Scene {
     options.push({ id: 'back', title: 'Back', description: 'Return to the shop counter.' });
     this.villageShopPopup.show(shopkeeperName, options, (id) => {
       if (id === 'back') {
-        this.showVillageShopRoot(shopkeeperName, true, actorRole);
+        this.showVillageShopRoot(shopkeeperName, true, actorRole, actorId);
         return;
       }
       if (id.startsWith('cards-page:')) {
         const [, nextPage] = id.split(':');
-        this.showVillageShopCategory(shopkeeperName, category, Number(nextPage), actorRole);
+        this.showVillageShopCategory(
+          shopkeeperName,
+          category,
+          Number(nextPage),
+          actorRole,
+          actorId,
+        );
         return;
       }
       const [kind, value] = id.split(':');
@@ -15522,8 +15556,79 @@ export default class SnakeScene extends Phaser.Scene {
       if (result) {
         if (result.ok) this.maybeCompleteGeneralShopBuyout(actorRole);
         this.showQuestHintPopup(result.message, result.color);
-        this.showVillageShopCategory(shopkeeperName, category, page, actorRole);
+        this.showVillageShopCategory(shopkeeperName, category, page, actorRole, actorId);
       }
+    });
+  }
+
+  private getSpecialistActorShopView(
+    actorId: string | undefined,
+    actorRole: string | undefined,
+  ): ActorShopView | null {
+    if (!actorId || (actorRole !== 'potionMaker' && actorRole !== 'wizard')) {
+      return null;
+    }
+    const shop = this.snakeGame.getActorShopView(actorId);
+    return shop?.open ? shop : null;
+  }
+
+  private showActorShopCategory(
+    shopkeeperName: string,
+    actorId: string,
+    category: ActorShopOfferCategory,
+    page = 0,
+    actorRole?: string,
+  ): void {
+    this.paused = true;
+    const shop = this.snakeGame.getActorShopView(actorId);
+    if (!shop?.open) {
+      this.closeVillageShop();
+      return;
+    }
+    const offers = shop.offers.filter((offer) => offer.category === category);
+    const pageSize = 5;
+    const pageCount = Math.max(1, Math.ceil(offers.length / pageSize));
+    const safePage = Math.max(0, Math.min(page, pageCount - 1));
+    const pageOffers = offers.slice(safePage * pageSize, safePage * pageSize + pageSize);
+    const options: ChoiceOption[] = pageOffers.map((offer) => ({
+      id: `actor-offer:${offer.id}`,
+      title: `${offer.label} - ${offer.price} score${offer.itemId ? actorOfferOwnedText(this.snakeGame.getInventory().getItemCount(offer.itemId)) : ''}`,
+      description: offer.note,
+    }));
+    if (safePage > 0) {
+      options.push({
+        id: `actor-page:${safePage - 1}`,
+        title: 'Previous',
+        description: 'Browse the previous shelf.',
+      });
+    }
+    if (safePage < pageCount - 1) {
+      options.push({
+        id: `actor-page:${safePage + 1}`,
+        title: 'More',
+        description: 'Browse the next shelf.',
+      });
+    }
+    options.push({ id: 'back', title: 'Back', description: 'Return to the shop counter.' });
+    this.villageShopPopup.show(shopkeeperName, options, (id) => {
+      if (id === 'back') {
+        this.showVillageShopRoot(shopkeeperName, true, actorRole, actorId);
+        return;
+      }
+      if (id.startsWith('actor-page:')) {
+        const [, nextPage] = id.split(':');
+        this.showActorShopCategory(shopkeeperName, actorId, category, Number(nextPage), actorRole);
+        return;
+      }
+      if (!id.startsWith('actor-offer:')) {
+        return;
+      }
+      const offerId = id.slice('actor-offer:'.length);
+      const result = this.snakeGame.purchaseActorShopOffer(actorId, offerId);
+      this.isDirty = true;
+      this.showQuestHintPopup(result.message, result.ok ? '#5dd6a2' : '#ff6b6b');
+      this.skillTree.getOverlay().refresh();
+      this.showActorShopCategory(shopkeeperName, actorId, category, safePage, actorRole);
     });
   }
 
@@ -20049,7 +20154,7 @@ export default class SnakeScene extends Phaser.Scene {
           if (profile.species === 'goblin') {
             this.showGoblinShopRoot(profile.displayName);
           } else {
-            this.showVillageShopRoot(profile.displayName, true, actorRole);
+            this.showVillageShopRoot(profile.displayName, true, actorRole, profile.actorId);
           }
           return;
         }
@@ -23130,4 +23235,38 @@ function actorInteractionDescription(id: string): string {
     default:
       return 'Do the available actor interaction.';
   }
+}
+
+function actorShopCategoryTitle(category: ActorShopOfferCategory): string {
+  switch (category) {
+    case 'equipment':
+      return 'Equipment';
+    case 'supplies':
+      return 'Supplies';
+    case 'locators':
+      return 'Locators';
+    case 'food':
+      return 'Food';
+    case 'services':
+      return 'Services';
+  }
+}
+
+function actorShopCategoryDescription(category: ActorShopOfferCategory): string {
+  switch (category) {
+    case 'equipment':
+      return 'Role-specific tools and gear.';
+    case 'supplies':
+      return 'Specialist stock, ingredients, and portable trouble.';
+    case 'locators':
+      return 'Maps and directions for nearby oddities.';
+    case 'food':
+      return 'Something edible enough to sell.';
+    case 'services':
+      return 'Table stakes, favors, and professional nonsense.';
+  }
+}
+
+function actorOfferOwnedText(owned: number): string {
+  return owned > 0 ? `, owned x${owned}` : '';
 }

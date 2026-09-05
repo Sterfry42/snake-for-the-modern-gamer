@@ -409,6 +409,53 @@ describe('Town life commerce hardening stories', () => {
       scenario.assertWorldIntegrity();
     }
   });
+
+  it('TOWN-ALCHEMY-002 - player shop interaction opens specialist alchemy inventory', async () => {
+    for (const entry of [
+      { templateId: 'potionMaker', role: 'potionMaker' },
+      { templateId: 'wizardShop', role: 'wizard' },
+    ] as const) {
+      const scenario = createHeadlessScenario({
+        seed: `town-alchemy-002-${entry.templateId}`,
+      });
+      scenario.setDayPhase('day');
+      scenario.game.setScore(300);
+      const { room, entrance } = findGeneratedTownDoor(scenario, {
+        templateId: entry.templateId,
+      });
+
+      moveSnakeIntoDoor(scenario, room, entrance);
+      await scenario.advanceActorTicks(3);
+
+      const actor = currentRoomActorWithRole(scenario, entry.role);
+      expect(shopOption(scenario, actor)).toMatchObject({ id: 'shop', enabled: true });
+
+      const opened = await scenario.game.chooseActorInteraction(actor.id, 'shop');
+      expect(opened).toMatchObject({
+        ok: true,
+        action: 'shop',
+        actorId: actor.id,
+      });
+      if (!opened.ok || opened.action !== 'shop') {
+        throw new Error(`Expected shop interaction to open for ${entry.role}.`);
+      }
+      expect(opened.shop.offers.map((offer) => offer.id)).toEqual(
+        expect.arrayContaining([
+          'alchemy-station',
+          'recipe-scroll-growth',
+          'ingredient-yuzu-apple',
+        ]),
+      );
+
+      const purchase = scenario.game.purchaseActorShopOffer(actor.id, 'alchemy-station');
+      expect(purchase).toMatchObject({
+        ok: true,
+        offerId: 'alchemy-station',
+      });
+      expect(scenario.game.getInventory().getItemCount('alchemy-station')).toBe(1);
+      scenario.assertWorldIntegrity();
+    }
+  });
 });
 
 async function advanceActorTicksUntil(
