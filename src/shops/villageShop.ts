@@ -257,6 +257,115 @@ export const VILLAGE_SHOP_SUPPLIES: readonly VillageShopSupplyOffer[] = [
   },
 ];
 
+export const ALCHEMY_SHOP_SUPPLIES: readonly VillageShopSupplyOffer[] = [
+  {
+    id: 'alchemy-station',
+    itemId: 'alchemy-station',
+    price: 120,
+    note: 'Portable brewing furniture. The scorch marks are decorative if anyone asks.',
+  },
+  {
+    id: 'recipe-scroll-growth',
+    itemId: 'recipe-scroll-growth',
+    price: 18,
+    note: 'Starter alchemy scroll. Growth: taller problems, taller solutions.',
+  },
+  {
+    id: 'recipe-scroll-phase',
+    itemId: 'recipe-scroll-phase',
+    price: 22,
+    note: 'Starter alchemy scroll. Phase: walls become suggestions.',
+  },
+  {
+    id: 'recipe-scroll-shield',
+    itemId: 'recipe-scroll-shield',
+    price: 24,
+    note: 'Starter alchemy scroll. Shield: confidence, bottled badly.',
+  },
+  {
+    id: 'recipe-scroll-speed',
+    itemId: 'recipe-scroll-speed',
+    price: 34,
+    note: 'Advanced alchemy scroll. Speed: less walking, more arriving.',
+  },
+  {
+    id: 'recipe-scroll-magnet',
+    itemId: 'recipe-scroll-magnet',
+    price: 36,
+    note: 'Advanced alchemy scroll. Apples start acting sentimental.',
+  },
+  {
+    id: 'ingredient-honey',
+    itemId: 'ingredient-honey',
+    price: 6,
+    note: 'Common alchemy component. Sticky enough to hold a spell together.',
+  },
+  {
+    id: 'ingredient-dew',
+    itemId: 'ingredient-dew',
+    price: 5,
+    note: 'Common alchemy component. Dawn in a jar, somehow legal.',
+  },
+  {
+    id: 'ingredient-yuzu-apple',
+    itemId: 'ingredient-yuzu-apple',
+    price: 9,
+    note: 'Common-ish alchemy component for beginner brews.',
+  },
+  {
+    id: 'ingredient-pearl-apple',
+    itemId: 'ingredient-pearl-apple',
+    price: 11,
+    note: 'A polished apple concentrate for phasing and protection work.',
+  },
+  {
+    id: 'ingredient-quartz',
+    itemId: 'ingredient-quartz',
+    price: 8,
+    note: 'Common crystal dust for respectable potion nonsense.',
+  },
+  {
+    id: 'ingredient-meteor-iron',
+    itemId: 'ingredient-meteor-iron',
+    price: 18,
+    note: 'A defensive metal shaving with a heroic misunderstanding of gravity.',
+  },
+  {
+    id: 'ingredient-skittish-apple',
+    itemId: 'ingredient-skittish-apple',
+    price: 14,
+    note: 'A jittery apple extract that keeps trying to leave the bottle.',
+  },
+  {
+    id: 'ingredient-eagle-feather',
+    itemId: 'ingredient-eagle-feather',
+    price: 16,
+    note: 'Lift for swift brews, attitude included.',
+  },
+  {
+    id: 'ingredient-gold-apple',
+    itemId: 'ingredient-gold-apple',
+    price: 22,
+    note: 'Polished attraction in apple form. Subtlety costs extra.',
+  },
+  {
+    id: 'ingredient-mochi-apple',
+    itemId: 'ingredient-mochi-apple',
+    price: 13,
+    note: 'Chewy enough to squeeze a body plan sideways.',
+  },
+  {
+    id: 'ingredient-nightshade',
+    itemId: 'ingredient-nightshade',
+    price: 15,
+    note: 'A shadowy pinch for brews best labeled after purchase.',
+  },
+];
+
+export const POTION_MAKER_ALCHEMY_OFFER_IDS = new Set(
+  ALCHEMY_SHOP_SUPPLIES.map((offer) => offer.id),
+);
+
 export const BLACK_MARKET_SUPPLIES: readonly VillageShopSupplyOffer[] = [
   {
     id: 'get-out-of-hell-free-card',

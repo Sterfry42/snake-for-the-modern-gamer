@@ -232,11 +232,35 @@ import {
   type RestaurantId,
 } from '../shops/restaurants.js';
 import {
+  ALCHEMY_SHOP_SUPPLIES,
   getBlackMarketDefinition,
   getVillageShopDefinition,
+  POTION_MAKER_ALCHEMY_OFFER_IDS,
   type VillageShopSupplyOffer,
   type VillageShopEquipmentOffer,
 } from '../shops/villageShop.js';
+import {
+  ALCHEMY_STATE_FLAG,
+  ALCHEMY_STATION_ITEM_ID,
+  brewAlchemyRecipe,
+  countAlchemyStationsInExistence,
+  createDefaultAlchemyState,
+  deployAlchemyStation,
+  learnAlchemyRecipeFromScroll,
+  normalizeAlchemyState,
+  packAlchemyStation,
+  tickAlchemyEffects,
+  useAlchemyPotion,
+} from '../alchemy/alchemySystem.js';
+import type {
+  AlchemyStationContext,
+  ActiveStatusEffect,
+  BrewResult,
+  DeployStationResult,
+  LearnRecipeResult,
+  PackStationResult,
+  PotionUseResult,
+} from '../alchemy/alchemyTypes.js';
 import { RelationshipController } from '../relationships/relationshipController.js';
 import type {
   DatingCandidateView,
@@ -1340,6 +1364,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('factions.alignment', undefined);
     this.setFlag('rumors.save', undefined);
     this.setFlag('factions.v2.save', undefined);
+    this.setFlag(ALCHEMY_STATE_FLAG, createDefaultAlchemyState());
     this.setFlag('karma.state', undefined);
     this.setFlag('actors.save', undefined);
     this.setFlag('events.save', undefined);
@@ -3302,7 +3327,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('maneuvers.state', this.maneuvers.exportState());
   }
 
-  private setGhostSource(source: 'revival' | 'maneuver', active: boolean): void {
+  private setGhostSource(source: 'revival' | 'maneuver' | 'alchemy', active: boolean): void {
     const current = this.getFlag<Record<string, boolean>>('maneuvers.ghostSources') ?? {};
     const next = { ...current };
     if (active) {
@@ -6812,6 +6837,13 @@ export class SnakeGame implements QuestRuntime {
     if (!offer) {
       return closed('missing-offer', 'That offer is not on the counter.');
     }
+    if (offer.itemId === ALCHEMY_STATION_ITEM_ID && this.getAlchemyStationCount() > 0) {
+      return closed(
+        'missing-offer',
+        'You already have my one portable station. Try not to explode it.',
+        offer,
+      );
+    }
     if (this.getScore() < offer.price) {
       return closed('insufficient-score', `${offer.label} costs ${offer.price} score.`, offer);
     }
@@ -6861,9 +6893,15 @@ export class SnakeGame implements QuestRuntime {
       case 'mapper':
         return this.buildMapperActorOffers(actor, room);
       case 'potionMaker':
-        return definition.supplies
-          .filter((offer) =>
-            ['healing-potion', 'life-tonic', 'orange-juice', 'ofuda-cache'].includes(offer.id),
+        return [...definition.supplies, ...ALCHEMY_SHOP_SUPPLIES]
+          .filter(
+            (offer) =>
+              ['healing-potion', 'life-tonic', 'orange-juice'].includes(offer.id) ||
+              POTION_MAKER_ALCHEMY_OFFER_IDS.has(offer.id),
+          )
+          .filter(
+            (offer) =>
+              offer.itemId !== ALCHEMY_STATION_ITEM_ID || this.getAlchemyStationCount() === 0,
           )
           .map((offer) => this.shopSupplyOffer(offer, 'supplies'));
       case 'butcher':
@@ -6872,11 +6910,33 @@ export class SnakeGame implements QuestRuntime {
           .filter((offer) => ['senbei', 'ramen', 'animal-bait'].includes(offer.id))
           .map((offer) => this.shopSupplyOffer(offer, 'food'));
       case 'wizard':
-        return definition.supplies
+        return [...definition.supplies, ...ALCHEMY_SHOP_SUPPLIES]
           .filter((offer) =>
-            ['life-tonic', 'ofuda-cache', 'orange-juice', 'get-out-of-hell-free-card'].includes(
-              offer.id,
-            ),
+            [
+              'life-tonic',
+              'orange-juice',
+              'alchemy-station',
+              'recipe-scroll-growth',
+              'recipe-scroll-phase',
+              'recipe-scroll-shield',
+              'recipe-scroll-speed',
+              'recipe-scroll-magnet',
+              'ingredient-honey',
+              'ingredient-dew',
+              'ingredient-yuzu-apple',
+              'ingredient-pearl-apple',
+              'ingredient-quartz',
+              'ingredient-meteor-iron',
+              'ingredient-skittish-apple',
+              'ingredient-eagle-feather',
+              'ingredient-gold-apple',
+              'ingredient-mochi-apple',
+              'ingredient-nightshade',
+            ].includes(offer.id),
+          )
+          .filter(
+            (offer) =>
+              offer.itemId !== ALCHEMY_STATION_ITEM_ID || this.getAlchemyStationCount() === 0,
           )
           .map((offer) => this.shopSupplyOffer(offer, 'supplies'));
       case 'equipmentMerchant':
@@ -17048,6 +17108,145 @@ export class SnakeGame implements QuestRuntime {
     return this.inventory;
   }
 
+  getAlchemyState() {
+    return normalizeAlchemyState(this.getFlag(ALCHEMY_STATE_FLAG));
+  }
+
+  getAlchemyStationCount(): number {
+    return countAlchemyStationsInExistence(this.getAlchemyState(), { inventory: this.inventory });
+  }
+
+  learnAlchemyRecipeFromScroll(scrollItemId: string): LearnRecipeResult {
+    const state = this.getAlchemyState();
+    const result = learnAlchemyRecipeFromScroll(state, { inventory: this.inventory }, scrollItemId);
+    this.setFlag(ALCHEMY_STATE_FLAG, state);
+    if (result.ok) {
+      this.setFlag('ui.itemUsed', {
+        itemId: scrollItemId,
+        itemName: getItem(scrollItemId)?.name,
+        learnedRecipeId: result.recipeId,
+      });
+    }
+    return result;
+  }
+
+  knowsAlchemyRecipe(recipeId: string): boolean {
+    return this.getAlchemyState().knownRecipes.includes(recipeId);
+  }
+
+  brewAlchemyRecipe(recipeId: string, stationContext?: AlchemyStationContext | null): BrewResult {
+    const state = this.getAlchemyState();
+    const result = brewAlchemyRecipe(
+      state,
+      { inventory: this.inventory },
+      recipeId,
+      stationContext,
+    );
+    this.setFlag(ALCHEMY_STATE_FLAG, state);
+    if (result.ok) {
+      this.setFlag('ui.itemReward', { itemId: result.outputItemId, count: result.quantity });
+    }
+    return result;
+  }
+
+  deployAlchemyStation(target: { x: number; y: number }): DeployStationResult {
+    const state = this.getAlchemyState();
+    const room = this.getCurrentRoom();
+    const localSnakeTiles = this.snake.bodySegments.map((segment) =>
+      this.worldToLocal(this.snake.currentRoomId, segment),
+    );
+    const occupiedTiles = [
+      ...this.getActorsInCurrentRoom()
+        .map((actor) => actor.presence?.position)
+        .filter((position): position is { x: number; y: number } => Boolean(position)),
+      ...this.enemies.getEnemiesInRoom(room.id).map((enemy) => enemy.position),
+      ...this.animals.getAnimalsInRoom(room.id).map((animal) => animal.position),
+    ];
+    const result = deployAlchemyStation(
+      state,
+      { inventory: this.inventory },
+      {
+        room,
+        target,
+        snakeTiles: localSnakeTiles,
+        occupiedTiles,
+      },
+    );
+    this.setFlag(ALCHEMY_STATE_FLAG, state);
+    return result;
+  }
+
+  packAlchemyStation(stationId: string): PackStationResult {
+    const state = this.getAlchemyState();
+    const result = packAlchemyStation(state, { inventory: this.inventory }, stationId);
+    this.setFlag(ALCHEMY_STATE_FLAG, state);
+    return result;
+  }
+
+  useAlchemyPotion(potionItemId: string): PotionUseResult {
+    const state = this.getAlchemyState();
+    const result = useAlchemyPotion(state, { inventory: this.inventory }, potionItemId, (effect) =>
+      this.applyAlchemyStatusEffect(effect),
+    );
+    this.setFlag(ALCHEMY_STATE_FLAG, state);
+    return result;
+  }
+
+  tickAlchemyStatusEffects(ticks = 1): void {
+    const state = this.getAlchemyState();
+    for (let index = 0; index < Math.max(0, Math.floor(ticks)); index += 1) {
+      tickAlchemyEffects(state);
+    }
+    this.setFlag(ALCHEMY_STATE_FLAG, state);
+    this.syncAlchemyStatusFlags(state.activeEffects);
+  }
+
+  private applyAlchemyStatusEffect(effect: ActiveStatusEffect): boolean {
+    switch (effect.id) {
+      case 'growth':
+        this.snake.grow(Math.max(1, Math.floor(effect.magnitude ?? 1)));
+        break;
+      case 'phase':
+        this.setGhostSource('alchemy', true);
+        this.syncGhostVisualFlag();
+        break;
+      case 'shield':
+      case 'speed':
+      case 'magnet':
+      case 'size-shrink':
+        break;
+      default:
+        return false;
+    }
+    this.syncAlchemyStatusFlags([effect]);
+    return true;
+  }
+
+  private syncAlchemyStatusFlags(effects: readonly ActiveStatusEffect[]): void {
+    const byId = new Map(effects.map((effect) => [effect.id, effect]));
+    this.setFlag('status.alchemyEffectsDirty', true);
+    const phase = byId.get('phase');
+    if (phase) {
+      this.setFlag('traversal.phaseTicks', phase.remainingTicks);
+      this.setGhostSource('alchemy', true);
+    } else if (this.getFlag<Record<string, boolean>>('maneuvers.ghostSources')?.alchemy) {
+      this.setGhostSource('alchemy', false);
+    }
+    const shield = byId.get('shield');
+    if (shield) {
+      this.setFlag('fortitude.invulnerabilityTicks', shield.remainingTicks);
+    }
+    const speed = byId.get('speed');
+    this.setFlag(
+      'status.alchemySpeedBoost',
+      speed ? { remainingTicks: speed.remainingTicks, magnitude: speed.magnitude } : undefined,
+    );
+    this.setFlag('status.alchemyGrowthActive', byId.has('growth') ? true : undefined);
+    this.setFlag('status.alchemyMagnetActive', byId.get('magnet'));
+    this.setFlag('status.alchemySizeShrinkActive', byId.get('size-shrink'));
+    this.syncGhostVisualFlag();
+  }
+
   private isArchipelagoModeActive(): boolean {
     return this.getFlag<boolean>('archipelago.modeActive') === true;
   }
@@ -17124,6 +17323,47 @@ export class SnakeGame implements QuestRuntime {
 
     if (itemId === 'bomb') {
       return this.placeBombAtHead();
+    }
+
+    if (itemId.startsWith('recipe-scroll-')) {
+      const result = this.learnAlchemyRecipeFromScroll(itemId);
+      if (result.ok) {
+        return {
+          ok: true,
+          message: `Learned ${result.recipeId} alchemy.`,
+          color: '#9cff9c',
+          consume: true,
+        };
+      }
+      return {
+        ok: false,
+        message:
+          result.reason === 'already-known'
+            ? 'You already know that recipe.'
+            : 'That scroll refuses to make sense.',
+        color: '#ffd166',
+      };
+    }
+
+    if (itemId === ALCHEMY_STATION_ITEM_ID) {
+      return {
+        ok: false,
+        message: 'Choose a nearby empty tile to set up the Alchemy Station.',
+        color: '#ffd166',
+      };
+    }
+
+    const alchemyPotion = this.useAlchemyPotion(itemId);
+    if (alchemyPotion.ok) {
+      return {
+        ok: true,
+        message: `Used ${item.name}.`,
+        color: '#9cff9c',
+        consume: true,
+      };
+    }
+    if (alchemyPotion.reason === 'application-failed') {
+      return { ok: false, message: `${item.name} fizzled.`, color: '#ff6b6b' };
     }
 
     const effects: Record<
@@ -18618,6 +18858,7 @@ export class SnakeGame implements QuestRuntime {
       'highlightReel.state',
       'expeditionBoard.state',
       'modernSynergy.state',
+      ALCHEMY_STATE_FLAG,
     ]) {
       const value = this.getFlag(key);
       if (value !== undefined) {
@@ -20384,6 +20625,7 @@ export class SnakeGame implements QuestRuntime {
       this.setFlag('status.orangeJuiceScoreMult', scoreMult - 1);
     }
     this.tickPhaseState();
+    this.tickAlchemyStatusEffects();
     this.tickSecondWind();
     this.tickStoredVitality();
   }

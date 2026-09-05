@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Actor } from '../../../../actors/actorTypes.js';
+import { getActorPresentation } from '../../../../actors/actorPresentation.js';
 import type { LayerEntrance } from '../../../../layers/layerTypes.js';
 import type { HeadlessScenario } from '../../../../test/headless/headlessScenario.js';
 import { createHeadlessScenario } from '../../../../test/headless/headlessScenario.js';
@@ -354,6 +355,57 @@ describe('Town life commerce hardening stories', () => {
       if ('forbiddenOffer' in expectation) {
         expect(view?.offers.map((offer) => offer.id)).not.toContain(expectation.forbiddenOffer);
       }
+      scenario.assertWorldIntegrity();
+    }
+  });
+
+  it('TOWN-ALCHEMY-001 - potion maker and wizard interiors sell usable alchemy stock', async () => {
+    for (const entry of [
+      { templateId: 'potionMaker', role: 'potionMaker' },
+      { templateId: 'wizardShop', role: 'wizard' },
+    ] as const) {
+      const scenario = createHeadlessScenario({
+        seed: `town-alchemy-001-${entry.templateId}`,
+      });
+      scenario.setDayPhase('day');
+      scenario.game.setScore(300);
+      const { room, entrance } = findGeneratedTownDoor(scenario, {
+        templateId: entry.templateId,
+      });
+
+      moveSnakeIntoDoor(scenario, room, entrance);
+      await scenario.advanceActorTicks(3);
+
+      const interior = scenario.currentRoom();
+      expect(interior.layout.join('')).toContain('K');
+      expect(interior.layout.join('')).toContain('L');
+
+      const actor = currentRoomActorWithRole(scenario, entry.role);
+      expect(actor.activity?.kind).toBe('alchemy');
+      expect(getActorPresentation(actor).activityProp).toMatchObject({
+        kind: 'potion-flask',
+        label: 'Alchemy',
+      });
+
+      const view = scenario.game.getActorShopView(actor.id);
+      expect(view?.open).toBe(true);
+      expect(view?.offers.map((offer) => offer.id)).toEqual(
+        expect.arrayContaining([
+          'alchemy-station',
+          'recipe-scroll-growth',
+          'ingredient-yuzu-apple',
+          'ingredient-honey',
+          'ingredient-dew',
+        ]),
+      );
+      expect(view?.offers.map((offer) => offer.id)).not.toContain('half-price-revolver');
+
+      const purchase = scenario.game.purchaseActorShopOffer(actor.id, 'recipe-scroll-growth');
+      expect(purchase).toMatchObject({
+        ok: true,
+        offerId: 'recipe-scroll-growth',
+      });
+      expect(scenario.game.getInventory().getItemCount('recipe-scroll-growth')).toBe(1);
       scenario.assertWorldIntegrity();
     }
   });

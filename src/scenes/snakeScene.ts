@@ -40,6 +40,7 @@ import {
   applyRuntimeModifierSource,
   createRuntimeModifierTotals,
 } from '../stats/gameplayModifierAccumulator.js';
+import { getAlchemyDerivedStatSource } from '../alchemy/potionEffects.js';
 import { SnakeGame } from '../game/snakeGame.js';
 import type {
   ActorJournalEntry,
@@ -3614,6 +3615,10 @@ export default class SnakeScene extends Phaser.Scene {
     const result = this.gameSession.actionStep(this.paused);
     this.updateHouseAmbience();
     this.updateSwimmingTerrainDrag();
+    if (this.snakeGame.getFlag<boolean>('status.alchemyEffectsDirty')) {
+      this.applyEquipmentEffects();
+      this.snakeGame.setFlag('status.alchemyEffectsDirty', undefined);
+    }
 
     if (this.handleStepDeath(result) || this.handlePhoenixReviveTrigger()) {
       this.skillTree.applyActionStepIntervalScalar(1, SnakeScene.SWIMMING_TERRAIN_DRAG_SOURCE);
@@ -9692,7 +9697,11 @@ export default class SnakeScene extends Phaser.Scene {
 
   useInventoryItem(itemId: string): { ok: boolean; message: string; color?: string } {
     const result = this.snakeGame.useInventoryItem(itemId);
-    if (result.ok) this.recordAchievementEvent({ type: 'item:consumed', itemId });
+    if (result.ok) {
+      this.recordAchievementEvent({ type: 'item:consumed', itemId });
+      this.applyEquipmentEffects();
+      this.snakeGame.setFlag('status.alchemyEffectsDirty', undefined);
+    }
     getDebugBus()?.emit({
       type: result.ok ? 'item.consumed' : 'item.consume_failed',
       category: 'game',
@@ -9818,6 +9827,9 @@ export default class SnakeScene extends Phaser.Scene {
       this.classMods.derivedModifiers,
     );
     setProgressionSource('status.orangeJuice', 'status', orangeJuiceSpeedBoost > 0 ? 0.75 : 1, 0);
+    this.skillTree.setDerivedStatSource(
+      getAlchemyDerivedStatSource(this.snakeGame.getAlchemyState().activeEffects),
+    );
     if (orangeJuiceSpeedBoost > 0) {
       totals.tickDelayScalar *= 0.75;
     }
