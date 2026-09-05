@@ -1,0 +1,118 @@
+name: One-shot cleanup codemod
+
+on:
+  push:
+    branches:
+      - cleanup/reachability-purge
+    paths:
+      - .github/workflows/cleanup-codemod.yml
+
+permissions:
+  contents: write
+
+jobs:
+  codemod:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: cleanup/reachability-purge
+          fetch-depth: 0
+
+      - name: Sever legacy NPC bridges
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected exactly one match, found {count}: {old[:80]!r}')
+              file.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              'src/npcs/encounters.ts',
+              "import { buildNpcStats } from './profiles.js';",
+              "import { getWandererStats } from './wandererStats.js';",
+          )
+          replace_once(
+              'src/npcs/encounters.ts',
+              '  const stats = buildNpcStats(name);',
+              '  const stats = getWandererStats(name);',
+          )
+
+          cave = Path('src/caves/caveGenerator.ts')
+          cave_text = cave.read_text()
+          import_anchor = "import { createRng } from '../core/rng.js';\n"
+          if import_anchor not in cave_text:
+              raise SystemExit('caveGenerator.ts: import anchor missing')
+          cave_text = cave_text.replace(
+              import_anchor,
+              import_anchor + "import { createHumanoidSpawn } from '../world/humanoidSpawn.js';\n",
+              1,
+          )
+          old_dweller = """  room.questGiver = {
+            id: `cave-dweller:${room.id}`,
+            name: 'Cave Dweller',
+            role: 'wanderer',
+            encounterType: 'flavor',
+            stats: { str: 2, dex: 3, con: 4, int: 8, wis: 9, cha: 5 },
+            maxHearts: 4,
+            x,
+            y,
+          };"""
+          new_dweller = """  room.questGiver = {
+            ...createHumanoidSpawn('Cave Dweller', x, y),
+            id: `cave-dweller:${room.id}`,
+          };"""
+          if cave_text.count(old_dweller) != 1:
+              raise SystemExit('caveGenerator.ts: cave dweller legacy block did not match exactly once')
+          cave.write_text(cave_text.replace(old_dweller, new_dweller, 1))
+
+          snake = Path('src/game/snakeGame.ts')
+          snake_text = snake.read_text()
+          old_health = '      const maxHearts = Math.max(3, giver.maxHearts);'
+          new_health = """      const giverActorId = this.actors.getStableTownResidentActorId(
+                `quest:${roomId}`,
+                giver.id,
+                'questGiver',
+              );
+              const maxHearts = this.actors.getActor(giverActorId)?.health?.max ?? 3;"""
+          if snake_text.count(old_health) != 1:
+              raise SystemExit('snakeGame.ts: quest giver health bridge did not match exactly once')
+          snake_text = snake_text.replace(old_health, new_health, 1)
+
+          guard_anchor = """    room.goblinCamp.guards.forEach((guard, index) => {
+              this.enemies.spawnGoblin("""
+          guard_replacement = """    room.goblinCamp.guards.forEach((guard, index) => {
+              const guardActorId = this.actors.getStableTownResidentActorId(
+                room.goblinCamp!.id,
+                guard.id,
+                'guard',
+              );
+              const guardMaxHearts = this.actors.getActor(guardActorId)?.health?.max ?? 3;
+              this.enemies.spawnGoblin("""
+          if snake_text.count(guard_anchor) != 1:
+              raise SystemExit('snakeGame.ts: goblin guard loop anchor did not match exactly once')
+          snake_text = snake_text.replace(guard_anchor, guard_replacement, 1)
+          old_guard_health = '        Math.max(2, guard.maxHearts ?? 2),'
+          if snake_text.count(old_guard_health) != 1:
+              raise SystemExit('snakeGame.ts: goblin guard health bridge did not match exactly once')
+          snake_text = snake_text.replace(old_guard_health, '        guardMaxHearts,', 1)
+          snake.write_text(snake_text)
+          PY
+
+          rm .github/workflows/cleanup-codemod.yml
+
+      - name: Commit codemod
+        shell: bash
+        run: |
+          git config user.name "cleanup-pyromancer"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/npcs/encounters.ts src/caves/caveGenerator.ts src/game/snakeGame.ts .github/workflows/cleanup-codemod.yml
+          git diff --cached --check
+          git commit -m "Cleanup: sever legacy NPC combat bridges"
+          git push origin HEAD:cleanup/reachability-purge
