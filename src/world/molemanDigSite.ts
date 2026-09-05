@@ -1,7 +1,8 @@
-import type { GridConfig } from '../config/gameConfig.js';
-import type { RandomGenerator } from '../core/rng.js';
-import { vectorKey } from '../core/math.js';
 import { chooseDigSiteVariant } from '../archaeology/molemanArchaeology.js';
+import type { GridConfig } from '../config/gameConfig.js';
+import { vectorKey } from '../core/math.js';
+import type { RandomGenerator } from '../core/rng.js';
+import { createHumanoidSpawn } from './humanoidSpawn.js';
 import type { RoomSnapshot } from './types.js';
 
 interface PlacementOptions {
@@ -35,20 +36,20 @@ export function tryPlaceMolemanDigSite(
     }
     stampDigSite(layout, left, top, width, height);
     const variant = chooseDigSiteVariant(options.biomeId ?? '', rng);
+    const foremanX = left + Math.floor(width / 2);
+    const foremanY = top + height - 3;
     return {
       id: `dig:${left},${top}`,
       name: `${variant.i18nNameKey} Site`,
       variantId: variant.id,
       foreman: {
+        ...createHumanoidSpawn(
+          FOREMAN_NAMES[Math.floor(rng() * FOREMAN_NAMES.length)]!,
+          foremanX,
+          foremanY,
+          'moleman-foreman',
+        ),
         id: `moleman-foreman-${left}-${top}`,
-        name: FOREMAN_NAMES[Math.floor(rng() * FOREMAN_NAMES.length)]!,
-        role: 'house',
-        encounterType: 'flavor',
-        portraitId: 'moleman-foreman',
-        stats: { str: 7, dex: 4, con: 8, int: 5, wis: 6, cha: 5 },
-        maxHearts: 5,
-        x: left + Math.floor(width / 2),
-        y: top + height - 3,
       },
       bounds: { left, top, width, height },
       pit: { x: left + Math.floor(width / 2), y: top + 3 },
@@ -61,20 +62,20 @@ export function tryPlaceMolemanDigSite(
   clearBounds(layout, fallback.left, fallback.top, width, height);
   stampDigSite(layout, fallback.left, fallback.top, width, height);
   const variant = chooseDigSiteVariant(options.biomeId ?? '', rng);
+  const foremanX = fallback.left + Math.floor(width / 2);
+  const foremanY = fallback.top + height - 3;
   return {
     id: `dig:${fallback.left},${fallback.top}`,
     name: `${variant.i18nNameKey} Site`,
     variantId: variant.id,
     foreman: {
+      ...createHumanoidSpawn(
+        FOREMAN_NAMES[Math.floor(rng() * FOREMAN_NAMES.length)]!,
+        foremanX,
+        foremanY,
+        'moleman-foreman',
+      ),
       id: `moleman-foreman-${fallback.left}-${fallback.top}`,
-      name: FOREMAN_NAMES[Math.floor(rng() * FOREMAN_NAMES.length)]!,
-      role: 'house',
-      encounterType: 'flavor',
-      portraitId: 'moleman-foreman',
-      stats: { str: 7, dex: 4, con: 8, int: 5, wis: 6, cha: 5 },
-      maxHearts: 5,
-      x: fallback.left + Math.floor(width / 2),
-      y: fallback.top + height - 3,
     },
     bounds: { left: fallback.left, top: fallback.top, width, height },
     pit: { x: fallback.left + Math.floor(width / 2), y: fallback.top + 3 },
