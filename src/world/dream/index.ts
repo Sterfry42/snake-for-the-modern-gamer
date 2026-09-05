@@ -45,8 +45,6 @@ export {
   getAllLoreFragments,
 } from './dreamLore.js';
 
-export { DreamShopManager, DREAM_SHOP_ITEMS, DREAM_SHOP_OFFERS } from './dreamShop.js';
-
 export {
   DreamApple,
   NightmareApple,
