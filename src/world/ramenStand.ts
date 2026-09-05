@@ -1,7 +1,7 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import { vectorKey } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
-import { buildHouseNpcProfile } from '../npcs/profiles.js';
+import { createHumanoidSpawn } from './humanoidSpawn.js';
 import type { RoomSnapshot } from './types.js';
 
 const CHEF_NAMES = ['Goro', 'Tetsu', 'Shin', 'Katsu', 'Ryu', 'Hiro', 'Kenji'] as const;
@@ -130,11 +130,7 @@ export function tryPlaceRamenStand(
   setChar(layout, chefX, chefY, 'G');
 
   return {
-    chef: {
-      ...buildHouseNpcProfile(randomChefName(rng), 'sage-2'),
-      x: chefX,
-      y: chefY,
-    },
+    chef: createHumanoidSpawn(randomChefName(rng), chefX, chefY, 'sage-2'),
     sellsRamen: true,
   };
 }
