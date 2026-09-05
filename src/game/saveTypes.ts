@@ -16,37 +16,6 @@ export interface ChoiceWithMods {
   mods: Record<string, unknown>;
 }
 
-export interface MinecraftBlockEntry {
-  roomId: string;
-  x: number;
-  y: number;
-  blockType: string;
-}
-
-export interface MinecraftMobEntry {
-  id: string;
-  type: string;
-  roomId: string;
-  x: number;
-  y: number;
-  health: number;
-}
-
-export interface MinecraftPlayerSaveData {
-  health: number;
-  maxHealth: number;
-  hunger: number;
-  maxHunger: number;
-  xp: number;
-  xpLevel: number;
-  armorPoints: number;
-  spawnX: number;
-  spawnY: number;
-  spawnRoomId: string;
-  inventory: Array<{ itemId: string; count: number }>;
-  equippedTool: string | null;
-}
-
 export interface GameSaveData {
   version: string;
   timestamp: number;
@@ -95,11 +64,6 @@ export interface GameSaveData {
     ownedEmoticons: string[];
     activeEmoticon: string | null;
   };
-  minecraftBlocks?: MinecraftBlockEntry[];
-  minecraftPlayerState?: MinecraftPlayerSaveData;
-  minecraftDayNight?: { day: number; timeOfDay: number };
-  minecraftMobState?: MinecraftMobEntry[];
-  minecraftInventory?: Array<{ itemId: string; count: number }>;
   fishing?: {
     caughtFish?: Record<string, number>;
     catchJournal?: unknown[];
@@ -128,39 +92,16 @@ export function isVersionLessThan(version: string, target: string): boolean {
   return false;
 }
 
-/** Migrate save data from v1.x to v2.0.0 (adds Minecraft fields). */
+/**
+ * Advance legacy v1 saves to the v2 version boundary.
+ *
+ * v2 originally introduced Minecraft fields. That feature stack has since been
+ * removed, so modern code intentionally ignores any old Minecraft payload that
+ * may still be present in persisted JSON.
+ */
 export function migrateV1toV2(data: GameSaveData): void {
   console.info('[SaveMigrations] Migrating from v1.x to v2.0.0');
   data.version = '2.0.0';
-
-  if (!data.minecraftBlocks) {
-    data.minecraftBlocks = [];
-  }
-  if (!data.minecraftPlayerState) {
-    data.minecraftPlayerState = {
-      health: 20,
-      maxHealth: 20,
-      hunger: 20,
-      maxHunger: 20,
-      xp: 0,
-      xpLevel: 0,
-      armorPoints: 0,
-      spawnX: 0,
-      spawnY: 0,
-      spawnRoomId: '0,0,0',
-      inventory: [],
-      equippedTool: null,
-    };
-  }
-  if (!data.minecraftDayNight) {
-    data.minecraftDayNight = { day: 1, timeOfDay: 0 };
-  }
-  if (!data.minecraftMobState) {
-    data.minecraftMobState = [];
-  }
-  if (!data.minecraftInventory) {
-    data.minecraftInventory = [];
-  }
 }
 
 /** Migrate save data from v2.x to v3.0.0 (adds fishing fields). */
