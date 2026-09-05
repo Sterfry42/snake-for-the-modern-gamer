@@ -2,8 +2,6 @@ import type { GridConfig } from '../config/gameConfig.js';
 import { clamp, vectorKey } from '../core/math.js';
 import { createRng, type RandomGenerator } from '../core/rng.js';
 import { pickNpcName } from '../npcs/npcNames.js';
-import { buildHouseNpcProfile } from '../npcs/profiles.js';
-import type { NpcProfile } from '../npcs/profiles.js';
 import { actorIdForTownResident } from '../actors/actorFactory.js';
 import {
   LAYER_ENTRANCE_TILE,
@@ -12,6 +10,7 @@ import {
   type TownDoorKind,
 } from '../layers/layerTypes.js';
 import type { BiomeId } from './biomes.js';
+import { createHumanoidIdentity, type WorldHumanoidIdentity } from './humanoidSpawn.js';
 import { isSolidTile, tileHasTag } from './tiles.js';
 import {
   selectPrimaryTownMerchant,
@@ -241,7 +240,7 @@ export interface ThievesGuildJob {
   >;
 }
 
-export interface TownResident extends Omit<NpcProfile, 'role'> {
+export interface TownResident extends WorldHumanoidIdentity {
   actorId?: string;
   x: number;
   y: number;
@@ -735,7 +734,7 @@ export function generateHumanTown(options: TownGenOptions): TownStructure {
     buildings: [],
     residents: [],
     shopkeeper: {
-      ...buildHouseNpcProfile('Town Clerk', 'sage-1'),
+      ...createHumanoidIdentity('Town Clerk', 'sage-1'),
       actorId: `town:${townId}:shopkeeper:npc-town-clerk`,
       x: 0,
       y: 0,
@@ -912,7 +911,7 @@ export function createPhysicalHumanTown(args: {
     };
   });
   town.residents = uniqueResidentSpots.map((spot, index) => ({
-    ...buildHouseNpcProfile(
+    ...createHumanoidIdentity(
       spot.name,
       spot.role === 'thief' || spot.role === 'thiefContact' || spot.role === 'cardDealer'
         ? pick(BANDIT_PORTRAITS, rng)
@@ -1008,7 +1007,7 @@ function createDefaultTownGates(args: {
 function assignTownGateGuards(town: TownStructure, rng: RandomGenerator): void {
   const takeGuard = (gate: TownGate, side: 'inside' | 'outside'): TownResident => {
     const resident: TownResident = {
-      ...buildHouseNpcProfile(pickNpcName('guard', rng), pick(PORTRAITS, rng)),
+      ...createHumanoidIdentity(pickNpcName('guard', rng), pick(PORTRAITS, rng)),
       id: `${town.id}:resident:guard:gate:${gate.kind}:${side}`,
       actorId: actorIdForTownResident(
         town.id,
