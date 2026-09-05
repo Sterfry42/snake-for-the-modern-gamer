@@ -2,6 +2,7 @@ export interface ChoiceOptionInput {
   id?: unknown;
   title?: unknown;
   description?: unknown;
+  disabled?: unknown;
 }
 
 export interface NormalizedChoiceOption {
@@ -29,11 +30,15 @@ export function normalizeChoiceOptions(
     const rawId = typeof option?.id === 'string' ? option.id.trim() : '';
     const rawTitle = typeof option?.title === 'string' ? option.title.trim() : '';
     const rawDescription = typeof option?.description === 'string' ? option.description.trim() : '';
-    return {
+    const normalized: NormalizedChoiceOption = {
       id: rawId || `choice-${index + 1}`,
       title: rawTitle || `Option ${index + 1}`,
       description: rawDescription || 'No additional details.',
     };
+    if (option.disabled === true) {
+      normalized.disabled = true;
+    }
+    return normalized;
   });
 }
 

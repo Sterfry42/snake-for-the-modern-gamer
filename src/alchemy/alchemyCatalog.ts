@@ -24,7 +24,7 @@ export const ALCHEMY_RECIPES: readonly AlchemyRecipe[] = [
     output: { itemId: 'potion-growth', quantity: 1 },
     recipeScrollItemId: 'recipe-scroll-growth',
     tier: 'basic',
-    released: true,
+    released: false,
   },
   {
     id: 'phase',
@@ -88,7 +88,7 @@ export const ALCHEMY_RECIPES: readonly AlchemyRecipe[] = [
     ],
     output: { itemId: 'potion-size-shrink', quantity: 1 },
     tier: 'advanced',
-    released: true,
+    released: false,
   },
 ];
 

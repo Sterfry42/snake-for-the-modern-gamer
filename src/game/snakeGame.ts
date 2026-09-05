@@ -224,7 +224,6 @@ import type { FactionCurrentEvent, FactionSaveData } from '../factions/factionTy
 import { RumorSystem } from '../rumors/rumorSystem.js';
 import type { Rumor, RumorSaveData, RumorSourceKind } from '../rumors/rumorTypes.js';
 import type { WardDeathSource } from '../shops/goblinShop.js';
-import { buildMapperStock, type MapperStockOffer } from '../shops/mapperShop.js';
 import {
   createFoodConsumptionResult,
   getRestaurantFoodHunger,
@@ -232,13 +231,11 @@ import {
   type RestaurantId,
 } from '../shops/restaurants.js';
 import {
-  ALCHEMY_SHOP_SUPPLIES,
-  getBlackMarketDefinition,
-  getVillageShopDefinition,
-  POTION_MAKER_ALCHEMY_OFFER_IDS,
-  type VillageShopSupplyOffer,
-  type VillageShopEquipmentOffer,
-} from '../shops/villageShop.js';
+  defaultShopProfileIdForRole,
+  resolveShopProfileTabs,
+  type ShopOfferView,
+  type ShopTabId,
+} from '../shops/shopProfiles.js';
 import {
   ALCHEMY_STATE_FLAG,
   ALCHEMY_STATION_ITEM_ID,
@@ -252,6 +249,7 @@ import {
   tickAlchemyEffects,
   useAlchemyPotion,
 } from '../alchemy/alchemySystem.js';
+import { getAlchemyRecipe, getReleasedAlchemyRecipes } from '../alchemy/alchemyCatalog.js';
 import type {
   AlchemyStationContext,
   ActiveStatusEffect,
@@ -760,16 +758,9 @@ export type ActorInteractionDispatchResult =
       reason: 'missing-actor' | 'unsupported-action';
     };
 
-export type ActorShopOfferCategory = 'equipment' | 'supplies' | 'locators' | 'food' | 'services';
+export type ActorShopOfferCategory = ShopTabId;
 
-export interface ActorShopOfferView {
-  id: string;
-  category: ActorShopOfferCategory;
-  label: string;
-  price: number;
-  note: string;
-  itemId?: string;
-}
+export type ActorShopOfferView = ShopOfferView;
 
 export interface ActorShopView {
   actorId: string;
@@ -791,6 +782,29 @@ export interface ActorShopPurchaseResult {
   offer?: ActorShopOfferView;
   reason?: 'missing-actor' | 'closed' | 'missing-offer' | 'insufficient-score';
 }
+
+export interface AlchemyStationInteractionView {
+  stationContext: AlchemyStationContext;
+  title: string;
+  options: Array<{
+    id: string;
+    title: string;
+    enabled: boolean;
+    reason?: string;
+  }>;
+}
+
+export type AlchemyStationInteractionResult =
+  | { ok: true; action: 'brew'; recipeId: string; brew: BrewResult; message: string }
+  | { ok: true; action: 'pack-up'; stationId: string; pack: PackStationResult; message: string }
+  | {
+      ok: false;
+      action: 'brew' | 'pack-up';
+      reason: 'missing-station' | 'missing-recipe' | 'invalid-action' | 'brew-failed';
+      message: string;
+      brew?: BrewResult;
+      pack?: PackStationResult;
+    };
 
 export interface TownPatrolMember {
   actorId: string;
@@ -6920,133 +6934,29 @@ export class SnakeGame implements QuestRuntime {
 
   private buildActorShopOffers(actor: Actor): ActorShopOfferView[] {
     const room = this.world.getRoom(this.snake.currentRoomId);
-    const definition =
-      actor.role === 'blackMarketMerchant'
-        ? getBlackMarketDefinition()
-        : getVillageShopDefinition(room.biomeId);
-    switch (actor.role) {
-      case 'mapper':
-        return this.buildMapperActorOffers(actor, room);
-      case 'potionMaker':
-        return [...definition.supplies, ...ALCHEMY_SHOP_SUPPLIES]
-          .filter(
-            (offer) =>
-              ['healing-potion', 'life-tonic', 'orange-juice'].includes(offer.id) ||
-              POTION_MAKER_ALCHEMY_OFFER_IDS.has(offer.id),
-          )
-          .filter(
-            (offer) =>
-              offer.itemId !== ALCHEMY_STATION_ITEM_ID || this.getAlchemyStationCount() === 0,
-          )
-          .map((offer) => this.shopSupplyOffer(offer, 'supplies'));
-      case 'butcher':
-      case 'cook':
-        return definition.supplies
-          .filter((offer) => ['senbei', 'ramen', 'animal-bait'].includes(offer.id))
-          .map((offer) => this.shopSupplyOffer(offer, 'food'));
-      case 'wizard':
-        return [...definition.supplies, ...ALCHEMY_SHOP_SUPPLIES]
-          .filter((offer) =>
-            [
-              'life-tonic',
-              'orange-juice',
-              'alchemy-station',
-              'recipe-scroll-growth',
-              'recipe-scroll-phase',
-              'recipe-scroll-shield',
-              'recipe-scroll-speed',
-              'recipe-scroll-magnet',
-              'ingredient-honey',
-              'ingredient-dew',
-              'ingredient-yuzu-apple',
-              'ingredient-pearl-apple',
-              'ingredient-quartz',
-              'ingredient-meteor-iron',
-              'ingredient-skittish-apple',
-              'ingredient-eagle-feather',
-              'ingredient-gold-apple',
-              'ingredient-mochi-apple',
-              'ingredient-nightshade',
-            ].includes(offer.id),
-          )
-          .filter(
-            (offer) =>
-              offer.itemId !== ALCHEMY_STATION_ITEM_ID || this.getAlchemyStationCount() === 0,
-          )
-          .map((offer) => this.shopSupplyOffer(offer, 'supplies'));
-      case 'equipmentMerchant':
-      case 'shopkeeper':
-      case 'goblinMerchant':
-      case 'blackMarketMerchant':
-        return [
-          ...definition.equipment.map((offer) => this.shopEquipmentOffer(offer)),
-          ...definition.supplies.map((offer) => this.shopSupplyOffer(offer, 'supplies')),
-        ];
-      case 'bartender':
-        return definition.supplies
-          .filter((offer) => ['beer', 'wine', 'ramen'].includes(offer.id))
-          .map((offer) => this.shopSupplyOffer(offer, 'food'));
-      case 'cardDealer':
-        return CARD_SHOP_OFFERS.map((cardId) => {
-          const card = getCardDefinition(cardId);
-          return {
-            id: card.id,
-            category: 'services',
-            label: card.name,
-            price: card.price,
-            note: card.description,
-          } satisfies ActorShopOfferView;
-        });
-      default:
-        return [];
+    const profileId = actor.shopProfileId ?? defaultShopProfileIdForRole(actor.role);
+    if (!profileId) {
+      return [];
     }
-  }
-
-  private buildMapperActorOffers(actor: Actor, room: RoomSnapshot): ActorShopOfferView[] {
-    const townId = actor.townId ?? room.town?.id ?? 'unknown-town';
-    const stockPeriod = this.getAtmosphereState().worldDay;
-    return buildMapperStock({
-      townId,
+    return resolveShopProfileTabs(profileId, {
+      biomeId: room.biomeId,
+      townId: actor.townId ?? room.town?.id,
       worldSeed: this.worldSeed,
-      currentBiomeId: room.biomeId,
-      stockPeriod,
-    }).map((offer) => this.mapperShopOffer(offer));
+      stockPeriod: this.getAtmosphereState().worldDay,
+      priceScalar: this.getActorShopPriceScalar(),
+      stockCountBonus: this.getActorShopStockCountBonus(),
+      hasAlchemyStation: this.getAlchemyStationCount() > 0,
+    }).flatMap((tab) => tab.offers);
   }
 
-  private mapperShopOffer(offer: MapperStockOffer): ActorShopOfferView {
-    return {
-      id: offer.id,
-      category: 'locators',
-      label: getItem(offer.itemId)?.name ?? offer.id,
-      price: offer.price,
-      note: offer.note,
-      itemId: offer.itemId,
-    };
+  private getActorShopPriceScalar(): number {
+    const derivedScalar = Number(this.getFlag<number>('derived.shopPriceScalar') ?? 1);
+    const specialScalar = this.getSpecialGameplayModifiers().shopPriceScalar;
+    return Math.max(0.25, Math.min(2, derivedScalar * specialScalar));
   }
 
-  private shopSupplyOffer(
-    offer: VillageShopSupplyOffer,
-    category: ActorShopOfferCategory,
-  ): ActorShopOfferView {
-    return {
-      id: offer.id,
-      category,
-      label: getItem(offer.itemId)?.name ?? offer.id,
-      price: offer.price,
-      note: offer.note,
-      itemId: offer.itemId,
-    };
-  }
-
-  private shopEquipmentOffer(offer: VillageShopEquipmentOffer): ActorShopOfferView {
-    return {
-      id: offer.id,
-      category: 'equipment',
-      label: getItem(offer.itemId)?.name ?? offer.id,
-      price: offer.price,
-      note: offer.note,
-      itemId: offer.itemId,
-    };
+  private getActorShopStockCountBonus(): number {
+    return this.getFlag<boolean>('shops.merchantClass') ? 1 : 0;
   }
 
   wakeActor(actorId: string): { ok: boolean; pages: string[] } {
@@ -17173,7 +17083,10 @@ export class SnakeGame implements QuestRuntime {
     const state = this.getAlchemyState();
     const result = brewAlchemyRecipe(
       state,
-      { inventory: this.inventory },
+      {
+        inventory: this.inventory,
+        isStationContextValid: (context) => this.isValidAlchemyStationContext(context),
+      },
       recipeId,
       stationContext,
     );
@@ -17182,6 +17095,165 @@ export class SnakeGame implements QuestRuntime {
       this.setFlag('ui.itemReward', { itemId: result.outputItemId, count: result.quantity });
     }
     return result;
+  }
+
+  getNearbyAlchemyStationInteraction(): AlchemyStationInteractionView | null {
+    const context = this.getNearbyAlchemyStationContext();
+    if (!context) {
+      return null;
+    }
+    const state = this.getAlchemyState();
+    const options: AlchemyStationInteractionView['options'] = getReleasedAlchemyRecipes()
+      .filter((recipe) => state.knownRecipes.includes(recipe.id))
+      .map((recipe) => {
+        const missing = recipe.ingredients.find(
+          (requirement) => this.inventory.getItemCount(requirement.itemId) < requirement.quantity,
+        );
+        return {
+          id: `brew:${recipe.id}`,
+          title: `Brew ${recipe.name}`,
+          enabled: !missing,
+          reason: missing ? `Needs ${getItem(missing.itemId)?.name ?? missing.itemId}.` : undefined,
+        };
+      });
+    if (context.source === 'placed') {
+      options.push({
+        id: 'pack-up',
+        title: 'Pack Up',
+        enabled: true,
+        reason: undefined,
+      });
+    }
+    return {
+      stationContext: context,
+      title: context.source === 'wizard-bench' ? 'Wizard Bench' : 'Alchemy Station',
+      options,
+    };
+  }
+
+  chooseAlchemyStationInteraction(actionId: string): AlchemyStationInteractionResult {
+    const view = this.getNearbyAlchemyStationInteraction();
+    if (!view) {
+      return {
+        ok: false,
+        action: actionId === 'pack-up' ? 'pack-up' : 'brew',
+        reason: 'missing-station',
+        message: 'No brewing station is within reach.',
+      };
+    }
+    if (actionId === 'pack-up') {
+      if (view.stationContext.source !== 'placed') {
+        return {
+          ok: false,
+          action: 'pack-up',
+          reason: 'invalid-action',
+          message: 'That bench belongs here.',
+        };
+      }
+      const pack = this.packAlchemyStation(view.stationContext.worldObjectId);
+      if (pack.ok) {
+        return {
+          ok: true,
+          action: 'pack-up',
+          stationId: view.stationContext.worldObjectId,
+          pack,
+          message: 'Packed up the Alchemy Station.',
+        };
+      }
+      return {
+        ok: false,
+        action: 'pack-up',
+        reason: 'missing-station',
+        pack,
+        message: 'No station is there to pack.',
+      };
+    }
+    if (!actionId.startsWith('brew:')) {
+      return {
+        ok: false,
+        action: 'brew',
+        reason: 'invalid-action',
+        message: 'That station command is not available.',
+      };
+    }
+    const recipeId = actionId.slice('brew:'.length);
+    const recipe = getAlchemyRecipe(recipeId);
+    if (!recipe || !recipe.released || !this.knowsAlchemyRecipe(recipeId)) {
+      return {
+        ok: false,
+        action: 'brew',
+        reason: 'missing-recipe',
+        message: 'You do not know that brew.',
+      };
+    }
+    const brew = this.brewAlchemyRecipe(recipeId, view.stationContext);
+    if (!brew.ok) {
+      return {
+        ok: false,
+        action: 'brew',
+        reason: 'brew-failed',
+        brew,
+        message: 'The brew fizzles.',
+      };
+    }
+    return {
+      ok: true,
+      action: 'brew',
+      recipeId,
+      brew,
+      message: `Brewed ${getItem(brew.outputItemId)?.name ?? brew.outputItemId}.`,
+    };
+  }
+
+  private getNearbyAlchemyStationContext(): AlchemyStationContext | null {
+    const room = this.getCurrentRoom();
+    const headSegment = this.snake.bodySegments[0];
+    if (!headSegment) {
+      return null;
+    }
+    const head = this.worldToLocal(this.snake.currentRoomId, headSegment);
+    const placed = this.getAlchemyState().placedStation;
+    if (placed && placed.roomId === room.id && manhattanDistance(head, placed.position) <= 1) {
+      return { kind: 'alchemy-station', source: 'placed', worldObjectId: placed.id };
+    }
+    const bench = this.findWizardBenchInRoom(room);
+    if (bench && manhattanDistance(head, bench) <= 1) {
+      return { kind: 'alchemy-station', source: 'wizard-bench', roomId: room.id, position: bench };
+    }
+    return null;
+  }
+
+  private isValidAlchemyStationContext(context: AlchemyStationContext): boolean {
+    if (context.source === 'placed') {
+      return this.getAlchemyState().placedStation?.id === context.worldObjectId;
+    }
+    const room = this.getCurrentRoom();
+    if (context.roomId !== room.id || room.layer?.templateId !== 'wizardShop') {
+      return false;
+    }
+    const bench = this.findWizardBenchInRoom(room);
+    if (!bench || bench.x !== context.position.x || bench.y !== context.position.y) {
+      return false;
+    }
+    const headSegment = this.snake.bodySegments[0];
+    if (!headSegment) {
+      return false;
+    }
+    const head = this.worldToLocal(this.snake.currentRoomId, headSegment);
+    return manhattanDistance(head, bench) <= 1;
+  }
+
+  private findWizardBenchInRoom(room: RoomSnapshot): { x: number; y: number } | null {
+    if (room.layer?.templateId !== 'wizardShop') {
+      return null;
+    }
+    for (let y = 0; y < room.layout.length; y += 1) {
+      const x = room.layout[y]?.indexOf('K') ?? -1;
+      if (x >= 0) {
+        return { x, y };
+      }
+    }
+    return null;
   }
 
   deployAlchemyStation(target: { x: number; y: number }): DeployStationResult {

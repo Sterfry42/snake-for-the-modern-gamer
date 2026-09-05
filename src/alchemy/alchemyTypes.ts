@@ -20,7 +20,12 @@ export interface AlchemyRecipe {
 }
 
 export type AlchemyStationContext =
-  | { kind: 'alchemy-station'; source: 'wizard-house' }
+  | {
+      kind: 'alchemy-station';
+      source: 'wizard-bench';
+      roomId: string;
+      position: { x: number; y: number };
+    }
   | { kind: 'alchemy-station'; source: 'placed'; worldObjectId: string };
 
 export interface ActiveStatusEffect {
@@ -86,4 +91,5 @@ export interface AlchemyInventoryRuntime {
     getItemCount(itemId: string): number;
   };
   canAddItem?: (itemId: string, quantity: number) => boolean;
+  isStationContextValid?: (stationContext: AlchemyStationContext) => boolean;
 }

@@ -95,6 +95,7 @@ interface SnakeRenderOptions {
   footballs?: readonly FootballInstance[];
   bombs?: readonly BombInstance[];
   animals?: readonly AnimalInstance[];
+  alchemyStation?: { roomId: string; x: number; y: number } | null;
   atmosphere?: ResolvedAtmosphereView;
   thermalBody?: {
     current: number;
@@ -356,6 +357,10 @@ export class SnakeRenderer {
       vegetationIndex = this.drawVegetation(entry.room, entry.offset, vegetationIndex);
       appleIndex = this.drawApple(entry.room, entry.apple ?? undefined, entry.offset, appleIndex);
       powerupIndex = this.drawPowerup(entry.room, entry.offset, powerupIndex);
+      this.drawAlchemyStation(
+        opts.alchemyStation?.roomId === entry.roomId ? opts.alchemyStation : null,
+        entry.offset,
+      );
       enemyIndex = this.drawEnemies(
         [...(entry.enemies ?? []), ...(entry.followers ?? [])],
         entry.offset,
@@ -2397,6 +2402,33 @@ export class SnakeRenderer {
       .setAlpha(0.96)
       .setVisible(true);
     return startIndex + 1;
+  }
+
+  private drawAlchemyStation(
+    station: { x: number; y: number } | null | undefined,
+    offset: Vector2Like,
+  ): void {
+    if (!station) {
+      return;
+    }
+    const cell = this.grid.cell;
+    const x = this.scaledPx((offset.x + station.x) * cell);
+    const y = this.scaledPx((offset.y + station.y) * cell);
+    const size = this.scaledPx(cell);
+    const pad = this.scaledPx(cell * 0.16);
+    const cx = x + size / 2;
+    const cy = y + size / 2;
+    const now = (this.graphics.scene as Phaser.Scene).time?.now ?? performance.now();
+    const glow = 0.45 + Math.sin(now / 180) * 0.15;
+    this.graphics
+      .fillStyle(0x3f2a54, 0.95)
+      .fillRoundedRect(x + pad, y + pad, size - pad * 2, size - pad * 2, 3)
+      .lineStyle(2, 0xd9a7ff, 0.85)
+      .strokeRoundedRect(x + pad, y + pad, size - pad * 2, size - pad * 2, 3)
+      .fillStyle(0x8cffd2, 0.75 + glow * 0.2)
+      .fillCircle(cx, cy - size * 0.04, size * 0.18)
+      .lineStyle(1, 0xf8f1ff, glow)
+      .strokeCircle(cx, cy - size * 0.04, size * 0.27);
   }
 
   private ensurePowerupSprite(index: number): Phaser.GameObjects.Image {

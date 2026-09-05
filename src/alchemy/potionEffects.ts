@@ -10,7 +10,6 @@ export interface PotionEffectDefinition {
 }
 
 export const POTION_EFFECTS: readonly PotionEffectDefinition[] = [
-  { id: 'growth', potionItemId: 'potion-growth', durationTicks: 90, magnitude: 3 },
   { id: 'phase', potionItemId: 'potion-phase', durationTicks: 60, magnitude: 1 },
   { id: 'shield', potionItemId: 'potion-shield', durationTicks: 70, magnitude: 1 },
   {
@@ -27,7 +26,6 @@ export const POTION_EFFECTS: readonly PotionEffectDefinition[] = [
     magnitude: 8,
     derivedModifiers: [{ stat: 'pickupRadius', operation: 'add', value: 8 }],
   },
-  { id: 'size-shrink', potionItemId: 'potion-size-shrink', durationTicks: 45, magnitude: 0.5 },
 ];
 
 export function getPotionEffectDefinition(

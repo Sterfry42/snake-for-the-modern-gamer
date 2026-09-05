@@ -116,7 +116,7 @@ export function brewAlchemyRecipe(
   if (!knowsAlchemyRecipe(state, recipeId)) {
     return { ok: false, reason: 'unknown-recipe' };
   }
-  if (!isValidStationContext(state, stationContext)) {
+  if (!isValidStationContext(state, runtime, stationContext)) {
     return { ok: false, reason: 'station-required' };
   }
   if (
@@ -251,13 +251,14 @@ export function countAlchemyStationsInExistence(
 
 function isValidStationContext(
   state: AlchemyState,
+  runtime: AlchemyInventoryRuntime,
   stationContext?: AlchemyStationContext | null,
 ): boolean {
   if (!stationContext || stationContext.kind !== 'alchemy-station') {
     return false;
   }
-  if (stationContext.source === 'wizard-house') {
-    return true;
+  if (stationContext.source === 'wizard-bench') {
+    return runtime.isStationContextValid?.(stationContext) === true;
   }
   return state.placedStation?.id === stationContext.worldObjectId;
 }
