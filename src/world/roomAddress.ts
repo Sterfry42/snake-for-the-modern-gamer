@@ -1,4 +1,4 @@
-export interface CoordinateRoomAddress {
+interface CoordinateRoomAddress {
   kind: 'coordinate';
   roomId: string;
   x: number;
