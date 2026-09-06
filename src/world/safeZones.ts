@@ -4,12 +4,12 @@ import type { RoomSnapshot } from './types.js';
 
 const HOME_ROOM_ID = '0,-1,0';
 
-export interface SafeZoneRules {
+interface SafeZoneRules {
   steerAwayFromWalls: boolean;
   phaseThroughWalls: boolean;
 }
 
-export interface SpawnPolicy {
+interface SpawnPolicy {
   apples: 'allow' | 'suppress' | 'clearExisting';
   enemies: 'allow' | 'suppress';
   animals: 'allow' | 'suppress';
@@ -18,13 +18,13 @@ export interface SpawnPolicy {
   treasure: 'allow' | 'suppress';
 }
 
-export interface ZoneRules {
+interface ZoneRules {
   id: string;
   collision: SafeZoneRules | null;
   spawning: SpawnPolicy;
 }
 
-export const STANDARD_SAFE_ZONE_RULES: SafeZoneRules = {
+const STANDARD_SAFE_ZONE_RULES: SafeZoneRules = {
   steerAwayFromWalls: true,
   phaseThroughWalls: true,
 };
@@ -54,7 +54,7 @@ const TOWN_PERIMETER_SPAWNS: SpawnPolicy = {
   bosses: 'suppress',
 };
 
-export function getZoneRules(room: RoomSnapshot, localPosition?: Vector2Like): ZoneRules {
+function getZoneRules(room: RoomSnapshot, localPosition?: Vector2Like): ZoneRules {
   if (room.id === HOME_ROOM_ID) {
     return {
       id: 'home',
@@ -92,6 +92,6 @@ export function getSafeZoneRules(
   return getZoneRules(room, localPosition).collision;
 }
 
-export function isSafeZoneTile(tile?: string): boolean {
+function isSafeZoneTile(tile?: string): boolean {
   return tileHasTag(tile, 'safe');
 }
