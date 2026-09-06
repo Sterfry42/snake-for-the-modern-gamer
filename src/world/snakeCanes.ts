@@ -7,8 +7,8 @@ import {
   drawRestaurantSign,
   drawRestaurantSouthEntrance,
   findRestaurantBuildingPlacement,
-  setRestaurantTile,
 } from './restaurantBuilding.js';
+import { pickOne, setTile } from './structurePlacement.js';
 
 export interface SnakeCanesData {
   cashier: {
@@ -39,22 +39,20 @@ export function tryPlaceSnakeCanes(
 
   const { bounds, right } = placement;
   const kitchenY = bounds.top + 2;
-  setRestaurantTile(layout, right - 4, kitchenY, 'K');
-  setRestaurantTile(layout, right - 3, kitchenY, 'K');
+  setTile(layout, right - 4, kitchenY, 'K');
+  setTile(layout, right - 3, kitchenY, 'K');
 
   for (const tableTop of [bounds.top + 5, bounds.top + 8]) {
-    setRestaurantTile(layout, bounds.left + 2, tableTop, 'T');
-    setRestaurantTile(layout, bounds.left + 3, tableTop, 'T');
-    setRestaurantTile(layout, bounds.left + 2, tableTop + 1, 'T');
-    setRestaurantTile(layout, bounds.left + 3, tableTop + 1, 'T');
+    setTile(layout, bounds.left + 2, tableTop, 'T');
+    setTile(layout, bounds.left + 3, tableTop, 'T');
+    setTile(layout, bounds.left + 2, tableTop + 1, 'T');
+    setTile(layout, bounds.left + 3, tableTop + 1, 'T');
   }
 
   drawRestaurantSouthEntrance(layout, placement);
 
-  const name = CASHIER_NAMES[Math.floor(rng() * CASHIER_NAMES.length)]!;
-
   return {
-    cashier: { name, ...cashier },
+    cashier: { name: pickOne(CASHIER_NAMES, rng), ...cashier },
     bounds,
   };
 }
