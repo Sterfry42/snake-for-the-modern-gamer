@@ -10,7 +10,7 @@ import {
 export interface BiomeCompatibilityResult {
   compatible: boolean;
   reason?: string;
-  requiresTransition?: 'shoreline' | 'forest-threshold' | 'cave-mouth' | 'blocked';
+  requiresTransition?: 'shoreline' | 'forest-threshold' | 'cave-mouth';
 }
 
 const HOT_CLASSES: ReadonlySet<ClimateClass> = new Set(['hot']);
