@@ -30,13 +30,7 @@ import type {
   ActorSocialLink,
   ActorTargetThreat,
 } from './actorTypes.js';
-import {
-  actorIdForAnimal,
-  actorIdForEnemy,
-  actorIdForRelationship,
-  actorIdForTownResident,
-  actorIdForWanderer,
-} from './actorFactory.js';
+import { actorIdForTownResident } from './actorFactory.js';
 import {
   selectActorEnvironmentReaction,
   type ActorEnvironmentContext,
@@ -783,26 +777,6 @@ export class ActorSystem {
     const event = this.events.add({ ...input, witnessActorIds });
     this.applyEventMemory(event);
     return event;
-  }
-
-  getStableTownResidentActorId(townId: string, residentId: string, role: TownResidentRole): string {
-    return actorIdForTownResident(townId, residentId, role);
-  }
-
-  getStableAnimalActorId(roomId: string, animalId: string): string {
-    return actorIdForAnimal(roomId, animalId);
-  }
-
-  getStableEnemyActorId(roomId: string, enemyId: string): string {
-    return actorIdForEnemy(roomId, enemyId);
-  }
-
-  getStableRelationshipActorId(relationshipId: string): string {
-    return actorIdForRelationship(relationshipId);
-  }
-
-  getStableWandererActorId(encounterId: string): string {
-    return actorIdForWanderer(encounterId);
   }
 
   toSaveData(): ActorSystemSaveData {

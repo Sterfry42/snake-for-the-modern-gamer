@@ -1,7 +1,7 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import { vectorKey } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
-import { buildHouseNpcProfile } from '../npcs/profiles.js';
+import { createHumanoidIdentity } from './humanoidSpawn.js';
 import type { RoomSnapshot } from './types.js';
 
 const DINER_NAMES = [
@@ -141,17 +141,17 @@ export function tryPlaceAllNiteDiner(
 
   return {
     cook: {
-      ...buildHouseNpcProfile(pick(DINER_NPC_NAMES, rng), 'sage-2'),
+      ...createHumanoidIdentity(pick(DINER_NPC_NAMES, rng), 'sage-2'),
       x: cookX,
       y: cookY,
     },
     waitress: {
-      ...buildHouseNpcProfile(pick(WAITRESS_NAMES, rng), 'sage-1'),
+      ...createHumanoidIdentity(pick(WAITRESS_NAMES, rng), 'sage-1'),
       x: waitressX,
       y: waitressY,
     },
     regular: {
-      ...buildHouseNpcProfile(pick(REGULAR_NAMES, rng), 'sage-1'),
+      ...createHumanoidIdentity(pick(REGULAR_NAMES, rng), 'sage-1'),
       x: regularX,
       y: regularY,
     },

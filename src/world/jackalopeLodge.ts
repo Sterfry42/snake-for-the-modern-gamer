@@ -1,7 +1,7 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import { vectorKey } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
-import { buildHouseNpcProfile } from '../npcs/profiles.js';
+import { createHumanoidIdentity } from './humanoidSpawn.js';
 import type { RoomSnapshot } from './types.js';
 
 const JACKALOPE_LODGE_NAMES = [
@@ -125,12 +125,12 @@ export function tryPlaceJackalopeLodge(
 
   return {
     elder: {
-      ...buildHouseNpcProfile(pick(JACKALOPE_NPC_NAMES, rng), 'sage-2'),
+      ...createHumanoidIdentity(pick(JACKALOPE_NPC_NAMES, rng), 'sage-2'),
       x: elderX,
       y: elderY,
     },
     witnesses: witnessSpots.map((spot) => ({
-      ...buildHouseNpcProfile(pick(JACKALOPE_NPC_NAMES, rng), 'sage-1'),
+      ...createHumanoidIdentity(pick(JACKALOPE_NPC_NAMES, rng), 'sage-1'),
       x: spot.x,
       y: spot.y,
     })),

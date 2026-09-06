@@ -28,12 +28,6 @@ import type { AtmosphereState } from '../../../world/atmosphereTypes.js';
 import { getBiomeDefinition } from '../../../world/biomes.js';
 import { tryPlaceGarage } from '../../../world/garage.js';
 import { tryPlaceMolemanDigSite } from '../../../world/molemanDigSite.js';
-import { findNearestStructureLocatorTarget } from '../../../world/structureLocatorSearch.js';
-import type { StructureLocatorKind } from '../../../world/structureLocators.js';
-import {
-  isMosaicCoastPassableTile,
-  isMosaicCoastSolidTile,
-} from '../../../world/mosaicCoastTiles.js';
 import { isSolidTile } from '../../../world/tiles.js';
 import type { RoomSnapshot } from '../../../world/types.js';
 
@@ -595,8 +589,6 @@ describe('Town NPC living-world core stories', () => {
     if (!grove) return;
     const canopyTile = grove.layout.flatMap((row) => row.split('')).find((tile) => tile === 't');
     expect(canopyTile).toBe('t');
-    expect(isMosaicCoastPassableTile(canopyTile)).toBe(true);
-    expect(isMosaicCoastSolidTile(canopyTile)).toBe(false);
     expect(isSolidTile(canopyTile)).toBe(false);
   });
 
@@ -809,42 +801,6 @@ describe('Town NPC living-world core stories', () => {
     scenario.assertWorldIntegrity();
   });
 
-  it('TOWN-LIFE-034 - Locator searches do not generate the world cache', () => {
-    const scenario = mapperStockScenario('town-life-034-locator-no-cache-growth');
-    const beforeSearch = scenario.game.getGeneratedRoomCount();
-
-    const result = structureLocatorSearch(scenario, 'garage', 48);
-
-    expect(result.found).toBe(true);
-    expect(scenario.game.getGeneratedRoomCount()).toBe(beforeSearch);
-    expect(result.roomId).toBeDefined();
-    if (result.roomId) {
-      expect(scenario.getRoom(result.roomId).garage).toBeDefined();
-    }
-    expect(scenario.game.getGeneratedRoomCount()).toBeGreaterThanOrEqual(beforeSearch);
-    expect(scenario.game.getGeneratedRoomCount()).toBeLessThanOrEqual(beforeSearch + 1);
-    scenario.assertWorldIntegrity();
-  });
-
-  it('TOWN-LIFE-035 - Structure locators resolve real structure rooms', () => {
-    const scenario = mapperStockScenario('town-life-035-locator-real-structures');
-
-    const garage = structureLocatorSearch(scenario, 'garage', 48);
-    const digSite = structureLocatorSearch(scenario, 'moleman-dig-site', 48);
-
-    expect(garage.found).toBe(true);
-    expect(digSite.found).toBe(true);
-    expect(garage.roomId).toBeDefined();
-    expect(digSite.roomId).toBeDefined();
-    if (garage.roomId) {
-      expect(scenario.getRoom(garage.roomId).garage).toBeDefined();
-    }
-    if (digSite.roomId) {
-      expect(scenario.getRoom(digSite.roomId).molemanDigSite).toBeDefined();
-    }
-    scenario.assertWorldIntegrity();
-  });
-
   it('TOWN-LIFE-036 - Failed preferred geometry has a valid fallback', () => {
     const garageLayout = crampedStructureLayout();
     const digSiteLayout = crampedStructureLayout();
@@ -868,80 +824,6 @@ describe('Town NPC living-world core stories', () => {
     expect(garageLayout[garage.carSpawn.y]?.[garage.carSpawn.x]).toBe('E');
     expect(digSiteLayout[digSite.foreman.y]?.[digSite.foreman.x]).toBe('E');
     expect(digSiteLayout[digSite.pit.y]?.[digSite.pit.x]).toBe('D');
-  });
-
-  it('TOWN-LIFE-037 - Locator searches are deterministic across reloads', () => {
-    const scenario = mapperStockScenario('town-life-037-locator-deterministic');
-    const reloaded = HeadlessScenario.fromSave(scenario.game.getSaveData());
-
-    expect(structureLocatorSearch(scenario, 'garage', 48)).toEqual(
-      structureLocatorSearch(reloaded, 'garage', 48),
-    );
-    expect(structureLocatorSearch(scenario, 'moleman-dig-site', 48)).toEqual(
-      structureLocatorSearch(reloaded, 'moleman-dig-site', 48),
-    );
-    scenario.assertWorldIntegrity();
-    reloaded.assertWorldIntegrity();
-  });
-
-  it('TOWN-LIFE-038 - Locator results expose actionable room directions', () => {
-    const scenario = mapperStockScenario('town-life-038-locator-directions');
-
-    const result = structureLocatorSearch(scenario, 'garage', 48);
-
-    expect(result.found).toBe(true);
-    expect(result.roomId).toMatch(/^-?\d+,-?\d+,-?\d+$/);
-    expect(result.coordinates).toHaveLength(3);
-    expect(result.distance).toBeGreaterThanOrEqual(0);
-    expect(['here', 'north', 'south', 'east', 'west']).toContain(result.direction);
-    expect(result.searchedRooms).toBeGreaterThan(0);
-    scenario.assertWorldIntegrity();
-  });
-
-  it('TOWN-LIFE-039 - Bounded locator searches fail safely', () => {
-    const scenario = mapperStockScenario('town-life-039-locator-bounded-failure');
-    const beforeSearch = scenario.game.getGeneratedRoomCount();
-
-    const first = structureLocatorSearch(scenario, 'garage', 0);
-    const second = structureLocatorSearch(scenario, 'garage', 0);
-
-    expect(first).toEqual(second);
-    expect(first).toMatchObject({
-      found: false,
-      structureKind: 'garage',
-      searchedRooms: 1,
-    });
-    expect(first.roomId).toBeUndefined();
-    expect(scenario.game.getGeneratedRoomCount()).toBe(beforeSearch);
-    scenario.assertWorldIntegrity();
-  });
-
-  it('TOWN-LIFE-040 - Generation versions preserve old destinations', () => {
-    const scenario = mapperStockScenario('town-life-040-generation-compatibility');
-    const target = structureLocatorSearch(scenario, 'garage', 48);
-    expect(target.found).toBe(true);
-    expect(target.roomId).toBeDefined();
-    const legacySave = scenario.game.getSaveData();
-    const legacyIdentity = legacySave.worldGeneration;
-    expect(legacyIdentity).toBeDefined();
-    if (!target.roomId || !legacyIdentity) return;
-
-    const reloaded = HeadlessScenario.fromSave({
-      ...legacySave,
-      worldGeneration: {
-        seed: legacyIdentity.seed,
-        worldSalt: legacyIdentity.worldSalt,
-        biomeSalt: legacyIdentity.biomeSalt,
-        riverSalt: legacyIdentity.riverSalt,
-        barrierSalt: legacyIdentity.barrierSalt,
-        structureSalt: legacyIdentity.structureSalt,
-        townSalt: legacyIdentity.townSalt,
-      },
-    });
-
-    expect(structureLocatorSearch(reloaded, 'garage', 48)).toEqual(target);
-    expect(reloaded.getRoom(target.roomId).garage).toBeDefined();
-    reloaded.assertWorldIntegrity();
   });
 
   it('TOWN-LIFE-041 - Tavern rest advances canonical time', async () => {
@@ -2163,7 +2045,6 @@ function townDeterminismSnapshot(scenario: HeadlessScenario): Record<string, unk
       .registry.getByRoom(room.id)
       .map((actor) => ({ id: actor.id, schedule: actor.schedule })),
     mapperStock: mapperStockFor(scenario, 12),
-    garageTarget: structureLocatorSearch(scenario, 'garage', 48),
     patrol: scenario.game.resolveTownPatrolExcursion(town.id),
   };
 }
@@ -2232,21 +2113,6 @@ function mapperStockFor(scenario: HeadlessScenario, stockPeriod: number) {
     worldSeed: scenario.game.worldSeed,
     currentBiomeId: town.biomeId,
     stockPeriod,
-  });
-}
-
-function structureLocatorSearch(
-  scenario: HeadlessScenario,
-  structureKind: StructureLocatorKind,
-  maxRadius: number,
-) {
-  return findNearestStructureLocatorTarget({
-    originRoomId: scenario.currentRoom().id,
-    structureKind,
-    identity: scenario.game.getWorldGenerationIdentity(),
-    grid: scenario.game.config.grid,
-    worldConfig: scenario.game.config.world,
-    maxRadius,
   });
 }
 

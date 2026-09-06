@@ -27,7 +27,7 @@ import { cellsForEdgeRunup, mergeProtectedCells } from './generation/edgeAccess.
 export class RoomGenerator {
   private readonly pipeline: RoomGenerationPipeline;
   private readonly biomeMap: SeededBiomeMap;
-  private readonly grid: GridConfig;
+  readonly grid: GridConfig;
   private readonly config: WorldConfig;
   private readonly rng: RandomGenerator;
   private readonly worldGenerationIdentity: WorldGenerationIdentity;
@@ -41,21 +41,15 @@ export class RoomGenerator {
   private readonly transitionResolver: TransitionContractResolver;
 
   constructor(
-    gridOrConfig: GridConfig | WorldConfig,
-    configOrRng: WorldConfig | RandomGenerator,
-    rngOrIdentity?: RandomGenerator | WorldGenerationIdentity,
+    grid: GridConfig,
+    config: WorldConfig,
+    rng: RandomGenerator,
     identity?: WorldGenerationIdentity,
   ) {
-    const legacySignature = typeof configOrRng === 'function';
-    this.grid = legacySignature ? { cols: 32, rows: 24, cell: 24 } : (gridOrConfig as GridConfig);
-    this.config = legacySignature ? (gridOrConfig as WorldConfig) : (configOrRng as WorldConfig);
-    this.rng = legacySignature
-      ? (configOrRng as RandomGenerator)
-      : (rngOrIdentity as RandomGenerator);
-    const resolvedIdentity = legacySignature
-      ? (rngOrIdentity as WorldGenerationIdentity | undefined)
-      : identity;
-    this.worldGenerationIdentity = resolvedIdentity ?? createWorldGenerationIdentity();
+    this.grid = grid;
+    this.config = config;
+    this.rng = rng;
+    this.worldGenerationIdentity = identity ?? createWorldGenerationIdentity();
     this.biomeMap = new SeededBiomeMap(this.worldGenerationIdentity);
     this.transitionResolver = new TransitionContractResolver(
       this.worldGenerationIdentity,
@@ -79,12 +73,12 @@ export class RoomGenerator {
     this.pipeline = new RoomGenerationPipeline(this);
   }
 
-  generate(roomId: string, grid: GridConfig): RoomSnapshot {
-    return this.pipeline.generate(roomId, grid);
+  generate(roomId: string): RoomSnapshot {
+    return this.pipeline.generate(roomId);
   }
 
-  createGenerationContext(roomId: string, grid: GridConfig): RoomGenerationContext {
-    const canvas = new TerrainCanvas(grid);
+  createGenerationContext(roomId: string): RoomGenerationContext {
+    const canvas = new TerrainCanvas(this.grid);
     const portals: RoomSnapshot['portals'] = [];
     const palette = this.biomeMap.createPalette(roomId);
     const isOcean = biomeCountsAs(palette.biomeId, 'ocean');
@@ -97,7 +91,7 @@ export class RoomGenerator {
 
     return {
       roomId,
-      grid,
+      grid: this.grid,
       canvas,
       layout: canvas.layout,
       portals,

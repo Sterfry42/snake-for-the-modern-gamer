@@ -267,11 +267,13 @@ describe('save world identity', () => {
     if (!identity) return;
 
     const generatorA = new RoomGenerator(
+      defaultGameConfig.grid,
       defaultGameConfig.world,
       createRng(identity.seed),
       identity,
     );
     const generatorB = new RoomGenerator(
+      defaultGameConfig.grid,
       defaultGameConfig.world,
       createRng(identity.seed),
       identity,
@@ -279,8 +281,8 @@ describe('save world identity', () => {
     const roomIds = ['0,0,0', '0,1,0', '1,0,0', '-1,0,0', '0,-1,0', '1,1,0'];
 
     for (const roomId of roomIds) {
-      const roomA = generatorA.generate(roomId, defaultGameConfig.grid);
-      const roomB = generatorB.generate(roomId, defaultGameConfig.grid);
+      const roomA = generatorA.generate(roomId);
+      const roomB = generatorB.generate(roomId);
       expect(roomB.layout).toEqual(roomA.layout);
       expect(roomB.biomeId).toBe(roomA.biomeId);
     }

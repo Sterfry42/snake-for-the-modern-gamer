@@ -90,7 +90,6 @@ export interface WorldHumanoidSpawn {
   id: string;
   name: string;
   portraitId?: string;
-  maxHearts?: number;
   x: number;
   y: number;
 }

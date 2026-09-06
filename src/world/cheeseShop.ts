@@ -4,7 +4,7 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import { vectorKey } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
-import { buildHouseNpcProfile } from '../npcs/profiles.js';
+import { createHumanoidIdentity } from './humanoidSpawn.js';
 import type { RoomSnapshot } from './types.js';
 
 interface CheeseShopPlacement {
@@ -127,7 +127,7 @@ export function tryPlaceCheeseShop(
   };
 
   const shopkeeper = {
-    ...buildHouseNpcProfile(
+    ...createHumanoidIdentity(
       ['Benoit', 'Colette', 'Francois', 'Isabelle', 'Jean-Pierre'][Math.floor(rng() * 5)],
       ['sage-1', 'sage-2', 'sage-3'][Math.floor(rng() * 3)],
     ),

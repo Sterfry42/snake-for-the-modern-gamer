@@ -1,7 +1,7 @@
 import type { WorldConfig } from '../../../config/gameConfig.js';
 import { vectorKey } from '../../../core/math.js';
 import type { RandomGenerator } from '../../../core/rng.js';
-import { buildHouseNpcProfile } from '../../../npcs/profiles.js';
+import { createHumanoidIdentity } from '../../humanoidSpawn.js';
 import type { RoomArchetype, RoomArchetypeId, RoomGenerationContext } from '../types.js';
 
 interface WeightedArchetype {
@@ -546,7 +546,7 @@ export class RoomArchetypeOperations {
       context.canvas.set(painter.x, painter.y, 'G');
       context.billboardOracle = {
         signPainter: {
-          ...buildHouseNpcProfile(
+          ...createHumanoidIdentity(
             this.pick(['Sign-Paint Marlene', 'Billboard Dale', 'Ad-Man Walt']),
             'sage-1',
           ),
@@ -626,7 +626,7 @@ export class RoomArchetypeOperations {
     }
     context.motelPool = {
       clerk: {
-        ...buildHouseNpcProfile(
+        ...createHumanoidIdentity(
           this.pick(['Vacancy Vera', 'Clerk Connie', 'Pool Key Dale']),
           'sage-1',
         ),
@@ -634,7 +634,7 @@ export class RoomArchetypeOperations {
         y: clerk.y,
       },
       maintenance: {
-        ...buildHouseNpcProfile(
+        ...createHumanoidIdentity(
           this.pick(['Skimmer Hank', 'Chlorine Tammy', 'Net Earl']),
           'sage-2',
         ),
@@ -666,7 +666,7 @@ export class RoomArchetypeOperations {
         context.canvas.set(ranger.x, ranger.y, 'G');
         context.roadCrew = {
           ranger: {
-            ...buildHouseNpcProfile(
+            ...createHumanoidIdentity(
               this.pick(['Cone Ranger Buck', 'Shoulder Sue', 'Detour Dale']),
               'sage-1',
             ),
@@ -690,7 +690,7 @@ export class RoomArchetypeOperations {
         context.canvas.set(ranger.x, ranger.y, 'G');
         context.roadCrew = {
           ranger: {
-            ...buildHouseNpcProfile(
+            ...createHumanoidIdentity(
               this.pick(['Cone Ranger Buck', 'Shoulder Sue', 'Detour Dale']),
               'sage-1',
             ),
@@ -733,12 +733,12 @@ export class RoomArchetypeOperations {
     playerSpots.forEach((spot) => context.canvas.set(spot.x, spot.y, 'G'));
     context.gridironYard = {
       coach: {
-        ...buildHouseNpcProfile('Coach Hank', 'sage-2'),
+        ...createHumanoidIdentity('Coach Hank', 'sage-2'),
         x: coach.x,
         y: coach.y,
       },
       players: playerSpots.map((spot, index) => ({
-        ...buildHouseNpcProfile(
+        ...createHumanoidIdentity(
           ['Left Tackle Tammy', 'Wide Earl', 'Safety Sue', 'Bobby-Joe Blitz'][index] ??
             'Yard Player',
           'sage-1',

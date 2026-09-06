@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { actorIdForTownResident } from '../../../../actors/actorFactory.js';
 import type { Actor } from '../../../../actors/actorTypes.js';
 import { getActorPresentation } from '../../../../actors/actorPresentation.js';
 import type { LayerEntrance } from '../../../../layers/layerTypes.js';
@@ -32,7 +33,7 @@ describe('Town life commerce hardening stories', () => {
     const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'potionMaker' });
     const town = requireTown(room);
     const resident = requireResident(town, 'potionMaker');
-    const actorId = actorIdForResident(scenario, town, resident);
+    const actorId = actorIdForResident(town, resident);
 
     scenario.enterRoom(room.id, walkableTileAwayFrom(scenario, room.id, entrance, 6));
     scenario.setDayPhase('day');
@@ -69,8 +70,8 @@ describe('Town life commerce hardening stories', () => {
     const scenario = createHeadlessScenario({ seed: 'town-harden-031-unvisited-tavern-staff' });
     const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'tavern' });
     const town = requireTown(room);
-    const bartenderId = actorIdForResident(scenario, town, requireResident(town, 'bartender'));
-    const dealerId = actorIdForResident(scenario, town, requireResident(town, 'cardDealer'));
+    const bartenderId = actorIdForResident(town, requireResident(town, 'bartender'));
+    const dealerId = actorIdForResident(town, requireResident(town, 'cardDealer'));
 
     scenario.enterRoom(room.id, walkableTileAwayFrom(scenario, room.id, entrance, 6));
     scenario.setDayPhase('night');
@@ -122,7 +123,7 @@ describe('Town life commerce hardening stories', () => {
     const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'generalStore' });
     const town = requireTown(room);
     const resident = requireResident(town, 'equipmentMerchant');
-    const actorId = actorIdForResident(scenario, town, resident);
+    const actorId = actorIdForResident(town, resident);
 
     scenario.setDayPhase('day');
     scenario.enterRoom(room.id, walkableTileAwayFrom(scenario, room.id, entrance, 6));
@@ -783,14 +784,8 @@ function requireResident(town: TownStructure, role: TownResident['role']): TownR
   return resident;
 }
 
-function actorIdForResident(
-  scenario: HeadlessScenario,
-  town: TownStructure,
-  resident: TownResident,
-): string {
-  return (
-    resident.actorId ?? scenario.game.getTownResidentActorId(town.id, resident.id, resident.role)
-  );
+function actorIdForResident(town: TownStructure, resident: TownResident): string {
+  return resident.actorId ?? actorIdForTownResident(town.id, resident.id, resident.role);
 }
 
 function moveSnakeIntoDoor(

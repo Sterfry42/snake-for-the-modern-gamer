@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { actorIdForTownResident } from '../../../../actors/actorFactory.js';
 import type { LayerEntrance } from '../../../../layers/layerTypes.js';
 import type { HeadlessScenario } from '../../../../test/headless/headlessScenario.js';
 import { createHeadlessScenario } from '../../../../test/headless/headlessScenario.js';
@@ -18,7 +19,7 @@ describe('Town actor lifecycle integration hardening', () => {
     scenario.enterRoom(room.id, approach);
 
     const town = requireTown(room);
-    const expectedActorIds = expectedTownActorIds(scenario, town);
+    const expectedActorIds = expectedTownActorIds(town);
     const registryIds = townRegistryActorIds(scenario, town.id);
     const unvisitedResidents = town.residents.filter(
       (resident) => !residentBelongsToRoom(town, resident, room.id),
@@ -27,14 +28,14 @@ describe('Town actor lifecycle integration hardening', () => {
     expect(registryIds).toEqual(expectedActorIds);
     expect(unvisitedResidents.length).toBeGreaterThanOrEqual(3);
     for (const resident of unvisitedResidents.slice(0, 3)) {
-      expect(registryIds).toContain(actorIdForResident(scenario, town, resident));
+      expect(registryIds).toContain(actorIdForResident(town, resident));
     }
 
     scenario.setDayPhase('night');
     await scenario.advanceActorTicks(1);
 
     for (const resident of unvisitedResidents.slice(0, 3)) {
-      const actor = scenario.actor(actorIdForResident(scenario, town, resident));
+      const actor = scenario.actor(actorIdForResident(town, resident));
       expect(actor.scheduleGoal, `${actor.id} should have a logical schedule`).toBeDefined();
       expect(actor.goal, `${actor.id} should have a logical goal`).toBeDefined();
     }
@@ -48,7 +49,7 @@ describe('Town actor lifecycle integration hardening', () => {
 
     const town = requireTown(firstDoor.room);
     const target = findUnvisitedResidentDoor(scenario, town, firstDoor.room.id);
-    const actorId = actorIdForResident(scenario, town, target.resident);
+    const actorId = actorIdForResident(town, target.resident);
     const beforeActorIds = townRegistryActorIds(scenario, town.id);
 
     scenario.game.getActorSystem().registry.update(actorId, (actor) => ({
@@ -88,18 +89,12 @@ function requireTown(room: RoomSnapshot): TownStructure {
   return room.town;
 }
 
-function actorIdForResident(
-  scenario: HeadlessScenario,
-  town: TownStructure,
-  resident: TownResident,
-): string {
-  return (
-    resident.actorId ?? scenario.game.getTownResidentActorId(town.id, resident.id, resident.role)
-  );
+function actorIdForResident(town: TownStructure, resident: TownResident): string {
+  return resident.actorId ?? actorIdForTownResident(town.id, resident.id, resident.role);
 }
 
-function expectedTownActorIds(scenario: HeadlessScenario, town: TownStructure): string[] {
-  return town.residents.map((resident) => actorIdForResident(scenario, town, resident)).sort();
+function expectedTownActorIds(town: TownStructure): string[] {
+  return town.residents.map((resident) => actorIdForResident(town, resident)).sort();
 }
 
 function townRegistryActorIds(scenario: HeadlessScenario, townId: string): string[] {

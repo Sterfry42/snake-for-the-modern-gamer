@@ -1,7 +1,7 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import { vectorKey } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
-import { buildHouseNpcProfile } from '../npcs/profiles.js';
+import { createHumanoidIdentity } from './humanoidSpawn.js';
 import type { RoomSnapshot } from './types.js';
 
 const FIREWORK_STAND_NAMES = [
@@ -126,12 +126,12 @@ export function tryPlaceFireworkStand(
 
   return {
     vendor: {
-      ...buildHouseNpcProfile(pick(FIREWORK_VENDOR_NAMES, rng), 'sage-1'),
+      ...createHumanoidIdentity(pick(FIREWORK_VENDOR_NAMES, rng), 'sage-1'),
       x: vendorX,
       y: vendorY,
     },
     inspector: {
-      ...buildHouseNpcProfile(pick(FIREWORK_INSPECTOR_NAMES, rng), 'sage-2'),
+      ...createHumanoidIdentity(pick(FIREWORK_INSPECTOR_NAMES, rng), 'sage-2'),
       x: inspectorX,
       y: inspectorY,
     },

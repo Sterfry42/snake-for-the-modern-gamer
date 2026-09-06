@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { actorIdForTownResident } from '../../../../actors/actorFactory.js';
 import type { LayerEntrance } from '../../../../layers/layerTypes.js';
 import type { HeadlessScenario } from '../../../../test/headless/headlessScenario.js';
 import { createHeadlessScenario } from '../../../../test/headless/headlessScenario.js';
@@ -29,22 +30,21 @@ describe('Town life tavern rest integration hardening', () => {
     await scenario.advanceActorTicks(1);
 
     expect(
-      scenario.actor(actorIdForResident(scenario, town, requireResident(town, 'bartender'))).goal,
+      scenario.actor(actorIdForResident(town, requireResident(town, 'bartender'))).goal,
     ).toMatchObject({
       kind: 'work',
       roomId: tavernEntrance.layerId,
       reason: 'schedule:work',
     });
     expect(
-      scenario.actor(actorIdForResident(scenario, town, requireResident(town, 'cardDealer'))).goal,
+      scenario.actor(actorIdForResident(town, requireResident(town, 'cardDealer'))).goal,
     ).toMatchObject({
       kind: 'work',
       roomId: tavernEntrance.layerId,
       reason: 'schedule:work',
     });
     expect(
-      scenario.actor(actorIdForResident(scenario, town, requireResident(town, 'equipmentMerchant')))
-        .goal,
+      scenario.actor(actorIdForResident(town, requireResident(town, 'equipmentMerchant'))).goal,
     ).toMatchObject({
       kind: 'sleep',
       reason: 'schedule:sleep',
@@ -58,7 +58,7 @@ describe('Town life tavern rest integration hardening', () => {
     const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'tavern' });
     const town = requireTown(room);
     const bartender = requireResident(town, 'bartender');
-    const bartenderActorId = actorIdForResident(scenario, town, bartender);
+    const bartenderActorId = actorIdForResident(town, bartender);
 
     scenario.setDayPhase('night');
     scenario.enterRoom(room.id, walkableTileAwayFrom(scenario, room.id, entrance, 6));
@@ -222,14 +222,8 @@ function requireResident(town: TownStructure, role: TownResident['role']): TownR
   return resident;
 }
 
-function actorIdForResident(
-  scenario: HeadlessScenario,
-  town: TownStructure,
-  resident: TownResident,
-): string {
-  return (
-    resident.actorId ?? scenario.game.getTownResidentActorId(town.id, resident.id, resident.role)
-  );
+function actorIdForResident(town: TownStructure, resident: TownResident): string {
+  return resident.actorId ?? actorIdForTownResident(town.id, resident.id, resident.role);
 }
 
 function townRegistryActorIds(scenario: HeadlessScenario, townId: string): string[] {

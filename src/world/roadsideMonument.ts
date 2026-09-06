@@ -1,7 +1,7 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import { vectorKey } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
-import { buildHouseNpcProfile } from '../npcs/profiles.js';
+import { createHumanoidIdentity } from './humanoidSpawn.js';
 import type { RoomSnapshot } from './types.js';
 
 const MONUMENT_NAMES = [
@@ -128,12 +128,12 @@ export function tryPlaceRoadsideMonument(
 
   return {
     docent: {
-      ...buildHouseNpcProfile(pick(DOCENT_NAMES, rng), 'sage-1'),
+      ...createHumanoidIdentity(pick(DOCENT_NAMES, rng), 'sage-1'),
       x: docentX,
       y: docentY,
     },
     ranger: {
-      ...buildHouseNpcProfile(pick(RANGER_NAMES, rng), 'sage-2'),
+      ...createHumanoidIdentity(pick(RANGER_NAMES, rng), 'sage-2'),
       x: rangerX,
       y: rangerY,
     },

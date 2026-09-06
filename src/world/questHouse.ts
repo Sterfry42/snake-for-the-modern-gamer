@@ -1,12 +1,10 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import { vectorKey } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
-import { buildHouseNpcProfile, type NpcProfile } from '../npcs/profiles.js';
+import { createHumanoidIdentity } from './humanoidSpawn.js';
+import type { WorldHumanoidSpawn } from './types.js';
 
-export interface QuestGiverInfo extends NpcProfile {
-  x: number;
-  y: number;
-}
+export type QuestGiverInfo = WorldHumanoidSpawn;
 
 export interface QuestHouseResult {
   questGiver: QuestGiverInfo;
@@ -153,7 +151,7 @@ export function tryPlaceQuestHouse(
 
     return {
       questGiver: {
-        ...buildHouseNpcProfile(name, portraitId),
+        ...createHumanoidIdentity(name, portraitId),
         x: centerX,
         y: centerY,
       },
