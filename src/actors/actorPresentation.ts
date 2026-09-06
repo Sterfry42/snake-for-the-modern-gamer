@@ -3,7 +3,7 @@ import { getActorIndicators } from './actorIndicators.js';
 import { actorCanSpeakNow } from './actorSpeech.js';
 import type { Actor, ActorSpeechBubble } from './actorTypes.js';
 
-export interface ActorPresentation {
+interface ActorPresentation {
   activityProp: ReturnType<typeof getActorActivityProp>;
   sleepMarker: ReturnType<typeof getActorSleepMarker>;
   indicators: ReturnType<typeof getActorIndicators>;

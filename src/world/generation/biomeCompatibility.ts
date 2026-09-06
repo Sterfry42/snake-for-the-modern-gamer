@@ -7,10 +7,9 @@ import {
   type ClimateClass,
 } from '../biomes.js';
 
-export interface BiomeCompatibilityResult {
+interface BiomeCompatibilityResult {
   compatible: boolean;
-  reason?: string;
-  requiresTransition?: 'shoreline' | 'forest-threshold' | 'cave-mouth' | 'blocked';
+  requiresTransition?: 'shoreline' | 'forest-threshold' | 'cave-mouth';
 }
 
 const HOT_CLASSES: ReadonlySet<ClimateClass> = new Set(['hot']);
@@ -34,7 +33,7 @@ export function areBiomesCompatible(
     (HOT_CLASSES.has(firstClass) && COLD_CLASSES.has(secondClass)) ||
     (HOT_CLASSES.has(secondClass) && COLD_CLASSES.has(firstClass))
   ) {
-    return { compatible: false, reason: 'hot-cold-direct-adjacency' };
+    return { compatible: false };
   }
 
   if (hasFamily(first.id, 'ocean') || hasFamily(second.id, 'ocean')) {

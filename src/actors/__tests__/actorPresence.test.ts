@@ -6,11 +6,8 @@ import { findActorGridPath } from '../actorNavigation.js';
 import { decideActorBrain } from '../actorBrains.js';
 import {
   ActorOccupancyResolver,
-  actorExitTargetForRoom,
   actorsAreAdjacent,
-  advanceOffscreenActorTravel,
   createActorPresence,
-  directionsTowardPosition,
   findFactionConflictGoals,
   inferActorActivity,
   selectScheduleGoal,
@@ -18,7 +15,6 @@ import {
 import { ActorRegistry } from '../actorRegistry.js';
 import type { Actor } from '../actorTypes.js';
 import type { AtmosphereState } from '../../world/atmosphereTypes.js';
-import type { RoomSnapshot } from '../../world/types.js';
 
 describe('actor presence simulation', () => {
   it('prevents two materialized actors from reserving the same tile', () => {
@@ -283,77 +279,6 @@ describe('actor presence simulation', () => {
       kind: 'sleep-zzz',
       anchor: 'above-head',
       label: 'Sleeping',
-    });
-  });
-
-  it('advances offscreen actors to their scheduled goal room without materializing them', () => {
-    const traveler = actor('actor:traveler', 'hearthbound-remnant');
-    traveler.currentRoomId = 'town-square';
-    traveler.goal = {
-      kind: 'work',
-      priority: 18,
-      roomId: 'layer:townInterior:town-1:generalStore',
-      reason: 'day-schedule',
-    };
-    traveler.presence = createActorPresence({
-      roomId: 'town-square',
-      position: { x: 3, y: 3 },
-    });
-
-    const traveled = advanceOffscreenActorTravel({
-      actor: traveler,
-      loadedRoomId: 'another-room',
-      roomNumber: 12,
-    });
-
-    expect(traveled).toMatchObject({
-      currentRoomId: 'layer:townInterior:town-1:generalStore',
-      activity: { kind: 'walking', source: 'schedule' },
-    });
-    expect(traveled?.presence).toMatchObject({
-      roomId: 'layer:townInterior:town-1:generalStore',
-      materialized: false,
-    });
-  });
-
-  it('targets matching layer entrances before fallback edges for room travel', () => {
-    const traveler = actor('actor:shopkeep', 'hearthbound-remnant');
-    traveler.currentRoomId = 'town-market';
-    traveler.presence = createActorPresence({ roomId: 'town-market', position: { x: 4, y: 4 } });
-    traveler.goal = {
-      kind: 'work',
-      priority: 18,
-      roomId: 'layer:townInterior:town-1:generalStore',
-      reason: 'day-schedule',
-    };
-    const room: RoomSnapshot = {
-      id: 'town-market',
-      layout: ['..........', '..........', '..........'],
-      portals: [],
-      biomeId: 'verdigris-basin',
-      biomeTitle: 'Verdigris Basin',
-      backgroundColor: 0,
-      wallColor: 0,
-      wallOutlineColor: 0,
-      layerEntrances: [
-        {
-          id: 'store-door',
-          x: 7,
-          y: 1,
-          layerId: 'layer:townInterior:town-1:generalStore',
-          parentRoomId: 'town-market',
-          label: 'Store',
-          kind: 'townInterior',
-          templateId: 'generalStore',
-          returnPosition: { x: 7, y: 2 },
-        },
-      ],
-    };
-
-    expect(actorExitTargetForRoom(room, traveler)).toEqual({ x: 7, y: 1 });
-    expect(directionsTowardPosition({ x: 4, y: 4 }, { x: 7, y: 1 })[0]).toEqual({
-      x: 1,
-      y: 0,
     });
   });
 });

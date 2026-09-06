@@ -1,6 +1,6 @@
 import type { Actor, ActorActivityKind } from './actorTypes.js';
 
-export type ActorActivityPropKind =
+type ActorActivityPropKind =
   | 'sword'
   | 'bow'
   | 'merchant-bag'
@@ -10,11 +10,10 @@ export type ActorActivityPropKind =
   | 'potion-flask'
   | 'chef-knife'
   | 'training-dumbbell'
-  | 'tool'
   | 'shield'
   | 'fishing-rod';
 
-export interface ActorActivityProp {
+interface ActorActivityProp {
   kind: ActorActivityPropKind;
   textureKey: string;
   anchor: 'bottom-right';
@@ -33,7 +32,6 @@ const ACTIVITY_PROP_BY_KIND: Partial<Record<ActorActivityKind, ActorActivityProp
   cooking: 'chef-knife',
   training: 'training-dumbbell',
   merchant: 'merchant-bag',
-  repairing: 'tool',
   guarding: 'shield',
   fishing: 'fishing-rod',
 };
@@ -47,13 +45,12 @@ const PROP_LABELS: Record<ActorActivityPropKind, string> = {
   'potion-flask': 'Alchemy',
   'chef-knife': 'Cooking',
   'training-dumbbell': 'Training',
-  tool: 'Repairing',
   'merchant-bag': 'Merchant',
   shield: 'Guarding',
   'fishing-rod': 'Fishing',
 };
 
-export interface ActorSleepMarker {
+interface ActorSleepMarker {
   kind: 'sleep-zzz';
   textureKey: string;
   anchor: 'above-head';

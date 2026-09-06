@@ -1,5 +1,4 @@
 import {
-  CARDINAL_DIRECTIONS,
   manhattanDistance,
   stableStringHashPositive,
   vectorKey,
@@ -8,7 +7,6 @@ import {
 import { actorPrimaryFaction, relationBetweenFactions } from '../factions/factionRelations.js';
 import type { DayPhase } from '../world/atmosphereTypes.js';
 import { isTownShopRole } from '../world/townRoles.js';
-import type { RoomSnapshot } from '../world/types.js';
 import type {
   Actor,
   ActorActivity,
@@ -20,27 +18,27 @@ import type {
 } from './actorTypes.js';
 import type { ActorBrainDecision } from './actorBrains.js';
 
-export interface ActorOccupant {
+interface ActorOccupant {
   id: string;
   position: Vector2Like;
   blocksMovement: boolean;
 }
 
-export interface ActorMoveRequest {
+interface ActorMoveRequest {
   actorId: string;
   current: Vector2Like;
   preferredDirections: readonly Vector2Like[];
   canStandAt(position: Vector2Like): boolean;
 }
 
-export interface ActorMoveResolution {
+interface ActorMoveResolution {
   actorId: string;
   from: Vector2Like;
   to: Vector2Like;
   moved: boolean;
 }
 
-export interface ActorScheduleContext {
+interface ActorScheduleContext {
   roomNumber: number;
   dayPhase?: DayPhase;
 }
@@ -223,7 +221,7 @@ export function selectScheduleGoal(
   if (dayPhase === 'night') {
     const place = resolveSchedulePlace(actor, actor.schedule?.sleepRoomId ? 'sleep' : 'home');
     return {
-      kind: place.roomId ? 'sleep' : 'sleep',
+      kind: 'sleep',
       priority: 20,
       roomId: place.roomId,
       targetPosition: place.targetPosition,
@@ -350,74 +348,6 @@ function resolveSchedulePlace(
   }
 }
 
-export function directionsTowardPosition(
-  position: Vector2Like,
-  target: Vector2Like,
-): readonly Vector2Like[] {
-  return [...CARDINAL_DIRECTIONS].sort((a, b) => {
-    const aDistance = manhattanDistance({ x: position.x + a.x, y: position.y + a.y }, target);
-    const bDistance = manhattanDistance({ x: position.x + b.x, y: position.y + b.y }, target);
-    return aDistance - bDistance;
-  });
-}
-
-export function advanceOffscreenActorTravel(args: {
-  actor: Actor;
-  loadedRoomId: string;
-  roomNumber: number;
-}): Actor | null {
-  const goalRoomId = args.actor.goal?.roomId;
-  if (
-    !goalRoomId ||
-    goalRoomId === args.actor.currentRoomId ||
-    args.actor.currentRoomId === args.loadedRoomId ||
-    args.actor.health?.state === 'dead' ||
-    args.actor.hostility === 'dead'
-  ) {
-    return null;
-  }
-  return {
-    ...args.actor,
-    currentRoomId: goalRoomId,
-    presence: args.actor.presence
-      ? {
-          ...args.actor.presence,
-          roomId: goalRoomId,
-          materialized: false,
-        }
-      : undefined,
-    activity: activity('walking', 'schedule', args.roomNumber),
-  };
-}
-
-export function actorExitTargetForRoom(room: RoomSnapshot, actor: Actor): Vector2Like | undefined {
-  const goalRoomId = actor.goal?.roomId;
-  if (!goalRoomId || goalRoomId === room.id) {
-    return undefined;
-  }
-  if (room.layer?.exit) {
-    return { ...room.layer.exit };
-  }
-  const entranceToGoal = room.layerEntrances?.find((entry) => entry.layerId === goalRoomId);
-  if (entranceToGoal) {
-    return { x: entranceToGoal.x, y: entranceToGoal.y };
-  }
-  const portalToGoal = room.portals.find((portal) => portal.destRoomId === goalRoomId);
-  if (portalToGoal) {
-    return { x: portalToGoal.x, y: portalToGoal.y };
-  }
-  return nearestRoomEdge(actor.presence?.position, room.layout[0]?.length ?? 0, room.layout.length);
-}
-
-export function shouldDematerializeForActorGoal(
-  actor: Actor,
-  room: RoomSnapshot,
-  position: Vector2Like,
-): boolean {
-  const target = actorExitTargetForRoom(room, actor);
-  return Boolean(target && manhattanDistance(position, target) <= 1 && actor.goal?.roomId);
-}
-
 export function findFactionConflictGoals(actors: readonly Actor[]): Array<{
   actorId: string;
   goal: ActorGoal;
@@ -496,23 +426,4 @@ function activity(
     targetActorId,
     startedAtRoomNumber: roomNumber,
   };
-}
-
-function nearestRoomEdge(
-  position: Vector2Like | undefined,
-  width: number,
-  height: number,
-): Vector2Like | undefined {
-  if (!position || width <= 0 || height <= 0) {
-    return undefined;
-  }
-  const candidates = [
-    { x: 1, y: position.y },
-    { x: width - 2, y: position.y },
-    { x: position.x, y: 1 },
-    { x: position.x, y: height - 2 },
-  ].filter((candidate) => candidate.x >= 0 && candidate.y >= 0);
-  return candidates.sort(
-    (a, b) => manhattanDistance(position, a) - manhattanDistance(position, b),
-  )[0];
 }

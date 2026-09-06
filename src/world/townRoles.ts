@@ -13,7 +13,7 @@ const TOWN_MERCHANT_ROLE_VALUES = [
   'innkeeper',
 ] as const satisfies readonly ActorRole[];
 
-export type TownMerchantRole = (typeof TOWN_MERCHANT_ROLE_VALUES)[number];
+type TownMerchantRole = (typeof TOWN_MERCHANT_ROLE_VALUES)[number];
 
 const TOWN_RESIDENT_ROLE_VALUES = [
   'resident',
@@ -30,25 +30,19 @@ const TOWN_RESIDENT_ROLE_VALUES = [
 
 export type TownResidentRole = (typeof TOWN_RESIDENT_ROLE_VALUES)[number];
 
-export type TownRoleShopKind =
+type TownRoleShopKind =
   | 'general'
   | 'equipment'
   | 'potion'
   | 'butcher'
   | 'cards'
   | 'food'
-  | 'florist'
-  | 'jeweler'
-  | 'tailor'
-  | 'scribe'
-  | 'clinic'
   | 'blackMarket'
   | 'maneuverTrainer'
   | 'maps'
   | 'magic'
   | 'inn';
 
-const TOWN_MERCHANT_ROLES = new Set<string>(TOWN_MERCHANT_ROLE_VALUES);
 const TOWN_SHOP_ROLES = new Set<string>([...TOWN_MERCHANT_ROLE_VALUES, 'blackMarketMerchant']);
 const STATIONARY_TOWN_ROLES = new Set<string>([
   'guard',
@@ -63,15 +57,6 @@ const TOWN_CRIMINAL_ROLES = new Set<string>([
   'guildContact',
   'blackMarketMerchant',
 ]);
-const TOWN_RESIDENT_ROLES = new Set<string>(TOWN_RESIDENT_ROLE_VALUES);
-
-export function isTownResidentRole(role: string): role is TownResidentRole {
-  return TOWN_RESIDENT_ROLES.has(role);
-}
-
-export function isTownMerchantRole(role: string): role is TownMerchantRole {
-  return TOWN_MERCHANT_ROLES.has(role);
-}
 
 export function isTownShopRole(role: string): role is TownMerchantRole | 'blackMarketMerchant' {
   return TOWN_SHOP_ROLES.has(role);

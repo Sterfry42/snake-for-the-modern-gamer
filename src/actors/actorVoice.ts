@@ -1,7 +1,7 @@
 import type { Actor, ActorHostilityState, ActorPersonalityTag, ActorRole } from './actorTypes.js';
 import type { BiomeId } from '../world/biomes.js';
 
-export interface ActorVoiceLineResult {
+interface ActorVoiceLineResult {
   id: string;
   text: string;
   priority: number;
@@ -9,7 +9,7 @@ export interface ActorVoiceLineResult {
   portraitId?: string;
 }
 
-export interface ActorVoiceContext {
+interface ActorVoiceContext {
   actor: Actor;
   biomeId: BiomeId;
   dangerLevel: number;

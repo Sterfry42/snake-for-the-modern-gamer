@@ -1,4 +1,4 @@
-export interface CoordinateRoomAddress {
+interface CoordinateRoomAddress {
   kind: 'coordinate';
   roomId: string;
   x: number;
@@ -17,10 +17,6 @@ export function parseCoordinateRoomId(roomId: string): CoordinateRoomAddress | n
     return null;
   }
   return { kind: 'coordinate', roomId, x: x!, y: y!, z: z! };
-}
-
-export function isCoordinateRoomId(roomId: string): boolean {
-  return parseCoordinateRoomId(roomId) !== null;
 }
 
 export function assertValidRoomId(roomId: string): void {
