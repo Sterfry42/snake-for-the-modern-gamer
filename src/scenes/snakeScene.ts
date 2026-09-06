@@ -66,6 +66,11 @@ import { QuestHud } from '../ui/questHud.js';
 import { QuestPopup } from '../ui/questPopup.js';
 import { ChoicePopup, type ChoiceOption } from '../ui/choicePopup.js';
 import { SnakeRenderer, type RoomRenderEntry } from '../ui/snakeRenderer.js';
+import { FirstPersonRenderer } from '../ui/firstPerson/firstPersonRenderer.js';
+import {
+  directionToMoveAction,
+  mapFirstPersonMoveAction,
+} from '../ui/firstPerson/firstPersonInput.js';
 import { MinimapRenderer } from '../ui/minimapRenderer.js';
 import { JuiceManager } from '../ui/juice.js';
 import { BossHud } from '../ui/bossHud.js';
@@ -1827,6 +1832,8 @@ export default class SnakeScene extends Phaser.Scene {
   private emoticonOverlay!: EmoticonOverlay;
   private emoticonActivationTime: number = 0;
   private snakeRenderer!: SnakeRenderer;
+  private firstPersonRenderer!: FirstPersonRenderer;
+  private daggerfellPresentationActive = false;
   private minimapRenderer: MinimapRenderer | null = null;
   juice!: JuiceManager;
   skillTree!: SkillTreeManager;
@@ -2202,6 +2209,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.cameras.main.setRoundPixels(true);
     this.runtimeSpriteFactory = new RuntimeSpriteFactory(this);
     this.snakeRenderer = new SnakeRenderer(this, this.graphics, this.wallGraphics, this.grid);
+    this.firstPersonRenderer = new FirstPersonRenderer(this, this.grid);
     this.minimapRenderer = new MinimapRenderer(
       {
         x: this.grid.cols * this.grid.cell - 222,
@@ -2232,7 +2240,10 @@ export default class SnakeScene extends Phaser.Scene {
         if (this.awaitingLevelUpDirection && !this.resumeAfterLevelUpDirection()) {
           return;
         }
-        this.setDir(x, y);
+        const mappedDirection = this.resolveFirstPersonDirection({ x, y });
+        if (this.isFirstPersonPresentationRequested() && !mappedDirection) return;
+        const direction = mappedDirection ?? { x, y };
+        this.setDir(direction.x, direction.y);
         if (this.isManualHouseMovementActive()) {
           this.consumeManualResumePause();
           this.takeManualTurn();
@@ -3201,11 +3212,38 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private getKeyboardControlDirection(event: KeyboardEvent): { x: number; y: number } | null {
-    if (isKeyboardEventForAction(event, 'move.up')) return { x: 0, y: -1 };
-    if (isKeyboardEventForAction(event, 'move.down')) return { x: 0, y: 1 };
-    if (isKeyboardEventForAction(event, 'move.left')) return { x: -1, y: 0 };
-    if (isKeyboardEventForAction(event, 'move.right')) return { x: 1, y: 0 };
+    const actionId = this.getKeyboardMoveAction(event);
+    if (!actionId) return null;
+    if (this.isFirstPersonPresentationRequested()) {
+      return this.resolveFirstPersonAction(actionId);
+    }
+    if (actionId === 'move.up') return { x: 0, y: -1 };
+    if (actionId === 'move.down') return { x: 0, y: 1 };
+    if (actionId === 'move.left') return { x: -1, y: 0 };
+    if (actionId === 'move.right') return { x: 1, y: 0 };
     return null;
+  }
+
+  private getKeyboardMoveAction(event: KeyboardEvent): ControlActionId | null {
+    if (isKeyboardEventForAction(event, 'move.up')) return 'move.up';
+    if (isKeyboardEventForAction(event, 'move.down')) return 'move.down';
+    if (isKeyboardEventForAction(event, 'move.left')) return 'move.left';
+    if (isKeyboardEventForAction(event, 'move.right')) return 'move.right';
+    return null;
+  }
+
+  private resolveFirstPersonDirection(direction: Vector2Like): Vector2Like | null {
+    const actionId = directionToMoveAction(direction);
+    return actionId ? this.resolveFirstPersonAction(actionId) : null;
+  }
+
+  private resolveFirstPersonAction(actionId: ControlActionId): Vector2Like | null {
+    if (!this.isFirstPersonPresentationRequested()) return null;
+    return mapFirstPersonMoveAction(actionId, this.snakeGame.getDirection());
+  }
+
+  private isFirstPersonPresentationRequested(): boolean {
+    return Boolean(this.getFlag<boolean>('equipment.firstPersonView'));
   }
 
   private handleMobileControlAction(actionId: ControlActionId): void {
@@ -9916,6 +9954,12 @@ export default class SnakeScene extends Phaser.Scene {
       'equipment.lightRadiusTiles',
       totals.lightRadiusTiles > 0 ? totals.lightRadiusTiles : undefined,
     );
+    const firstPersonActive = totals.firstPersonView ? true : undefined;
+    this.setFlag('equipment.firstPersonView', firstPersonActive);
+    if (this.daggerfellPresentationActive !== Boolean(firstPersonActive)) {
+      this.daggerfellPresentationActive = Boolean(firstPersonActive);
+      this.playDaggerfellTransition();
+    }
     const currentMaxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
     const nextMaxHealth = Math.max(1, this.skillTree.getDerivedStat('maxHealth'));
     const currentHealth = Number(this.getFlag<number>('player.health') ?? currentMaxHealth);
@@ -10355,10 +10399,15 @@ export default class SnakeScene extends Phaser.Scene {
       this.carThrottle = -y;
       return true;
     }
-    this.emitInputActionDebug('move', 'controller', `${x},${y}`);
-    this.setDir(x, y);
+    const mappedDirection = this.resolveFirstPersonDirection({ x, y });
+    if (this.isFirstPersonPresentationRequested() && !mappedDirection) {
+      return true;
+    }
+    const direction = mappedDirection ?? { x, y };
+    this.emitInputActionDebug('move', 'controller', `${direction.x},${direction.y}`);
+    this.setDir(direction.x, direction.y);
     if (this.isManualHouseMovementActive()) {
-      this.setManualResumeDir(x, y);
+      this.setManualResumeDir(direction.x, direction.y);
       this.consumeManualResumePause();
       this.takeManualTurn();
     } else if (this.minecraftMode && !this.deathCutscene) {
@@ -11408,53 +11457,81 @@ export default class SnakeScene extends Phaser.Scene {
     this.atmosphereAudioManager.updateAudio(atmosphere);
     this.cameras.main.setZoom(1);
     this.cameras.main.setScroll(0, 0);
-    this.snakeRenderer.render(room, renderedSnakeBody, room.id, currentApple, {
-      wallSenseRadius,
-      snakeColor,
-      poweredUp: Boolean(pActive),
-      ghostly,
-      direction: localPlayer?.direction ?? this.snakeGame.getDirection(),
-      characterMode: this.snakeGame.getCharacterMode(),
-      snakeRenderStyle: activeSnakeTheme.id === 'retro-grid' ? 'retro-grid' : 'sprite',
-      otherPlayers: Object.values(snapshot.players)
-        .filter(
-          (player) =>
-            !player.isLocal &&
-            player.alive &&
-            (binocularsView
-              ? binocularsView.roomIds.has(player.roomId)
-              : player.roomId === room.id),
-        )
-        .map((player) => ({
-          id: player.id,
-          body: player.body,
-          direction: player.direction,
-          color: 0x4ecdc4,
-        })),
-      snakePalette: starforgedSnakePalette ?? activeSnakeTheme.palette,
-      activeHat: activeSnakeTheme.id === 'unicorn' ? 'unicorn-horn' : this.snakeCosmetics.activeHat,
-      activeEmoticon: this.getActiveEmoticonForRender(),
-      enemies: roomSnapshot?.enemies ?? this.snakeGame.getEnemies(room.id),
-      followers: roomSnapshot?.followers ?? [],
-      bullets: roomSnapshot?.bullets ?? this.snakeGame.getEnemyBullets(room.id),
-      footballs: roomSnapshot?.footballs ?? this.snakeGame.getFootballs(room.id),
-      bombs: visibleBombs,
-      animals: roomSnapshot?.animals ?? this.snakeGame.getAnimals(room.id),
-      alchemyStation: placedAlchemyStation
-        ? {
-            roomId: placedAlchemyStation.roomId,
-            x: placedAlchemyStation.position.x,
-            y: placedAlchemyStation.position.y,
-          }
-        : null,
-      atmosphere,
-      thermalBody: temperature,
-      lightningStrike: binocularsView ? null : this.snakeGame.getLightningStrikeView(room.id),
-      renderTimeMs: this.time.now,
-      renderRooms: binocularsView?.rooms,
-      renderScale: binocularsView ? 1 / 3 : 1,
+    const direction = localPlayer?.direction ?? this.snakeGame.getDirection();
+    const enemies = roomSnapshot?.enemies ?? this.snakeGame.getEnemies(room.id);
+    const followers = roomSnapshot?.followers ?? [];
+    const animals = roomSnapshot?.animals ?? this.snakeGame.getAnimals(room.id);
+    const firstPersonRendered = this.shouldRenderFirstPerson({
+      localPlayer: Boolean(localPlayer),
+      roomSnapshot: Boolean(roomSnapshot),
+      binocularsActive: Boolean(binocularsView),
     });
-    if (!binocularsView) {
+    if (firstPersonRendered) {
+      this.snakeRenderer.hide();
+      this.firstPersonRenderer.render({
+        roomSnapshot: {
+          ...roomSnapshot!,
+          enemies,
+          followers,
+          animals,
+        },
+        snakeBody,
+        direction,
+        apple: currentApple,
+        atmosphere,
+        renderTimeMs: this.time.now,
+      });
+    } else {
+      this.firstPersonRenderer.hide();
+      this.snakeRenderer.render(room, renderedSnakeBody, room.id, currentApple, {
+        wallSenseRadius,
+        snakeColor,
+        poweredUp: Boolean(pActive),
+        ghostly,
+        direction,
+        characterMode: this.snakeGame.getCharacterMode(),
+        snakeRenderStyle: activeSnakeTheme.id === 'retro-grid' ? 'retro-grid' : 'sprite',
+        otherPlayers: Object.values(snapshot.players)
+          .filter(
+            (player) =>
+              !player.isLocal &&
+              player.alive &&
+              (binocularsView
+                ? binocularsView.roomIds.has(player.roomId)
+                : player.roomId === room.id),
+          )
+          .map((player) => ({
+            id: player.id,
+            body: player.body,
+            direction: player.direction,
+            color: 0x4ecdc4,
+          })),
+        snakePalette: starforgedSnakePalette ?? activeSnakeTheme.palette,
+        activeHat:
+          activeSnakeTheme.id === 'unicorn' ? 'unicorn-horn' : this.snakeCosmetics.activeHat,
+        activeEmoticon: this.getActiveEmoticonForRender(),
+        enemies,
+        followers,
+        bullets: roomSnapshot?.bullets ?? this.snakeGame.getEnemyBullets(room.id),
+        footballs: roomSnapshot?.footballs ?? this.snakeGame.getFootballs(room.id),
+        bombs: visibleBombs,
+        animals,
+        alchemyStation: placedAlchemyStation
+          ? {
+              roomId: placedAlchemyStation.roomId,
+              x: placedAlchemyStation.position.x,
+              y: placedAlchemyStation.position.y,
+            }
+          : null,
+        atmosphere,
+        thermalBody: temperature,
+        lightningStrike: binocularsView ? null : this.snakeGame.getLightningStrikeView(room.id),
+        renderTimeMs: this.time.now,
+        renderRooms: binocularsView?.rooms,
+        renderScale: binocularsView ? 1 / 3 : 1,
+      });
+    }
+    if (!binocularsView && !firstPersonRendered) {
       this.drawCars(room.id);
     }
     this.juice.setBombFuseActive(visibleBombs.length > 0);
@@ -11651,7 +11728,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.radiationHud.setVisible(false);
     }
 
-    if (!binocularsView) {
+    if (!binocularsView && !firstPersonRendered) {
       // Render bosses
       this.drawFreakYouPortalFx(room.id);
       const bosses = this.snakeGame.getBosses(room.id);
@@ -11793,6 +11870,40 @@ export default class SnakeScene extends Phaser.Scene {
       this.questHint.setVisible(false);
       this.questHintPanel.setVisible(false);
     }
+  }
+
+  private shouldRenderFirstPerson(options: {
+    localPlayer: boolean;
+    roomSnapshot: boolean;
+    binocularsActive: boolean;
+  }): boolean {
+    return (
+      this.isFirstPersonPresentationRequested() &&
+      options.localPlayer &&
+      options.roomSnapshot &&
+      !options.binocularsActive &&
+      !this.drivingCar &&
+      !this.minecraftMode &&
+      this.snakeGame.getCharacterMode() !== 'raccoon'
+    );
+  }
+
+  private playDaggerfellTransition(): void {
+    if (!this.scene.isActive()) return;
+    const overlay = this.add
+      .rectangle(0, 0, this.scale.width, this.scale.height, 0x050505, 0)
+      .setOrigin(0, 0)
+      .setDepth(240)
+      .setScrollFactor(0);
+    this.tweens.add({
+      targets: overlay,
+      alpha: 0.88,
+      duration: 90,
+      yoyo: true,
+      hold: 70,
+      ease: 'Sine.easeInOut',
+      onComplete: () => overlay.destroy(),
+    });
   }
 
   private buildBinocularsRenderView(

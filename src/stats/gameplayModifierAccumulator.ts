@@ -13,6 +13,7 @@ export interface RuntimeModifierTotals {
   phoenixCharges: number;
   itemPhoenixCharges: number;
   lightRadiusTiles: number;
+  firstPersonView: boolean;
   masonryEnabled: boolean;
   gunEnabled: boolean;
   activeTool?: 'gun' | 'gopro' | 'bomb-slingshot' | 'binoculars';
@@ -40,6 +41,7 @@ export function createRuntimeModifierTotals(): RuntimeModifierTotals {
     appleScorePenalty: 0,
     hazardMapSense: 0,
     lightRadiusTiles: 0,
+    firstPersonView: false,
     regenerator: null,
     masonryEnabled: false,
     gunEnabled: false,
@@ -74,6 +76,7 @@ export function applyRuntimeModifierSource(
   totals.activeTool = modifiers.activeTool ?? (modifiers.gunEnabled ? 'gun' : totals.activeTool);
   totals.wallSmiteEnabled ||= Boolean(modifiers.wallSmiteEnabled);
   totals.swimmingEnabled ||= Boolean(modifiers.swimmingEnabled);
+  totals.firstPersonView ||= Boolean(modifiers.firstPersonView);
   totals.refundEveryRooms = modifiers.refundEveryRooms ?? totals.refundEveryRooms;
 
   addRegenerator(totals, modifiers.regenerator);

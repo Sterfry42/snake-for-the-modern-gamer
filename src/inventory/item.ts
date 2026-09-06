@@ -68,6 +68,8 @@ export interface EquipmentModifiers {
   fishingMod?: number;
   // Adds a player-centered light radius in dark rooms.
   lightRadiusTiles?: number;
+  // Enables first-person presentation without changing simulation.
+  firstPersonView?: boolean;
 }
 
 export interface EquipableItem extends BaseItem {

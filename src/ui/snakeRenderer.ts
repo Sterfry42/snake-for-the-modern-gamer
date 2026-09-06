@@ -428,6 +428,21 @@ export class SnakeRenderer {
     );
   }
 
+  hide(): void {
+    this.graphics.clear();
+    this.overlayGraphics.clear();
+    this.lightGlowGraphics.clear();
+    this.wallGraphics.clear();
+    this.darknessTexture.clear().setVisible(false);
+    this.furnitureSprites.forEach((sprite) => sprite.setVisible(false));
+    this.vegetationSprites.forEach((sprite) => sprite.setVisible(false));
+    this.appleSprites.forEach((sprite) => sprite.setVisible(false));
+    this.enemySprites.forEach((sprite) => sprite.setVisible(false));
+    this.bulletSprites.forEach((sprite) => sprite.setVisible(false));
+    this.animalSprites.forEach((sprite) => sprite.setVisible(false));
+    this.powerupSprites.forEach((sprite) => sprite.setVisible(false));
+  }
+
   markStaticRoomDirty(roomId: string): void {
     this.dirtyStaticRooms.add(roomId);
   }

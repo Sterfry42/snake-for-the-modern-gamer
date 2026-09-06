@@ -1347,6 +1347,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('equipment.heatResistance', undefined);
     this.setFlag('equipment.coldResistance', undefined);
     this.setFlag('equipment.swimmingEnabled', undefined);
+    this.setFlag('equipment.firstPersonView', undefined);
     this.setFlag('equipment.activeTool', undefined);
     this.setFlag('traversal.buoyancyRemaining', undefined);
     this.setFlag('traversal.buoyancyCapacity', undefined);
@@ -18926,6 +18927,7 @@ export class SnakeGame implements QuestRuntime {
       HELL_ESCAPE_HEAT_RESISTANCE_FLAG,
       'equipment.coldResistance',
       'equipment.swimmingEnabled',
+      'equipment.firstPersonView',
       'equipment.refundEveryRooms',
       'equipment.appleScorePenalty',
       'equipment.hazardMapSense',
