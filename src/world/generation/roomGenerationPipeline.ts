@@ -1,47 +1,27 @@
 import { createHouseRoom } from '../houseRoom.js';
 import type { RoomSnapshot } from '../types.js';
-import {
-  BaseTerrainStage,
-  BiomeMapStage,
-  CrossRoomFeatureStage,
-  MultiRoomStructureStage,
-  PortalStage,
-  RandomObstacleStage,
-  RoomArchetypeStage,
-  SafetyValidationStage,
-  StructureStage,
-  VegetationStage,
-} from './stages/currentRoomStages.js';
-import type { RoomGenerationOperations, RoomGenerationStage } from './types.js';
+import type { RoomGenerationOperations } from './types.js';
 
 export class RoomGenerationPipeline {
-  private readonly stages: RoomGenerationStage[];
-
-  constructor(private readonly operations: RoomGenerationOperations) {
-    this.stages = [
-      new BiomeMapStage(operations),
-      new MultiRoomStructureStage(operations),
-      new BaseTerrainStage(operations),
-      new RoomArchetypeStage(operations),
-      new CrossRoomFeatureStage(operations),
-      new StructureStage(operations),
-      new RandomObstacleStage(operations),
-      new VegetationStage(operations),
-      new PortalStage(operations),
-      new SafetyValidationStage(operations),
-    ];
-  }
+  constructor(private readonly operations: RoomGenerationOperations) {}
 
   generate(roomId: string): RoomSnapshot {
-    // Keep the home interior as a special room while the rest of generation moves into stages.
+    // Keep the home interior as a special room while the rest of generation moves through the pipeline.
     if (roomId === '0,-1,0') {
       return createHouseRoom(roomId, this.operations.grid);
     }
 
     const context = this.operations.createGenerationContext(roomId);
-    for (const stage of this.stages) {
-      stage.apply(context);
-    }
+    this.operations.resolveBiomeMap(context);
+    this.operations.resolveMultiRoomStructures(context);
+    this.operations.applyBiomeBaseTerrain(context);
+    this.operations.applyRoomArchetype(context);
+    this.operations.placeCrossRoomFeatures(context);
+    this.operations.placeRoomStructures(context);
+    this.operations.placeRandomObstacles(context);
+    this.operations.placeVegetation(context);
+    this.operations.placePortals(context);
+    this.operations.validateRoomSafety(context);
     return this.operations.finalizeGenerationContext(context);
   }
 }
