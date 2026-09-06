@@ -1,8 +1,8 @@
 import type { Item } from '../inventory/item.js';
 
-export type StructureLocatorKind = 'garage' | 'moleman-dig-site';
+type StructureLocatorKind = 'garage' | 'moleman-dig-site';
 
-export interface StructureLocatorDefinition {
+interface StructureLocatorDefinition {
   kind: StructureLocatorKind;
   itemId: string;
   name: string;
@@ -10,9 +10,9 @@ export interface StructureLocatorDefinition {
   description: string;
 }
 
-export const STRUCTURE_LOCATOR_PREFIX = 'structure-locator-';
+const STRUCTURE_LOCATOR_PREFIX = 'structure-locator-';
 
-export const STRUCTURE_LOCATORS: readonly StructureLocatorDefinition[] = [
+const STRUCTURE_LOCATORS: readonly StructureLocatorDefinition[] = [
   {
     kind: 'garage',
     itemId: `${STRUCTURE_LOCATOR_PREFIX}garage`,
@@ -28,20 +28,6 @@ export const STRUCTURE_LOCATORS: readonly StructureLocatorDefinition[] = [
     description: 'Points toward a moleman dig site without waking every tunnel rumor in town.',
   },
 ];
-
-export function getStructureLocatorItemId(kind: StructureLocatorKind): string {
-  return `${STRUCTURE_LOCATOR_PREFIX}${kind}`;
-}
-
-export function isStructureLocatorItemId(itemId: string): boolean {
-  return itemId.startsWith(STRUCTURE_LOCATOR_PREFIX);
-}
-
-export function getStructureLocatorDefinition(
-  itemId: string,
-): StructureLocatorDefinition | undefined {
-  return STRUCTURE_LOCATORS.find((locator) => locator.itemId === itemId);
-}
 
 export function generateStructureLocatorItems(): Item[] {
   return STRUCTURE_LOCATORS.map((locator) => ({
