@@ -6,8 +6,8 @@ import type { RoomSnapshot } from './types.js';
 import { SeededBiomeMap } from './generation/biomeMap.js';
 import type { RoomGenerationContext } from './generation/types.js';
 import { TerrainCanvas } from './generation/terrainCanvas.js';
-import { PortalOperations } from './generation/stages/portalOperations.js';
-import { RandomObstacleOperations } from './generation/stages/randomObstacleOperations.js';
+import { placePortals } from './generation/stages/portalOperations.js';
+import { placeRandomObstacles } from './generation/stages/randomObstacleOperations.js';
 import { SafetyOperations } from './generation/stages/safetyOperations.js';
 import { StructureOperations } from './generation/stages/structureOperations.js';
 import { OceanOperations } from './generation/stages/oceanOperations.js';
@@ -81,9 +81,19 @@ export class RoomGenerator {
     this.applyRoomArchetype(context);
     this.placeCrossRoomFeatures(context);
     this.placeRoomStructures(context);
-    this.placeRandomObstacles(context);
+    placeRandomObstacles(
+      context,
+      this.config,
+      createRng(
+        `${this.worldGenerationIdentity.seed}:barriers:${this.worldGenerationIdentity.barrierSalt}:${context.roomId}`,
+      ),
+    );
     placeVegetation(context);
-    this.placePortals(context);
+    placePortals(
+      context,
+      this.config,
+      createRng(`${this.worldGenerationIdentity.seed}:portals:${context.roomId}`),
+    );
     this.validateRoomSafety(context);
     return this.finalizeGenerationContext(context);
   }
@@ -214,15 +224,6 @@ export class RoomGenerator {
     ).apply(context);
   }
 
-  private placeRandomObstacles(context: RoomGenerationContext): void {
-    new RandomObstacleOperations(
-      this.config,
-      createRng(
-        `${this.worldGenerationIdentity.seed}:barriers:${this.worldGenerationIdentity.barrierSalt}:${context.roomId}`,
-      ),
-    ).place(context);
-  }
-
   private placeCrossRoomFeatures(context: RoomGenerationContext): void {
     if (context.isMosaicCoast) {
       this.mosaicCoastOperations.placeDistrictContinuity(context);
@@ -255,13 +256,6 @@ export class RoomGenerator {
         `${this.worldGenerationIdentity.seed}:structures:${this.worldGenerationIdentity.structureSalt}:${context.roomId}`,
       ),
       this.structureResolver,
-    ).place(context);
-  }
-
-  private placePortals(context: RoomGenerationContext): void {
-    new PortalOperations(
-      this.config,
-      createRng(`${this.worldGenerationIdentity.seed}:portals:${context.roomId}`),
     ).place(context);
   }
 
