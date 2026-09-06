@@ -19,10 +19,6 @@ export function parseCoordinateRoomId(roomId: string): CoordinateRoomAddress | n
   return { kind: 'coordinate', roomId, x: x!, y: y!, z: z! };
 }
 
-export function isCoordinateRoomId(roomId: string): boolean {
-  return parseCoordinateRoomId(roomId) !== null;
-}
-
 export function assertValidRoomId(roomId: string): void {
   if (roomId.includes('NaN')) {
     throw new Error(`Invalid room id contains NaN: ${roomId}`);
