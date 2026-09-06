@@ -117,19 +117,3 @@ export interface RoomGenerationContext {
   vegetation: VegetationInstance[];
   mosaicCoast?: RoomSnapshot['mosaicCoast'];
 }
-
-export interface RoomGenerationOperations {
-  readonly grid: GridConfig;
-  createGenerationContext(roomId: string): RoomGenerationContext;
-  finalizeGenerationContext(context: RoomGenerationContext): RoomSnapshot;
-  resolveBiomeMap(context: RoomGenerationContext): void;
-  resolveMultiRoomStructures(context: RoomGenerationContext): void;
-  applyBiomeBaseTerrain(context: RoomGenerationContext): void;
-  applyRoomArchetype(context: RoomGenerationContext): void;
-  placeRandomObstacles(context: RoomGenerationContext): void;
-  placeCrossRoomFeatures(context: RoomGenerationContext): void;
-  placeRoomStructures(context: RoomGenerationContext): void;
-  placePortals(context: RoomGenerationContext): void;
-  placeVegetation(context: RoomGenerationContext): void;
-  validateRoomSafety(context: RoomGenerationContext): void;
-}
