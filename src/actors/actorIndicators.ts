@@ -7,8 +7,7 @@ export type ActorIndicatorKind =
   | 'hostile'
   | 'suspicious'
   | 'wounded'
-  | 'faction'
-  | 'locked';
+  | 'faction';
 
 export interface ActorIndicator {
   kind: ActorIndicatorKind;
