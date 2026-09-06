@@ -5,7 +5,6 @@ export function actorCanSpeakNow(actor: Actor): boolean {
     actor.health?.state === 'dead' ||
     actor.health?.state === 'downed' ||
     actor.hostility === 'dead' ||
-    actor.hostility === 'downed' ||
     actor.flags.dead === true ||
     actor.flags.eaten === true
   ) {
