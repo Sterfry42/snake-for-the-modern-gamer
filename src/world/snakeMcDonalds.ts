@@ -7,8 +7,8 @@ import {
   drawRestaurantSign,
   drawRestaurantSouthEntrance,
   findRestaurantBuildingPlacement,
-  setRestaurantTile,
 } from './restaurantBuilding.js';
+import { pickOne, setTile } from './structurePlacement.js';
 
 export interface McDonaldsData {
   cashier: {
@@ -53,26 +53,24 @@ export function tryPlaceSnakeMcDonalds(
 
   const { right, bottom } = placement;
   for (let y = bottom - 4; y <= bottom - 2; y += 1) {
-    setRestaurantTile(layout, right - 5, y, '#');
+    setTile(layout, right - 5, y, '#');
   }
   for (let x = right - 5; x <= right - 1; x += 1) {
-    setRestaurantTile(layout, x, bottom - 4, '#');
+    setTile(layout, x, bottom - 4, '#');
   }
 
-  setRestaurantTile(layout, right - 5, bottom - 3, '.');
+  setTile(layout, right - 5, bottom - 3, '.');
 
   const toilet = { x: right - 2, y: bottom - 2 };
-  setRestaurantTile(layout, toilet.x, toilet.y, 'R');
+  setTile(layout, toilet.x, toilet.y, 'R');
 
   const arcade = { x: right - 3, y: placement.bounds.top + 2 };
-  setRestaurantTile(layout, arcade.x, arcade.y, 'Z');
+  setTile(layout, arcade.x, arcade.y, 'Z');
 
   drawRestaurantSouthEntrance(layout, placement);
 
-  const name = CASHIER_NAMES[Math.floor(rng() * CASHIER_NAMES.length)]!;
-
   return {
-    cashier: { name, ...cashier },
+    cashier: { name: pickOne(CASHIER_NAMES, rng), ...cashier },
     toilet,
     arcade,
     bounds: placement.bounds,
