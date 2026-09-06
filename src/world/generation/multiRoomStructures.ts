@@ -1,6 +1,6 @@
 import type { BiomeId } from '../biomes.js';
 
-export type MultiRoomStructureKind = 'humanTown' | 'futureDungeon' | 'futureCastle' | 'futureRuin';
+export type MultiRoomStructureKind = 'humanTown';
 
 export type StructureRoomRole = 'inside' | 'adjacent' | 'approach';
 
