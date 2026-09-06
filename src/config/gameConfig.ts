@@ -66,6 +66,7 @@ export interface AppleTypeConfig {
     | 'shielded'
     | 'gold'
     | 'skittish'
+    | 'roadRash'
     | 'mochi'
     | 'wasabi'
     | 'yuzu'
@@ -281,6 +282,14 @@ export const defaultGameConfig: GameConfig = {
         outlineDarkenFactor: 0.45,
         spawn: { base: 0.35, scoreThreshold: 15 },
         behavior: 'skittish',
+      },
+      {
+        id: 'roadRash',
+        label: 'Road Rash Apple',
+        color: 0xff4d1f,
+        outlineDarkenFactor: 0.58,
+        spawn: { base: 0.2, scoreThreshold: 12 },
+        behavior: 'roadRash',
       },
       {
         id: 'mochi',

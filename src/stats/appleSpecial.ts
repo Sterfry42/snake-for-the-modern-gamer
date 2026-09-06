@@ -6,6 +6,7 @@ const SPECIAL_APPLES = new Set([
   'shielded',
   'gold',
   'skittish',
+  'roadRash',
   'mochi',
   'wasabi',
   'yuzu',
@@ -17,6 +18,7 @@ const SPECIAL_APPLES = new Set([
 
 const RARE_APPLES = new Set([
   'gold',
+  'roadRash',
   'mochi',
   'wasabi',
   'yuzu',

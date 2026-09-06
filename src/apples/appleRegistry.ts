@@ -11,6 +11,7 @@ import type { Vector2Like } from '../core/math.js';
 import type { AppleSystemConfig, AppleTypeConfig } from '../config/gameConfig.js';
 import { ShieldedApple } from './behaviors/shieldedApple.js';
 import { SkittishApple } from './behaviors/skittishApple.js';
+import { RoadRashApple } from './behaviors/roadRashApple.js';
 import { FrostApple } from './behaviors/frostApple.js';
 import { AmberApple } from './behaviors/amberApple.js';
 import { FossilApple } from './behaviors/fossilApple.js';
@@ -41,6 +42,8 @@ export class AppleRegistry {
           type.color,
           this.config.skittishMoveChance,
         );
+      case 'roadRash':
+        return new RoadRashApple(roomId, position, type.id, type.color);
 
       // Frost: has seasonal reward logic
       case 'frost':

@@ -2230,6 +2230,9 @@ export class SnakeRenderer {
     apples.forEach((apple, index) => {
       const x = (offset.x + apple.x) * this.grid.cell;
       const y = (offset.y + apple.y) * this.grid.cell;
+      if (appleInfo?.typeId === 'roadRash') {
+        this.drawRoadRashAppleTrail(x, y, appleInfo);
+      }
       this.ensureAppleSprite(startIndex + index)
         .setTexture(this.appleTextureKeys[variant])
         .setPosition(this.scaledPx(x + this.grid.cell / 2), this.scaledPx(y + this.grid.cell / 2))
@@ -2255,6 +2258,47 @@ export class SnakeRenderer {
       .setDepth(APPLE_LAYER_DEPTH)
       .setVisible(false)
       .setOrigin(0.5, 0.5);
+  }
+
+  private drawRoadRashAppleTrail(x: number, y: number, appleInfo: AppleSnapshot): void {
+    const velocity = appleInfo.metadata?.velocity;
+    if (!this.isVectorLike(velocity)) {
+      return;
+    }
+
+    const hotTicksRemaining = Number(appleInfo.metadata?.hotTicksRemaining ?? 0);
+    const totalHotTicks = Math.max(1, Number(appleInfo.metadata?.totalHotTicks ?? 1));
+    const heat = Phaser.Math.Clamp(hotTicksRemaining / totalHotTicks, 0.15, 1);
+    const cell = this.grid.cell;
+    const centerX = x + cell / 2;
+    const centerY = y + cell / 2;
+    const backX = -velocity.x;
+    const backY = -velocity.y;
+    const sideX = velocity.y;
+    const sideY = -velocity.x;
+
+    this.graphics.lineStyle(Math.max(2, Math.floor(cell * 0.12)), 0xfff3a8, 0.45 * heat);
+    this.graphics.lineBetween(
+      centerX + backX * cell * 0.1,
+      centerY + backY * cell * 0.1,
+      centerX + backX * cell * 0.82 + sideX * cell * 0.15,
+      centerY + backY * cell * 0.82 + sideY * cell * 0.15,
+    );
+    this.graphics.lineStyle(Math.max(1, Math.floor(cell * 0.08)), 0xff4d1f, 0.72 * heat);
+    this.graphics.lineBetween(
+      centerX + backX * cell * 0.18,
+      centerY + backY * cell * 0.18,
+      centerX + backX * cell * 0.95 - sideX * cell * 0.18,
+      centerY + backY * cell * 0.95 - sideY * cell * 0.18,
+    );
+  }
+
+  private isVectorLike(value: unknown): value is Vector2Like {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+    const candidate = value as Partial<Vector2Like>;
+    return typeof candidate.x === 'number' && typeof candidate.y === 'number';
   }
 
   private ensureAppleSprite(index: number): Phaser.GameObjects.Image {
@@ -3178,6 +3222,8 @@ export class SnakeRenderer {
         return 'gold';
       case 'skittish':
         return 'skittish';
+      case 'roadRash':
+        return 'roadRash';
       default:
         return 'normal';
     }

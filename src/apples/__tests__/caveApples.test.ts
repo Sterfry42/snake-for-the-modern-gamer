@@ -84,6 +84,114 @@ describe('cave apples', () => {
     ]);
   });
 
+  it('moves road rash apples every step and pays a hot-catch bonus', () => {
+    const room = caveRoom();
+    const rooms = new Map([[room.id, room]]);
+    const world = {
+      getRoom: (roomId: string) => {
+        const found = rooms.get(roomId);
+        if (!found) {
+          throw new Error(`Unexpected room request: ${roomId}`);
+        }
+        return found;
+      },
+      setApple: (_roomId: string, position?: { x: number; y: number }) => {
+        room.apple = position;
+      },
+      hasTreasureAt: () => false,
+    };
+    const apples = new AppleService(
+      defaultGameConfig.apples,
+      defaultGameConfig.grid,
+      world as never,
+      () => 0,
+    );
+
+    apples.placeApple(room.id, { x: 5, y: 5 }, 'roadRash');
+    const affected = apples.moveApples([]);
+    const snapshot = apples.getSnapshot(room.id);
+
+    expect([...affected]).toEqual([room.id]);
+    expect(snapshot?.position).toEqual({ x: 6, y: 5 });
+    expect(snapshot?.metadata).toMatchObject({
+      velocity: { x: 1, y: 0 },
+      hotTicksRemaining: 23,
+      totalHotTicks: 24,
+      cooled: false,
+    });
+
+    const result = apples.handleConsumption(room.id, { x: 1, y: 0 }, false, { x: 6, y: 5 });
+
+    expect(result.rewards).toEqual({ growth: 3, bonusScore: 37 });
+  });
+
+  it('bounces road rash apples away from cave walls', () => {
+    const room = caveRoom();
+    const rooms = new Map([[room.id, room]]);
+    const world = {
+      getRoom: (roomId: string) => {
+        const found = rooms.get(roomId);
+        if (!found) {
+          throw new Error(`Unexpected room request: ${roomId}`);
+        }
+        return found;
+      },
+      setApple: (_roomId: string, position?: { x: number; y: number }) => {
+        room.apple = position;
+      },
+      hasTreasureAt: () => false,
+    };
+    const apples = new AppleService(
+      defaultGameConfig.apples,
+      defaultGameConfig.grid,
+      world as never,
+      () => 0,
+    );
+
+    apples.placeApple(room.id, { x: 30, y: 5 }, 'roadRash');
+    apples.moveApples([]);
+    const snapshot = apples.getSnapshot(room.id);
+
+    expect(snapshot?.position).toEqual({ x: 29, y: 5 });
+    expect(snapshot?.metadata).toMatchObject({ velocity: { x: -1, y: 0 } });
+  });
+
+  it('cools road rash apples into a small reward after the hot timer expires', () => {
+    const room = caveRoom();
+    const rooms = new Map([[room.id, room]]);
+    const world = {
+      getRoom: (roomId: string) => {
+        const found = rooms.get(roomId);
+        if (!found) {
+          throw new Error(`Unexpected room request: ${roomId}`);
+        }
+        return found;
+      },
+      setApple: (_roomId: string, position?: { x: number; y: number }) => {
+        room.apple = position;
+      },
+      hasTreasureAt: () => false,
+    };
+    const apples = new AppleService(
+      defaultGameConfig.apples,
+      defaultGameConfig.grid,
+      world as never,
+      () => 0,
+    );
+
+    apples.placeApple(room.id, { x: 5, y: 5 }, 'roadRash');
+    for (let i = 0; i < 24; i += 1) {
+      apples.moveApples([]);
+    }
+
+    const snapshot = apples.getSnapshot(room.id);
+    expect(snapshot?.metadata).toMatchObject({ hotTicksRemaining: 0, cooled: true });
+
+    const result = apples.handleConsumption(room.id, { x: 1, y: 0 }, false, snapshot?.position);
+
+    expect(result.rewards).toEqual({ growth: 1, bonusScore: 2 });
+  });
+
   it('moves skittish apples using cave-local coordinates', () => {
     const room = caveRoom();
     const rooms = new Map([[room.id, room]]);

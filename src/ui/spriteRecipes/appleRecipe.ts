@@ -1,6 +1,6 @@
 import type { RuntimeSpriteRecipe } from '../runtimeSpriteFactory.js';
 
-export type AppleSpriteVariant = 'normal' | 'shielded' | 'gold' | 'skittish';
+export type AppleSpriteVariant = 'normal' | 'shielded' | 'gold' | 'skittish' | 'roadRash';
 
 export interface AppleSpritePalette {
   fillColor: string;
@@ -11,7 +11,13 @@ export interface AppleSpritePalette {
   sparkleColor: string;
 }
 
-const APPLE_VARIANTS: readonly AppleSpriteVariant[] = ['normal', 'shielded', 'gold', 'skittish'];
+const APPLE_VARIANTS: readonly AppleSpriteVariant[] = [
+  'normal',
+  'shielded',
+  'gold',
+  'skittish',
+  'roadRash',
+];
 
 function drawBlock(
   context: CanvasRenderingContext2D,
@@ -136,6 +142,15 @@ const SKITTISH_FEET = [
   [5, 7],
 ];
 
+const ROAD_RASH_FLAMES = [
+  [0, 5],
+  [1, 6],
+  [0, 7],
+  [6, 6],
+  [7, 5],
+  [7, 7],
+];
+
 export const appleSpriteRecipe: RuntimeSpriteRecipe<AppleSpriteVariant, AppleSpritePalette> = {
   id: 'apple',
   variants: APPLE_VARIANTS,
@@ -171,6 +186,8 @@ export const appleSpriteRecipe: RuntimeSpriteRecipe<AppleSpriteVariant, AppleSpr
     } else if (variant === 'skittish') {
       drawMany(context, SKITTISH_EYES, pixelSize, palette.sparkleColor);
       drawMany(context, SKITTISH_FEET, pixelSize, palette.sparkleColor);
+    } else if (variant === 'roadRash') {
+      drawMany(context, ROAD_RASH_FLAMES, pixelSize, palette.sparkleColor);
     }
 
     context.restore();
