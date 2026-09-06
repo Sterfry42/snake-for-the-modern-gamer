@@ -30,18 +30,13 @@ const TOWN_RESIDENT_ROLE_VALUES = [
 
 export type TownResidentRole = (typeof TOWN_RESIDENT_ROLE_VALUES)[number];
 
-export type TownRoleShopKind =
+type TownRoleShopKind =
   | 'general'
   | 'equipment'
   | 'potion'
   | 'butcher'
   | 'cards'
   | 'food'
-  | 'florist'
-  | 'jeweler'
-  | 'tailor'
-  | 'scribe'
-  | 'clinic'
   | 'blackMarket'
   | 'maneuverTrainer'
   | 'maps'
