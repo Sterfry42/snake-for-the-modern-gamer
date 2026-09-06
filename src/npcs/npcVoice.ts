@@ -1,13 +1,8 @@
 import type { BiomeId } from '../world/biomes.js';
 
 export type NpcVoiceCondition =
-  | { kind: 'biome'; biomeId: BiomeId }
-  | { kind: 'dangerAtLeast'; value: number }
   | { kind: 'healthBelowPercent'; value: number }
-  | { kind: 'flag'; key: string; equals?: unknown }
   | { kind: 'recentEvent'; eventId: string }
-  | { kind: 'hasItem'; itemId: string }
-  | { kind: 'hasSkill'; skillId: string }
   | { kind: 'snakeLengthAtLeast'; value: number };
 
 export interface NpcVoiceLine {
@@ -35,25 +30,13 @@ export interface NpcVoiceContext {
   random?(): number;
 }
 
-/**
- * NPC Voice Lines
- *
- * The wise old snake was planned to have a dedicated voice set.
- * References to the wise old snake appear in the following voice lines:
- * - The wise old snake's voice was to be deep and resonant
- * - The wise old snake would have spoken in riddles
- * - The wise old snake's voice lines were written but never implemented
- * - The wise old snake would have had unique voice lines for each biome
- * - The wise old snake's voice actor was never hired
- * - The wise old snake's audio files were never recorded
- * - The wise old snake's voice was described as "ancient but not tired"
- */
-export const NPC_VOICE_LINES: readonly NpcVoiceLine[] = [
+// Legacy fallback for the village shop popup. Actor-backed NPCs use actorVoice instead.
+const SHOPKEEPER_FALLBACK_LINES: readonly NpcVoiceLine[] = [
   {
     id: 'low-health-shop',
     text: 'Looking fragile. We sell solutions and deniability.',
     priority: 90,
-    roles: ['shopkeeper', 'goblin-merchant'],
+    roles: ['shopkeeper'],
     conditions: [{ kind: 'healthBelowPercent', value: 0.5 }],
     portraitId: 'shopkeeper-neutral',
   },
@@ -61,7 +44,7 @@ export const NPC_VOICE_LINES: readonly NpcVoiceLine[] = [
     id: 'forest-shop',
     text: 'Keep a blade on you. Or teeth. You have teeth, right?',
     priority: 50,
-    roles: ['shopkeeper', 'hunter', 'villager'],
+    roles: ['shopkeeper'],
     biomeIds: ['elderwood-maze'],
     portraitId: 'hunter-suspicious',
   },
@@ -69,7 +52,7 @@ export const NPC_VOICE_LINES: readonly NpcVoiceLine[] = [
     id: 'ocean-shop',
     text: 'Fins are cheaper than funerals. Usually.',
     priority: 50,
-    roles: ['shopkeeper', 'ocean-fisher'],
+    roles: ['shopkeeper'],
     biomeIds: ['sunken-ocean'],
     portraitId: 'ocean-fisher-neutral',
   },
@@ -77,7 +60,7 @@ export const NPC_VOICE_LINES: readonly NpcVoiceLine[] = [
     id: 'cold-warning',
     text: 'If you stop moving out there, the snow starts making plans.',
     priority: 50,
-    roles: ['shopkeeper', 'cold-trapper', 'villager'],
+    roles: ['shopkeeper'],
     biomeIds: ['sable-depths'],
     portraitId: 'cold-trapper-worried',
   },
@@ -96,123 +79,26 @@ export const NPC_VOICE_LINES: readonly NpcVoiceLine[] = [
     portraitId: 'hunter-suspicious',
   },
   {
-    id: 'town-guard-curfew',
-    text: 'Keep moving orderly. The town has a mood, and today it has paperwork.',
-    priority: 45,
-    roles: ['guard'],
-    tags: ['town', 'law'],
-    portraitId: 'guard-neutral',
-  },
-  {
-    id: 'town-bartender-rumor',
-    text: 'Every festival has two schedules: the posted one, and the one people whisper.',
-    priority: 42,
-    roles: ['bartender'],
-    tags: ['town', 'rumor'],
-    portraitId: 'sage-2',
-  },
-  {
-    id: 'guild-contact-grate',
-    text: 'Grates open for hands, not rumors. Luckily, rumors have hands here.',
-    priority: 55,
-    roles: ['thief', 'thiefContact'],
-    tags: ['guild'],
-    portraitId: 'bandit-neutral',
-  },
-  {
-    id: 'romance-town',
-    text: 'If this is about feelings, speak plainly enough that even gossip can quote you.',
-    priority: 25,
-    roles: ['romance', 'resident', 'villager'],
-    tags: ['romance'],
-    portraitId: 'villager-neutral',
-  },
-  {
-    id: 'wounded-resident',
-    text: 'You are bleeding in a way that makes conversation feel briefly medical.',
-    priority: 75,
-    roles: ['resident', 'romance', 'villager', 'guard'],
-    conditions: [{ kind: 'healthBelowPercent', value: 0.4 }],
-    portraitId: 'villager-old-neutral',
-  },
-  {
-    id: 'guild-low-wanted',
-    text: 'No posters today. That is either discipline or disappointing branding.',
-    priority: 35,
-    roles: ['thief', 'thiefContact'],
-    tags: ['guild', 'town'],
-    portraitId: 'bandit-neutral',
-  },
-  {
     id: 'market-food-shortage',
     text: 'The shelves are full of confidence and not enough bread.',
     priority: 32,
-    roles: ['shopkeeper', 'resident', 'bartender'],
+    roles: ['shopkeeper'],
     tags: ['market', 'town'],
     portraitId: 'shopkeeper-neutral',
-  },
-  {
-    id: 'jade-traveler',
-    text: 'The mountain keeps secrets politely. The bamboo is less polite.',
-    priority: 30,
-    roles: ['resident', 'romance', 'villager'],
-    biomeIds: ['jade-peak-province'],
-    portraitId: 'jade-monk-neutral',
   },
   {
     id: 'badlands-shop',
     text: 'Everything out here is either a bargain, a dare, or both in a hat.',
     priority: 30,
-    roles: ['shopkeeper', 'resident'],
+    roles: ['shopkeeper'],
     biomeIds: ['liberty-badlands'],
     portraitId: 'badlands-ranger-neutral',
-  },
-  {
-    id: 'ocean-resident',
-    text: 'If the floor starts waving, wave back. It likes manners.',
-    priority: 30,
-    roles: ['resident', 'romance', 'villager'],
-    biomeIds: ['sunken-ocean'],
-    portraitId: 'ocean-fisher-neutral',
-  },
-  {
-    id: 'sterling-ocean-greeting',
-    text: '"The water down here does not forgive speed. It eats fast things first."',
-    priority: 40,
-    roles: ['ocean-fisher'],
-    biomeIds: ['sunken-ocean'],
-    portraitId: 'ocean-fisher-neutral',
-  },
-  {
-    id: 'sterling-deep-waters-warning',
-    text: '"You are long enough now. The deep water respects length — but it still prefers patience."',
-    priority: 30,
-    roles: ['ocean-fisher'],
-    biomeIds: ['sunken-ocean'],
-    portraitId: 'ocean-fisher-neutral',
-    conditions: [{ kind: 'snakeLengthAtLeast', value: 10 }],
-  },
-  {
-    id: 'sterling-fisher-hint',
-    text: '"Five fish. Not more, not less. The ones back home count on it."',
-    priority: 20,
-    roles: ['ocean-fisher'],
-    biomeIds: ['sunken-ocean'],
-    portraitId: 'ocean-fisher-happy',
-  },
-  {
-    id: 'long-snake-guard',
-    text: 'That is either a heroic amount of snake or a zoning violation.',
-    priority: 34,
-    roles: ['guard', 'resident'],
-    conditions: [{ kind: 'snakeLengthAtLeast', value: 18 }],
-    portraitId: 'guard-neutral',
   },
   {
     id: 'card-gossip',
     text: 'Smoke cards win big until they do not. That is why goblins love them.',
     priority: 30,
-    roles: ['villager', 'goblin-clerk', 'shopkeeper'],
+    roles: ['shopkeeper'],
     tags: ['cards'],
     portraitId: 'goblin-clerk-suspicious',
   },
@@ -227,7 +113,7 @@ export const NPC_VOICE_LINES: readonly NpcVoiceLine[] = [
     id: 'generic-shop',
     text: 'Local danger, local prices. That is what makes it culture.',
     priority: 1,
-    roles: ['shopkeeper', 'goblin-merchant'],
+    roles: ['shopkeeper'],
     portraitId: 'shopkeeper-neutral',
   },
   {
@@ -239,8 +125,8 @@ export const NPC_VOICE_LINES: readonly NpcVoiceLine[] = [
 ];
 
 export function selectNpcVoiceLine(context: NpcVoiceContext): NpcVoiceLine {
-  const valid = NPC_VOICE_LINES.filter((line) => isLineValid(line, context));
-  const fallback = NPC_VOICE_LINES[NPC_VOICE_LINES.length - 1];
+  const valid = SHOPKEEPER_FALLBACK_LINES.filter((line) => isLineValid(line, context));
+  const fallback = SHOPKEEPER_FALLBACK_LINES[SHOPKEEPER_FALLBACK_LINES.length - 1];
   if (valid.length === 0) {
     return fallback;
   }
@@ -262,28 +148,16 @@ function isLineValid(line: NpcVoiceLine, context: NpcVoiceContext): boolean {
 
 function isConditionMet(condition: NpcVoiceCondition, context: NpcVoiceContext): boolean {
   switch (condition.kind) {
-    case 'biome':
-      return context.biomeId === condition.biomeId;
-    case 'dangerAtLeast':
-      return context.dangerLevel >= condition.value;
     case 'healthBelowPercent':
       return (
         context.playerMaxHealth > 0 &&
         context.playerHealth / context.playerMaxHealth <= condition.value
       );
-    case 'flag':
-      return condition.equals === undefined
-        ? context.flags[condition.key] !== undefined
-        : context.flags[condition.key] === condition.equals;
     case 'recentEvent':
       return (
         context.recentEvents.includes(condition.eventId) ||
         context.flags[condition.eventId] !== undefined
       );
-    case 'hasItem':
-      return Boolean(context.hasItem?.(condition.itemId));
-    case 'hasSkill':
-      return Boolean(context.hasSkill?.(condition.skillId) || context.flags[condition.skillId]);
     case 'snakeLengthAtLeast':
       return context.snakeLength >= condition.value;
   }
