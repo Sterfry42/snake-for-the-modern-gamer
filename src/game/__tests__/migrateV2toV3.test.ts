@@ -1,107 +1,56 @@
-import { describe, it, expect } from 'vitest';
-import { saveManager } from '../../game/saveManager.js';
+import { describe, expect, it } from 'vitest';
+import { migrateV2toV3, type GameSaveData } from '../saveTypes.js';
 
-describe('Save Migration v2→v3', () => {
-  it('should have SaveManager VERSION updated to 3.0.0', () => {
-    // Access the private VERSION via type assertion
-    const version = (saveManager as unknown as { VERSION?: string }).VERSION;
-    expect(version).toBe('3.0.0');
-  });
+function makeSave(version = '2.0.0'): GameSaveData {
+  return {
+    version,
+    timestamp: 0,
+    score: 100,
+    inventory: {},
+    equipment: {},
+    flags: {},
+  };
+}
 
-  it('should migrate fishing data from v2 to v3', () => {
-    // Simulate a v2 save with fishing data
-    const data: Record<string, unknown> = {
-      version: '2.0.0',
-      timestamp: Date.now(),
-      score: 100,
-      inventory: {},
-      equipment: {},
-      flags: {},
-      fishing: {
-        caughtFish: { 'fish-minnow': 3, 'fish-fire-eel': 1 },
-      },
-    };
+describe('migrateV2toV3', () => {
+  it('adds the v3 fishing defaults without losing existing catches', () => {
+    const data = makeSave();
+    data.fishing = { caughtFish: { 'fish-minnow': 3, 'fish-fire-eel': 1 } };
 
-    // Manual migration logic (same as saveManager)
-    data.version = '3.0.0';
-    data.fishing = data.fishing ?? {};
-    (data.fishing as Record<string, unknown>).catchJournal =
-      (data.fishing as Record<string, unknown>).catchJournal ?? [];
-    (data.fishing as Record<string, unknown>).equippedRod =
-      (data.fishing as Record<string, unknown>).equippedRod ?? 'none';
-    (data.fishing as Record<string, unknown>).caughtFish =
-      (data.fishing as Record<string, unknown>).caughtFish ?? {};
+    migrateV2toV3(data);
 
     expect(data.version).toBe('3.0.0');
-    expect((data.fishing as Record<string, unknown>).caughtFish).toEqual({
-      'fish-minnow': 3,
-      'fish-fire-eel': 1,
+    expect(data.fishing).toEqual({
+      caughtFish: { 'fish-minnow': 3, 'fish-fire-eel': 1 },
+      catchJournal: [],
+      equippedRod: 'none',
     });
-    expect((data.fishing as Record<string, unknown>).catchJournal).toEqual([]);
-    expect((data.fishing as Record<string, unknown>).equippedRod).toBe('none');
   });
 
-  it('should be idempotent — migrating v3 data again should not change it', () => {
-    const data: Record<string, unknown> = {
-      version: '3.0.0',
-      timestamp: Date.now(),
-      score: 100,
-      inventory: {},
-      equipment: {},
-      flags: {},
-      fishing: {
-        caughtFish: { 'fish-minnow': 1 },
-        catchJournal: [
-          {
-            id: 'existing-entry',
-            typeId: 'minnow',
-            biomeId: 'verdigris-basin',
-            rarity: 'common',
-            weight: 0.2,
-            timestamp: 0,
-          },
-        ],
-        equippedRod: 'fishing-rod',
-      },
-    };
+  it('creates fishing state when it is absent', () => {
+    const data = makeSave();
 
-    // Run the migration again
-    data.version = '3.0.0';
-    data.fishing = data.fishing ?? {};
-    (data.fishing as Record<string, unknown>).catchJournal =
-      (data.fishing as Record<string, unknown>).catchJournal ?? [];
-    (data.fishing as Record<string, unknown>).equippedRod =
-      (data.fishing as Record<string, unknown>).equippedRod ?? 'none';
-    (data.fishing as Record<string, unknown>).caughtFish =
-      (data.fishing as Record<string, unknown>).caughtFish ?? {};
+    migrateV2toV3(data);
 
-    expect(data.version).toBe('3.0.0');
-    expect((data.fishing as Record<string, unknown>).catchJournal).toHaveLength(1);
-    expect((data.fishing as Record<string, unknown>).equippedRod).toBe('fishing-rod');
+    expect(data.fishing).toEqual({
+      caughtFish: {},
+      catchJournal: [],
+      equippedRod: 'none',
+    });
   });
 
-  it('should handle missing fishing object in v2 save', () => {
-    const data: Record<string, unknown> = {
-      version: '2.0.0',
-      timestamp: Date.now(),
-      score: 50,
-      inventory: {},
-      equipment: {},
-      flags: {},
+  it('preserves existing v3 fishing values when called again', () => {
+    const data = makeSave('3.0.0');
+    data.fishing = {
+      caughtFish: { 'fish-minnow': 1 },
+      catchJournal: [{ id: 'existing-entry' }],
+      equippedRod: 'fishing-rod',
     };
 
-    // Run migration
-    data.version = '3.0.0';
-    data.fishing = data.fishing ?? {};
-    (data.fishing as Record<string, unknown>).catchJournal =
-      (data.fishing as Record<string, unknown>).catchJournal ?? [];
-    (data.fishing as Record<string, unknown>).equippedRod =
-      (data.fishing as Record<string, unknown>).equippedRod ?? 'none';
-    (data.fishing as Record<string, unknown>).caughtFish =
-      (data.fishing as Record<string, unknown>).caughtFish ?? {};
+    migrateV2toV3(data);
 
-    expect(data.fishing).toBeDefined();
-    expect((data.fishing as Record<string, unknown>).catchJournal).toEqual([]);
-    expect((data.fishing as Record<string, unknown>).equippedRod).toBe('none');
+    expect(data.fishing.caughtFish).toEqual({ 'fish-minnow': 1 });
+    expect(data.fishing.catchJournal).toEqual([{ id: 'existing-entry' }]);
+    expect(data.fishing.equippedRod).toBe('fishing-rod');
   });
 });

@@ -124,7 +124,7 @@ export interface RoomGenerationStage {
 }
 
 export interface RoomGenerationOperations {
-  createGenerationContext(roomId: string, grid: GridConfig): RoomGenerationContext;
+  createGenerationContext(roomId: string, grid?: GridConfig): RoomGenerationContext;
   finalizeGenerationContext(context: RoomGenerationContext): RoomSnapshot;
   resolveBiomeMap(context: RoomGenerationContext): void;
   resolveMultiRoomStructures(context: RoomGenerationContext): void;

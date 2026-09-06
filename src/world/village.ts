@@ -1,9 +1,9 @@
 import type { GridConfig } from '../config/gameConfig.js';
-import { vectorKey } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
-import { buildHouseNpcProfile } from '../npcs/profiles.js';
-import type { RoomSnapshot } from './types.js';
 import type { BiomeId } from './biomes.js';
+import { createHumanoidSpawn } from './humanoidSpawn.js';
+import { fillRect, findRandomRectPlacement, pickOne, setTile } from './structurePlacement.js';
+import type { RoomSnapshot } from './types.js';
 
 const VILLAGE_NAMES: Record<BiomeId, readonly string[]> = {
   'verdigris-basin': ['Verdant Wake', 'Mossbell', 'Reedcross', 'The Green Measure', 'Basin Mercy'],
@@ -91,7 +91,6 @@ const VILLAGER_NAMES = [
   'Ilyra',
   'Thalestra',
 ] as const;
-
 const VILLAGER_PORTRAITS = ['sage-1', 'sage-2', 'sage-3'] as const;
 const SHOPKEEPER_NAMES = ['Marlow', 'Penny Coil', 'Brindle', 'Tillia'] as const;
 const VILLAGE_ATTEMPTS = 28;
@@ -103,27 +102,6 @@ interface VillagePlacementOptions {
   margin?: number;
 }
 
-function setChar(layout: string[][], x: number, y: number, ch: string): void {
-  if (y < 0 || y >= layout.length) return;
-  if (x < 0 || x >= layout[y].length) return;
-  layout[y][x] = ch;
-}
-
-function fillRect(
-  layout: string[][],
-  left: number,
-  top: number,
-  width: number,
-  height: number,
-  ch: string,
-): void {
-  for (let y = top; y < top + height; y++) {
-    for (let x = left; x < left + width; x++) {
-      setChar(layout, x, y, ch);
-    }
-  }
-}
-
 function drawHouse(
   layout: string[][],
   left: number,
@@ -131,53 +109,32 @@ function drawHouse(
   width: number,
   height: number,
   doorSide: 'south' | 'north',
-) {
+): void {
   const right = left + width - 1;
   const bottom = top + height - 1;
-  for (let y = top; y <= bottom; y++) {
-    for (let x = left; x <= right; x++) {
+  for (let y = top; y <= bottom; y += 1) {
+    for (let x = left; x <= right; x += 1) {
       const border = x === left || x === right || y === top || y === bottom;
-      setChar(layout, x, y, border ? '#' : 'W');
+      setTile(layout, x, y, border ? '#' : 'W');
     }
   }
   const cx = Math.floor((left + right) / 2);
   const doorY = doorSide === 'south' ? bottom : top;
   const rugY = doorSide === 'south' ? bottom - 1 : top + 1;
   const trimY = doorSide === 'south' ? bottom - 2 : top + 2;
-  setChar(layout, cx, doorY, '.');
-  setChar(layout, cx, rugY, 'E');
-  setChar(layout, cx, trimY, 'T');
+  setTile(layout, cx, doorY, '.');
+  setTile(layout, cx, rugY, 'E');
+  setTile(layout, cx, trimY, 'T');
 }
 
 function drawMarketStall(layout: string[][], left: number, top: number): void {
-  for (let x = left; x < left + 5; x++) {
-    setChar(layout, x, top, 'S');
-    setChar(layout, x, top + 1, 'A');
-    setChar(layout, x, top + 2, 'E');
+  for (let x = left; x < left + 5; x += 1) {
+    setTile(layout, x, top, 'S');
+    setTile(layout, x, top + 1, 'A');
+    setTile(layout, x, top + 2, 'E');
   }
-  setChar(layout, left, top + 2, 'L');
-  setChar(layout, left + 4, top + 2, 'L');
-}
-
-function canPlaceRect(
-  layout: string[][],
-  left: number,
-  top: number,
-  width: number,
-  height: number,
-  forbiddenCells?: ReadonlySet<string>,
-): boolean {
-  for (let y = top; y < top + height; y++) {
-    for (let x = left; x < left + width; x++) {
-      if (layout[y]?.[x] !== '.') {
-        return false;
-      }
-      if (forbiddenCells?.has(vectorKey({ x, y }))) {
-        return false;
-      }
-    }
-  }
-  return true;
+  setTile(layout, left, top + 2, 'L');
+  setTile(layout, left + 4, top + 2, 'L');
 }
 
 export function tryPlaceVillage(
@@ -190,53 +147,27 @@ export function tryPlaceVillage(
   questGiver: RoomSnapshot['questGiver'];
   village: NonNullable<RoomSnapshot['village']>;
 } | null {
-  if (grid.cols < 26 || grid.rows < 18) {
-    return null;
-  }
+  if (grid.cols < 26 || grid.rows < 18) return null;
 
-  const margin = options.margin ?? VILLAGE_MARGIN;
   const plazaWidth = 6;
   const plazaHeight = 4;
   const footprintWidth = 18;
   const footprintHeight = plazaHeight + SAFE_AREA_PADDING * 2;
-  const minLeft = margin;
-  const minTop = margin;
-  const maxLeft = grid.cols - footprintWidth - margin;
-  const maxTop = grid.rows - footprintHeight - margin;
+  const footprint = findRandomRectPlacement(layout, grid, rng, {
+    width: footprintWidth,
+    height: footprintHeight,
+    margin: options.margin ?? VILLAGE_MARGIN,
+    attempts: VILLAGE_ATTEMPTS,
+    forbiddenCells: options.forbiddenCells,
+  });
+  if (!footprint) return null;
 
-  if (maxLeft < minLeft || maxTop < minTop) {
-    return null;
-  }
-
-  let plaza: { left: number; top: number; width: number; height: number } | null = null;
-  for (let attempt = 0; attempt < VILLAGE_ATTEMPTS; attempt += 1) {
-    const footprintLeft = minLeft + Math.floor(rng() * (maxLeft - minLeft + 1));
-    const footprintTop = minTop + Math.floor(rng() * (maxTop - minTop + 1));
-    if (
-      !canPlaceRect(
-        layout,
-        footprintLeft,
-        footprintTop,
-        footprintWidth,
-        footprintHeight,
-        options.forbiddenCells,
-      )
-    ) {
-      continue;
-    }
-    plaza = {
-      left: footprintLeft + 6,
-      top: footprintTop + SAFE_AREA_PADDING,
-      width: plazaWidth,
-      height: plazaHeight,
-    };
-    break;
-  }
-
-  if (!plaza) {
-    return null;
-  }
-
+  const plaza = {
+    left: footprint.left + 6,
+    top: footprint.top + SAFE_AREA_PADDING,
+    width: plazaWidth,
+    height: plazaHeight,
+  };
   const safeArea = {
     left: plaza.left - SAFE_AREA_PADDING,
     top: plaza.top - SAFE_AREA_PADDING,
@@ -252,7 +183,7 @@ export function tryPlaceVillage(
     { x: plaza.left + 1, y: plaza.top + plaza.height - 2 },
     { x: plaza.left + plaza.width - 2, y: plaza.top + plaza.height - 2 },
   ];
-  lanterns.forEach((spot) => setChar(layout, spot.x, spot.y, 'L'));
+  lanterns.forEach((spot) => setTile(layout, spot.x, spot.y, 'L'));
 
   drawHouse(layout, plaza.left - 6, plaza.top - 1, 5, 4, 'south');
   drawHouse(layout, plaza.left + plaza.width + 1, plaza.top - 1, 5, 4, 'south');
@@ -262,7 +193,7 @@ export function tryPlaceVillage(
     x: plaza.left + Math.floor(plaza.width / 2),
     y: plaza.top + Math.floor(plaza.height / 2),
   };
-  setChar(layout, questSpot.x, questSpot.y, 'G');
+  setTile(layout, questSpot.x, questSpot.y, 'G');
   const stall = { left: plaza.left + 1, top: plaza.top - 3 };
   drawMarketStall(layout, stall.left, stall.top);
   const shopSpot = { x: stall.left + 2, y: stall.top + 2 };
@@ -274,10 +205,9 @@ export function tryPlaceVillage(
     { x: plaza.left + plaza.width - 3, y: plaza.top + plaza.height - 3 },
   ].filter((spot) => spot.x !== questSpot.x || spot.y !== questSpot.y);
 
-  const villagerName = VILLAGER_NAMES[Math.floor(rng() * VILLAGER_NAMES.length)];
-  const portraitId = VILLAGER_PORTRAITS[Math.floor(rng() * VILLAGER_PORTRAITS.length)];
-  const villageNames = VILLAGE_NAMES[biomeId];
-  const villageName = villageNames[Math.floor(rng() * villageNames.length)];
+  const villagerName = pickOne(VILLAGER_NAMES, rng);
+  const portraitId = pickOne(VILLAGER_PORTRAITS, rng);
+  const villageName = pickOne(VILLAGE_NAMES[biomeId], rng);
   const residents = residentSpots.slice(0, 3).map((spot, index) => {
     const name =
       VILLAGER_NAMES[
@@ -287,32 +217,20 @@ export function tryPlaceVillage(
       VILLAGER_PORTRAITS[
         (Math.floor(rng() * VILLAGER_PORTRAITS.length) + index) % VILLAGER_PORTRAITS.length
       ];
-    return {
-      ...buildHouseNpcProfile(name, residentPortrait),
-      x: spot.x,
-      y: spot.y,
-    };
+    return createHumanoidSpawn(name, spot.x, spot.y, residentPortrait);
   });
-  const shopkeeperName = SHOPKEEPER_NAMES[Math.floor(rng() * SHOPKEEPER_NAMES.length)];
-  const shopkeeperPortrait = VILLAGER_PORTRAITS[Math.floor(rng() * VILLAGER_PORTRAITS.length)];
+  const shopkeeperName = pickOne(SHOPKEEPER_NAMES, rng);
+  const shopkeeperPortrait = pickOne(VILLAGER_PORTRAITS, rng);
 
   return {
-    questGiver: {
-      ...buildHouseNpcProfile(villagerName, portraitId),
-      x: questSpot.x,
-      y: questSpot.y,
-    },
+    questGiver: createHumanoidSpawn(villagerName, questSpot.x, questSpot.y, portraitId),
     village: {
       name: villageName,
       center: { x: questSpot.x, y: questSpot.y },
       safeArea,
       lanterns,
       residents,
-      shopkeeper: {
-        ...buildHouseNpcProfile(shopkeeperName, shopkeeperPortrait),
-        x: shopSpot.x,
-        y: shopSpot.y,
-      },
+      shopkeeper: createHumanoidSpawn(shopkeeperName, shopSpot.x, shopSpot.y, shopkeeperPortrait),
     },
   };
 }

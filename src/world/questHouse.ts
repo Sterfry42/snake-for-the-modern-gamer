@@ -1,12 +1,11 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import { vectorKey } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
-import { buildHouseNpcProfile, type NpcProfile } from '../npcs/profiles.js';
+import { createHumanoidIdentity } from './humanoidSpawn.js';
+import { canPlaceRect, pickOne, setTile } from './structurePlacement.js';
+import type { WorldHumanoidSpawn } from './types.js';
 
-export interface QuestGiverInfo extends NpcProfile {
-  x: number;
-  y: number;
-}
+export type QuestGiverInfo = WorldHumanoidSpawn;
 
 export interface QuestHouseResult {
   questGiver: QuestGiverInfo;
@@ -22,25 +21,19 @@ const SAFE_INTERIOR_TILES = new Set(['W', 'E', 'T']);
 const SAGE_NAMES = ['Aurex', 'Belisar', 'Cyrene', 'Thalestra', 'Ozym', 'Ilyra', 'Ryan'] as const;
 const SAGE_PORTRAITS = ['sage-1', 'sage-2', 'sage-3'] as const;
 
-function setChar(layout: string[][], x: number, y: number, ch: string): void {
-  if (y < 0 || y >= layout.length) return;
-  if (x < 0 || x >= layout[y].length) return;
-  layout[y][x] = ch;
-}
-
 function drawHouseCube(
   layout: string[][],
   left: number,
   top: number,
   width: number,
   height: number,
-) {
+): void {
   const right = left + width - 1;
   const bottom = top + height - 1;
-  for (let y = top; y <= bottom; y++) {
-    for (let x = left; x <= right; x++) {
+  for (let y = top; y <= bottom; y += 1) {
+    for (let x = left; x <= right; x += 1) {
       const isBorder = x === left || x === right || y === top || y === bottom;
-      setChar(layout, x, y, isBorder ? '#' : 'W');
+      setTile(layout, x, y, isBorder ? '#' : 'W');
     }
   }
 }
@@ -51,17 +44,17 @@ function carveHouseDoor(
   top: number,
   width: number,
   height: number,
-) {
+): void {
   const bottom = top + height - 1;
   const cx = Math.floor(left + width / 2);
   const doorHalf = Math.max(1, Math.floor(Math.min(3, Math.floor(width / 6)) / 2));
-  for (let x = cx - doorHalf; x <= cx + doorHalf; x++) {
-    setChar(layout, x, bottom, '.');
-    if (bottom - 1 > top) setChar(layout, x, bottom - 1, 'E');
+  for (let x = cx - doorHalf; x <= cx + doorHalf; x += 1) {
+    setTile(layout, x, bottom, '.');
+    if (bottom - 1 > top) setTile(layout, x, bottom - 1, 'E');
   }
   const trimY = Math.max(top + 1, bottom - 2);
-  for (let x = cx - doorHalf; x <= cx + doorHalf; x++) {
-    setChar(layout, x, trimY, 'T');
+  for (let x = cx - doorHalf; x <= cx + doorHalf; x += 1) {
+    setTile(layout, x, trimY, 'T');
   }
 }
 
@@ -76,38 +69,13 @@ function carveHouseApproach(
   const bottom = top + height - 1;
   const cx = Math.floor(left + width / 2);
   const doorHalf = Math.max(1, Math.floor(Math.min(3, Math.floor(width / 6)) / 2));
-  for (let y = bottom + 1; y <= bottom + 4; y++) {
-    for (let x = cx - doorHalf; x <= cx + doorHalf; x++) {
-      if (forbiddenCells?.has(vectorKey({ x, y }))) {
-        continue;
-      }
+  for (let y = bottom + 1; y <= bottom + 4; y += 1) {
+    for (let x = cx - doorHalf; x <= cx + doorHalf; x += 1) {
+      if (forbiddenCells?.has(vectorKey({ x, y }))) continue;
       const tile = layout[y]?.[x];
-      if (tile === '#' || tile === '~') {
-        setChar(layout, x, y, '.');
-      }
+      if (tile === '#' || tile === '~') setTile(layout, x, y, '.');
     }
   }
-}
-
-function canPlaceRect(
-  layout: string[][],
-  left: number,
-  top: number,
-  width: number,
-  height: number,
-  forbiddenCells?: ReadonlySet<string>,
-): boolean {
-  for (let y = top; y < top + height; y++) {
-    for (let x = left; x < left + width; x++) {
-      if (layout[y]?.[x] !== '.') {
-        return false;
-      }
-      if (forbiddenCells?.has(vectorKey({ x, y }))) {
-        return false;
-      }
-    }
-  }
-  return true;
 }
 
 export function tryPlaceQuestHouse(
@@ -123,19 +91,16 @@ export function tryPlaceQuestHouse(
   const minHeight = 6;
   const maxHeight = Math.min(9, grid.rows - margin * 2);
 
-  if (maxWidth < minWidth || maxHeight < minHeight) {
-    return null;
-  }
+  if (maxWidth < minWidth || maxHeight < minHeight) return null;
 
-  for (let i = 0; i < attempts; i++) {
+  for (let i = 0; i < attempts; i += 1) {
     const width = minWidth + Math.floor(rng() * (maxWidth - minWidth + 1));
     const height = minHeight + Math.floor(rng() * (maxHeight - minHeight + 1));
     const left = margin + Math.floor(rng() * Math.max(1, grid.cols - width - margin * 2 + 1));
     const top = margin + Math.floor(rng() * Math.max(1, grid.rows - height - margin * 2 + 1));
+    const bounds = { left, top, width, height };
 
-    if (!canPlaceRect(layout, left, top, width, height, options.forbiddenCells)) {
-      continue;
-    }
+    if (!canPlaceRect(layout, bounds, options.forbiddenCells)) continue;
 
     drawHouseCube(layout, left, top, width, height);
     carveHouseDoor(layout, left, top, width, height);
@@ -143,21 +108,16 @@ export function tryPlaceQuestHouse(
 
     const centerX = Math.floor(left + width / 2);
     const centerY = Math.floor(top + height / 2);
-    if (!SAFE_INTERIOR_TILES.has(layout[centerY]?.[centerX] ?? '')) {
-      continue;
-    }
-    setChar(layout, centerX, centerY, 'G');
-
-    const name = SAGE_NAMES[Math.floor(rng() * SAGE_NAMES.length)];
-    const portraitId = SAGE_PORTRAITS[Math.floor(rng() * SAGE_PORTRAITS.length)];
+    if (!SAFE_INTERIOR_TILES.has(layout[centerY]?.[centerX] ?? '')) continue;
+    setTile(layout, centerX, centerY, 'G');
 
     return {
       questGiver: {
-        ...buildHouseNpcProfile(name, portraitId),
+        ...createHumanoidIdentity(pickOne(SAGE_NAMES, rng), pickOne(SAGE_PORTRAITS, rng)),
         x: centerX,
         y: centerY,
       },
-      bounds: { left, top, width, height },
+      bounds,
     };
   }
 

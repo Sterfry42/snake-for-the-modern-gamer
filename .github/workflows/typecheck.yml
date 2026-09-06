@@ -55,6 +55,8 @@ jobs:
         run: npm ci
       - name: Run linter
         run: npm run lint
+      - name: Report unreachable production code
+        run: node scripts/check-unused-files.mjs --no-fail
 
   build:
     name: Build

@@ -1,8 +1,5 @@
 /**
  * Shared save data types and migration utilities.
- *
- * Both SaveManager and SaveManagerV2 import from here to avoid
- * duplicating type definitions and migration functions.
  */
 import type { WorldGenerationIdentity } from '../world/generation/worldGenerationIdentity.js';
 import type { CharacterMode } from '../player/raccoonMode.js';
@@ -11,39 +8,12 @@ import type { AchievementState } from '../achievements/achievementTypes.js';
 import type { LevelProgressionState } from '../stats/levelProgression.js';
 import type { ArcadeSnakeSaveData } from '../arcade/arcadeSnakeTypes.js';
 import type { AtmosphereState } from '../world/atmosphereTypes.js';
-import type { DreamSaveData } from '../world/dream/types.js';
 import type { DrivingCarState } from '../vehicles/car.js';
 import type { LayerInstance } from '../layers/layerTypes.js';
 
-export interface MinecraftBlockEntry {
-  roomId: string;
-  x: number;
-  y: number;
-  blockType: string;
-}
-
-export interface MinecraftMobEntry {
+export interface ChoiceWithMods {
   id: string;
-  type: string;
-  roomId: string;
-  x: number;
-  y: number;
-  health: number;
-}
-
-export interface MinecraftPlayerSaveData {
-  health: number;
-  maxHealth: number;
-  hunger: number;
-  maxHunger: number;
-  xp: number;
-  xpLevel: number;
-  armorPoints: number;
-  spawnX: number;
-  spawnY: number;
-  spawnRoomId: string;
-  inventory: Array<{ itemId: string; count: number }>;
-  equippedTool: string | null;
+  mods: Record<string, unknown>;
 }
 
 export interface GameSaveData {
@@ -94,11 +64,6 @@ export interface GameSaveData {
     ownedEmoticons: string[];
     activeEmoticon: string | null;
   };
-  minecraftBlocks?: MinecraftBlockEntry[];
-  minecraftPlayerState?: MinecraftPlayerSaveData;
-  minecraftDayNight?: { day: number; timeOfDay: number };
-  minecraftMobState?: MinecraftMobEntry[];
-  minecraftInventory?: Array<{ itemId: string; count: number }>;
   fishing?: {
     caughtFish?: Record<string, number>;
     catchJournal?: unknown[];
@@ -109,7 +74,6 @@ export interface GameSaveData {
   achievements?: AchievementState;
   arcadeSnake?: ArcadeSnakeSaveData;
   atmosphere?: AtmosphereState;
-  dreamWorld?: DreamSaveData;
   activeVehicle?: DrivingCarState;
   layerInstances?: LayerInstance[];
 }
@@ -128,39 +92,16 @@ export function isVersionLessThan(version: string, target: string): boolean {
   return false;
 }
 
-/** Migrate save data from v1.x to v2.0.0 (adds Minecraft fields). */
+/**
+ * Advance legacy v1 saves to the v2 version boundary.
+ *
+ * v2 originally introduced Minecraft fields. That feature stack has since been
+ * removed, so modern code intentionally ignores any old Minecraft payload that
+ * may still be present in persisted JSON.
+ */
 export function migrateV1toV2(data: GameSaveData): void {
   console.info('[SaveMigrations] Migrating from v1.x to v2.0.0');
   data.version = '2.0.0';
-
-  if (!data.minecraftBlocks) {
-    data.minecraftBlocks = [];
-  }
-  if (!data.minecraftPlayerState) {
-    data.minecraftPlayerState = {
-      health: 20,
-      maxHealth: 20,
-      hunger: 20,
-      maxHunger: 20,
-      xp: 0,
-      xpLevel: 0,
-      armorPoints: 0,
-      spawnX: 0,
-      spawnY: 0,
-      spawnRoomId: '0,0,0',
-      inventory: [],
-      equippedTool: null,
-    };
-  }
-  if (!data.minecraftDayNight) {
-    data.minecraftDayNight = { day: 1, timeOfDay: 0 };
-  }
-  if (!data.minecraftMobState) {
-    data.minecraftMobState = [];
-  }
-  if (!data.minecraftInventory) {
-    data.minecraftInventory = [];
-  }
 }
 
 /** Migrate save data from v2.x to v3.0.0 (adds fishing fields). */

@@ -1,6 +1,6 @@
 import type { Vector2Like } from '../core/math.js';
 
-export type LayerKind = 'townInterior' | 'cave' | 'building' | 'basement' | 'dungeon' | 'other';
+export type LayerKind = 'townInterior';
 
 export type LayerTemplateId =
   | 'thievesGuild'

@@ -194,10 +194,6 @@ function stampCaveDweller(
   room.questGiver = {
     id: `cave-dweller:${room.id}`,
     name: 'Cave Dweller',
-    role: 'wanderer',
-    encounterType: 'flavor',
-    stats: { str: 2, dex: 3, con: 4, int: 8, wis: 9, cha: 5 },
-    maxHearts: 4,
     x,
     y,
   };

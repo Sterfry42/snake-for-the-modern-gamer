@@ -1,5 +1,5 @@
 import { inferNpcNameArchetype } from './npcNames.js';
-import { stableStringHashUnsigned } from '../core/math.js';
+
 // Recursion guard to prevent infinite loops during NPC stat generation
 const npcStatsCache = new Map<string, NpcStats>();
 let generationDepth = 0;
@@ -28,6 +28,14 @@ function clampStat(value: number): number {
   return Math.max(1, Math.min(10, value));
 }
 
+function hashName(name: string): number {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
 function buildGeneratedStats(name: string): NpcStats {
   // Recursion guard
   const cacheKey = name.toLowerCase();
@@ -41,7 +49,7 @@ function buildGeneratedStats(name: string): NpcStats {
   generationDepth++;
 
   try {
-    const hash = stableStringHashUnsigned(cacheKey);
+    const hash = hashName(cacheKey);
     const base = {
       str: clampStat((hash % 10) + 1),
       dex: clampStat((Math.floor(hash / 10) % 10) + 1),

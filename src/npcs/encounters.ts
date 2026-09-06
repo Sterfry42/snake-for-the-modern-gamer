@@ -1,7 +1,7 @@
 /**
  * Wanderer Encounters
  */
-import { buildNpcStats } from './profiles.js';
+import { getWandererStats } from './wandererStats.js';
 import type { BiomeId } from '../world/biomes.js';
 import { i18n } from '../i18n/i18nManager.js';
 import type { CardId } from '../cards/cardGame.js';
@@ -382,7 +382,7 @@ export function getEncounterPages(
 }
 
 export function getEncounterStatsNote(name: string): string {
-  const stats = buildNpcStats(name);
+  const stats = getWandererStats(name);
   return `STR ${stats.str} DEX ${stats.dex} CON ${stats.con} INT ${stats.int} WIS ${stats.wis} CHA ${stats.cha}`;
 }
 

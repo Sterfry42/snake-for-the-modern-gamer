@@ -240,7 +240,6 @@ describe('seeded procedural biome map', () => {
       expect(definition.id).toBe(id);
       expect(definition.title.length).toBeGreaterThan(0);
       expect(definition.generation).toBeDefined();
-      expect(definition.transition).toBeDefined();
       expect(definition.animalSpawnChance).toBeGreaterThanOrEqual(0);
       expect(getBiomeForRoom(roomId).id).toBe(id);
     }
@@ -258,6 +257,5 @@ describe('seeded procedural biome map', () => {
 
     expect(result.compatible).toBeTypeOf('boolean');
     expect(direct.compatible).toBe(false);
-    expect(direct.reason).toBe('hot-cold-direct-adjacency');
   });
 });

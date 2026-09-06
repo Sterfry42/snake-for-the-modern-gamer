@@ -3,15 +3,13 @@ import {
   isStationaryTownRole,
   isTownCriminalRole,
   isTownGuardRole,
-  isTownMerchantRole,
   isTownShopRole,
   shopKindForTownRole,
 } from '../townRoles.js';
 
 describe('town role helpers', () => {
-  it('classifies new merchant roles consistently', () => {
+  it('classifies shop roles as stationary services', () => {
     for (const role of ['equipmentMerchant', 'potionMaker', 'butcher', 'cardDealer', 'bartender']) {
-      expect(isTownMerchantRole(role)).toBe(true);
       expect(isTownShopRole(role)).toBe(true);
       expect(isStationaryTownRole(role)).toBe(true);
     }

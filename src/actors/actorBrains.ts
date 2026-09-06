@@ -59,8 +59,7 @@ export function decideActorBrain(context: ActorBrainContext): ActorBrainDecision
   const isHostile =
     actor?.hostility === 'hostile' ||
     actor?.hostility === 'fleeing' ||
-    actor?.hostility === 'surrendering' ||
-    actor?.hostility === 'downed';
+    actor?.hostility === 'surrendering';
   const shouldFlee =
     context.threats.length > 0 &&
     !isHostile &&

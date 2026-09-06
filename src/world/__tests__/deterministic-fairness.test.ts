@@ -15,8 +15,13 @@ function roomId(coord: RoomCoord): string {
 function generateRoomWithSeed(seed: string, coord: RoomCoord): RoomSnapshot {
   const identity = createWorldGenerationIdentity(seed);
   const rng = createRng(seed);
-  const generator = new RoomGenerator(defaultGameConfig.world, rng, identity);
-  return generator.generate(roomId(coord), defaultGameConfig.grid);
+  const generator = new RoomGenerator(
+    defaultGameConfig.grid,
+    defaultGameConfig.world,
+    rng,
+    identity,
+  );
+  return generator.generate(roomId(coord));
 }
 
 describe('deterministic fairness tests', () => {

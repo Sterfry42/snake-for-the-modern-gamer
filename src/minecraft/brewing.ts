@@ -213,8 +213,8 @@ export const POTION_EFFECTS: Record<PotionEffectId, PotionEffect> = {
     name: 'Instant Damage',
     description: 'Deals 6 damage to undead mobs only',
     color: '#4A0E0E',
-    applyOnDrink: (player) => {
-      void player;
+    applyOnDrink: (_player) => {
+      void _player;
     },
     durationTicks: 1,
   },
@@ -223,8 +223,8 @@ export const POTION_EFFECTS: Record<PotionEffectId, PotionEffect> = {
     name: 'Instant Damage I',
     description: 'Deals 6 damage',
     color: '#4A0E0E',
-    applyOnDrink: (player) => {
-      void player;
+    applyOnDrink: (_player) => {
+      void _player;
     },
     durationTicks: 1,
   },
@@ -405,8 +405,8 @@ export const POTION_EFFECTS: Record<PotionEffectId, PotionEffect> = {
     name: 'Slowness',
     description: 'Decreases movement speed',
     color: '#555588',
-    applyOnDrink: (player) => {
-      void player;
+    applyOnDrink: (_player) => {
+      void _player;
     },
     durationTicks: 600,
   },
@@ -415,8 +415,8 @@ export const POTION_EFFECTS: Record<PotionEffectId, PotionEffect> = {
     name: 'Poison',
     description: 'Gradually deals damage over time',
     color: '#22AA22',
-    applyOnDrink: (player) => {
-      void player;
+    applyOnDrink: (_player) => {
+      void _player;
     },
     durationTicks: 300,
   },
@@ -425,8 +425,8 @@ export const POTION_EFFECTS: Record<PotionEffectId, PotionEffect> = {
     name: 'Wither',
     description: 'Gradually deals damage over time',
     color: '#333333',
-    applyOnDrink: (player) => {
-      void player;
+    applyOnDrink: (_player) => {
+      void _player;
     },
     durationTicks: 300,
   },
@@ -435,8 +435,8 @@ export const POTION_EFFECTS: Record<PotionEffectId, PotionEffect> = {
     name: 'Hunger',
     description: 'Decreases hunger drain rate',
     color: '#554433',
-    applyOnDrink: (player) => {
-      void player;
+    applyOnDrink: (_player) => {
+      void _player;
     },
     durationTicks: 600,
   },
@@ -445,8 +445,8 @@ export const POTION_EFFECTS: Record<PotionEffectId, PotionEffect> = {
     name: 'Weakness',
     description: 'Decreases attack damage',
     color: '#666666',
-    applyOnDrink: (player) => {
-      void player;
+    applyOnDrink: (_player) => {
+      void _player;
     },
     durationTicks: 600,
   },
@@ -455,8 +455,8 @@ export const POTION_EFFECTS: Record<PotionEffectId, PotionEffect> = {
     name: 'Confusion',
     description: 'Causes nausea effect',
     color: '#8888AA',
-    applyOnDrink: (player) => {
-      void player;
+    applyOnDrink: (_player) => {
+      void _player;
     },
     durationTicks: 200,
   },
@@ -465,8 +465,8 @@ export const POTION_EFFECTS: Record<PotionEffectId, PotionEffect> = {
     name: 'Nausea',
     description: 'Causes nausea effect',
     color: '#8888AA',
-    applyOnDrink: (player) => {
-      void player;
+    applyOnDrink: (_player) => {
+      void _player;
     },
     durationTicks: 200,
   },
@@ -475,8 +475,8 @@ export const POTION_EFFECTS: Record<PotionEffectId, PotionEffect> = {
     name: 'Blindness',
     description: 'Obscures vision',
     color: '#111111',
-    applyOnDrink: (player) => {
-      void player;
+    applyOnDrink: (_player) => {
+      void _player;
     },
     durationTicks: 200,
   },
@@ -485,8 +485,8 @@ export const POTION_EFFECTS: Record<PotionEffectId, PotionEffect> = {
     name: 'Mining Fatigue',
     description: 'Slows mining speed',
     color: '#444444',
-    applyOnDrink: (player) => {
-      void player;
+    applyOnDrink: (_player) => {
+      void _player;
     },
     durationTicks: 600,
   },
@@ -808,9 +808,9 @@ export function tickBrewingStand(stand: BrewingStandState): { done: boolean } {
 
 export function tryDrinkPotion(
   player: MinecraftPlayer,
-  potionType: string,
+  _potionType: string,
 ): { success: boolean; message?: string } {
-  void potionType;
+  void _potionType;
   const effectId: PotionEffectId = 'speed_i';
   const effect = POTION_EFFECTS[effectId];
   if (!effect) {

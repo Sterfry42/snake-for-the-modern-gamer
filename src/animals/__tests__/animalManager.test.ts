@@ -2,8 +2,7 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { AnimalManager } from '../animalManager.js';
 import type { AnimalInstance } from '../types.js';
 import type { Vector2Like } from '../../core/math.js';
-import type { RoomSnapshot } from '../../world/types.js';
-import type { NpcProfile } from '../../npcs/profiles.js';
+import type { RoomSnapshot, WorldHumanoidSpawn } from '../../world/types.js';
 import type { ResolvedAtmosphereView } from '../../world/atmosphereTypes.js';
 import { createRng } from '../../core/rng.js';
 
@@ -74,7 +73,7 @@ describe('AnimalManager', () => {
             description: '',
             x: 10,
             y: 10,
-          } as unknown as NpcProfile & { x: number; y: number },
+          } as unknown as WorldHumanoidSpawn,
         },
       });
       manager.ensureAnimals('0,0,0', room, []);
@@ -97,7 +96,7 @@ describe('AnimalManager', () => {
             description: '',
             x: 10,
             y: 10,
-          } as unknown as NpcProfile & { x: number; y: number },
+          } as unknown as WorldHumanoidSpawn,
         },
       });
       manager.ensureAnimals('0,0,0', room, []);

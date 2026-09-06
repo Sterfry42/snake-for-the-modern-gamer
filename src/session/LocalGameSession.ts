@@ -1,4 +1,5 @@
-import { saveManager, type GameSaveData, type ChoiceWithMods } from '../game/saveManager.js';
+import { setSavedGameData } from '../game/saveManager.js';
+import type { ChoiceWithMods, GameSaveData } from '../game/saveTypes.js';
 import type { SnakeGame, StepResult } from '../game/snakeGame.js';
 import type { PlayerId } from '../players/playerTypes.js';
 import type { SaveStore } from '../storage/SaveStore.js';
@@ -146,7 +147,20 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
     classChoice?: ChoiceWithMods,
     backgroundChoice?: ChoiceWithMods,
   ): void {
-    saveManager.save(this.game, religionChoice, classChoice, backgroundChoice);
+    const data = this.game.getSaveData();
+    if (religionChoice) {
+      data.religionId = religionChoice.id;
+      data.religionMods = religionChoice.mods;
+    }
+    if (classChoice) {
+      data.classId = classChoice.id;
+      data.classMods = classChoice.mods;
+    }
+    if (backgroundChoice) {
+      data.backgroundId = backgroundChoice.id;
+      data.backgroundMods = backgroundChoice.mods;
+    }
+    setSavedGameData(JSON.stringify(data));
     this.emitSnapshot();
   }
 
@@ -155,12 +169,7 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
     getClassChoice?: () => ChoiceWithMods | undefined,
     getBackgroundChoice?: () => ChoiceWithMods | undefined,
   ): boolean {
-    const loaded = saveManager.load(
-      this.game,
-      getReligionChoice,
-      getClassChoice,
-      getBackgroundChoice,
-    );
+    const loaded = this.game.loadGame(getReligionChoice, getClassChoice, getBackgroundChoice);
     if (loaded) {
       this.emitSnapshot();
     }
@@ -168,11 +177,11 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
   }
 
   hasSaveSync(): boolean {
-    return saveManager.hasSave();
+    return this.game.hasSaveFile();
   }
 
   clearSaveSync(): void {
-    saveManager.clear();
+    this.game.clearSaveFile();
   }
 
   async hasSave(): Promise<boolean> {

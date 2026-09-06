@@ -8,7 +8,6 @@ import {
   MosaicCoastRegionPlanner,
 } from '../generation/mosaicCoastRegionPlan.js';
 import { createWorldGenerationIdentity } from '../generation/worldGenerationIdentity.js';
-import { isMosaicCoastPassableTile, isMosaicCoastSolidTile } from '../mosaicCoastTiles.js';
 import { tryPlaceQuestHouse } from '../questHouse.js';
 import { RoomGenerator } from '../roomGenerator.js';
 import { SafetyOperations } from '../generation/stages/safetyOperations.js';
@@ -54,6 +53,7 @@ function roomId(coord: RoomCoord): string {
 
 function generateNeighborhood(center: RoomCoord, radius: number): Map<string, RoomSnapshot> {
   const generator = new RoomGenerator(
+    defaultGameConfig.grid,
     defaultGameConfig.world,
     createRng(`fairness:${roomId(center)}`),
     createWorldGenerationIdentity(`fairness:${roomId(center)}`),
@@ -62,7 +62,7 @@ function generateNeighborhood(center: RoomCoord, radius: number): Map<string, Ro
   for (let y = center.y - radius; y <= center.y + radius; y += 1) {
     for (let x = center.x - radius; x <= center.x + radius; x += 1) {
       const coord = { x, y, z: center.z };
-      rooms.set(roomId(coord), generator.generate(roomId(coord), defaultGameConfig.grid));
+      rooms.set(roomId(coord), generator.generate(roomId(coord)));
     }
   }
   return rooms;
@@ -76,6 +76,7 @@ function generateArea(
   maxY: number,
 ): Map<string, RoomSnapshot> {
   const generator = new RoomGenerator(
+    defaultGameConfig.grid,
     defaultGameConfig.world,
     createRng(seed),
     createWorldGenerationIdentity(seed),
@@ -84,7 +85,7 @@ function generateArea(
   for (let y = minY; y <= maxY; y += 1) {
     for (let x = minX; x <= maxX; x += 1) {
       const coord = { x, y, z: 0 };
-      rooms.set(roomId(coord), generator.generate(roomId(coord), defaultGameConfig.grid));
+      rooms.set(roomId(coord), generator.generate(roomId(coord)));
     }
   }
   return rooms;
@@ -737,14 +738,6 @@ describe('world generation fairness', () => {
     expect(failures).toEqual([]);
   });
 
-  it('classifies Mosaic Coast collision tiles explicitly', () => {
-    expect(isMosaicCoastSolidTile('#')).toBe(true);
-    for (const tile of ['.', 'a', 'b', 't', 'p', 'i', 'f', 'F', 'M', 'G', 'r']) {
-      expect(isMosaicCoastPassableTile(tile)).toBe(true);
-      expect(isMosaicCoastSolidTile(tile)).toBe(false);
-    }
-  });
-
   it('keeps Mosaic Coast canopy shade passable and trunks solid', () => {
     const rooms = generateArea('mosaic-canopy', -4, 2, -11, -9);
     const grove = [...rooms.values()].find((room) => room.archetypeId === 'orange-grove-courtyard');
@@ -775,12 +768,13 @@ describe('world generation fairness', () => {
 
   it('does not repaint Mosaic Coast base layout over claimed town or perimeter rooms', () => {
     const generator = new RoomGenerator(
+      defaultGameConfig.grid,
       defaultGameConfig.world,
       createRng('mosaic-claimed-guard'),
       createWorldGenerationIdentity('mosaic-claimed-guard'),
     );
 
-    const townContext = generator.createGenerationContext('0,-9,0', defaultGameConfig.grid);
+    const townContext = generator.createGenerationContext('0,-9,0');
     townContext.isMosaicCoast = true;
     townContext.isOcean = false;
     townContext.townMembership = {
@@ -800,7 +794,7 @@ describe('world generation fairness', () => {
     expect(townContext.layout[4]?.[4]).toBe('#');
     expect(townContext.mosaicCoast).toBeUndefined();
 
-    const perimeterContext = generator.createGenerationContext('1,-9,0', defaultGameConfig.grid);
+    const perimeterContext = generator.createGenerationContext('1,-9,0');
     perimeterContext.isMosaicCoast = true;
     perimeterContext.isOcean = false;
     perimeterContext.townPerimeter = { townId: 'fixture-town', sideFacingTown: 'west' };

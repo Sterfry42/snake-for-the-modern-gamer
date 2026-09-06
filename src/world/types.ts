@@ -2,7 +2,6 @@
  * World Types
  */
 import type { Vector2Like } from '../core/math.js';
-import type { NpcProfile } from '../npcs/profiles.js';
 import type { BiomeId } from './biomes.js';
 import type { TownStructure } from './town.js';
 import type {
@@ -87,6 +86,14 @@ export interface RoomArea {
   height: number;
 }
 
+export interface WorldHumanoidSpawn {
+  id: string;
+  name: string;
+  portraitId?: string;
+  x: number;
+  y: number;
+}
+
 export type MosaicCoastExposureKind = 'direct-sun' | 'shade' | 'cooling' | 'interior';
 
 export interface MosaicCoastMetadata {
@@ -95,12 +102,12 @@ export interface MosaicCoastMetadata {
   canopyTrees: Array<{ trunk: Vector2Like; canopy: Vector2Like[] }>;
   awnings: Array<{ cells: Vector2Like[]; colorId: string }>;
   tapasBar?: {
-    bartender: NpcProfile & { x: number; y: number };
+    bartender: WorldHumanoidSpawn;
     tableCells: Vector2Like[];
     minigameSeed: string;
   };
   souvenirStand?: {
-    vendor: NpcProfile & { x: number; y: number };
+    vendor: WorldHumanoidSpawn;
     standName: string;
   };
   gaudiPark?: {
@@ -136,14 +143,14 @@ export interface RoomSnapshot {
     dwellerRewardClaimed?: boolean;
     lakeRewards?: Array<{ id: string; x: number; y: number }>;
   };
-  questGiver?: NpcProfile & { x: number; y: number };
+  questGiver?: WorldHumanoidSpawn;
   village?: {
     name: string;
     center: Vector2Like;
     safeArea: RoomArea;
     lanterns: Vector2Like[];
-    residents: Array<NpcProfile & { x: number; y: number }>;
-    shopkeeper: NpcProfile & { x: number; y: number };
+    residents: WorldHumanoidSpawn[];
+    shopkeeper: WorldHumanoidSpawn;
   };
   goblinCamp?: {
     id: string;
@@ -152,8 +159,8 @@ export interface RoomSnapshot {
     safeArea: RoomArea;
     tents: Vector2Like[];
     fires: Vector2Like[];
-    guards: Array<NpcProfile & { x: number; y: number }>;
-    shopkeeper: NpcProfile & { x: number; y: number };
+    guards: WorldHumanoidSpawn[];
+    shopkeeper: WorldHumanoidSpawn;
   };
   town?: TownStructure;
   townPerimeter?: {
@@ -187,11 +194,11 @@ export interface RoomSnapshot {
     bounds: { left: number; top: number; width: number; height: number };
   };
   shrine?: {
-    maiden: NpcProfile & { x: number; y: number };
+    maiden: WorldHumanoidSpawn;
     hasBlessings: boolean;
   };
   ramenStand?: {
-    chef: NpcProfile & { x: number; y: number };
+    chef: WorldHumanoidSpawn;
     sellsRamen: boolean;
   };
   koiPond?: {
@@ -199,71 +206,71 @@ export interface RoomSnapshot {
     waterTiles: Vector2Like[];
   };
   motelPool?: {
-    clerk: NpcProfile & { x: number; y: number };
-    maintenance: NpcProfile & { x: number; y: number };
+    clerk: WorldHumanoidSpawn;
+    maintenance: WorldHumanoidSpawn;
     poolName: string;
     center: Vector2Like;
     waterTiles: Vector2Like[];
   };
   tenguCamp?: {
-    chieftain: NpcProfile & { x: number; y: number };
+    chieftain: WorldHumanoidSpawn;
     feathers: Vector2Like[];
   };
   roadsideMonument?: {
-    docent: NpcProfile & { x: number; y: number };
-    ranger: NpcProfile & { x: number; y: number };
+    docent: WorldHumanoidSpawn;
+    ranger: WorldHumanoidSpawn;
     hasBlessings: boolean;
     monumentName: string;
   };
   allNiteDiner?: {
-    cook: NpcProfile & { x: number; y: number };
-    waitress: NpcProfile & { x: number; y: number };
-    regular: NpcProfile & { x: number; y: number };
+    cook: WorldHumanoidSpawn;
+    waitress: WorldHumanoidSpawn;
+    regular: WorldHumanoidSpawn;
     sellsFood: true;
     dinerName: string;
   };
   fireworkStand?: {
-    vendor: NpcProfile & { x: number; y: number };
-    inspector: NpcProfile & { x: number; y: number };
+    vendor: WorldHumanoidSpawn;
+    inspector: WorldHumanoidSpawn;
     sellsFireworks: true;
     standName: string;
   };
   jackalopeLodge?: {
-    elder: NpcProfile & { x: number; y: number };
-    witnesses: Array<NpcProfile & { x: number; y: number }>;
+    elder: WorldHumanoidSpawn;
+    witnesses: WorldHumanoidSpawn[];
     lodgeName: string;
   };
   gridironYard?: {
-    coach: NpcProfile & { x: number; y: number };
-    players: Array<NpcProfile & { x: number; y: number }>;
+    coach: WorldHumanoidSpawn;
+    players: WorldHumanoidSpawn[];
     fieldName: string;
   };
   billboardOracle?: {
-    signPainter: NpcProfile & { x: number; y: number };
+    signPainter: WorldHumanoidSpawn;
     slogan: string;
   };
   roadCrew?: {
-    ranger: NpcProfile & { x: number; y: number };
+    ranger: WorldHumanoidSpawn;
     roadName: string;
   };
   molemanDigSite?: {
     id: string;
     name: string;
     variantId: DigSiteVariantId;
-    foreman: NpcProfile & { x: number; y: number };
+    foreman: WorldHumanoidSpawn;
     bounds: { left: number; top: number; width: number; height: number };
     pit: Vector2Like;
   };
   lavenderFarm?: {
     farmCenter: { x: number; y: number };
     safeArea: { left: number; top: number; width: number; height: number };
-    farmer: NpcProfile & { x: number; y: number };
+    farmer: WorldHumanoidSpawn;
     rows: Array<{ x: number; y: number }>;
   };
   cheeseShop?: {
     shopCenter: { x: number; y: number };
     safeArea: { left: number; top: number; width: number; height: number };
-    shopkeeper: NpcProfile & { x: number; y: number };
+    shopkeeper: WorldHumanoidSpawn;
   };
   garage?: GarageStructure;
   cars?: ParkedCar[];

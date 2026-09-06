@@ -1,14 +1,15 @@
 import type { GridConfig } from '../../config/gameConfig.js';
-import type { TransitionKind } from '../biomes.js';
 import { areBiomesCompatible } from './biomeCompatibility.js';
 import type { BiomeMap } from './biomeMap.js';
 import type { EdgeAccessPlan, EdgeSide } from './edgeAccess.js';
 import { hashWorldCoordinate } from './worldHash.js';
 import type { WorldGenerationIdentity } from './worldGenerationIdentity.js';
 
+type TransitionContractKind = 'open' | 'blocked' | 'forest-threshold' | 'shoreline' | 'cave-mouth';
+
 export interface TransitionContract {
   side: EdgeSide;
-  kind: TransitionKind;
+  kind: TransitionContractKind;
   passable: boolean;
   openingCenter: number;
   openingWidth: number;
@@ -56,7 +57,7 @@ function openingCenter(side: EdgeSide, grid: GridConfig, hash: number): number {
 }
 
 function transitionKind(args: { roomId: string; side: EdgeSide; biomeMap: BiomeMap }): {
-  kind: TransitionKind;
+  kind: TransitionContractKind;
   passable: boolean;
 } {
   const room = parseRoomId(args.roomId);
@@ -68,10 +69,7 @@ function transitionKind(args: { roomId: string; side: EdgeSide; biomeMap: BiomeM
     return { kind: 'blocked', passable: false };
   }
   if (compatibility.requiresTransition) {
-    return {
-      kind: compatibility.requiresTransition,
-      passable: compatibility.requiresTransition !== 'blocked',
-    };
+    return { kind: compatibility.requiresTransition, passable: true };
   }
   return { kind: 'open', passable: true };
 }
