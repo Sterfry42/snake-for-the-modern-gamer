@@ -118,11 +118,6 @@ export interface RoomGenerationContext {
   mosaicCoast?: RoomSnapshot['mosaicCoast'];
 }
 
-export interface RoomGenerationStage {
-  readonly id: string;
-  apply(context: RoomGenerationContext): void;
-}
-
 export interface RoomGenerationOperations {
   readonly grid: GridConfig;
   createGenerationContext(roomId: string): RoomGenerationContext;
