@@ -23,9 +23,16 @@ export function setTile(layout: string[][], x: number, y: number, ch: string): v
   row[x] = ch;
 }
 
-export function fillRect(layout: string[][], bounds: StructureBounds, ch: string): void {
-  for (let y = bounds.top; y < bounds.top + bounds.height; y += 1) {
-    for (let x = bounds.left; x < bounds.left + bounds.width; x += 1) {
+export function fillRect(
+  layout: string[][],
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+  ch: string,
+): void {
+  for (let y = top; y < top + height; y += 1) {
+    for (let x = left; x < left + width; x += 1) {
       setTile(layout, x, y, ch);
     }
   }
