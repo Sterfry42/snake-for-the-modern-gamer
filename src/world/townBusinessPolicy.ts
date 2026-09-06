@@ -3,9 +3,9 @@ import type { DayPhase } from './atmosphereTypes.js';
 import type { TownResidentRole } from './townRoles.js';
 import { isTownShopRole } from './townRoles.js';
 
-export type TownBusinessPolicyId = 'ordinary-shop' | 'tavern-service' | 'always-open-service';
+type TownBusinessPolicyId = 'ordinary-shop' | 'tavern-service' | 'always-open-service';
 
-export interface TownBusinessPolicy {
+interface TownBusinessPolicy {
   id: TownBusinessPolicyId;
   publicHours: { opens: DayPhase; closes: DayPhase; label: string };
   routines: Partial<Record<DayPhase, ActorScheduleRoutine>>;
