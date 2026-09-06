@@ -1,6 +1,5 @@
-import type { ActorRole, ActorScheduleRoutine } from '../actors/actorTypes.js';
+import type { ActorScheduleRoutine } from '../actors/actorTypes.js';
 import type { DayPhase } from './atmosphereTypes.js';
-import type { TownResidentRole } from './townRoles.js';
 import { isTownShopRole } from './townRoles.js';
 
 type TownBusinessPolicyId = 'ordinary-shop' | 'tavern-service' | 'always-open-service';
@@ -66,9 +65,7 @@ const ORDINARY_SHOP_ROLES = new Set<string>([
 
 const TAVERN_SERVICE_ROLES = new Set<string>(['bartender', 'cardDealer', 'innkeeper']);
 
-export function townBusinessPolicyForRole(
-  role: ActorRole | TownResidentRole | string | undefined,
-): TownBusinessPolicy | undefined {
+export function townBusinessPolicyForRole(role: string | undefined): TownBusinessPolicy | undefined {
   if (!role) {
     return undefined;
   }
