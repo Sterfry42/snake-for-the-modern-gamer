@@ -7,7 +7,7 @@ import {
   type ClimateClass,
 } from '../biomes.js';
 
-export interface BiomeCompatibilityResult {
+interface BiomeCompatibilityResult {
   compatible: boolean;
   requiresTransition?: 'shoreline' | 'forest-threshold' | 'cave-mouth';
 }
