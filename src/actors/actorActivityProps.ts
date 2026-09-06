@@ -1,6 +1,6 @@
 import type { Actor, ActorActivityKind } from './actorTypes.js';
 
-export type ActorActivityPropKind =
+type ActorActivityPropKind =
   | 'sword'
   | 'bow'
   | 'merchant-bag'
@@ -13,7 +13,7 @@ export type ActorActivityPropKind =
   | 'shield'
   | 'fishing-rod';
 
-export interface ActorActivityProp {
+interface ActorActivityProp {
   kind: ActorActivityPropKind;
   textureKey: string;
   anchor: 'bottom-right';
@@ -50,7 +50,7 @@ const PROP_LABELS: Record<ActorActivityPropKind, string> = {
   'fishing-rod': 'Fishing',
 };
 
-export interface ActorSleepMarker {
+interface ActorSleepMarker {
   kind: 'sleep-zzz';
   textureKey: string;
   anchor: 'above-head';
