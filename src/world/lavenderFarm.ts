@@ -2,9 +2,14 @@
  * Lavender Farm
  */
 import type { GridConfig } from '../config/gameConfig.js';
-import { vectorKey } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 import { createHumanoidIdentity } from './humanoidSpawn.js';
+import {
+  fillRect,
+  findRandomRectPlacement,
+  pickOne,
+  setTile,
+} from './structurePlacement.js';
 import type { RoomSnapshot } from './types.js';
 
 interface LavenderFarmPlacement {
@@ -14,43 +19,8 @@ interface LavenderFarmPlacement {
   rows: Array<{ x: number; y: number }>;
 }
 
-function setChar(layout: string[][], x: number, y: number, ch: string): void {
-  if (y < 0 || y >= layout.length) return;
-  if (x < 0 || x >= layout[y].length) return;
-  layout[y][x] = ch;
-}
-
-function fillRect(
-  layout: string[][],
-  left: number,
-  top: number,
-  width: number,
-  height: number,
-  ch: string,
-): void {
-  for (let y = top; y < top + height; y += 1) {
-    for (let x = left; x < left + width; x += 1) {
-      setChar(layout, x, y, ch);
-    }
-  }
-}
-
-function canPlaceRect(
-  layout: string[][],
-  left: number,
-  top: number,
-  width: number,
-  height: number,
-  forbiddenCells?: ReadonlySet<string>,
-): boolean {
-  for (let y = top; y < top + height; y += 1) {
-    for (let x = left; x < left + width; x += 1) {
-      if (layout[y]?.[x] !== '.') return false;
-      if (forbiddenCells?.has(vectorKey({ x, y }))) return false;
-    }
-  }
-  return true;
-}
+const FARMER_NAMES = ['Marcel', 'Helene', 'Pierre', 'Claire', 'Antoine'] as const;
+const FARMER_PORTRAITS = ['sage-1', 'sage-2', 'sage-3'] as const;
 
 export function tryPlaceLavenderFarm(
   layout: string[][],
@@ -61,38 +31,19 @@ export function tryPlaceLavenderFarm(
     margin?: number;
   } = {},
 ): LavenderFarmPlacement | null {
-  if (grid.cols < 22 || grid.rows < 16) {
-    return null;
-  }
+  if (grid.cols < 22 || grid.rows < 16) return null;
 
-  const margin = options.margin ?? 4;
   const farmWidth = 14;
   const farmHeight = 10;
-  const minLeft = margin;
-  const minTop = margin;
-  const maxLeft = grid.cols - farmWidth - margin;
-  const maxTop = grid.rows - farmHeight - margin;
+  const placement = findRandomRectPlacement(layout, grid, rng, {
+    width: farmWidth,
+    height: farmHeight,
+    margin: options.margin ?? 4,
+    attempts: 20,
+    forbiddenCells: options.forbiddenCells,
+  });
+  if (!placement) return null;
 
-  if (maxLeft < minLeft || maxTop < minTop) {
-    return null;
-  }
-
-  let placement: { left: number; top: number } | null = null;
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    const left = minLeft + Math.floor(rng() * (maxLeft - minLeft + 1));
-    const top = minTop + Math.floor(rng() * (maxTop - minTop + 1));
-    if (!canPlaceRect(layout, left, top, farmWidth, farmHeight, options.forbiddenCells)) {
-      continue;
-    }
-    placement = { left, top };
-    break;
-  }
-
-  if (!placement) {
-    return null;
-  }
-
-  // Draw lavender rows
   const rows: Array<{ x: number; y: number }> = [];
   const rowYStart = placement.top + 1;
   const rowYEnd = placement.top + farmHeight - 2;
@@ -102,44 +53,35 @@ export function tryPlaceLavenderFarm(
   for (let y = rowYStart; y <= rowYEnd; y += 2) {
     for (let x = rowXStart; x <= rowXEnd; x += 1) {
       if (layout[y]?.[x] === '.') {
-        setChar(layout, x, y, 'L'); // Lavender
+        setTile(layout, x, y, 'L');
         rows.push({ x, y });
       }
     }
   }
 
-  // Draw the farmhouse
   const houseLeft = placement.left + farmWidth - 5;
   const houseTop = placement.top + 1;
   fillRect(layout, houseLeft, houseTop, 4, 3, 'W');
-  setChar(layout, houseLeft + 1, houseTop + 2, '.');
-  setChar(layout, houseLeft + 2, houseTop + 2, '.');
+  setTile(layout, houseLeft + 1, houseTop + 2, '.');
+  setTile(layout, houseLeft + 2, houseTop + 2, '.');
 
-  // Draw the safe area around the quest giver
   const questX = placement.left + Math.floor(farmWidth / 2);
   const questY = placement.top + Math.floor(farmHeight / 2);
-  setChar(layout, questX, questY, 'G');
-
-  const safeArea = {
-    left: questX - 2,
-    top: questY - 2,
-    width: 5,
-    height: 5,
-  };
-
-  const farmer = {
-    ...createHumanoidIdentity(
-      ['Marcel', 'Helene', 'Pierre', 'Claire', 'Antoine'][Math.floor(rng() * 5)],
-      ['sage-1', 'sage-2', 'sage-3'][Math.floor(rng() * 3)],
-    ),
-    x: questX,
-    y: questY,
-  };
+  setTile(layout, questX, questY, 'G');
 
   return {
     farmCenter: { x: questX, y: questY },
-    safeArea,
-    farmer,
+    safeArea: {
+      left: questX - 2,
+      top: questY - 2,
+      width: 5,
+      height: 5,
+    },
+    farmer: {
+      ...createHumanoidIdentity(pickOne(FARMER_NAMES, rng), pickOne(FARMER_PORTRAITS, rng)),
+      x: questX,
+      y: questY,
+    },
     rows,
   };
 }
