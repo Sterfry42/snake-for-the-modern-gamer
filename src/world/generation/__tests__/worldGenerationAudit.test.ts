@@ -64,7 +64,7 @@ describe('world generation audit', () => {
 
     for (let y = -roomRadius; y <= roomRadius; y += 1) {
       for (let x = -roomRadius; x <= roomRadius; x += 1) {
-        const room = generator.generate(roomId(x, y, 0), defaultGameConfig.grid);
+        const room = generator.generate(roomId(x, y, 0));
         if (!room.town && !room.townPerimeter) {
           continue;
         }

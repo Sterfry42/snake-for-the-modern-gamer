@@ -274,14 +274,15 @@ export function tryActivatePortal(
     };
   }
 
+  // Check for obsidian frame
   // Light the portal interior
   const portalId = portalManager.getPortal(x, y, roomId)?.portalId;
   if (portalId) {
     portalManager.activatePortal(portalId);
 
     // Set portal interior blocks
-    for (const block of interiorBlocks) {
-      void block;
+    for (const _block of interiorBlocks) {
+      void _block;
       // Mark interior as portal blocks
     }
 
@@ -309,9 +310,9 @@ export function generatePortalRoom(
   height: number,
   room: RoomSnapshot,
 ): void {
-  if (!room.minecraftBlocks) {
-    room.minecraftBlocks = {};
-  }
+  // Create an obsidian platform
+  room.minecraftBlocks ??= {};
+
   for (let dx = -2; dx <= 2; dx++) {
     for (let dy = -2; dy <= 2; dy++) {
       const key = `${dx + width / 2},${dy + height / 2}`;

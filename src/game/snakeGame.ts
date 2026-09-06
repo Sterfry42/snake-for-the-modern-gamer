@@ -123,8 +123,8 @@ import {
   type WandererEncounter,
 } from '../npcs/encounters.js';
 import { selectNpcVoiceLine, type NpcVoiceLine } from '../npcs/npcVoice.js';
-import { buildHouseNpcProfile } from '../npcs/profiles.js';
 import { getBiomeDefinition, getBiomeForRoom } from '../world/biomes.js';
+import { createHumanoidIdentity } from '../world/humanoidSpawn.js';
 import {
   isLocatorItemId,
   getLocatorBiomeId,
@@ -177,7 +177,6 @@ import {
   isTownCriminalRole,
   isTownGuardRole,
   isTownShopRole,
-  type TownResidentRole,
 } from '../world/townRoles.js';
 import {
   isTownBusinessOpenForPhase,
@@ -312,6 +311,13 @@ import {
   createActorPresence,
   inferActorActivity,
 } from '../actors/actorPresence.js';
+import {
+  actorIdForAnimal,
+  actorIdForEnemy,
+  actorIdForRelationship,
+  actorIdForTownResident,
+  actorIdForWanderer,
+} from '../actors/actorFactory.js';
 import type { CreateWorldEventInput, WorldEvent } from '../events/worldEventTypes.js';
 import {
   KARMA_MIN,
@@ -1166,10 +1172,6 @@ export class SnakeGame implements QuestRuntime {
   private lethalStepHoldTicks = 0;
   private lethalStepHoldGraceTicks = 0;
   private readonly visitedRooms: Set<string>;
-  private readonly npcDisposition = new Map<
-    string,
-    { anger: number; hostility: 'friendly' | 'warning' | 'hostile' }
-  >();
   private readonly npcBodies = new Map<string, NpcBodyState>();
   private readonly actorMaterializationDirtyRooms = new Set<string>();
   private readonly actorsTransitionedFromLoadedRoomThisTick = new Set<string>();
@@ -1293,7 +1295,6 @@ export class SnakeGame implements QuestRuntime {
     this.debugSecondPlayerStepCount = 0;
     this.syncPlayerMap();
     this.visitedRooms.clear();
-    this.npcDisposition.clear();
     this.npcBodies.clear();
     this.actorMaterializationDirtyRooms.clear();
     this.resolvedWandererEncounters.clear();
@@ -2627,7 +2628,7 @@ export class SnakeGame implements QuestRuntime {
         const eatenActorId =
           enemyEat.enemy?.actorId ??
           (enemyEat.enemy
-            ? this.actors.getStableEnemyActorId(this.snake.currentRoomId, enemyEat.enemy.id)
+            ? actorIdForEnemy(this.snake.currentRoomId, enemyEat.enemy.id)
             : undefined);
         if (enemyEat.enemy && eatenActorId) {
           this.actors.registry.ensureEnemyActor({
@@ -6191,8 +6192,7 @@ export class SnakeGame implements QuestRuntime {
           row.substring(0, resident.x) + '.' + row.substring(resident.x + 1);
       }
       const actorId =
-        resident.actorId ??
-        this.actors.getStableTownResidentActorId(town.id, resident.id, resident.role);
+        resident.actorId ?? actorIdForTownResident(town.id, resident.id, resident.role);
       const actor = this.actors.registry.get(actorId);
       if (
         actor?.playerHostility?.state === 'hostile' ||
@@ -6600,7 +6600,7 @@ export class SnakeGame implements QuestRuntime {
     );
     const name = 'Coach Marco';
     const id = `${next.id}:physical-trainer`;
-    const profile = buildHouseNpcProfile(name);
+    const profile = createHumanoidIdentity(name);
     const resident: TownStructure['residents'][number] = {
       ...profile,
       id,
@@ -7106,32 +7106,12 @@ export class SnakeGame implements QuestRuntime {
     return this.actors.getActor(actorId)?.role;
   }
 
-  getTownResidentActorId(townId: string, residentId: string, role: TownResidentRole): string {
-    return this.actors.getStableTownResidentActorId(townId, residentId, role);
-  }
-
   getTownResidentRelationshipId(townId: string, residentId: string): string {
     return `resident:${townId}:${residentId}`;
   }
 
-  getVillageActorId(roomId: string, npcId: string, role: TownResidentRole): string {
-    return this.actors.getStableTownResidentActorId(`village:${roomId}`, npcId, role);
-  }
-
-  getGarageMechanicActorId(roomId: string, mechanicId: string): string {
-    return this.actors.getStableTownResidentActorId(`garage:${roomId}`, mechanicId, 'shopkeeper');
-  }
-
   getGarageMechanicRelationshipId(roomId: string, mechanicId: string): string {
     return `resident:${roomId}:${mechanicId}`;
-  }
-
-  getGoblinCampActorId(campId: string, npcId: string, role: TownResidentRole): string {
-    return this.actors.getStableTownResidentActorId(campId, npcId, role);
-  }
-
-  getQuestGiverActorId(roomId: string, npcId: string): string {
-    return this.actors.getStableTownResidentActorId(`quest:${roomId}`, npcId, 'questGiver');
   }
 
   getActorConversation(
@@ -7830,7 +7810,7 @@ export class SnakeGame implements QuestRuntime {
       const defeatedRaidBandit = enemy.id.startsWith('npc-hostile:raidBandit-');
       if (defeatedRaidBandit) {
         this.noteBanditRaidDefeat(enemy, false);
-        const actorId = enemy.actorId ?? this.actors.getStableEnemyActorId(enemy.roomId, enemy.id);
+        const actorId = enemy.actorId ?? actorIdForEnemy(enemy.roomId, enemy.id);
         this.emitWorldEvent({
           type: 'enemy-defeated',
           roomId: enemy.roomId,
@@ -7880,7 +7860,7 @@ export class SnakeGame implements QuestRuntime {
       return;
     }
     this.changeKarma(-25, `civilian-${cause}`);
-    const actorId = state.actorId ?? this.actors.getStableRelationshipActorId(state.id);
+    const actorId = state.actorId ?? actorIdForRelationship(state.id);
     const updated = this.actors.registry.update(actorId, (actor) => ({
       ...actor,
       health: { current: 0, max: actor.health?.max ?? 1, state: 'dead' },
@@ -9557,7 +9537,7 @@ export class SnakeGame implements QuestRuntime {
         addCandidate({
           profile: {
             id: `resident:${room.id}:${resident.id}`,
-            actorId: this.getVillageActorId(room.id, resident.id, 'resident'),
+            actorId: actorIdForTownResident(`village:${room.id}`, resident.id, 'resident'),
             displayName: resident.name,
             species: 'human',
             portraitId: resident.portraitId,
@@ -9571,7 +9551,11 @@ export class SnakeGame implements QuestRuntime {
       addCandidate({
         profile: {
           id: `resident:${room.id}:${room.village.shopkeeper.id}`,
-          actorId: this.getVillageActorId(room.id, room.village.shopkeeper.id, 'shopkeeper'),
+          actorId: actorIdForTownResident(
+            `village:${room.id}`,
+            room.village.shopkeeper.id,
+            'shopkeeper',
+          ),
           displayName: room.village.shopkeeper.name,
           species: 'human',
           portraitId: room.village.shopkeeper.portraitId,
@@ -9586,7 +9570,7 @@ export class SnakeGame implements QuestRuntime {
       addCandidate({
         profile: {
           id: `quest:${room.id}:${room.questGiver.id}`,
-          actorId: this.getQuestGiverActorId(room.id, room.questGiver.id),
+          actorId: actorIdForTownResident(`quest:${room.id}`, room.questGiver.id, 'questGiver'),
           displayName: room.questGiver.name,
           species: 'human',
           portraitId: room.questGiver.portraitId,
@@ -9601,7 +9585,11 @@ export class SnakeGame implements QuestRuntime {
       addCandidate({
         profile: {
           id: this.getGarageMechanicRelationshipId(room.id, room.garage.mechanic.id),
-          actorId: this.getGarageMechanicActorId(room.id, room.garage.mechanic.id),
+          actorId: actorIdForTownResident(
+            `garage:${room.id}`,
+            room.garage.mechanic.id,
+            'shopkeeper',
+          ),
           displayName: `${room.garage.mechanic.name} the Mechanic`,
           species: 'human',
           homeRoomId: room.id,
@@ -9618,8 +9606,7 @@ export class SnakeGame implements QuestRuntime {
           profile: {
             id: relationshipId,
             actorId:
-              resident.actorId ??
-              this.getTownResidentActorId(room.town.id, resident.id, resident.role),
+              resident.actorId ?? actorIdForTownResident(room.town.id, resident.id, resident.role),
             displayName: resident.name,
             species: 'human',
             portraitId: resident.portraitId,
@@ -9635,7 +9622,7 @@ export class SnakeGame implements QuestRuntime {
       addCandidate({
         profile: {
           id: `resident:${room.id}:${room.goblinCamp.shopkeeper.id}`,
-          actorId: this.getGoblinCampActorId(
+          actorId: actorIdForTownResident(
             room.goblinCamp.id,
             room.goblinCamp.shopkeeper.id,
             'shopkeeper',
@@ -9653,7 +9640,7 @@ export class SnakeGame implements QuestRuntime {
         addCandidate({
           profile: {
             id: `resident:${room.id}:${guard.id}`,
-            actorId: this.getGoblinCampActorId(room.goblinCamp.id, guard.id, 'guard'),
+            actorId: actorIdForTownResident(room.goblinCamp.id, guard.id, 'guard'),
             displayName: guard.name,
             species: 'goblin',
             portraitId: guard.portraitId ?? 'goblin-neutral',
@@ -9679,8 +9666,8 @@ export class SnakeGame implements QuestRuntime {
       const actorId =
         encounter.actorId ??
         (encounter.relationshipId
-          ? this.actors.getStableRelationshipActorId(encounter.relationshipId)
-          : this.actors.getStableWandererActorId(encounter.id));
+          ? actorIdForRelationship(encounter.relationshipId)
+          : actorIdForWanderer(encounter.id));
       addCandidate({
         profile: {
           id: encounter.relationshipId ?? `wanderer:${encounter.id}`,
@@ -12984,7 +12971,7 @@ export class SnakeGame implements QuestRuntime {
           room.town?.residents.find(
             (resident) =>
               (resident.actorId ??
-                this.getTownResidentActorId(room.town!.id, resident.id, resident.role)) === actorId,
+                actorIdForTownResident(room.town!.id, resident.id, resident.role)) === actorId,
           )?.role)
         : undefined;
     if (actorRole && actorRole !== 'butcher' && !isTownShopRole(actorRole)) {
@@ -13067,7 +13054,7 @@ export class SnakeGame implements QuestRuntime {
           room.town?.residents.find(
             (resident) =>
               (resident.actorId ??
-                this.getTownResidentActorId(room.town!.id, resident.id, resident.role)) === actorId,
+                actorIdForTownResident(room.town!.id, resident.id, resident.role)) === actorId,
           )?.role)
         : undefined;
     if (actorRole !== 'butcher') {
@@ -13702,12 +13689,12 @@ export class SnakeGame implements QuestRuntime {
 
     room.motelPool = {
       clerk: {
-        ...buildHouseNpcProfile(clerkNames[Math.floor(rng() * clerkNames.length)], 'sage-1'),
+        ...createHumanoidIdentity(clerkNames[Math.floor(rng() * clerkNames.length)], 'sage-1'),
         x: clerkX,
         y: clerkY,
       },
       maintenance: {
-        ...buildHouseNpcProfile(
+        ...createHumanoidIdentity(
           maintenanceNames[Math.floor(rng() * maintenanceNames.length)],
           'sage-2',
         ),
@@ -13831,12 +13818,12 @@ export class SnakeGame implements QuestRuntime {
     const playerNames = ['Left Tackle Tammy', 'Wide Earl', 'Safety Sue', 'Bobby-Joe Blitz'];
     room.gridironYard = {
       coach: {
-        ...buildHouseNpcProfile('Coach Hank', 'sage-2'),
+        ...createHumanoidIdentity('Coach Hank', 'sage-2'),
         x: coachX,
         y: coachY,
       },
       players: playerSpots.map((spot, index) => ({
-        ...buildHouseNpcProfile(playerNames[index] ?? 'Yard Player', 'sage-1'),
+        ...createHumanoidIdentity(playerNames[index] ?? 'Yard Player', 'sage-1'),
         x: spot.x,
         y: spot.y,
       })),
@@ -13958,7 +13945,10 @@ export class SnakeGame implements QuestRuntime {
       ];
       room.billboardOracle = {
         signPainter: {
-          ...buildHouseNpcProfile(painterNames[Math.floor(rng() * painterNames.length)], 'sage-1'),
+          ...createHumanoidIdentity(
+            painterNames[Math.floor(rng() * painterNames.length)],
+            'sage-1',
+          ),
           x: painterX,
           y: painterY,
         },
@@ -14050,7 +14040,10 @@ export class SnakeGame implements QuestRuntime {
         ];
         room.roadCrew = {
           ranger: {
-            ...buildHouseNpcProfile(rangerNames[Math.floor(rng() * rangerNames.length)], 'sage-1'),
+            ...createHumanoidIdentity(
+              rangerNames[Math.floor(rng() * rangerNames.length)],
+              'sage-1',
+            ),
             x: rangerX,
             y: rangerY,
           },
@@ -14106,7 +14099,10 @@ export class SnakeGame implements QuestRuntime {
         ];
         room.roadCrew = {
           ranger: {
-            ...buildHouseNpcProfile(rangerNames[Math.floor(rng() * rangerNames.length)], 'sage-1'),
+            ...createHumanoidIdentity(
+              rangerNames[Math.floor(rng() * rangerNames.length)],
+              'sage-1',
+            ),
             x: rangerX,
             y: rangerY,
           },
@@ -14268,12 +14264,12 @@ export class SnakeGame implements QuestRuntime {
       const monumentName = 'The Great Serpent Stone';
       room.roadsideMonument = {
         docent: {
-          ...buildHouseNpcProfile(docentNames[Math.floor(rng() * docentNames.length)], 'sage-1'),
+          ...createHumanoidIdentity(docentNames[Math.floor(rng() * docentNames.length)], 'sage-1'),
           x: Math.floor(roomWidth / 2),
           y: top + plazaHeight + 2,
         },
         ranger: {
-          ...buildHouseNpcProfile(
+          ...createHumanoidIdentity(
             monumentNames[Math.floor(rng() * monumentNames.length)],
             'sage-2',
           ),
@@ -14526,7 +14522,7 @@ export class SnakeGame implements QuestRuntime {
     if (!giver) {
       return false;
     }
-    const expected = giver.actorId ?? this.getTownResidentActorId(town.id, giver.id, giver.role);
+    const expected = giver.actorId ?? actorIdForTownResident(town.id, giver.id, giver.role);
     return actorId === expected;
   }
 
@@ -15927,7 +15923,7 @@ export class SnakeGame implements QuestRuntime {
             x: Math.floor(this.config.grid.cols / 2),
             y: Math.floor(this.config.grid.rows / 2),
           });
-    const profile = buildHouseNpcProfile(encounter.name, encounter.portraitId ?? 'sage-1');
+    const profile = createHumanoidIdentity(encounter.name, encounter.portraitId ?? 'sage-1');
     room.questGiver = {
       ...profile,
       id: `npc-${encounter.id}`,
@@ -16048,7 +16044,7 @@ export class SnakeGame implements QuestRuntime {
     if (giver) {
       const profile: RelationshipCandidateProfile = {
         id: `quest:${room.id}:${giver.id}`,
-        actorId: this.getQuestGiverActorId(room.id, giver.id),
+        actorId: actorIdForTownResident(`quest:${room.id}`, giver.id, 'questGiver'),
         displayName: giver.name,
         species: 'human',
         portraitId: giver.portraitId,
@@ -16080,7 +16076,7 @@ export class SnakeGame implements QuestRuntime {
       this.damageVisibleNpcActor(
         {
           id: `resident:${room.id}:${shotGoblin.id}`,
-          actorId: this.getGoblinCampActorId(
+          actorId: actorIdForTownResident(
             room.goblinCamp!.id,
             shotGoblin.id,
             shotGoblin.id === room.goblinCamp!.shopkeeper.id ? 'shopkeeper' : 'guard',
@@ -16212,7 +16208,22 @@ export class SnakeGame implements QuestRuntime {
     anger: number;
     hostility: 'friendly' | 'warning' | 'hostile';
   } {
-    return this.npcDisposition.get(roomId) ?? { anger: 0, hostility: 'friendly' };
+    const room = this.world.getRoom(roomId);
+    const giver = room.questGiver;
+    if (!giver) {
+      return { anger: 0, hostility: 'friendly' };
+    }
+    const actor = this.actors.getActor(
+      actorIdForTownResident(`quest:${roomId}`, giver.id, 'questGiver'),
+    );
+    const anger = Math.max(0, Math.min(100, Math.floor(actor?.mood.anger ?? 0)));
+    const hostility =
+      actor?.hostility === 'hostile' || anger >= 90
+        ? 'hostile'
+        : anger >= 45
+          ? 'warning'
+          : 'friendly';
+    return { anger, hostility };
   }
 
   private findVisibleNpcInLineOfFire(
@@ -16918,8 +16929,7 @@ export class SnakeGame implements QuestRuntime {
       this.npcBodies.delete(relationshipId);
       return;
     }
-    const actorId =
-      body?.actorId ?? state?.actorId ?? this.actors.getStableRelationshipActorId(relationshipId);
+    const actorId = body?.actorId ?? state?.actorId ?? actorIdForRelationship(relationshipId);
     const actor = this.actors.getActor(actorId);
     const maxHearts = Math.max(1, actor?.health?.max ?? 3);
     const currentHearts = Math.max(1, actor?.health?.current ?? maxHearts);
@@ -18029,8 +18039,7 @@ export class SnakeGame implements QuestRuntime {
     this.addScore(drops.length > 0 ? 2 : 1);
     this.setFlag('recent.animalHunted', huntedAnimal.animalType);
     const huntedActorId =
-      huntedAnimal.actorId ??
-      this.actors.getStableAnimalActorId(this.snake.currentRoomId, huntedAnimal.animalId);
+      huntedAnimal.actorId ?? actorIdForAnimal(this.snake.currentRoomId, huntedAnimal.animalId);
     this.actors.registry.ensureAnimalActor({
       actorId: huntedActorId,
       animalId: huntedAnimal.animalId,
@@ -19685,7 +19694,7 @@ export class SnakeGame implements QuestRuntime {
       x: Math.floor(this.config.grid.cols / 2),
       y: Math.floor(this.config.grid.rows / 2),
     };
-    const profile = buildHouseNpcProfile(name, styleId);
+    const profile = createHumanoidIdentity(name, styleId);
     room.questGiver = {
       ...profile,
       id,
@@ -21440,7 +21449,7 @@ export class SnakeGame implements QuestRuntime {
     this.recordWandererSeen(encounter.id);
     this.lastWandererEncounterRoomCount = this.visitedRooms.size;
     const actor = this.actors.registry.ensureWandererActor({
-      actorId: this.actors.getStableWandererActorId(encounter.id),
+      actorId: actorIdForWanderer(encounter.id),
       encounterId: encounter.id,
       displayName: encounter.name,
       roomId,
@@ -21520,7 +21529,7 @@ export class SnakeGame implements QuestRuntime {
     }
     this.lastWandererEncounterRoomCount = this.visitedRooms.size;
     const actor = this.actors.registry.ensureRelationshipActor({
-      actorId: state.actorId ?? this.actors.getStableRelationshipActorId(state.id),
+      actorId: state.actorId ?? actorIdForRelationship(state.id),
       relationshipId: state.id,
       displayName: state.displayName,
       species: state.species,
@@ -21598,36 +21607,28 @@ export class SnakeGame implements QuestRuntime {
     if (!giver) {
       return null;
     }
-    const current = this.npcDisposition.get(roomId) ?? { anger: 0, hostility: 'friendly' as const };
-    const anger = reason === 'shot' ? 99 : current.anger + 1;
+    this.ensureActorsFromRoomContent(room, true);
+    const actorId = actorIdForTownResident(`quest:${roomId}`, giver.id, 'questGiver');
+    const updated = this.actors.registry.update(actorId, (actor) => {
+      const anger = reason === 'shot' ? 99 : Math.min(100, actor.mood.anger + 45);
+      return {
+        ...actor,
+        hostility: anger >= 90 || reason === 'shot' ? 'hostile' : actor.hostility,
+        mood: {
+          ...actor.mood,
+          anger,
+          trust: Math.max(-100, actor.mood.trust - (reason === 'shot' ? 25 : 10)),
+        },
+      };
+    });
+    const anger = Math.max(0, Math.min(100, Math.floor(updated?.mood.anger ?? 0)));
     const hostility: 'friendly' | 'warning' | 'hostile' =
-      anger >= 2 || reason === 'shot' ? 'hostile' : anger >= 1 ? 'warning' : 'friendly';
-    const next = { anger, hostility };
-    this.npcDisposition.set(roomId, next);
-    if (hostility === 'hostile') {
-      if (reason === 'shot' && current.hostility === 'hostile') {
-        const hit = this.enemies.damageEnemyAt(
-          roomId,
-          this.localToWorld(roomId, { x: giver.x, y: giver.y }),
-          1,
-        );
-        if (hit.defeated) {
-          this.setFlag('ui.questInteraction', { message: `${giver.name} has been shot dead.` });
-        }
-        return next;
-      }
-      const maxHearts = Math.max(3, giver.maxHearts);
-      this.enemies.spawnHostileNpc(
-        roomId,
-        { x: giver.x, y: giver.y },
-        giver.name,
-        maxHearts,
-        undefined,
-        reason === 'shot' ? Math.max(1, maxHearts - 1) : maxHearts,
-        undefined,
-      );
-    }
-    return next;
+      updated?.hostility === 'hostile' || anger >= 90
+        ? 'hostile'
+        : anger >= 45
+          ? 'warning'
+          : 'friendly';
+    return { anger, hostility };
   }
 
   private handleGoblinCampEntered(roomId: string, room: RoomSnapshot): void {
@@ -21646,13 +21647,7 @@ export class SnakeGame implements QuestRuntime {
       return;
     }
     room.goblinCamp.guards.forEach((guard, index) => {
-      this.enemies.spawnGoblin(
-        roomId,
-        { x: guard.x, y: guard.y },
-        guard.name,
-        Math.max(2, guard.maxHearts ?? 2),
-        index,
-      );
+      this.enemies.spawnGoblin(roomId, { x: guard.x, y: guard.y }, guard.name, 2, index);
     });
   }
 

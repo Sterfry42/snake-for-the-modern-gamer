@@ -15,10 +15,15 @@ function roomId(coord: RoomCoord): string {
 function generateRoomsWithGenerator(seed: string, coords: RoomCoord[]): Map<string, RoomSnapshot> {
   const identity = createWorldGenerationIdentity(seed);
   const rng = createRng(seed);
-  const generator = new RoomGenerator(defaultGameConfig.world, rng, identity);
+  const generator = new RoomGenerator(
+    defaultGameConfig.grid,
+    defaultGameConfig.world,
+    rng,
+    identity,
+  );
   const rooms = new Map<string, RoomSnapshot>();
   for (const coord of coords) {
-    rooms.set(roomId(coord), generator.generate(roomId(coord), defaultGameConfig.grid));
+    rooms.set(roomId(coord), generator.generate(roomId(coord)));
   }
   return rooms;
 }

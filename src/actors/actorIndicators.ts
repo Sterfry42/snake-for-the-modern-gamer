@@ -1,14 +1,13 @@
 import type { Actor } from './actorTypes.js';
 
-export type ActorIndicatorKind =
+type ActorIndicatorKind =
   | 'quest'
   | 'romance'
   | 'spouse'
   | 'hostile'
   | 'suspicious'
   | 'wounded'
-  | 'faction'
-  | 'locked';
+  | 'faction';
 
 export interface ActorIndicator {
   kind: ActorIndicatorKind;

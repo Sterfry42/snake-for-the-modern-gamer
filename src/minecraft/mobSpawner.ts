@@ -1,5 +1,4 @@
 import type { MobTypeId } from './types.js';
-import type { RandomGenerator } from '../core/rng.js';
 import { MobManager } from './mobManager.js';
 import { LightingSystem } from './lighting.js';
 
@@ -346,7 +345,7 @@ export class MobSpawnerManager {
 
       // Try to spawn
       if (this.rng() < 0.05) {
-        this.trySpawnFromSpawner(spawner, mobManager, currentTime, gridSize, onMobDeath);
+        this.trySpawnFromSpawner(spawner, mobManager, gridSize, onMobDeath);
         spawner.lastSpawn = currentTime;
       }
     }
@@ -355,7 +354,6 @@ export class MobSpawnerManager {
   private trySpawnFromSpawner(
     spawner: MobSpawnerState,
     mobManager: MobManager,
-    _currentTime: number,
     gridSize: number,
     onMobDeath: (mobId: string, x: number, y: number, roomId: string) => void,
   ): void {
@@ -370,11 +368,7 @@ export class MobSpawnerManager {
     // Handle mob death drops
     const mob = mobManager.getMob(Array.from(mobManager['mobs'].values()).pop()?.id ?? '');
     if (mob) {
-      mobManager.onMobDeath(mob.id, (itemId, count) => {
-        void itemId;
-        void count;
-        // Drops would be handled by the game
-      });
+      mobManager.onMobDeath(mob.id, () => undefined);
     }
 
     onMobDeath(mobManager['mobs'].keys().next().value ?? '', chosen.x, chosen.y, spawner.roomId);
@@ -428,7 +422,11 @@ export function activateSpawner(
   x: number,
   y: number,
   roomId: string,
+  _playerX: number,
+  _playerY: number,
 ): { success: boolean; message?: string } {
+  void _playerX;
+  void _playerY;
   const spawner = spawnerManager.getSpawner(x, y, roomId);
   if (!spawner) {
     return { success: false, message: 'No spawner here.' };
@@ -483,7 +481,9 @@ export const SPAWNER_LOOT_TABLE: SpawnerLootEntry[] = [
   { itemId: 'diamond', minCount: 1, maxCount: 1, weight: 1 },
 ];
 
-export function getSpawnerLoot(rng: RandomGenerator): Array<{ itemId: string; count: number }> {
+export function getSpawnerLoot(
+  rng: () => number = Math.random,
+): Array<{ itemId: string; count: number }> {
   const loot: Array<{ itemId: string; count: number }> = [];
 
   for (const entry of SPAWNER_LOOT_TABLE) {

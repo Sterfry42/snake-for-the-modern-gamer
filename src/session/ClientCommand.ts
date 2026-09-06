@@ -1,4 +1,5 @@
 import type { Vector2Like } from '../core/math.js';
+import type { ChoiceWithMods } from '../game/saveTypes.js';
 import type { PlayerId } from '../players/playerTypes.js';
 
 export type ClientCommand =
@@ -37,16 +38,16 @@ export type ClientCommand =
   | {
       type: 'saveGame';
       playerId: PlayerId;
-      religionChoice?: import('../game/saveManager.js').ChoiceWithMods;
-      classChoice?: import('../game/saveManager.js').ChoiceWithMods;
-      backgroundChoice?: import('../game/saveManager.js').ChoiceWithMods;
+      religionChoice?: ChoiceWithMods;
+      classChoice?: ChoiceWithMods;
+      backgroundChoice?: ChoiceWithMods;
     }
   | {
       type: 'loadGame';
       playerId: PlayerId;
-      religionChoice?: import('../game/saveManager.js').ChoiceWithMods;
-      classChoice?: import('../game/saveManager.js').ChoiceWithMods;
-      backgroundChoice?: import('../game/saveManager.js').ChoiceWithMods;
+      religionChoice?: ChoiceWithMods;
+      classChoice?: ChoiceWithMods;
+      backgroundChoice?: ChoiceWithMods;
     }
   | {
       type: 'clearSave';

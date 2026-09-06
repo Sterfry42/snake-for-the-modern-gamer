@@ -126,7 +126,7 @@ function generateRoomsInOrder(roomIds: readonly string[]) {
     createRng('order-independent-town'),
     identity,
   );
-  return roomIds.map((roomId) => generator.generate(roomId, defaultGameConfig.grid));
+  return roomIds.map((roomId) => generator.generate(roomId));
 }
 
 function townFacingEdgeTiles(roomLayout: readonly string[], side: EdgeSide): string[] {

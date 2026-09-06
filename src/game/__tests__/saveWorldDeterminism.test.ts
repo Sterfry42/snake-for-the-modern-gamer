@@ -1,22 +1,21 @@
-import { describe, expect, it, afterEach } from 'vitest';
-import { SnakeGame } from '../../game/snakeGame.js';
+import { afterEach, describe, expect, it } from 'vitest';
+import { SnakeGame } from '../snakeGame.js';
+import { clearSavedGameData } from '../saveManager.js';
 import { defaultGameConfig } from '../../config/gameConfig.js';
-import { QuestRegistry } from '../../quests/questRegistry.js';
-import { saveManager } from '../../game/saveManager.js';
-import { RoomGenerator } from '../../world/roomGenerator.js';
 import { createRng } from '../../core/rng.js';
+import { QuestRegistry } from '../../quests/questRegistry.js';
+import { RoomGenerator } from '../../world/roomGenerator.js';
 
 import type { RoomSnapshot } from '../../world/types.js';
 
-function makeGameWithSeed(seed: string) {
-  const registry = new QuestRegistry();
+function makeGameWithSeed(seed: string): SnakeGame {
   return new SnakeGame(
     {
       ...defaultGameConfig,
       rng: { seed },
       quests: { ...defaultGameConfig.quests, initialQuestCount: 3 },
     },
-    registry,
+    new QuestRegistry(),
     {},
   );
 }
@@ -25,9 +24,9 @@ function roomLayoutKey(room: RoomSnapshot): string {
   return room.layout.join('|');
 }
 
-describe('save regression tests', () => {
+describe('save world identity', () => {
   afterEach(() => {
-    saveManager.clear();
+    clearSavedGameData();
   });
 
   it('preserves WorldGenerationIdentity through save and load', () => {
@@ -36,89 +35,78 @@ describe('save regression tests', () => {
     game.reset();
 
     game.saveGame();
-
-    const saveData = game.getSaveData();
-    expect(saveData.worldGeneration).toBeDefined();
-    expect(saveData.worldGeneration!.seed).toBe(seed);
+    expect(game.getSaveData().worldGeneration?.seed).toBe(seed);
 
     game.reset();
-    game.loadGame();
+    expect(game.loadGame()).toBe(true);
 
-    const loadedData = game.getSaveData();
-    expect(loadedData.worldGeneration).toBeDefined();
-    expect(loadedData.worldGeneration!.seed).toBe(seed);
+    const loadedIdentity = game.getSaveData().worldGeneration;
+    expect(loadedIdentity?.seed).toBe(seed);
+    expect(typeof loadedIdentity?.worldSalt).toBe('number');
+    expect(typeof loadedIdentity?.biomeSalt).toBe('number');
+    expect(typeof loadedIdentity?.riverSalt).toBe('number');
+    expect(typeof loadedIdentity?.barrierSalt).toBe('number');
+    expect(typeof loadedIdentity?.structureSalt).toBe('number');
+    expect(typeof loadedIdentity?.townSalt).toBe('number');
   });
 
   it('reproduces world state with deterministic seed via fresh game creation', () => {
     const seed = 'save-fresh-creation';
-    const game1 = makeGameWithSeed(seed);
-    game1.reset();
+    const gameA = makeGameWithSeed(seed);
+    gameA.reset();
 
-    // Generate a set of rooms
     const roomIds = ['0,0,0', '0,1,0', '0,-1,0', '1,0,0', '-1,0,0', '0,2,0', '0,-2,0'];
     const firstStates = new Map<string, string>();
-    for (const id of roomIds) {
-      const room = game1.getRoom(id);
-      firstStates.set(id, roomLayoutKey(room));
+    for (const roomId of roomIds) {
+      firstStates.set(roomId, roomLayoutKey(gameA.getRoom(roomId)));
     }
 
-    // Create a completely new game instance with the same seed
-    const game2 = makeGameWithSeed(seed);
-    game2.reset();
+    const gameB = makeGameWithSeed(seed);
+    gameB.reset();
 
-    // Verify world state matches
-    for (const [id, layout] of firstStates) {
-      const room = game2.getRoom(id);
-      expect(roomLayoutKey(room)).toBe(layout);
+    for (const [roomId, layout] of firstStates) {
+      expect(roomLayoutKey(gameB.getRoom(roomId))).toBe(layout);
     }
   });
 
   it('preserves biome assignments through deterministic recreation', () => {
     const seed = 'save-biomes';
-    const game1 = makeGameWithSeed(seed);
-    game1.reset();
+    const gameA = makeGameWithSeed(seed);
+    gameA.reset();
 
-    // Generate a large area
     for (let x = -10; x <= 10; x++) {
       for (let y = -10; y <= 10; y++) {
-        game1.getRoom(`${x},${y},0`);
+        gameA.getRoom(`${x},${y},0`);
       }
     }
 
-    // Capture biome assignments
     const firstBiomes = new Map<string, string>();
     for (let x = -10; x <= 10; x++) {
       for (let y = -10; y <= 10; y++) {
-        const id = `${x},${y},0`;
-        const room = game1.getRoom(id);
-        firstBiomes.set(id, room.biomeId);
+        const roomId = `${x},${y},0`;
+        firstBiomes.set(roomId, gameA.getRoom(roomId).biomeId);
       }
     }
 
-    // Recreate with same seed
-    const game2 = makeGameWithSeed(seed);
-    game2.reset();
+    const gameB = makeGameWithSeed(seed);
+    gameB.reset();
 
-    // Verify biomes are reproduced
-    for (const [id, expectedBiome] of firstBiomes) {
-      const room = game2.getRoom(id);
-      expect(room.biomeId).toBe(expectedBiome);
+    for (const [roomId, expectedBiome] of firstBiomes) {
+      expect(gameB.getRoom(roomId).biomeId).toBe(expectedBiome);
     }
   }, 30_000);
 
   it('preserves structure placement through deterministic recreation', () => {
     const seed = 'save-structures';
-    const game1 = makeGameWithSeed(seed);
-    game1.reset();
+    const gameA = makeGameWithSeed(seed);
+    gameA.reset();
 
-    // Generate a larger area to increase chance of structures
     for (let x = -5; x <= 5; x++) {
       for (let y = -5; y <= 5; y++) {
-        game1.getRoom(`${x},${y},0`);
+        gameA.getRoom(`${x},${y},0`);
       }
     }
 
-    // Capture structure presence
     const firstStructures = new Map<
       string,
       {
@@ -132,9 +120,9 @@ describe('save regression tests', () => {
 
     for (let x = -5; x <= 5; x++) {
       for (let y = -5; y <= 5; y++) {
-        const id = `${x},${y},0`;
-        const room = game1.getRoom(id);
-        firstStructures.set(id, {
+        const roomId = `${x},${y},0`;
+        const room = gameA.getRoom(roomId);
+        firstStructures.set(roomId, {
           village: !!room.village,
           goblinCamp: !!room.goblinCamp,
           town: !!room.town,
@@ -144,108 +132,99 @@ describe('save regression tests', () => {
       }
     }
 
-    // Recreate with same seed
-    const game2 = makeGameWithSeed(seed);
-    game2.reset();
+    const gameB = makeGameWithSeed(seed);
+    gameB.reset();
 
-    // Verify structures are reproduced
-    for (const [id, expected] of firstStructures) {
-      const room = game2.getRoom(id);
-      const actual = {
+    for (const [roomId, expected] of firstStructures) {
+      const room = gameB.getRoom(roomId);
+      expect({
         village: !!room.village,
         goblinCamp: !!room.goblinCamp,
         town: !!room.town,
         shrine: !!room.shrine,
         ramenStand: !!room.ramenStand,
-      };
-      expect(actual).toEqual(expected);
+      }).toEqual(expected);
     }
   });
 
   it('preserves portal connections through deterministic recreation', () => {
     const seed = 'save-portals';
-    const game1 = makeGameWithSeed(seed);
-    game1.reset();
+    const gameA = makeGameWithSeed(seed);
+    gameA.reset();
 
-    // Generate a set of connected rooms
     const roomIds = ['0,0,0', '1,0,0', '0,1,0', '-1,0,0', '0,-1,0'];
     const firstPortals = new Map<string, Array<{ destRoomId: string; x: number; y: number }>>();
-    for (const id of roomIds) {
-      const room = game1.getRoom(id);
+    for (const roomId of roomIds) {
+      const room = gameA.getRoom(roomId);
       firstPortals.set(
-        id,
-        room.portals.map((p) => ({ destRoomId: p.destRoomId, x: p.x, y: p.y })),
+        roomId,
+        room.portals.map((portal) => ({
+          destRoomId: portal.destRoomId,
+          x: portal.x,
+          y: portal.y,
+        })),
       );
     }
 
-    // Recreate with same seed
-    const game2 = makeGameWithSeed(seed);
-    game2.reset();
+    const gameB = makeGameWithSeed(seed);
+    gameB.reset();
 
-    // Verify portals are reproduced
-    for (const [id, expectedPortals] of firstPortals) {
-      const room = game2.getRoom(id);
-      expect(room.portals.length).toBe(expectedPortals.length);
-      for (let i = 0; i < expectedPortals.length; i++) {
-        expect(room.portals[i].destRoomId).toBe(expectedPortals[i].destRoomId);
-        expect(room.portals[i].x).toBe(expectedPortals[i].x);
-        expect(room.portals[i].y).toBe(expectedPortals[i].y);
+    for (const [roomId, expectedPortals] of firstPortals) {
+      const room = gameB.getRoom(roomId);
+      expect(room.portals).toHaveLength(expectedPortals.length);
+      for (let index = 0; index < expectedPortals.length; index++) {
+        expect(room.portals[index].destRoomId).toBe(expectedPortals[index].destRoomId);
+        expect(room.portals[index].x).toBe(expectedPortals[index].x);
+        expect(room.portals[index].y).toBe(expectedPortals[index].y);
       }
     }
   });
 
   it('preserves cave entrance placement through deterministic recreation', () => {
     const seed = 'save-caves';
-    const game1 = makeGameWithSeed(seed);
-    game1.reset();
+    const gameA = makeGameWithSeed(seed);
+    gameA.reset();
 
-    // Generate a larger area
     for (let x = -10; x <= 10; x++) {
       for (let y = -10; y <= 10; y++) {
-        game1.getRoom(`${x},${y},0`);
+        gameA.getRoom(`${x},${y},0`);
       }
     }
 
-    // Capture cave entrance presence
     const firstCavePresence = new Map<string, boolean>();
     for (let x = -10; x <= 10; x++) {
       for (let y = -10; y <= 10; y++) {
-        const id = `${x},${y},0`;
-        const room = game1.getRoom(id);
-        firstCavePresence.set(id, !!room.caveEntrances && room.caveEntrances.length > 0);
+        const roomId = `${x},${y},0`;
+        const room = gameA.getRoom(roomId);
+        firstCavePresence.set(roomId, !!room.caveEntrances && room.caveEntrances.length > 0);
       }
     }
 
-    // Recreate with same seed - access rooms in the same order
-    const game2 = makeGameWithSeed(seed);
-    game2.reset();
+    const gameB = makeGameWithSeed(seed);
+    gameB.reset();
     for (let x = -10; x <= 10; x++) {
       for (let y = -10; y <= 10; y++) {
-        game2.getRoom(`${x},${y},0`);
+        gameB.getRoom(`${x},${y},0`);
       }
     }
 
-    // Verify cave entrance presence is reproduced
-    for (const [id, hasCaves] of firstCavePresence) {
-      const room = game2.getRoom(id);
-      const actualHasCaves = !!room.caveEntrances && room.caveEntrances.length > 0;
-      expect(actualHasCaves).toBe(hasCaves);
+    for (const [roomId, hasCaves] of firstCavePresence) {
+      const room = gameB.getRoom(roomId);
+      expect(!!room.caveEntrances && room.caveEntrances.length > 0).toBe(hasCaves);
     }
   }, 30_000);
 
   it('preserves town data through deterministic recreation', () => {
     const seed = 'save-towns';
-    const game1 = makeGameWithSeed(seed);
-    game1.reset();
+    const gameA = makeGameWithSeed(seed);
+    gameA.reset();
 
-    // Generate a large area to get towns
     for (let x = -15; x <= 15; x++) {
       for (let y = -15; y <= 15; y++) {
-        game1.getRoom(`${x},${y},0`);
+        gameA.getRoom(`${x},${y},0`);
       }
     }
 
-    // Capture town data
     const firstTowns = new Map<
       string,
       {
@@ -256,10 +235,10 @@ describe('save regression tests', () => {
     >();
     for (let x = -15; x <= 15; x++) {
       for (let y = -15; y <= 15; y++) {
-        const id = `${x},${y},0`;
-        const room = game1.getRoom(id);
+        const roomId = `${x},${y},0`;
+        const room = gameA.getRoom(roomId);
         if (room.town) {
-          firstTowns.set(id, {
+          firstTowns.set(roomId, {
             townId: room.town.id,
             townName: room.town.name,
             hasPerimeter: !!room.townPerimeter,
@@ -268,87 +247,55 @@ describe('save regression tests', () => {
       }
     }
 
-    // Recreate with same seed
-    const game2 = makeGameWithSeed(seed);
-    game2.reset();
+    const gameB = makeGameWithSeed(seed);
+    gameB.reset();
 
-    // Verify towns are reproduced
-    for (const [id, expected] of firstTowns) {
-      const room = game2.getRoom(id);
+    for (const [roomId, expected] of firstTowns) {
+      const room = gameB.getRoom(roomId);
       expect(room.town).toBeDefined();
-      expect(room.town!.id).toBe(expected.townId);
-      expect(room.town!.name).toBe(expected.townName);
+      expect(room.town?.id).toBe(expected.townId);
+      expect(room.town?.name).toBe(expected.townName);
       expect(!!room.townPerimeter).toBe(expected.hasPerimeter);
     }
   }, 30_000);
 
-  it('reproduces world from saved identity on fresh RoomGenerator', () => {
-    const seed = 'save-identity-regen';
-    const game = makeGameWithSeed(seed);
+  it('recreates the same rooms from the saved world identity', () => {
+    const game = makeGameWithSeed('save-identity-regen');
     game.reset();
-
-    // Get the saved identity
     const identity = game.getSaveData().worldGeneration;
     expect(identity).toBeDefined();
-    expect(identity!.seed).toBe(seed);
+    if (!identity) return;
 
-    // Create two fresh RoomGenerators with the same identity
-    const rng1 = createRng(identity!.seed);
-    const generator1 = new RoomGenerator(defaultGameConfig.world, rng1, identity!);
-
-    const rng2 = createRng(identity!.seed);
-    const generator2 = new RoomGenerator(defaultGameConfig.world, rng2, identity!);
-
-    // Generate rooms with both generators
+    const generatorA = new RoomGenerator(
+      defaultGameConfig.grid,
+      defaultGameConfig.world,
+      createRng(identity.seed),
+      identity,
+    );
+    const generatorB = new RoomGenerator(
+      defaultGameConfig.grid,
+      defaultGameConfig.world,
+      createRng(identity.seed),
+      identity,
+    );
     const roomIds = ['0,0,0', '0,1,0', '1,0,0', '-1,0,0', '0,-1,0', '1,1,0'];
-    const firstLayouts = new Map<string, string>();
-    const secondLayouts = new Map<string, string>();
 
-    for (const id of roomIds) {
-      const room1 = generator1.generate(id, defaultGameConfig.grid);
-      firstLayouts.set(id, roomLayoutKey(room1));
-
-      const room2 = generator2.generate(id, defaultGameConfig.grid);
-      secondLayouts.set(id, roomLayoutKey(room2));
-    }
-
-    // Verify both generators produce the same layouts
-    for (const id of roomIds) {
-      expect(secondLayouts.get(id)).toBe(firstLayouts.get(id));
+    for (const roomId of roomIds) {
+      const roomA = generatorA.generate(roomId);
+      const roomB = generatorB.generate(roomId);
+      expect(roomB.layout).toEqual(roomA.layout);
+      expect(roomB.biomeId).toBe(roomA.biomeId);
     }
   });
 
-  it('save data contains all WorldGenerationIdentity fields', () => {
-    const seed = 'save-fields-test';
-    const game = makeGameWithSeed(seed);
-    game.reset();
+  it('produces different saved identities for different seeds', () => {
+    const alpha = makeGameWithSeed('identity-alpha').getSaveData().worldGeneration;
+    const beta = makeGameWithSeed('identity-beta').getSaveData().worldGeneration;
 
-    game.saveGame();
-    const saveData = game.getSaveData();
-
-    expect(saveData.worldGeneration).toBeDefined();
-    expect(saveData.worldGeneration!.seed).toBe(seed);
-    expect(typeof saveData.worldGeneration!.worldSalt).toBe('number');
-    expect(typeof saveData.worldGeneration!.biomeSalt).toBe('number');
-    expect(typeof saveData.worldGeneration!.riverSalt).toBe('number');
-    expect(typeof saveData.worldGeneration!.barrierSalt).toBe('number');
-    expect(typeof saveData.worldGeneration!.structureSalt).toBe('number');
-    expect(typeof saveData.worldGeneration!.townSalt).toBe('number');
-  });
-
-  it('different seeds produce different save identities', () => {
-    const game1 = makeGameWithSeed('identity-alpha');
-    game1.reset();
-    const identity1 = game1.getSaveData().worldGeneration;
-
-    const game2 = makeGameWithSeed('identity-beta');
-    game2.reset();
-    const identity2 = game2.getSaveData().worldGeneration;
-
-    expect(identity1?.seed).toBe('identity-alpha');
-    expect(identity2?.seed).toBe('identity-beta');
-    expect(identity1?.worldSalt).not.toBe(identity2?.worldSalt);
-    expect(identity1?.biomeSalt).not.toBe(identity2?.biomeSalt);
-    expect(identity1?.townSalt).not.toBe(identity2?.townSalt);
+    expect(alpha?.seed).toBe('identity-alpha');
+    expect(beta?.seed).toBe('identity-beta');
+    expect(alpha?.worldSalt).not.toBe(beta?.worldSalt);
+    expect(alpha?.biomeSalt).not.toBe(beta?.biomeSalt);
+    expect(alpha?.townSalt).not.toBe(beta?.townSalt);
   });
 });

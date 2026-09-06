@@ -153,7 +153,7 @@ export class WorldService {
         this.emitRoomGeneratedDebug(generated.room, performance.now() - generationStartedAt);
         return generated.room;
       }
-      const room = this.generator.generate(roomId, this.grid);
+      const room = this.generator.generate(roomId);
       for (const entrance of room.layerEntrances ?? []) {
         this.registerLayerEntrance(entrance);
       }

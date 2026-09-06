@@ -1,5 +1,6 @@
 import { defaultGameConfig } from '../../config/gameConfig.js';
 import type { Vector2Like } from '../../core/math.js';
+import { actorIdForTownResident, actorIdForWanderer } from '../../actors/actorFactory.js';
 import type { EnemyInstance } from '../../systems/enemies.js';
 import type { RoomSnapshot } from '../../world/types.js';
 import { QuestRegistry } from '../../quests/questRegistry.js';
@@ -298,11 +299,13 @@ describe('world rumors', () => {
       .filter((enemy) => enemy.encounterKind === 'npc-hostile');
     expect(enemies).toHaveLength(1);
     expect(enemies[0]?.id).toBe(`npc-hostile:resident:${room.id}:lina`);
-    expect(enemies[0]?.actorId).toBe(game.getVillageActorId(room.id, 'lina', 'resident'));
+    expect(enemies[0]?.actorId).toBe(
+      actorIdForTownResident(`village:${room.id}`, 'lina', 'resident'),
+    );
     expect(enemies[0]?.position).toEqual(
       game.getRelationshipNpcBodyPosition({
         id: `resident:${room.id}:lina`,
-        actorId: game.getVillageActorId(room.id, 'lina', 'resident'),
+        actorId: actorIdForTownResident(`village:${room.id}`, 'lina', 'resident'),
         displayName: 'Lina',
         species: 'human',
         homeRoomId: room.id,
@@ -394,12 +397,15 @@ describe('world rumors', () => {
     expect(state?.stage).toBe('dead');
     expect(state?.flags.causeOfDeath).toBe('Shot by you');
     expect(
-      game.getActorSystem().registry.get(game.getVillageActorId(room.id, 'lina', 'resident'))
-        ?.health?.state,
+      game
+        .getActorSystem()
+        .registry.get(actorIdForTownResident(`village:${room.id}`, 'lina', 'resident'))?.health
+        ?.state,
     ).toBe('dead');
     expect(
-      game.getActorSystem().registry.get(game.getVillageActorId(room.id, 'lina', 'resident'))
-        ?.hostility,
+      game
+        .getActorSystem()
+        .registry.get(actorIdForTownResident(`village:${room.id}`, 'lina', 'resident'))?.hostility,
     ).toBe('dead');
     expect(game.getFlag<{ message: string }>('ui.relationshipEvent')?.message).toContain(
       'shot down',
@@ -762,7 +768,7 @@ describe('actor conversations', () => {
     } as unknown as never;
     (game as unknown as SnakeGamePrivate).ensureActorsFromRoomContent(room);
     (game as unknown as SnakeGamePrivate).materializeActorsForRoom(room);
-    const actorId = game.getVillageActorId(room.id, 'marta', 'resident');
+    const actorId = actorIdForTownResident(`village:${room.id}`, 'marta', 'resident');
 
     for (let index = 0; index < 5; index += 1) {
       game.getActorConversation(actorId, 'ask-around');
@@ -852,8 +858,8 @@ describe('actor conversations', () => {
 
     game.startBanditRaidForCurrentRoom(55);
 
-    const shopActorId = game.getVillageActorId(room.id, 'shop', 'shopkeeper');
-    const guardActorId = game.getVillageActorId(room.id, 'guard', 'resident');
+    const shopActorId = actorIdForTownResident(`village:${room.id}`, 'shop', 'shopkeeper');
+    const guardActorId = actorIdForTownResident(`village:${room.id}`, 'guard', 'resident');
     const shop = game.getActorSystem().getActor(shopActorId);
     const guard = game.getActorSystem().getActor(guardActorId);
 
@@ -879,7 +885,7 @@ describe('actor room brains', () => {
     room.layout = Array.from({ length: defaultGameConfig.grid.rows }, () =>
       '.'.repeat(defaultGameConfig.grid.cols),
     );
-    const actorId = game.getActorSystem().getStableWandererActorId('road-scribe');
+    const actorId = actorIdForWanderer('road-scribe');
     game.getActorSystem().registry.ensureWandererActor({
       actorId,
       encounterId: 'road-scribe',
@@ -950,7 +956,7 @@ describe('actor room brains', () => {
     expect(spawn!.y).toBeGreaterThan(0);
     expect(spawn!.y).toBeLessThan(defaultGameConfig.grid.rows - 1);
 
-    const actorId = game.getActorSystem().getStableWandererActorId('edge-scribe');
+    const actorId = actorIdForWanderer('edge-scribe');
     game.getActorSystem().registry.ensureWandererActor({
       actorId,
       encounterId: 'edge-scribe',
@@ -1021,7 +1027,7 @@ describe('actor room brains', () => {
     } as unknown as never;
     (game as unknown as SnakeGamePrivate).ensureActorsFromRoomContent(room);
     (game as unknown as SnakeGamePrivate).materializeActorsForRoom(room);
-    const actorId = game.getVillageActorId(room.id, 'marta', 'resident');
+    const actorId = actorIdForTownResident(`village:${room.id}`, 'marta', 'resident');
     const relationshipId = `resident:${room.id}:marta`;
     const body = (game as unknown as SnakeGamePrivate).npcBodies.get(relationshipId)!;
     body.position = { x: 7, y: 7 };
@@ -1063,8 +1069,8 @@ describe('actor room brains', () => {
     } as unknown as never;
     (game as unknown as SnakeGamePrivate).ensureActorsFromRoomContent(room);
     (game as unknown as SnakeGamePrivate).materializeActorsForRoom(room);
-    const sourceActorId = game.getVillageActorId(room.id, 'marta', 'resident');
-    const targetActorId = game.getVillageActorId(room.id, 'nina', 'resident');
+    const sourceActorId = actorIdForTownResident(`village:${room.id}`, 'marta', 'resident');
+    const targetActorId = actorIdForTownResident(`village:${room.id}`, 'nina', 'resident');
     game.getActorSystem().registry.update(sourceActorId, (actor) => ({
       ...actor,
       relationships: [

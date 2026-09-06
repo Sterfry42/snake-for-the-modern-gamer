@@ -1,5 +1,4 @@
 import type { MinecraftPlayer } from './player.js';
-import type { RandomGenerator } from '../core/rng.js';
 
 // ─── Weather Types ──────────────────────────────────────────────────────────
 
@@ -93,12 +92,11 @@ export function applyWeatherEffects(
   player: MinecraftPlayer,
   weather: WeatherType,
   tickDelta: number,
-  rng: RandomGenerator,
 ): void {
   switch (weather) {
     case 'thunderstorm':
       // Lightning damage chance
-      if (rng() < 0.0001 * tickDelta) {
+      if (Math.random() < 0.0001 * tickDelta) {
         if (!player.state.fireResistant) {
           player.takeDamage(1);
         }

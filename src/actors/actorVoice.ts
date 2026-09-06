@@ -1,8 +1,15 @@
-import type { BiomeId } from '../world/biomes.js';
-import type { NpcVoiceLine } from '../npcs/npcVoice.js';
 import type { Actor, ActorHostilityState, ActorPersonalityTag, ActorRole } from './actorTypes.js';
+import type { BiomeId } from '../world/biomes.js';
 
-export interface ActorVoiceContext {
+interface ActorVoiceLineResult {
+  id: string;
+  text: string;
+  priority: number;
+  tags?: string[];
+  portraitId?: string;
+}
+
+interface ActorVoiceContext {
   actor: Actor;
   biomeId: BiomeId;
   dangerLevel: number;
@@ -14,7 +21,7 @@ export interface ActorVoiceContext {
   random?(): number;
 }
 
-interface ActorVoiceLine extends NpcVoiceLine {
+interface ActorVoiceLine extends ActorVoiceLineResult {
   actorRoles?: ActorRole[];
   personalityTags?: ActorPersonalityTag[];
   hostility?: ActorHostilityState[];
@@ -160,7 +167,7 @@ const ACTOR_VOICE_LINES: readonly ActorVoiceLine[] = [
   },
 ];
 
-export function selectActorVoiceLine(context: ActorVoiceContext): NpcVoiceLine {
+export function selectActorVoiceLine(context: ActorVoiceContext): ActorVoiceLineResult {
   const valid = ACTOR_VOICE_LINES.filter((line) => isActorLineValid(line, context));
   const fallback = ACTOR_VOICE_LINES[ACTOR_VOICE_LINES.length - 1];
   if (valid.length === 0) {
@@ -183,13 +190,7 @@ export function selectActorVoiceLine(context: ActorVoiceContext): NpcVoiceLine {
 
 function isActorLineValid(line: ActorVoiceLine, context: ActorVoiceContext): boolean {
   const { actor } = context;
-  if (line.roles && !line.roles.includes(actor.role)) {
-    return false;
-  }
   if (line.actorRoles && !line.actorRoles.includes(actor.role)) {
-    return false;
-  }
-  if (line.biomeIds && !line.biomeIds.includes(context.biomeId)) {
     return false;
   }
   if (line.hostility && (!actor.hostility || !line.hostility.includes(actor.hostility))) {

@@ -1,6 +1,6 @@
 import { vectorKey, type Vector2Like } from '../../../core/math.js';
 import { createRng, type RandomGenerator } from '../../../core/rng.js';
-import { buildHouseNpcProfile } from '../../../npcs/profiles.js';
+import { createHumanoidIdentity } from '../../humanoidSpawn.js';
 import type { MosaicCoastExposureKind } from '../../types.js';
 import {
   type MosaicCoastDistrictRoomPlan,
@@ -398,7 +398,7 @@ export class MosaicCoastOperations {
     this.placeMosaicMedallion(context, 16, 12, 1);
     context.mosaicCoast!.tapasBar = {
       bartender: {
-        ...buildHouseNpcProfile('Tapa Toni', 'sage-1'),
+        ...createHumanoidIdentity('Tapa Toni', 'sage-1'),
         x: bartender.x,
         y: bartender.y,
       },

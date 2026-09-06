@@ -5,14 +5,14 @@ import {
   type Vector2Like,
 } from '../core/math.js';
 
-export interface ActorPathRequest {
+interface ActorPathRequest {
   start: Vector2Like;
   goals: readonly Vector2Like[];
   canStandAt(position: Vector2Like): boolean;
   maxNodes?: number;
 }
 
-export interface ActorPathResult {
+interface ActorPathResult {
   path: Vector2Like[];
   directions: Vector2Like[];
 }
@@ -55,34 +55,6 @@ export function findActorGridPath(request: ActorPathRequest): ActorPathResult | 
   }
 
   return null;
-}
-
-export function directionsFromPathOrFallback(args: {
-  start: Vector2Like;
-  target: Vector2Like;
-  canStandAt(position: Vector2Like): boolean;
-  maxNodes?: number;
-}): readonly Vector2Like[] {
-  const path = findActorGridPath({
-    start: args.start,
-    goals: [args.target],
-    canStandAt: args.canStandAt,
-    maxNodes: args.maxNodes,
-  });
-  if (path?.directions[0]) {
-    return path.directions;
-  }
-  return [...CARDINAL_DIRECTIONS].sort((a, b) => {
-    const aDistance = manhattanDistance(
-      { x: args.start.x + a.x, y: args.start.y + a.y },
-      args.target,
-    );
-    const bDistance = manhattanDistance(
-      { x: args.start.x + b.x, y: args.start.y + b.y },
-      args.target,
-    );
-    return aDistance - bDistance;
-  });
 }
 
 function buildPath(

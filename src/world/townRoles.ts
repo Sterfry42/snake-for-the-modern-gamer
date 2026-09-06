@@ -1,55 +1,6 @@
-export type TownResidentRole =
-  | 'resident'
-  | 'shopkeeper'
-  | 'equipmentMerchant'
-  | 'potionMaker'
-  | 'butcher'
-  | 'cardDealer'
-  | 'bartender'
-  | 'physicalTrainer'
-  | 'mapper'
-  | 'wizard'
-  | 'innkeeper'
-  | 'guard'
-  | 'gateGuard'
-  | 'thiefContact'
-  | 'thief'
-  | 'guildContact'
-  | 'blackMarketMerchant'
-  | 'scribe'
-  | 'questGiver';
+import type { ActorRole } from '../actors/actorTypes.js';
 
-export type TownMerchantRole =
-  | 'shopkeeper'
-  | 'equipmentMerchant'
-  | 'potionMaker'
-  | 'butcher'
-  | 'cardDealer'
-  | 'bartender'
-  | 'physicalTrainer'
-  | 'mapper'
-  | 'wizard'
-  | 'innkeeper';
-
-export type TownRoleShopKind =
-  | 'general'
-  | 'equipment'
-  | 'potion'
-  | 'butcher'
-  | 'cards'
-  | 'food'
-  | 'florist'
-  | 'jeweler'
-  | 'tailor'
-  | 'scribe'
-  | 'clinic'
-  | 'blackMarket'
-  | 'maneuverTrainer'
-  | 'maps'
-  | 'magic'
-  | 'inn';
-
-const TOWN_MERCHANT_ROLES = new Set<string>([
+const TOWN_MERCHANT_ROLE_VALUES = [
   'shopkeeper',
   'equipmentMerchant',
   'potionMaker',
@@ -60,38 +11,13 @@ const TOWN_MERCHANT_ROLES = new Set<string>([
   'mapper',
   'wizard',
   'innkeeper',
-]);
+] as const satisfies readonly ActorRole[];
 
-const TOWN_SHOP_ROLES = new Set<string>([...TOWN_MERCHANT_ROLES, 'blackMarketMerchant']);
+type TownMerchantRole = (typeof TOWN_MERCHANT_ROLE_VALUES)[number];
 
-const STATIONARY_TOWN_ROLES = new Set<string>([
-  'guard',
-  'gateGuard',
-  'shopkeeper',
-  'equipmentMerchant',
-  'potionMaker',
-  'butcher',
-  'cardDealer',
-  'bartender',
-  'physicalTrainer',
-  'mapper',
-  'wizard',
-  'innkeeper',
-  'questGiver',
-]);
-
-const TOWN_GUARD_ROLES = new Set<string>(['guard', 'gateGuard']);
-
-const TOWN_CRIMINAL_ROLES = new Set<string>([
-  'thief',
-  'thiefContact',
-  'guildContact',
-  'blackMarketMerchant',
-]);
-
-const TOWN_RESIDENT_ROLES = new Set<string>([
+export const TOWN_RESIDENT_ROLE_VALUES = [
   'resident',
-  ...TOWN_MERCHANT_ROLES,
+  ...TOWN_MERCHANT_ROLE_VALUES,
   'guard',
   'gateGuard',
   'thiefContact',
@@ -100,15 +26,37 @@ const TOWN_RESIDENT_ROLES = new Set<string>([
   'blackMarketMerchant',
   'scribe',
   'questGiver',
+] as const satisfies readonly ActorRole[];
+
+export type TownResidentRole = (typeof TOWN_RESIDENT_ROLE_VALUES)[number];
+
+type TownRoleShopKind =
+  | 'general'
+  | 'equipment'
+  | 'potion'
+  | 'butcher'
+  | 'cards'
+  | 'food'
+  | 'blackMarket'
+  | 'maneuverTrainer'
+  | 'maps'
+  | 'magic'
+  | 'inn';
+
+const TOWN_SHOP_ROLES = new Set<string>([...TOWN_MERCHANT_ROLE_VALUES, 'blackMarketMerchant']);
+const STATIONARY_TOWN_ROLES = new Set<string>([
+  'guard',
+  'gateGuard',
+  ...TOWN_MERCHANT_ROLE_VALUES,
+  'questGiver',
 ]);
-
-export function isTownResidentRole(role: string): role is TownResidentRole {
-  return TOWN_RESIDENT_ROLES.has(role);
-}
-
-export function isTownMerchantRole(role: string): role is TownMerchantRole {
-  return TOWN_MERCHANT_ROLES.has(role);
-}
+const TOWN_GUARD_ROLES = new Set<string>(['guard', 'gateGuard']);
+const TOWN_CRIMINAL_ROLES = new Set<string>([
+  'thief',
+  'thiefContact',
+  'guildContact',
+  'blackMarketMerchant',
+]);
 
 export function isTownShopRole(role: string): role is TownMerchantRole | 'blackMarketMerchant' {
   return TOWN_SHOP_ROLES.has(role);

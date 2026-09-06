@@ -12,7 +12,7 @@ function generateRoom(
 ): RoomSnapshot {
   const rng = createRng(seed);
   const generator = new RoomGenerator(grid, defaultGameConfig.world, rng);
-  return generator.generate(roomId, grid);
+  return generator.generate(roomId);
 }
 
 function findRoomByBiome(biomeId: RoomSnapshot['biomeId'], seed: string): RoomSnapshot {

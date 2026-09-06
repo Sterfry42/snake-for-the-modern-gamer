@@ -6,8 +6,6 @@ export interface ClimateSample {
   temperature: number;
   moisture: number;
   weirdness: number;
-  altitude: number;
-  depth: number;
 }
 
 function hashUnit(args: {
@@ -54,13 +52,11 @@ function smoothValue(args: {
   return (total / weight) * 2 - 1;
 }
 
-export function applyVerticalClimate(base: ClimateSample, z: number): ClimateSample {
+function applyVerticalClimate(base: ClimateSample, z: number): ClimateSample {
   const altitude = Math.max(0, z);
   const depth = Math.max(0, -z);
   return {
     ...base,
-    altitude,
-    depth,
     temperature: clamp(base.temperature - altitude * 0.12 + depth * 0.1, -1, 1),
     weirdness: clamp(base.weirdness + depth * 0.05, -1, 1),
   };
@@ -76,8 +72,6 @@ export function sampleClimateForRegion(args: {
     temperature: smoothValue({ ...args, featureSalt: 0x71a1 }),
     moisture: smoothValue({ ...args, featureSalt: 0x71b7 }),
     weirdness: smoothValue({ ...args, featureSalt: 0x71c9 }),
-    altitude: 0,
-    depth: 0,
   };
   return applyVerticalClimate(base, args.z);
 }

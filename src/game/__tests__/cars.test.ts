@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { actorIdForTownResident } from '../../actors/actorFactory.js';
 import { defaultGameConfig } from '../../config/gameConfig.js';
 import type { Vector2Like } from '../../core/math.js';
 import { QuestRegistry } from '../../quests/questRegistry.js';
@@ -143,7 +144,7 @@ describe('vehicle runtime', () => {
     expect(room.garage).toBeDefined();
 
     const garage = room.garage!;
-    const actorId = game.getGarageMechanicActorId(room.id, garage.mechanic.id);
+    const actorId = actorIdForTownResident(`garage:${room.id}`, garage.mechanic.id, 'shopkeeper');
     const menu = game.getActorInteractionMenu(actorId);
 
     expect(game.getActorRole(actorId)).toBe('shopkeeper');

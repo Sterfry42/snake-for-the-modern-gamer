@@ -198,8 +198,8 @@ export class BulletTrainRenderer {
     this.graphics.fillRect(x + 6, y + 8, cell - 12, 6);
   }
 
-  private drawBench(x: number, y: number, facing: 'north' | 'south'): void {
-    void facing;
+  private drawBench(x: number, y: number, _facing: 'north' | 'south'): void {
+    void _facing;
     const { cell } = this;
 
     // Bench seat
@@ -212,8 +212,8 @@ export class BulletTrainRenderer {
     this.graphics.fillRect(x + cell - 7, y + 10, 3, 4);
   }
 
-  private drawSign(x: number, y: number, text: string): void {
-    void text;
+  private drawSign(x: number, y: number, _text: string): void {
+    void _text;
     const { cell } = this;
 
     // Sign post
@@ -274,7 +274,6 @@ export class BulletTrainRenderer {
   } {
     const width = scene.scale.width;
     const height = scene.scale.height;
-
     // Window background (mountain sky) - simplified without gradients
     const windowBg = scene.add.graphics();
     windowBg.fillStyle(0x87ceeb, 0.8);

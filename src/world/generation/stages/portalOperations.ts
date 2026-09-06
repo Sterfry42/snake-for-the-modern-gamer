@@ -3,56 +3,59 @@ import type { RandomGenerator } from '../../../core/rng.js';
 import type { RoomGenerationContext } from '../types.js';
 import { isOrdinaryPortalDestinationAllowed } from '../../hellDepth.js';
 
-export class PortalOperations {
-  constructor(
-    private readonly config: WorldConfig,
-    private readonly rng: RandomGenerator,
-  ) {}
-
-  place(context: RoomGenerationContext): void {
-    if (context.townMembership || context.townAdjacency) {
-      return;
-    }
-    if (!this.config.ladder.enabled || this.rng() >= this.config.ladder.chance) {
-      return;
-    }
-
-    let ladderPlaced = false;
-    for (let attempts = 0; attempts < 50 && !ladderPlaced; attempts++) {
-      const ladderWidth = context.grid.cols - this.config.obstacles.margin * 2;
-      const ladderHeight = context.grid.rows - this.config.obstacles.margin * 2;
-      if (ladderWidth <= 0 || ladderHeight <= 0) {
-        break;
-      }
-      const ladderX = this.config.obstacles.margin + this.randomInt(ladderWidth);
-      const ladderY = this.config.obstacles.margin + this.randomInt(ladderHeight);
-      if (!context.canvas.isEmpty(ladderX, ladderY)) {
-        continue;
-      }
-      const portal = this.createPortal(context.roomId, ladderX, ladderY);
-      if (!isOrdinaryPortalDestinationAllowed(portal.destRoomId)) {
-        continue;
-      }
-      context.canvas.set(ladderX, ladderY, 'H');
-      context.portals.push(portal);
-      ladderPlaced = true;
-    }
+export function placePortals(
+  context: RoomGenerationContext,
+  config: WorldConfig,
+  rng: RandomGenerator,
+): void {
+  if (context.townMembership || context.townAdjacency) {
+    return;
+  }
+  if (!config.ladder.enabled || rng() >= config.ladder.chance) {
+    return;
   }
 
-  private createPortal(roomId: string, x: number, y: number) {
-    const [roomX, roomY, roomZ = 0] = roomId.split(',').map(Number);
-    const offset = this.config.ladder.verticalOffset;
-    const destZ = roomZ + (this.rng() < 0.5 ? offset : -offset);
-    return {
-      x,
-      y,
-      destRoomId: `${roomX},${roomY},${destZ}`,
-      destX: x,
-      destY: y,
-    };
+  let ladderPlaced = false;
+  for (let attempts = 0; attempts < 50 && !ladderPlaced; attempts++) {
+    const ladderWidth = context.grid.cols - config.obstacles.margin * 2;
+    const ladderHeight = context.grid.rows - config.obstacles.margin * 2;
+    if (ladderWidth <= 0 || ladderHeight <= 0) {
+      break;
+    }
+    const ladderX = config.obstacles.margin + randomInt(rng, ladderWidth);
+    const ladderY = config.obstacles.margin + randomInt(rng, ladderHeight);
+    if (!context.canvas.isEmpty(ladderX, ladderY)) {
+      continue;
+    }
+    const portal = createPortal(context.roomId, ladderX, ladderY, config, rng);
+    if (!isOrdinaryPortalDestinationAllowed(portal.destRoomId)) {
+      continue;
+    }
+    context.canvas.set(ladderX, ladderY, 'H');
+    context.portals.push(portal);
+    ladderPlaced = true;
   }
+}
 
-  private randomInt(maxExclusive: number): number {
-    return Math.floor(this.rng() * maxExclusive);
-  }
+function createPortal(
+  roomId: string,
+  x: number,
+  y: number,
+  config: WorldConfig,
+  rng: RandomGenerator,
+) {
+  const [roomX, roomY, roomZ = 0] = roomId.split(',').map(Number);
+  const offset = config.ladder.verticalOffset;
+  const destZ = roomZ + (rng() < 0.5 ? offset : -offset);
+  return {
+    x,
+    y,
+    destRoomId: `${roomX},${roomY},${destZ}`,
+    destX: x,
+    destY: y,
+  };
+}
+
+function randomInt(rng: RandomGenerator, maxExclusive: number): number {
+  return Math.floor(rng() * maxExclusive);
 }
