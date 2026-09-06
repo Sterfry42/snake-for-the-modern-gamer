@@ -52,4 +52,10 @@ describe('first-person projection', () => {
     const far = projectBillboard({ ...billboard, x: 5.5 }, { x: 1.5, y: 1.5, yaw: 0 }, options);
     expect(near?.height).toBeGreaterThan(far?.height ?? 0);
   });
+
+  it('anchors standing billboards below the horizon on the ground plane', () => {
+    const projected = projectBillboard(billboard, { x: 1.5, y: 1.5, yaw: 0 }, options);
+    expect(projected?.bottom).toBeGreaterThan(options.height / 2);
+    expect(projected?.top).toBeLessThan(options.height / 2);
+  });
 });

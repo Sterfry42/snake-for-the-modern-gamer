@@ -285,6 +285,7 @@ export class SnakeRenderer {
     appleInfo?: AppleSnapshot | null,
     options: SnakeRenderOptions = {},
   ): void {
+    this.snakeLayer.setVisible(true);
     this.graphics.clear();
     this.graphics.clearMask();
     this.overlayGraphics.clear();
@@ -430,10 +431,17 @@ export class SnakeRenderer {
 
   hide(): void {
     this.graphics.clear();
+    this.graphics.clearMask();
     this.overlayGraphics.clear();
+    this.overlayGraphics.clearMask();
     this.lightGlowGraphics.clear();
+    this.lightGlowGraphics.clearMask();
     this.wallGraphics.clear();
     this.darknessTexture.clear().setVisible(false);
+    this.snakeLayer.setVisible(false);
+    this.hatSprite.setVisible(false);
+    this.emoticonBubbleGraphics.clear();
+    this.emoticonBubbleText.setVisible(false);
     this.furnitureSprites.forEach((sprite) => sprite.setVisible(false));
     this.vegetationSprites.forEach((sprite) => sprite.setVisible(false));
     this.appleSprites.forEach((sprite) => sprite.setVisible(false));

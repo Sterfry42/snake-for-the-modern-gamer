@@ -9,6 +9,7 @@ export interface ProjectionOptions {
   height: number;
   fovRadians: number;
   nearDistance: number;
+  cameraHeight?: number;
 }
 
 export function projectBillboard(
@@ -32,7 +33,10 @@ export function projectBillboard(
   const screenX = options.width / 2 + (right / forward) * projectionPlane;
   const height = (billboard.height / forward) * projectionPlane;
   const width = (billboard.width / forward) * projectionPlane;
-  const bottom = options.height / 2 + height * (1 - billboard.anchorY);
+  const cameraHeight = options.cameraHeight ?? 0.52;
+  const bottom =
+    options.height / 2 +
+    ((cameraHeight + billboard.height * (1 - billboard.anchorY)) / forward) * projectionPlane;
   const top = bottom - height;
   const left = screenX - width / 2;
   const rightEdge = screenX + width / 2;

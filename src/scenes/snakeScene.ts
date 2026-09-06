@@ -1834,6 +1834,7 @@ export default class SnakeScene extends Phaser.Scene {
   private snakeRenderer!: SnakeRenderer;
   private firstPersonRenderer!: FirstPersonRenderer;
   private daggerfellPresentationActive = false;
+  private firstPersonInputFacing: Vector2Like | null = null;
   private minimapRenderer: MinimapRenderer | null = null;
   juice!: JuiceManager;
   skillTree!: SkillTreeManager;
@@ -3238,12 +3239,39 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private resolveFirstPersonAction(actionId: ControlActionId): Vector2Like | null {
-    if (!this.isFirstPersonPresentationRequested()) return null;
-    return mapFirstPersonMoveAction(actionId, this.snakeGame.getDirection());
+    if (!this.isFirstPersonControlsActive()) return null;
+    const mapped = mapFirstPersonMoveAction(
+      actionId,
+      this.firstPersonInputFacing ?? this.snakeGame.getDirection(),
+    );
+    if (mapped) {
+      this.firstPersonInputFacing = mapped;
+    }
+    return mapped;
   }
 
   private isFirstPersonPresentationRequested(): boolean {
     return Boolean(this.getFlag<boolean>('equipment.firstPersonView'));
+  }
+
+  private isFirstPersonControlsActive(): boolean {
+    return (
+      this.isFirstPersonPresentationRequested() &&
+      !this.binocularsViewportActive &&
+      !this.drivingCar &&
+      !this.minecraftMode &&
+      this.snakeGame.getCharacterMode() !== 'raccoon'
+    );
+  }
+
+  private isFirstPersonPresentationActive(): boolean {
+    return (
+      this.isFirstPersonPresentationRequested() &&
+      !this.binocularsViewportActive &&
+      !this.drivingCar &&
+      !this.minecraftMode &&
+      this.snakeGame.getCharacterMode() !== 'raccoon'
+    );
   }
 
   private handleMobileControlAction(actionId: ControlActionId): void {
@@ -10180,9 +10208,13 @@ export default class SnakeScene extends Phaser.Scene {
     }
     this.updateSimulation(delta);
     this.updatePerformanceHud(delta);
+    const firstPersonActive = this.isFirstPersonPresentationActive();
+    this.juice.setWorldEffectsVisible(!firstPersonActive && !this.binocularsViewportActive);
     this.updateVillageResidentSprites();
-    this.tickVillageJuice();
-    this.tickBiomeHazardJuice();
+    if (!firstPersonActive) {
+      this.tickVillageJuice();
+      this.tickBiomeHazardJuice();
+    }
     this.tickQuestBabyCry();
     this.flushArchipelagoTrapQueue();
     this.cleanupExpiredMasonryBlocks();
@@ -11467,6 +11499,7 @@ export default class SnakeScene extends Phaser.Scene {
       binocularsActive: Boolean(binocularsView),
     });
     if (firstPersonRendered) {
+      this.firstPersonInputFacing ??= direction;
       this.snakeRenderer.hide();
       this.firstPersonRenderer.render({
         roomSnapshot: {
@@ -11480,8 +11513,11 @@ export default class SnakeScene extends Phaser.Scene {
         apple: currentApple,
         atmosphere,
         renderTimeMs: this.time.now,
+        manualStepActive: this.isManualHouseMovementActive(),
+        runtimeNpcs: this.getFirstPersonRuntimeNpcs(room.id),
       });
     } else {
+      this.firstPersonInputFacing = null;
       this.firstPersonRenderer.hide();
       this.snakeRenderer.render(room, renderedSnakeBody, room.id, currentApple, {
         wallSenseRadius,
@@ -19948,7 +19984,12 @@ export default class SnakeScene extends Phaser.Scene {
     const canPickpocket = Boolean(
       currentTown &&
       this.snakeGame.canPickpocketForCurrentTownGuild() &&
-      profile.id.startsWith(`resident:${currentTown.id}:`),
+      (profile.id.startsWith(`resident:${currentTown.id}:`) ||
+        Boolean(
+          profile.actorId &&
+          this.snakeGame.getActorSystem().getActor(profile.actorId)?.presence?.roomId ===
+            this.snakeGame.getCurrentRoom().id,
+        )),
     );
     const bark = this.snakeGame.getNpcBark(this.relationshipNpcVoiceRole(profile), profile.actorId);
     const conversationPortraitId = profile.portraitId ?? bark.portraitId;
@@ -22624,6 +22665,9 @@ export default class SnakeScene extends Phaser.Scene {
     if (!this.snakeGame) {
       return;
     }
+    if (this.isFirstPersonPresentationActive()) {
+      return;
+    }
     const room = this.snakeGame.getCurrentRoom();
     const goblinStanding = this.snakeGame.getFactionAlignment('goblin-camps').standing;
     const residents = this.snakeGame
@@ -22753,6 +22797,16 @@ export default class SnakeScene extends Phaser.Scene {
         );
       }
     });
+  }
+
+  private getFirstPersonRuntimeNpcs(
+    roomId: string,
+  ): readonly { id: string; x: number; y: number }[] {
+    const goblinStanding = this.snakeGame.getFactionAlignment('goblin-camps').standing;
+    return this.snakeGame
+      .getPresentRelationshipProfilesForRoom(roomId)
+      .filter((profile) => profile.factionId !== 'goblin-camps' || goblinStanding !== 'violent')
+      .map((profile) => ({ id: profile.actorId, x: profile.x, y: profile.y }));
   }
 
   private actorActivityPropPalette(): ActorActivityPropPalette {

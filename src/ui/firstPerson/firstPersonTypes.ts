@@ -30,6 +30,7 @@ export interface FirstPersonBillboard {
   height: number;
   anchorY: number;
   color: number;
+  textureKey?: string;
   roomId?: string;
   facing?: Vector2Like;
 }
