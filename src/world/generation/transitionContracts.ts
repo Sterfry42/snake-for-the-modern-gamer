@@ -68,10 +68,7 @@ function transitionKind(args: { roomId: string; side: EdgeSide; biomeMap: BiomeM
     return { kind: 'blocked', passable: false };
   }
   if (compatibility.requiresTransition) {
-    return {
-      kind: compatibility.requiresTransition,
-      passable: compatibility.requiresTransition !== 'blocked',
-    };
+    return { kind: compatibility.requiresTransition, passable: true };
   }
   return { kind: 'open', passable: true };
 }
