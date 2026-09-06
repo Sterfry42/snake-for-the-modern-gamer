@@ -1536,11 +1536,12 @@ function stampTownInteriorTemplate(
       break;
     case 'potionMaker':
       fillTile(left + 2, top + 3, bounds.width - 4, 1, 'A');
-      setTile(left + 4, top + 2, 'P');
-      setTile(centerX, top + 2, 'P');
-      setTile(right - 4, top + 2, 'P');
-      setTile(centerX - 3, bottom - 4, 'M');
-      setTile(centerX + 3, bottom - 4, 'P');
+      setTile(left + 3, top + 2, 'L');
+      setTile(centerX, top + 2, 'K');
+      setTile(right - 3, top + 2, 'L');
+      setTile(centerX - 3, centerY, 'M');
+      setTile(centerX + 3, centerY, 'A');
+      setTile(centerX, bottom - 4, 'K');
       break;
     case 'mapper':
       fillTile(left + 2, top + 3, bounds.width - 4, 1, 'A');
@@ -1551,9 +1552,9 @@ function stampTownInteriorTemplate(
       break;
     case 'wizardShop':
       fillTile(left + 2, top + 3, bounds.width - 4, 1, 'A');
-      setTile(centerX - 4, top + 2, 'P');
-      setTile(centerX, top + 2, 'M');
-      setTile(centerX + 4, top + 2, 'P');
+      setTile(centerX - 4, top + 2, 'L');
+      setTile(centerX, top + 2, 'K');
+      setTile(centerX + 4, top + 2, 'L');
       setTile(centerX - 3, bottom - 4, 'S');
       setTile(centerX + 3, bottom - 4, 'A');
       break;

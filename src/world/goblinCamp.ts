@@ -155,7 +155,9 @@ export function tryPlaceGoblinCamp(
     safeArea,
     tents,
     fires,
-    guards: guardSpots.map((spot) => createHumanoidSpawn(randomName(rng), spot.x, spot.y, 'sage-2')),
+    guards: guardSpots.map((spot) =>
+      createHumanoidSpawn(randomName(rng), spot.x, spot.y, 'sage-2'),
+    ),
     shopkeeper: createHumanoidSpawn(
       `${randomName(rng)} the Clerk`,
       shopSpot.x,

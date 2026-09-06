@@ -1528,6 +1528,20 @@ export const ITEMS: readonly Item[] = [
     category: 'recipe',
   },
   {
+    id: 'recipe-scroll-shield',
+    name: 'Scroll of Warding',
+    description: 'A recipe scroll showing how to brew a Shield Potion.',
+    kind: 'consumable',
+    category: 'recipe',
+  },
+  {
+    id: 'recipe-scroll-speed',
+    name: 'Scroll of Swiftstride',
+    description: 'A recipe scroll showing how to brew a Swiftstride Elixir.',
+    kind: 'consumable',
+    category: 'recipe',
+  },
+  {
     id: 'recipe-scroll-time-slow',
     name: 'Scroll of Slowness',
     description: 'A recipe scroll showing how to brew a Time Slow Elixir.',

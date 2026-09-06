@@ -10,6 +10,7 @@ import type {
   RelationshipState,
 } from '../relationships/relationshipTypes.js';
 import { stableStringHashPositive } from '../core/math.js';
+import { defaultShopProfileIdForRole } from '../shops/shopProfiles.js';
 import type {
   Actor,
   ActorBrainId,
@@ -156,6 +157,7 @@ export function createBaseActor(args: {
   playerHostility?: Actor['playerHostility'];
   schedule?: Actor['schedule'];
   brainId?: ActorBrainId;
+  shopProfileId?: string;
   flags?: Record<string, unknown>;
   createdAtRoomNumber?: number;
 }): Actor {
@@ -168,6 +170,7 @@ export function createBaseActor(args: {
     thickness: args.thickness,
     displayName: args.displayName,
     shortName: args.displayName.split(' ')[0] ?? args.displayName,
+    shopProfileId: args.shopProfileId ?? defaultShopProfileIdForRole(args.role),
     factionId: args.factionId,
     townId: args.townId,
     currentRoomId: args.currentRoomId,

@@ -236,6 +236,32 @@ describe('selectActorConversation', () => {
     expect(result.knownFact).toContain('factionAlly');
   });
 
+  it('gives potion makers and wizards role-specific alchemy talk after introductions', () => {
+    for (const role of ['potionMaker', 'wizard'] as const) {
+      const actor = createBaseActor({
+        id: `actor:test:${role}`,
+        kind: 'shopkeeper',
+        role,
+        species: 'human',
+        thickness: 'medium',
+        displayName: role === 'wizard' ? 'Vey the Wizard' : 'Nessa the Potion Maker',
+        personality: ['practical', 'sharp'],
+      });
+      const result = selectActorConversation(
+        baseContext({
+          actor,
+          flags: {
+            [`actor.conversation.total.${actor.id}.talk`]: 1,
+            [`actor.conversation.count.${actor.id}.talk.talk-intro-fallback`]: 1,
+          },
+        }),
+      );
+
+      expect(result.tags).toContain('alchemy');
+      expect(result.line).toMatch(/Scrolls unlock|Alchemy is magic/);
+    }
+  });
+
   it('rotates ask-around away from the last near-best rumor line', () => {
     const actor = createBaseActor({
       id: 'actor:test:aurex',

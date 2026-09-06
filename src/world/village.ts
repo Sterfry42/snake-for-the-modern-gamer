@@ -300,12 +300,7 @@ export function tryPlaceVillage(
       safeArea,
       lanterns,
       residents,
-      shopkeeper: createHumanoidSpawn(
-        shopkeeperName,
-        shopSpot.x,
-        shopSpot.y,
-        shopkeeperPortrait,
-      ),
+      shopkeeper: createHumanoidSpawn(shopkeeperName, shopSpot.x, shopSpot.y, shopkeeperPortrait),
     },
   };
 }

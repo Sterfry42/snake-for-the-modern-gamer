@@ -1,3 +1,5 @@
+import { clamp } from '../../core/math.js';
+
 export interface TreePoint {
   x: number;
   y: number;
@@ -27,7 +29,7 @@ export class TreeViewportController {
   constructor(private readonly options: TreeViewportControllerOptions) {
     this.minZoom = options.minZoom ?? 0.3;
     this.maxZoom = options.maxZoom ?? 1.65;
-    this.zoom = this.clamp(options.initialZoom ?? 1, this.minZoom, this.maxZoom);
+    this.zoom = clamp(options.initialZoom ?? 1, this.minZoom, this.maxZoom);
     this.padding = options.padding ?? 90;
     const threshold = options.dragThreshold ?? 6;
     this.dragThresholdSquared = threshold * threshold;
@@ -45,8 +47,8 @@ export class TreeViewportController {
     const maxX = this.padding - Math.min(...xs);
     const minY = this.options.height - this.padding - Math.max(...ys);
     const maxY = this.padding - Math.min(...ys);
-    const x = this.clamp(next.x, Math.min(minX, maxX), Math.max(minX, maxX));
-    const y = this.clamp(next.y, Math.min(minY, maxY), Math.max(minY, maxY));
+    const x = clamp(next.x, Math.min(minX, maxX), Math.max(minX, maxX));
+    const y = clamp(next.y, Math.min(minY, maxY), Math.max(minY, maxY));
     const changed = Math.abs(x - this.pan.x) > 0.001 || Math.abs(y - this.pan.y) > 0.001;
     this.pan.x = x;
     this.pan.y = y;
@@ -58,7 +60,7 @@ export class TreeViewportController {
   }
 
   zoomAround(rawZoom: number, anchor: TreePoint): boolean {
-    const nextZoom = this.clamp(rawZoom, this.minZoom, this.maxZoom);
+    const nextZoom = clamp(rawZoom, this.minZoom, this.maxZoom);
     if (Math.abs(nextZoom - this.zoom) < 0.001) return false;
     const worldX = (anchor.x - this.pan.x) / this.zoom;
     const worldY = (anchor.y - this.pan.y) / this.zoom;
@@ -100,9 +102,5 @@ export class TreeViewportController {
 
   didDrag(): boolean {
     return this.drag?.moved ?? false;
-  }
-
-  private clamp(value: number, minimum: number, maximum: number): number {
-    return Math.max(minimum, Math.min(maximum, value));
   }
 }

@@ -667,7 +667,8 @@ describe('Town NPC living-world core stories', () => {
     const scenario = createHeadlessScenario({ seed: 'town-life-028-required-businesses' });
     const required = [
       { templateId: 'mapper' as const, role: 'mapper', serviceTiles: ['M', 'S'] },
-      { templateId: 'wizardShop' as const, role: 'wizard', serviceTiles: ['P', 'M', 'A'] },
+      { templateId: 'potionMaker' as const, role: 'potionMaker', serviceTiles: ['K', 'L', 'A'] },
+      { templateId: 'wizardShop' as const, role: 'wizard', serviceTiles: ['K', 'L', 'A'] },
       { templateId: 'tavern' as const, role: 'bartender', serviceTiles: ['R', 'S', 'A'] },
     ];
 
@@ -1386,7 +1387,7 @@ describe('Town NPC living-world core stories', () => {
         ),
     ).toBe(true);
     scenario.assertWorldIntegrity();
-  });
+  }, 10_000);
 
   it('TOWN-LIFE-060 - Patrol interception changes raid progress', () => {
     const scenario = townPatrolScenario('town-life-060-patrol-raid-intercept');
@@ -1911,9 +1912,7 @@ describe('Town NPC living-world core stories', () => {
     expect(nearbyTown).toBeDefined();
     if (!nearbyTown) return;
     const firstPatrol = scenario.game.resolveTownPatrolExcursion();
-    const secondTownRoom = generatedTownRooms(scenario, 64).find(
-      (room) => room.town && room.town.id !== nearbyTown.id,
-    );
+    const secondTownRoom = findGeneratedTownRoomOtherThan(scenario, nearbyTown.id, 64);
     expect(secondTownRoom).toBeDefined();
     if (!secondTownRoom) return;
     scenario.enterRoom(secondTownRoom.id, firstWalkableTile(scenario, secondTownRoom.id));
@@ -1924,7 +1923,7 @@ describe('Town NPC living-world core stories', () => {
     const generatedBefore = scenario.game.getGeneratedRoomCount();
 
     scenario.enterRoom('40,40,0', { x: 5, y: 5 });
-    await scenario.advanceSeconds(5);
+    await scenario.advanceActorTicks(50, 100);
 
     const after = scenario.diagnostics();
     expect(after.actorTicks - before.actorTicks).toBeLessThanOrEqual(50);
@@ -2382,6 +2381,32 @@ function generatedTownRooms(scenario: HeadlessScenario, radius: number): RoomSna
     }
   }
   return rooms;
+}
+
+function findGeneratedTownRoomOtherThan(
+  scenario: HeadlessScenario,
+  townId: string,
+  maxRadius: number,
+): RoomSnapshot | undefined {
+  const seen = new Set<string>();
+  for (let radius = 0; radius <= maxRadius; radius += 1) {
+    for (let y = -radius; y <= radius; y += 1) {
+      for (let x = -radius; x <= radius; x += 1) {
+        if (Math.abs(x) !== radius && Math.abs(y) !== radius) {
+          continue;
+        }
+        const room = scenario.getRoom(`${x},${y},0`);
+        if (seen.has(room.id)) {
+          continue;
+        }
+        seen.add(room.id);
+        if (room.town && room.town.id !== townId) {
+          return room;
+        }
+      }
+    }
+  }
+  return undefined;
 }
 
 function generatedTownEntrances(

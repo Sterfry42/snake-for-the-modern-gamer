@@ -5,7 +5,7 @@ import { getActorPresentation } from '../../../actors/actorPresentation.js';
 import { createHeadlessScenario } from '../../../test/headless/headlessScenario.js';
 import { ensureScenarioActor, firstWalkableTile } from '../../../test/headless/scenarioFixtures.js';
 
-describe('Town NPC living-world presentation stories', () => {
+describe('Town NPC living-world presentation contracts', () => {
   it('TOWN-LIFE-019 - Activity props describe current actions', () => {
     const scenario = createHeadlessScenario({ seed: 'town-life-019-activity-props' });
     const base = firstWalkableTile(scenario);

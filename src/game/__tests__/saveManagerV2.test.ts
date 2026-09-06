@@ -113,7 +113,9 @@ describe('SaveManagerV2', () => {
 
     expect((await manager.loadSave(sessionId, newest.timestamp))?.score).toBe(2);
     await manager.deleteSave(sessionId, newest.timestamp);
-    expect((await manager.listSessionSaves(sessionId)).map((entry) => entry.data.score)).toEqual([1]);
+    expect((await manager.listSessionSaves(sessionId)).map((entry) => entry.data.score)).toEqual([
+      1,
+    ]);
   });
 
   it('deletes whole sessions', async () => {
@@ -125,23 +127,20 @@ describe('SaveManagerV2', () => {
     expect(await manager.getSession(sessionId)).toBeNull();
   });
 
-  it(
-    'migrates v1 saves to the live v3 schema without synthesizing removed Minecraft state',
-    async () => {
-      const sessionId = manager.createSessionId();
-      await manager.appendSave(sessionId, makeSaveData({ version: '1.0.0' }));
+  it('migrates v1 saves to the live v3 schema without synthesizing removed Minecraft state', async () => {
+    const sessionId = manager.createSessionId();
+    await manager.appendSave(sessionId, makeSaveData({ version: '1.0.0' }));
 
-      const [entry] = await manager.listSessionSaves(sessionId);
-      expect(entry.data.version).toBe('3.0.0');
-      expect(entry.data.fishing).toEqual({
-        caughtFish: {},
-        catchJournal: [],
-        equippedRod: 'none',
-      });
-      expect('minecraftBlocks' in entry.data).toBe(false);
-      expect('minecraftPlayerState' in entry.data).toBe(false);
-    },
-  );
+    const [entry] = await manager.listSessionSaves(sessionId);
+    expect(entry.data.version).toBe('3.0.0');
+    expect(entry.data.fishing).toEqual({
+      caughtFish: {},
+      catchJournal: [],
+      equippedRod: 'none',
+    });
+    expect('minecraftBlocks' in entry.data).toBe(false);
+    expect('minecraftPlayerState' in entry.data).toBe(false);
+  });
 
   it('migrates v2 fishing data without losing existing catches', async () => {
     const sessionId = manager.createSessionId();
