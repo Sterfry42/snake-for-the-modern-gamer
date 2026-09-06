@@ -11,7 +11,7 @@ export interface TownRuntimeState {
   failedGuildJobs: string[];
   activeGuildJobId?: string;
   rumors: TownRumor[];
-  noticesSeen: string[];
-  stolenItemIds: string[];
+  noticesSeen: never[];
+  stolenItemIds: never[];
   residents: Record<string, never>;
 }
