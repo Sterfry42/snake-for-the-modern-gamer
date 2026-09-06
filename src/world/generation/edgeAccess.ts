@@ -9,14 +9,7 @@ export interface EdgeAccessPlan {
   openingCenter: number;
   openingWidth: number;
   runupDepth: number;
-  reason:
-    | 'normalExit'
-    | 'townGate'
-    | 'townExit'
-    | 'townInteriorStreet'
-    | 'riverBridge'
-    | 'forestMouth'
-    | 'structureDoor';
+  reason: 'normalExit' | 'townGate' | 'townExit' | 'forestMouth';
 }
 
 export function cellsForEdgeRunup(grid: GridConfig, plan: EdgeAccessPlan): ReadonlySet<string> {
