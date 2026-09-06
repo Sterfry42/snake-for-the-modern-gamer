@@ -19,7 +19,6 @@ interface SpawnPolicy {
 }
 
 interface ZoneRules {
-  id: string;
   collision: SafeZoneRules | null;
   spawning: SpawnPolicy;
 }
@@ -57,22 +56,20 @@ const TOWN_PERIMETER_SPAWNS: SpawnPolicy = {
 function getZoneRules(room: RoomSnapshot, localPosition?: Vector2Like): ZoneRules {
   if (room.id === HOME_ROOM_ID) {
     return {
-      id: 'home',
       collision: STANDARD_SAFE_ZONE_RULES,
       spawning: { ...SAFE_SETTLEMENT_SPAWNS, apples: 'suppress' },
     };
   }
   if (room.town || room.layer?.kind === 'townInterior') {
-    return { id: 'town', collision: STANDARD_SAFE_ZONE_RULES, spawning: SAFE_SETTLEMENT_SPAWNS };
+    return { collision: STANDARD_SAFE_ZONE_RULES, spawning: SAFE_SETTLEMENT_SPAWNS };
   }
   if (room.village) {
-    return { id: 'village', collision: STANDARD_SAFE_ZONE_RULES, spawning: SAFE_SETTLEMENT_SPAWNS };
+    return { collision: STANDARD_SAFE_ZONE_RULES, spawning: SAFE_SETTLEMENT_SPAWNS };
   }
   if (room.townPerimeter) {
-    return { id: 'townPerimeter', collision: null, spawning: TOWN_PERIMETER_SPAWNS };
+    return { collision: null, spawning: TOWN_PERIMETER_SPAWNS };
   }
   return {
-    id: 'wild',
     collision:
       localPosition && isSafeZoneTile(room.layout[localPosition.y]?.[localPosition.x])
         ? STANDARD_SAFE_ZONE_RULES
