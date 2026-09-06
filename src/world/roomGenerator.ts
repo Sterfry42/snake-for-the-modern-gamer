@@ -15,7 +15,7 @@ import { MosaicCoastOperations } from './generation/stages/mosaicCoastOperations
 import { CrossRoomFeatureOperations } from './generation/stages/crossRoomFeatureOperations.js';
 import { ForestOperations } from './generation/stages/forestOperations.js';
 import { RoomArchetypeOperations } from './generation/stages/roomArchetypeOperations.js';
-import { VegetationOperations } from './generation/stages/vegetationOperations.js';
+import { placeVegetation } from './generation/stages/vegetationOperations.js';
 import { MultiRoomStructureResolver } from './generation/townStructureResolver.js';
 import {
   createWorldGenerationIdentity,
@@ -36,7 +36,6 @@ export class RoomGenerator {
   private readonly oceanOperations: OceanOperations;
   private readonly mosaicCoastOperations: MosaicCoastOperations;
   private readonly safetyOperations: SafetyOperations;
-  private readonly vegetationOperations: VegetationOperations;
   private readonly transitionResolver: TransitionContractResolver;
 
   constructor(
@@ -68,7 +67,6 @@ export class RoomGenerator {
     this.oceanOperations = new OceanOperations(this.biomeMap, this.rng);
     this.mosaicCoastOperations = new MosaicCoastOperations(this.worldGenerationIdentity);
     this.safetyOperations = new SafetyOperations(this.config);
-    this.vegetationOperations = new VegetationOperations();
   }
 
   generate(roomId: string): RoomSnapshot {
@@ -84,7 +82,7 @@ export class RoomGenerator {
     this.placeCrossRoomFeatures(context);
     this.placeRoomStructures(context);
     this.placeRandomObstacles(context);
-    this.placeVegetation(context);
+    placeVegetation(context);
     this.placePortals(context);
     this.validateRoomSafety(context);
     return this.finalizeGenerationContext(context);
@@ -272,9 +270,5 @@ export class RoomGenerator {
     if (context.isMosaicCoast) {
       this.mosaicCoastOperations.refreshExposureFromLayout(context);
     }
-  }
-
-  private placeVegetation(context: RoomGenerationContext): void {
-    this.vegetationOperations.place(context);
   }
 }
