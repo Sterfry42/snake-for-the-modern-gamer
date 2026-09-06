@@ -13,7 +13,7 @@ const TOWN_MERCHANT_ROLE_VALUES = [
   'innkeeper',
 ] as const satisfies readonly ActorRole[];
 
-export type TownMerchantRole = (typeof TOWN_MERCHANT_ROLE_VALUES)[number];
+type TownMerchantRole = (typeof TOWN_MERCHANT_ROLE_VALUES)[number];
 
 const TOWN_RESIDENT_ROLE_VALUES = [
   'resident',
