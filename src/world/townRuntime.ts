@@ -13,12 +13,5 @@ export interface TownRuntimeState {
   rumors: TownRumor[];
   noticesSeen: string[];
   stolenItemIds: string[];
-  residents: Record<string, TownResidentRuntimeState>;
-}
-
-export interface TownResidentRuntimeState {
-  hostile?: boolean;
-  dead?: boolean;
-  hidden?: boolean;
-  relationshipId?: string;
+  residents: Record<string, never>;
 }
