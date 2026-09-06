@@ -10,7 +10,7 @@ export interface ActorEnvironmentContext {
   effects: readonly AtmosphereEffectTag[];
 }
 
-export interface ActorEnvironmentReaction {
+interface ActorEnvironmentReaction {
   goal?: ActorGoal;
   activity?: ActorActivity;
   speech?: ActorSpeechBubble;
@@ -29,7 +29,7 @@ export interface ActorEnvironmentReaction {
   environmentKey: string;
 }
 
-export interface ActorRadiantBarkContext {
+interface ActorRadiantBarkContext {
   roomNumber: number;
   atmosphere: AtmosphereState;
   nowMs?: number;
@@ -190,7 +190,7 @@ function speechDurationMs(length: number): number {
   return Math.max(2_000, Math.min(4_000, 1_700 + length * 35));
 }
 
-export function radiantBarkChance(actor: Actor): number {
+function radiantBarkChance(actor: Actor): number {
   const explicit = actor.flags.radiantBarkChance;
   if (typeof explicit === 'number') {
     return Math.max(0, Math.min(1, explicit));
