@@ -2,12 +2,7 @@ import type { GridConfig } from '../config/gameConfig.js';
 import type { RandomGenerator } from '../core/rng.js';
 import type { BiomeId } from './biomes.js';
 import { createHumanoidSpawn } from './humanoidSpawn.js';
-import {
-  fillRect,
-  findRandomRectPlacement,
-  pickOne,
-  setTile,
-} from './structurePlacement.js';
+import { fillRect, findRandomRectPlacement, pickOne, setTile } from './structurePlacement.js';
 import type { RoomSnapshot } from './types.js';
 
 const VILLAGE_NAMES: Record<BiomeId, readonly string[]> = {

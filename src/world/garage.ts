@@ -90,12 +90,5 @@ function stampGarage(layout: string[][], bounds: StructureBounds): void {
   setTile(layout, left + 1, top + 2, 'C');
   setTile(layout, left + 1, top + 3, 'K');
   setTile(layout, left + 2, top + height - 3, 'G');
-  fillRect(
-    layout,
-    left + width - 5,
-    top + height - 5,
-    CAR_WIDTH_TILES,
-    CAR_HEIGHT_TILES,
-    'E',
-  );
+  fillRect(layout, left + width - 5, top + height - 5, CAR_WIDTH_TILES, CAR_HEIGHT_TILES, 'E');
 }

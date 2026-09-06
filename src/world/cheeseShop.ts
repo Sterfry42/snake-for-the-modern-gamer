@@ -4,12 +4,7 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import type { RandomGenerator } from '../core/rng.js';
 import { createHumanoidIdentity } from './humanoidSpawn.js';
-import {
-  fillRect,
-  findRandomRectPlacement,
-  pickOne,
-  setTile,
-} from './structurePlacement.js';
+import { fillRect, findRandomRectPlacement, pickOne, setTile } from './structurePlacement.js';
 import type { RoomSnapshot } from './types.js';
 
 interface CheeseShopPlacement {
@@ -18,7 +13,13 @@ interface CheeseShopPlacement {
   shopkeeper: NonNullable<RoomSnapshot['questGiver']>;
 }
 
-const CHEESE_SHOPKEEPER_NAMES = ['Benoit', 'Colette', 'Francois', 'Isabelle', 'Jean-Pierre'] as const;
+const CHEESE_SHOPKEEPER_NAMES = [
+  'Benoit',
+  'Colette',
+  'Francois',
+  'Isabelle',
+  'Jean-Pierre',
+] as const;
 const CHEESE_SHOPKEEPER_PORTRAITS = ['sage-1', 'sage-2', 'sage-3'] as const;
 
 export function tryPlaceCheeseShop(
