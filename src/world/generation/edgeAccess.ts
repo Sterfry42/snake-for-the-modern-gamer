@@ -60,18 +60,3 @@ export function carveEdgeOpening(
     }
   }
 }
-
-export function assertEdgeRunupClear(
-  layout: string[][],
-  grid: GridConfig,
-  plan: EdgeAccessPlan,
-): boolean {
-  for (const key of cellsForEdgeRunup(grid, plan)) {
-    const [x = 0, y = 0] = key.split(',').map(Number);
-    const tile = layout[y]?.[x];
-    if (tile === undefined || tile === '#' || tile === '~' || tile === 'S') {
-      return false;
-    }
-  }
-  return true;
-}
