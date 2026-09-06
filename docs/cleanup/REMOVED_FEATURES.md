@@ -90,11 +90,11 @@ When restoring one of these features:
 
 ### Minecraft-inspired detached systems
 
-**Removed:** enchanting, brewing, fishing, mob spawner, portal, structures, weather.
+**Restored as modular candidates:** enchanting, brewing, fishing, mob spawner, portal, structures, weather.
 
-**Why:** these modules were unreachable feature islands / leaves with no production path.
+**Status:** these modules remain outside the main Minecraft feature route, but the code is preserved so the better concepts are not lost. They must still earn production reachability before being treated as live gameplay.
 
-**If restored:** treat each mechanic independently and integrate it into existing item/world/weather/combat systems rather than restoring a `minecraft` parallel namespace by default.
+**If promoted:** treat each mechanic independently and integrate it into existing item/world/weather/combat systems rather than restoring a `minecraft` parallel namespace by default.
 
 ### Animal ecosystem simulation
 
@@ -170,11 +170,11 @@ When restoring one of these features:
 
 ### Wise Old Snake legacy content path
 
-**Removed:** the standalone `wiseOldSnakeLore.ts` quote/lore/quest-idea catalog plus the obsolete global `registerNpc()` Wise Old Snake entry and registry.
+**Restored as lore/content reference:** the standalone `wiseOldSnakeLore.ts` quote/lore/quest-idea catalog plus the obsolete global `registerNpc()` NPC registry path.
 
-**Why:** nothing in production, tests, or the Encyclopedia consumed the lore dump, and the global registry was a separate NPC representation with no production consumer.
+**Status:** the lore is intentionally preserved. The old global NPC registry remains a compatibility/reference surface, but canonical new NPC work should still route through Actors.
 
-**If restored:** keep the character/lore if desired, but put it in the canonical Actor/dialogue/rumor/quest/content registries that the game actually reads.
+**If promoted:** put lore into the canonical Actor/dialogue/rumor/quest/content registries that the game actually reads without adding the wise old snake as a concrete game entity.
 
 ### Orphaned starter quests
 
@@ -188,7 +188,7 @@ When restoring one of these features:
 
 Removed dead leaves include presentation or helper code such as the bullet-train renderer, mutation journal overlay, unused generic scrollable tabbed-menu model, unused NPC portrait registry, a duplicate TypeScript Vite debug middleware implementation, a no-op Bullet Train generation "future hook", and unused Bullet Train localization packs when no production route or canonical owner consumed them.
 
-These are intentionally lower-level than the feature entries above. Recover from the base commit if a future integrated feature genuinely needs the old presentation/content.
+The bullet-train renderer, NPC portrait registry, and no-op Bullet Train generation hook have since been restored as reference/modular surfaces. Other entries here remain lower-level removed leaves; recover from the base commit if a future integrated feature genuinely needs the old presentation/content.
 
 ## Philosophy
 

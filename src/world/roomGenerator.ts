@@ -1,10 +1,10 @@
 import type { GridConfig, WorldConfig } from '../config/gameConfig.js';
 import { createRng, type RandomGenerator } from '../core/rng.js';
 import { biomeCountsAs } from './biomes.js';
-import { createHouseRoom } from './houseRoom.js';
 import type { RoomSnapshot } from './types.js';
 import { SeededBiomeMap } from './generation/biomeMap.js';
-import type { RoomGenerationContext } from './generation/types.js';
+import { RoomGenerationPipeline } from './generation/roomGenerationPipeline.js';
+import type { RoomGenerationContext, RoomGenerationOperations } from './generation/types.js';
 import { TerrainCanvas } from './generation/terrainCanvas.js';
 import { placePortals } from './generation/stages/portalOperations.js';
 import { placeRandomObstacles } from './generation/stages/randomObstacleOperations.js';
@@ -24,7 +24,8 @@ import {
 import { TransitionContractResolver } from './generation/transitionContracts.js';
 import { cellsForEdgeRunup, mergeProtectedCells } from './generation/edgeAccess.js';
 
-export class RoomGenerator {
+export class RoomGenerator implements RoomGenerationOperations {
+  private readonly pipeline: RoomGenerationPipeline;
   private readonly biomeMap: SeededBiomeMap;
   readonly grid: GridConfig;
   private readonly config: WorldConfig;
@@ -67,39 +68,15 @@ export class RoomGenerator {
     this.oceanOperations = new OceanOperations(this.biomeMap, this.rng);
     this.mosaicCoastOperations = new MosaicCoastOperations(this.worldGenerationIdentity);
     this.safetyOperations = new SafetyOperations(this.config);
+    this.pipeline = new RoomGenerationPipeline(this);
   }
 
   generate(roomId: string): RoomSnapshot {
-    if (roomId === '0,-1,0') {
-      return createHouseRoom(roomId, this.grid);
-    }
-
-    const context = this.createGenerationContext(roomId);
-    this.resolveBiomeMap(context);
-    this.resolveMultiRoomStructures(context);
-    this.applyBiomeBaseTerrain(context);
-    this.applyRoomArchetype(context);
-    this.placeCrossRoomFeatures(context);
-    this.placeRoomStructures(context);
-    placeRandomObstacles(
-      context,
-      this.config,
-      createRng(
-        `${this.worldGenerationIdentity.seed}:barriers:${this.worldGenerationIdentity.barrierSalt}:${context.roomId}`,
-      ),
-    );
-    placeVegetation(context);
-    placePortals(
-      context,
-      this.config,
-      createRng(`${this.worldGenerationIdentity.seed}:portals:${context.roomId}`),
-    );
-    this.validateRoomSafety(context);
-    return this.finalizeGenerationContext(context);
+    return this.pipeline.generate(roomId, this.grid);
   }
 
-  private createGenerationContext(roomId: string): RoomGenerationContext {
-    const canvas = new TerrainCanvas(this.grid);
+  createGenerationContext(roomId: string, grid: GridConfig = this.grid): RoomGenerationContext {
+    const canvas = new TerrainCanvas(grid);
     const portals: RoomSnapshot['portals'] = [];
     const palette = this.biomeMap.createPalette(roomId);
     const isOcean = biomeCountsAs(palette.biomeId, 'ocean');
@@ -112,7 +89,7 @@ export class RoomGenerator {
 
     return {
       roomId,
-      grid: this.grid,
+      grid,
       canvas,
       layout: canvas.layout,
       portals,
@@ -128,7 +105,7 @@ export class RoomGenerator {
     };
   }
 
-  private finalizeGenerationContext(context: RoomGenerationContext): RoomSnapshot {
+  finalizeGenerationContext(context: RoomGenerationContext): RoomSnapshot {
     const townRoom = Boolean(context.town);
     return {
       id: context.roomId,
@@ -172,7 +149,7 @@ export class RoomGenerator {
     };
   }
 
-  private resolveBiomeMap(context: RoomGenerationContext): void {
+  resolveBiomeMap(context: RoomGenerationContext): void {
     context.transitionContracts = this.transitionResolver.resolveForRoom(context.roomId);
     const reservedAccess = context.transitionContracts.map((contract) =>
       this.transitionResolver.toEdgeAccessPlan(contract),
@@ -184,14 +161,14 @@ export class RoomGenerator {
     );
   }
 
-  private resolveMultiRoomStructures(context: RoomGenerationContext): void {
+  resolveMultiRoomStructures(context: RoomGenerationContext): void {
     context.townMembership = this.structureResolver.getTownMembership(context.roomId);
     context.townAdjacency = context.townMembership
       ? null
       : this.structureResolver.getTownAdjacency(context.roomId);
   }
 
-  private applyBiomeBaseTerrain(context: RoomGenerationContext): void {
+  applyBiomeBaseTerrain(context: RoomGenerationContext): void {
     if (
       context.isMosaicCoast &&
       !context.town &&
@@ -212,7 +189,7 @@ export class RoomGenerator {
     }
   }
 
-  private applyRoomArchetype(context: RoomGenerationContext): void {
+  applyRoomArchetype(context: RoomGenerationContext): void {
     if (context.isMosaicCoast) {
       return;
     }
@@ -224,7 +201,7 @@ export class RoomGenerator {
     ).apply(context);
   }
 
-  private placeCrossRoomFeatures(context: RoomGenerationContext): void {
+  placeCrossRoomFeatures(context: RoomGenerationContext): void {
     if (context.isMosaicCoast) {
       this.mosaicCoastOperations.placeDistrictContinuity(context);
       return;
@@ -240,7 +217,7 @@ export class RoomGenerator {
     }
   }
 
-  private placeRoomStructures(context: RoomGenerationContext): void {
+  placeRoomStructures(context: RoomGenerationContext): void {
     if (
       context.isMosaicCoast &&
       !context.town &&
@@ -259,7 +236,29 @@ export class RoomGenerator {
     ).place(context);
   }
 
-  private validateRoomSafety(context: RoomGenerationContext): void {
+  placeRandomObstacles(context: RoomGenerationContext): void {
+    placeRandomObstacles(
+      context,
+      this.config,
+      createRng(
+        `${this.worldGenerationIdentity.seed}:barriers:${this.worldGenerationIdentity.barrierSalt}:${context.roomId}`,
+      ),
+    );
+  }
+
+  placePortals(context: RoomGenerationContext): void {
+    placePortals(
+      context,
+      this.config,
+      createRng(`${this.worldGenerationIdentity.seed}:portals:${context.roomId}`),
+    );
+  }
+
+  placeVegetation(context: RoomGenerationContext): void {
+    placeVegetation(context);
+  }
+
+  validateRoomSafety(context: RoomGenerationContext): void {
     this.safetyOperations.validate(context);
     if (context.isMosaicCoast) {
       this.mosaicCoastOperations.refreshExposureFromLayout(context);

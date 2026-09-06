@@ -5,12 +5,7 @@ import type { EdgeAccessPlan, EdgeSide } from './edgeAccess.js';
 import { hashWorldCoordinate } from './worldHash.js';
 import type { WorldGenerationIdentity } from './worldGenerationIdentity.js';
 
-type TransitionContractKind =
-  | 'open'
-  | 'blocked'
-  | 'forest-threshold'
-  | 'shoreline'
-  | 'cave-mouth';
+type TransitionContractKind = 'open' | 'blocked' | 'forest-threshold' | 'shoreline' | 'cave-mouth';
 
 export interface TransitionContract {
   side: EdgeSide;

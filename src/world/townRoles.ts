@@ -15,7 +15,7 @@ const TOWN_MERCHANT_ROLE_VALUES = [
 
 type TownMerchantRole = (typeof TOWN_MERCHANT_ROLE_VALUES)[number];
 
-const TOWN_RESIDENT_ROLE_VALUES = [
+export const TOWN_RESIDENT_ROLE_VALUES = [
   'resident',
   ...TOWN_MERCHANT_ROLE_VALUES,
   'guard',

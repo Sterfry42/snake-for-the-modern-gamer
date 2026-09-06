@@ -65,7 +65,9 @@ const ORDINARY_SHOP_ROLES = new Set<string>([
 
 const TAVERN_SERVICE_ROLES = new Set<string>(['bartender', 'cardDealer', 'innkeeper']);
 
-export function townBusinessPolicyForRole(role: string | undefined): TownBusinessPolicy | undefined {
+export function townBusinessPolicyForRole(
+  role: string | undefined,
+): TownBusinessPolicy | undefined {
   if (!role) {
     return undefined;
   }

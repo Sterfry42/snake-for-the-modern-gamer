@@ -1,6 +1,6 @@
 import type { Actor, ActorActivityKind } from './actorTypes.js';
 
-type ActorActivityPropKind =
+export type ActorActivityPropKind =
   | 'sword'
   | 'bow'
   | 'merchant-bag'
@@ -10,6 +10,7 @@ type ActorActivityPropKind =
   | 'potion-flask'
   | 'chef-knife'
   | 'training-dumbbell'
+  | 'tool'
   | 'shield'
   | 'fishing-rod';
 
@@ -31,6 +32,7 @@ const ACTIVITY_PROP_BY_KIND: Partial<Record<ActorActivityKind, ActorActivityProp
   alchemy: 'potion-flask',
   cooking: 'chef-knife',
   training: 'training-dumbbell',
+  repairing: 'tool',
   merchant: 'merchant-bag',
   guarding: 'shield',
   fishing: 'fishing-rod',
@@ -45,6 +47,7 @@ const PROP_LABELS: Record<ActorActivityPropKind, string> = {
   'potion-flask': 'Alchemy',
   'chef-knife': 'Cooking',
   'training-dumbbell': 'Training',
+  tool: 'Working',
   'merchant-bag': 'Merchant',
   shield: 'Guarding',
   'fishing-rod': 'Fishing',
