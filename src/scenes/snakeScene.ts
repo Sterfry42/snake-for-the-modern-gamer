@@ -47,12 +47,14 @@ import type {
   ActorShopOfferCategory,
   ActorShopView,
   ActorJournalEntry,
+  BombInstance,
+  FootballInstance,
   PresentRelationshipProfile,
   QuestObjectiveSummary,
   QuestRoomActor,
 } from '../game/snakeGame.js';
 import type { HighlightClip } from '../systems/highlightReel.js';
-import type { EnemyInstance } from '../systems/enemies.js';
+import type { BulletInstance, EnemyInstance } from '../systems/enemies.js';
 import type { GameConnection } from '../session/GameConnection.js';
 import type { ClientRoomSnapshot, GameSnapshot } from '../session/GameSnapshot.js';
 import type { LocalAuthoritativeRuntime } from '../session/GameRuntime.js';
@@ -3290,6 +3292,10 @@ export default class SnakeScene extends Phaser.Scene {
       enemies: readonly EnemyInstance[];
       followers: readonly EnemyInstance[];
       animals: readonly AnimalInstance[];
+      bullets: readonly BulletInstance[];
+      footballs: readonly FootballInstance[];
+      bombs: readonly BombInstance[];
+      alchemyStation?: { roomId: string; x: number; y: number } | null;
       atmosphere?: ResolvedAtmosphereView;
     },
   ): WorldRenderScene {
@@ -3301,6 +3307,10 @@ export default class SnakeScene extends Phaser.Scene {
           enemies: options.enemies,
           followers: options.followers,
           animals: options.animals,
+          bullets: options.bullets,
+          footballs: options.footballs,
+          bombs: options.bombs,
+          alchemyStation: options.alchemyStation,
           runtimeNpcs: this.getFirstPersonRuntimeNpcs(roomSnapshot.id),
         },
       ],
@@ -11532,6 +11542,15 @@ export default class SnakeScene extends Phaser.Scene {
     const enemies = roomSnapshot?.enemies ?? this.snakeGame.getEnemies(room.id);
     const followers = roomSnapshot?.followers ?? [];
     const animals = roomSnapshot?.animals ?? this.snakeGame.getAnimals(room.id);
+    const bullets = roomSnapshot?.bullets ?? this.snakeGame.getEnemyBullets(room.id);
+    const footballs = roomSnapshot?.footballs ?? this.snakeGame.getFootballs(room.id);
+    const alchemyStation = placedAlchemyStation
+      ? {
+          roomId: placedAlchemyStation.roomId,
+          x: placedAlchemyStation.position.x,
+          y: placedAlchemyStation.position.y,
+        }
+      : null;
     const presentationScene = roomSnapshot
       ? this.buildCurrentWorldPresentationScene(roomSnapshot, {
           snakeBody,
@@ -11540,6 +11559,10 @@ export default class SnakeScene extends Phaser.Scene {
           enemies,
           followers,
           animals,
+          bullets,
+          footballs,
+          bombs: visibleBombs,
+          alchemyStation,
           atmosphere,
         })
       : null;
@@ -11598,17 +11621,11 @@ export default class SnakeScene extends Phaser.Scene {
         activeEmoticon: this.getActiveEmoticonForRender(),
         enemies,
         followers,
-        bullets: roomSnapshot?.bullets ?? this.snakeGame.getEnemyBullets(room.id),
-        footballs: roomSnapshot?.footballs ?? this.snakeGame.getFootballs(room.id),
+        bullets,
+        footballs,
         bombs: visibleBombs,
         animals,
-        alchemyStation: placedAlchemyStation
-          ? {
-              roomId: placedAlchemyStation.roomId,
-              x: placedAlchemyStation.position.x,
-              y: placedAlchemyStation.position.y,
-            }
-          : null,
+        alchemyStation,
         atmosphere,
         presentationScene: presentationScene ?? undefined,
         thermalBody: temperature,

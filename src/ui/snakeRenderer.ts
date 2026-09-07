@@ -47,7 +47,7 @@ import type { EnemyInstance, BulletInstance } from '../systems/enemies.js';
 import type { AnimalInstance } from '../animals/types.js';
 import type { BombInstance, FootballInstance } from '../game/snakeGame.js';
 import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
-import type { WorldRenderScene } from './presentation/worldRenderScene.js';
+import type { RenderSprite, WorldRenderScene } from './presentation/worldRenderScene.js';
 
 type PowerupKind = NonNullable<RoomSnapshot['powerup']>['kind'];
 
@@ -174,6 +174,7 @@ export class SnakeRenderer {
   private readonly vegetationSprites: Phaser.GameObjects.Image[] = [];
   private readonly powerupTextureKeys: Record<PowerupKind, string>;
   private readonly powerupSprites: Phaser.GameObjects.Image[] = [];
+  private readonly presentationSprites: Phaser.GameObjects.Image[] = [];
   private readonly staticRoomSignatures = new Map<string, string>();
   private readonly dirtyStaticRooms = new Set<string>();
   private readonly loggedOtherPlayerRenderIds = new Set<string>();
@@ -333,6 +334,9 @@ export class SnakeRenderer {
     this.bulletSprites.forEach((sprite) => sprite.setVisible(false));
     this.animalSprites.forEach((sprite) => sprite.setVisible(false));
     this.powerupSprites.forEach((sprite) => sprite.setVisible(false));
+    this.presentationSprites.forEach((sprite) => sprite.setVisible(false));
+    const usePresentationSprites =
+      Boolean(opts.presentationScene) && !(opts.renderRooms && opts.renderRooms.length > 0);
 
     this.drawAtmosphereBaseTint(opts.atmosphere);
     let furnitureIndex = 0;
@@ -354,28 +358,37 @@ export class SnakeRenderer {
         this.drawAtmosphereGroundJuice(entry.room, opts.atmosphere, opts.renderTimeMs ?? 0);
         this.drawGrid(entry.room);
         this.drawAtmosphereParticles(entry.room, opts.atmosphere, false, opts.renderTimeMs ?? 0);
-        this.drawTreasure(entry.room);
+        if (!usePresentationSprites) {
+          this.drawTreasure(entry.room);
+        }
       });
-      furnitureIndex = this.drawFurniture(entry.room, entry.offset, furnitureIndex);
-      vegetationIndex = this.drawVegetation(entry.room, entry.offset, vegetationIndex);
-      appleIndex = this.drawApple(entry.room, entry.apple ?? undefined, entry.offset, appleIndex);
-      powerupIndex = this.drawPowerup(entry.room, entry.offset, powerupIndex);
-      this.drawAlchemyStation(
-        opts.alchemyStation?.roomId === entry.roomId ? opts.alchemyStation : null,
-        entry.offset,
-      );
-      enemyIndex = this.drawEnemies(
-        [...(entry.enemies ?? []), ...(entry.followers ?? [])],
-        entry.offset,
-        enemyIndex,
-      );
-      animalIndex = this.drawAnimals(entry.animals ?? [], entry.offset, animalIndex);
-      bulletIndex = this.drawBullets(entry.bullets ?? [], entry.offset, bulletIndex);
+      if (!usePresentationSprites) {
+        furnitureIndex = this.drawFurniture(entry.room, entry.offset, furnitureIndex);
+        vegetationIndex = this.drawVegetation(entry.room, entry.offset, vegetationIndex);
+        appleIndex = this.drawApple(entry.room, entry.apple ?? undefined, entry.offset, appleIndex);
+        powerupIndex = this.drawPowerup(entry.room, entry.offset, powerupIndex);
+        this.drawAlchemyStation(
+          opts.alchemyStation?.roomId === entry.roomId ? opts.alchemyStation : null,
+          entry.offset,
+        );
+        enemyIndex = this.drawEnemies(
+          [...(entry.enemies ?? []), ...(entry.followers ?? [])],
+          entry.offset,
+          enemyIndex,
+        );
+        animalIndex = this.drawAnimals(entry.animals ?? [], entry.offset, animalIndex);
+        bulletIndex = this.drawBullets(entry.bullets ?? [], entry.offset, bulletIndex);
+      }
       this.withRoomOffset(entry.offset, () => {
-        this.drawFootballs(entry.footballs ?? []);
-        this.drawBombs(entry.bombs ?? []);
+        if (!usePresentationSprites) {
+          this.drawFootballs(entry.footballs ?? []);
+          this.drawBombs(entry.bombs ?? []);
+        }
         this.drawAtmosphereParticles(entry.room, opts.atmosphere, true, opts.renderTimeMs ?? 0);
       });
+    }
+    if (usePresentationSprites && opts.presentationScene) {
+      this.drawPresentationSprites(opts.presentationScene);
     }
     this.highlightWalls(room, snakeBody, currentRoomId, opts.wallSenseRadius ?? 0, roomPlacements);
     if (opts.characterMode === 'raccoon') {
@@ -451,6 +464,7 @@ export class SnakeRenderer {
     this.bulletSprites.forEach((sprite) => sprite.setVisible(false));
     this.animalSprites.forEach((sprite) => sprite.setVisible(false));
     this.powerupSprites.forEach((sprite) => sprite.setVisible(false));
+    this.presentationSprites.forEach((sprite) => sprite.setVisible(false));
   }
 
   markStaticRoomDirty(roomId: string): void {
@@ -2509,6 +2523,66 @@ export class SnakeRenderer {
     sprite = this.createPowerupSprite();
     this.powerupSprites[index] = sprite;
     return sprite;
+  }
+
+  private drawPresentationSprites(scene: WorldRenderScene): void {
+    let index = 0;
+    for (const sprite of scene.sprites) {
+      if (sprite.kind === 'snake') continue;
+      if (!sprite.visual.defaultTextureKey) continue;
+      const image = this.ensurePresentationSprite(index);
+      index += 1;
+      image
+        .setTexture(sprite.visual.defaultTextureKey)
+        .setDepth(this.presentationDepthFor(sprite))
+        .setPosition(
+          this.scaledPx(sprite.x * this.grid.cell),
+          this.scaledPx(sprite.y * this.grid.cell),
+        )
+        .setDisplaySize(
+          this.scaledPx(sprite.width * this.grid.cell),
+          this.scaledPx(sprite.height * this.grid.cell),
+        )
+        .setTint(sprite.color)
+        .setAlpha(1)
+        .setVisible(true);
+    }
+  }
+
+  private ensurePresentationSprite(index: number): Phaser.GameObjects.Image {
+    let sprite = this.presentationSprites[index];
+    if (sprite) {
+      return sprite;
+    }
+    sprite = this.scene.add
+      .image(0, 0, this.appleTextureKeys.normal)
+      .setDepth(APPLE_LAYER_DEPTH)
+      .setVisible(false)
+      .setOrigin(0.5, 0.5);
+    this.presentationSprites[index] = sprite;
+    return sprite;
+  }
+
+  private presentationDepthFor(sprite: RenderSprite): number {
+    switch (sprite.kind) {
+      case 'projectile':
+      case 'bomb':
+        return BULLET_LAYER_DEPTH;
+      case 'enemy':
+        return ENEMY_LAYER_DEPTH;
+      case 'furniture':
+        return FURNITURE_LAYER_DEPTH;
+      case 'vegetation':
+        return VEGETATION_LAYER_DEPTH;
+      case 'animal':
+        return ANIMAL_LAYER_DEPTH;
+      case 'powerup':
+      case 'treasure':
+      case 'apple':
+        return POWERUP_LAYER_DEPTH;
+      default:
+        return APPLE_LAYER_DEPTH;
+    }
   }
 
   private createPowerupSprite(): Phaser.GameObjects.Image {

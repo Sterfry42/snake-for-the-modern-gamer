@@ -1,5 +1,6 @@
 import type { Vector2Like } from '../../core/math.js';
 import type { ClientRoomSnapshot } from '../../session/GameSnapshot.js';
+import type { SurfaceVisual } from '../presentation/worldRenderScene.js';
 
 export interface FirstPersonCamera {
   x: number;
@@ -18,6 +19,7 @@ export interface FirstPersonCell {
   x: number;
   y: number;
   tile: string | undefined;
+  floor: SurfaceVisual;
   material: FirstPersonMaterial;
 }
 

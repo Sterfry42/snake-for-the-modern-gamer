@@ -2,8 +2,9 @@ import type { AppleSnapshot } from '../../apples/types.js';
 import type { AnimalInstance } from '../../animals/types.js';
 import type { GridConfig } from '../../config/gameConfig.js';
 import type { Vector2Like } from '../../core/math.js';
+import type { BombInstance, FootballInstance } from '../../game/snakeGame.js';
 import type { ClientRoomSnapshot } from '../../session/GameSnapshot.js';
-import type { EnemyInstance } from '../../systems/enemies.js';
+import type { BulletInstance, EnemyInstance } from '../../systems/enemies.js';
 import type { ResolvedAtmosphereView } from '../../world/atmosphereTypes.js';
 import type { RoomSnapshot, WorldHumanoidSpawn } from '../../world/types.js';
 import {
@@ -14,6 +15,7 @@ import {
 import { resolveRenderTile } from './tileVisualResolver.js';
 import type { RenderRoom, RenderSprite, WorldRenderScene } from './worldRenderScene.js';
 import type { WorldVisualAssetResolver } from './worldVisualAssets.js';
+import type { FurnitureSpriteVariant } from '../spriteRecipes/furnitureRecipe.js';
 
 export interface PresentationRoomInput {
   room: ClientRoomSnapshot;
@@ -22,6 +24,10 @@ export interface PresentationRoomInput {
   enemies?: readonly EnemyInstance[];
   followers?: readonly EnemyInstance[];
   animals?: readonly AnimalInstance[];
+  bullets?: readonly BulletInstance[];
+  footballs?: readonly FootballInstance[];
+  bombs?: readonly BombInstance[];
+  alchemyStation?: { roomId: string; x: number; y: number } | null;
   runtimeNpcs?: readonly RuntimeNpcPresentation[];
 }
 
@@ -207,6 +213,7 @@ function pushRoomSprites(
       roomId: entry.room.id,
     });
   }
+  pushRoomItemSprites(sprites, entry, placement, assets);
   pushAuthoredNpcs(sprites, entry.room.room, placement, assets);
   for (const npc of entry.runtimeNpcs ?? []) {
     sprites.push({
@@ -221,6 +228,166 @@ function pushRoomSprites(
       visual: assets.getNpcTexture(),
       roomId: entry.room.id,
     });
+  }
+}
+
+function pushRoomItemSprites(
+  sprites: RenderSprite[],
+  entry: PresentationRoomInput,
+  placement: RenderRoomPlacement,
+  assets: WorldVisualAssetResolver,
+): void {
+  const room = entry.room.room;
+  pushFurnitureSprites(sprites, room, placement, assets);
+  if (room.treasure) {
+    pushSprite(sprites, {
+      id: `treasure:${entry.room.id}:${room.treasure.x},${room.treasure.y}`,
+      kind: 'treasure',
+      position: localRenderPoint(room.treasure, placement),
+      width: 0.72,
+      height: 0.72,
+      color: 0xffd166,
+      visual: assets.getTreasureTexture(),
+      roomId: entry.room.id,
+    });
+  }
+  if (room.powerup) {
+    pushSprite(sprites, {
+      id: `powerup:${entry.room.id}:${room.powerup.kind}:${room.powerup.x},${room.powerup.y}`,
+      kind: 'powerup',
+      position: localRenderPoint(room.powerup, placement),
+      width: 0.7,
+      height: 0.7,
+      color:
+        room.powerup.kind === 'phase'
+          ? 0x9b5de5
+          : room.powerup.kind === 'smite'
+            ? 0xd7263d
+            : 0xf6bd60,
+      visual: assets.getPowerupTexture(room.powerup.kind),
+      roomId: entry.room.id,
+    });
+  }
+  if (entry.alchemyStation && entry.alchemyStation.roomId === entry.room.id) {
+    pushSprite(sprites, {
+      id: `alchemy-station:${entry.room.id}:${entry.alchemyStation.x},${entry.alchemyStation.y}`,
+      kind: 'prop',
+      position: localRenderPoint(entry.alchemyStation, placement),
+      width: 0.8,
+      height: 0.8,
+      color: 0x8cffd2,
+      visual: assets.getAlchemyStationTexture(),
+      roomId: entry.room.id,
+    });
+  }
+  for (const bullet of entry.bullets ?? entry.room.bullets ?? []) {
+    pushSprite(sprites, {
+      id: `projectile:${bullet.id}`,
+      kind: 'projectile',
+      position: localRenderPoint(bullet.position, placement),
+      width: 0.34,
+      height: 0.34,
+      color: bullet.owner === 'player' ? 0xffe0a3 : 0xffd166,
+      visual: assets.getProjectileTexture(bullet),
+      roomId: bullet.roomId,
+      facing: bullet.direction,
+    });
+  }
+  for (const football of entry.footballs ?? entry.room.footballs ?? []) {
+    pushSprite(sprites, {
+      id: `football:${football.id}`,
+      kind: 'football',
+      position: localRenderPoint(football.position, placement),
+      width: 0.58,
+      height: 0.42,
+      color: 0x8b4a24,
+      visual: assets.getFootballTexture(football),
+      roomId: football.roomId,
+      facing: football.direction,
+    });
+  }
+  for (const bomb of entry.bombs ?? entry.room.bombs ?? []) {
+    pushSprite(sprites, {
+      id: `bomb:${bomb.id}`,
+      kind: 'bomb',
+      position: localRenderPoint(bomb.position, placement),
+      width: 0.66,
+      height: 0.66,
+      color: 0x20232a,
+      visual: assets.getBombTexture(bomb),
+      roomId: bomb.roomId,
+    });
+  }
+}
+
+function pushFurnitureSprites(
+  sprites: RenderSprite[],
+  room: RoomSnapshot,
+  placement: RenderRoomPlacement,
+  assets: WorldVisualAssetResolver,
+): void {
+  for (let y = 0; y < room.layout.length; y += 1) {
+    const row = room.layout[y] ?? '';
+    for (let x = 0; x < row.length; x += 1) {
+      const variant = furnitureVariantForTile(row[x] ?? '');
+      if (!variant) continue;
+      pushSprite(sprites, {
+        id: `furniture:${room.id}:${variant}:${x},${y}`,
+        kind: 'furniture',
+        position: localRenderPoint({ x, y }, placement),
+        width: 0.8,
+        height: 0.8,
+        color: 0x8f5a67,
+        visual: assets.getFurnitureTexture(variant),
+        roomId: room.id,
+      });
+    }
+  }
+}
+
+function pushSprite(
+  sprites: RenderSprite[],
+  options: {
+    id: string;
+    kind: RenderSprite['kind'];
+    position: Vector2Like;
+    width: number;
+    height: number;
+    color: number;
+    visual: RenderSprite['visual'];
+    roomId?: string;
+    facing?: Vector2Like;
+  },
+): void {
+  sprites.push({
+    id: options.id,
+    kind: options.kind,
+    x: options.position.x + 0.5,
+    y: options.position.y + 0.5,
+    width: options.width,
+    height: options.height,
+    anchorY: 1,
+    color: options.color,
+    visual: options.visual,
+    roomId: options.roomId,
+    facing: options.facing,
+  });
+}
+
+function furnitureVariantForTile(tile: string): FurnitureSpriteVariant | null {
+  switch (tile) {
+    case 'C':
+      return 'couch';
+    case 'K':
+      return 'kitchen';
+    case 'B':
+      return 'bed';
+    case 'P':
+      return 'plant';
+    case 'L':
+      return 'lamp';
+    default:
+      return null;
   }
 }
 

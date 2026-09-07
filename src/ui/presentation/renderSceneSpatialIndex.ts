@@ -57,6 +57,7 @@ export function createFirstPersonSpatialView(
         x,
         y,
         tile: tile.tile,
+        floor: tile.floor,
         material: tile.wall
           ? {
               id: `tile:${tile.tile ?? 'unknown'}`,

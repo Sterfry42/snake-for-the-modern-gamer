@@ -28,6 +28,31 @@ function createAssets(): WorldVisualAssetResolver {
       defaultTextureKey: 'vegetation',
       firstPersonTextureKey: 'vegetation',
     }),
+    getFurnitureTexture: (variant) => ({
+      defaultTextureKey: `furniture-${variant}`,
+      firstPersonTextureKey: `furniture-${variant}`,
+    }),
+    getPowerupTexture: (kind) => ({
+      defaultTextureKey: `powerup-${kind}`,
+      firstPersonTextureKey: `powerup-${kind}`,
+    }),
+    getProjectileTexture: () => ({
+      defaultTextureKey: 'projectile',
+      firstPersonTextureKey: 'projectile',
+    }),
+    getBombTexture: () => ({ defaultTextureKey: 'bomb', firstPersonTextureKey: 'bomb' }),
+    getFootballTexture: () => ({
+      defaultTextureKey: 'football',
+      firstPersonTextureKey: 'football',
+    }),
+    getTreasureTexture: () => ({
+      defaultTextureKey: 'treasure',
+      firstPersonTextureKey: 'treasure',
+    }),
+    getAlchemyStationTexture: () => ({
+      defaultTextureKey: 'alchemy',
+      firstPersonTextureKey: 'alchemy',
+    }),
   };
 }
 

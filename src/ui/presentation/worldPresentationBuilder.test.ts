@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import type { BombInstance, FootballInstance } from '../../game/snakeGame.js';
 import type { ClientRoomSnapshot } from '../../session/GameSnapshot.js';
-import type { EnemyInstance } from '../../systems/enemies.js';
+import type { BulletInstance, EnemyInstance } from '../../systems/enemies.js';
 import type { RoomSnapshot } from '../../world/types.js';
 import { createFirstPersonSpatialView } from './renderSceneSpatialIndex.js';
 import { buildWorldPresentationScene } from './worldPresentationBuilder.js';
@@ -24,6 +25,31 @@ function createAssets(): WorldVisualAssetResolver {
     getVegetationTexture: () => ({
       defaultTextureKey: 'vegetation',
       firstPersonTextureKey: 'vegetation',
+    }),
+    getFurnitureTexture: (variant) => ({
+      defaultTextureKey: `furniture-${variant}`,
+      firstPersonTextureKey: `furniture-${variant}`,
+    }),
+    getPowerupTexture: (kind) => ({
+      defaultTextureKey: `powerup-${kind}`,
+      firstPersonTextureKey: `powerup-${kind}`,
+    }),
+    getProjectileTexture: () => ({
+      defaultTextureKey: 'projectile',
+      firstPersonTextureKey: 'projectile',
+    }),
+    getBombTexture: () => ({ defaultTextureKey: 'bomb', firstPersonTextureKey: 'bomb' }),
+    getFootballTexture: () => ({
+      defaultTextureKey: 'football',
+      firstPersonTextureKey: 'football',
+    }),
+    getTreasureTexture: () => ({
+      defaultTextureKey: 'treasure',
+      firstPersonTextureKey: 'treasure',
+    }),
+    getAlchemyStationTexture: () => ({
+      defaultTextureKey: 'alchemy',
+      firstPersonTextureKey: 'alchemy',
     }),
   };
 }
@@ -147,5 +173,79 @@ describe('world presentation builder', () => {
       .filter((billboard) => billboard.kind === 'snake-body');
 
     expect(body.map((billboard) => billboard.segmentIndex)).toEqual([1, 2, 3]);
+  });
+
+  it('preserves shared tile floor visuals for first-person floor casting', () => {
+    const room = createRoomSnapshot('0,0,0', ['.~W.............................']);
+    const scene = buildWorldPresentationScene({
+      rooms: [{ room }],
+      currentRoomId: room.id,
+      grid,
+      snakeBody: [{ x: 0, y: 0 }],
+      direction: { x: 1, y: 0 },
+      assets: createAssets(),
+    });
+    const world = createFirstPersonSpatialView(scene, room.id);
+
+    expect(world.getCell(1, 0)?.floor.color).toBe(0x2d7fb8);
+    expect(world.getCell(2, 0)?.floor.color).not.toBe(room.backgroundColor);
+  });
+
+  it('emits common world-visible categories into the shared render scene', () => {
+    const room = createRoomSnapshot('0,0,0', ['CKBLP...........................']);
+    room.room.treasure = { x: 6, y: 0 };
+    room.room.powerup = { x: 7, y: 0, kind: 'phase' };
+    const bullet: BulletInstance = {
+      id: 'shot-1',
+      roomId: room.id,
+      position: { x: 8, y: 0 },
+      direction: { x: 1, y: 0 },
+      owner: 'enemy',
+    };
+    const football: FootballInstance = {
+      id: 'football-1',
+      roomId: room.id,
+      position: { x: 9, y: 0 },
+      direction: { x: 1, y: 0 },
+      age: 0,
+      maxAge: 10,
+      state: 'flying',
+    };
+    const bomb: BombInstance = {
+      id: 'bomb-1',
+      roomId: room.id,
+      position: { x: 10, y: 0 },
+      fuseTicks: 12,
+      radius: 5,
+      damage: 2,
+    };
+    const scene = buildWorldPresentationScene({
+      rooms: [
+        {
+          room,
+          bullets: [bullet],
+          footballs: [football],
+          bombs: [bomb],
+          alchemyStation: { roomId: room.id, x: 11, y: 0 },
+        },
+      ],
+      currentRoomId: room.id,
+      grid,
+      snakeBody: [{ x: 0, y: 0 }],
+      direction: { x: 1, y: 0 },
+      assets: createAssets(),
+    });
+
+    expect(scene.sprites.map((sprite) => sprite.kind)).toEqual(
+      expect.arrayContaining([
+        'furniture',
+        'treasure',
+        'powerup',
+        'projectile',
+        'football',
+        'bomb',
+        'prop',
+      ]),
+    );
   });
 });

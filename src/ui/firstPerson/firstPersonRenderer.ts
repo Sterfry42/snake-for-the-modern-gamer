@@ -82,10 +82,7 @@ export class FirstPersonRenderer {
     this.context.clearRect(0, 0, INTERNAL_WIDTH, INTERNAL_HEIGHT);
     this.context.fillStyle = colorToCss(this.applyAmbient(world.skyColor, options.atmosphere));
     this.context.fillRect(0, 0, INTERNAL_WIDTH, INTERNAL_HEIGHT / 2);
-    this.context.fillStyle = colorToCss(
-      this.resolveFloorColor(world.floorColor, options.manualStepActive, options.atmosphere),
-    );
-    this.context.fillRect(0, INTERNAL_HEIGHT / 2, INTERNAL_WIDTH, INTERNAL_HEIGHT / 2);
+    this.drawFloor(world, this.camera, options.manualStepActive, options.atmosphere);
     if (options.manualStepActive) {
       this.drawManualStepFloor(options.renderTimeMs ?? this.scene.time.now);
     }
@@ -136,6 +133,32 @@ export class FirstPersonRenderer {
       );
       this.context.fillStyle = colorToCss(color);
       this.context.fillRect(column, Math.floor(top), 1, Math.ceil(wallHeight));
+    }
+  }
+
+  private drawFloor(
+    world: FirstPersonWorldView,
+    camera: FirstPersonCamera,
+    manualStepActive: boolean | undefined,
+    atmosphere?: ResolvedAtmosphereView,
+  ): void {
+    const horizon = INTERNAL_HEIGHT / 2;
+    const cameraHeight = 0.52;
+    const tanHalfFov = Math.tan(FOV_RADIANS / 2);
+    for (let y = horizon; y < INTERNAL_HEIGHT; y += 2) {
+      const depth = cameraHeight / Math.max(0.01, y / INTERNAL_HEIGHT - 0.5);
+      const shade = Math.max(0.32, Math.min(1, 1 - depth / (MAX_DISTANCE * 1.12)));
+      for (let x = 0; x < INTERNAL_WIDTH; x += 2) {
+        const cameraX = (2 * x) / INTERNAL_WIDTH - 1;
+        const rayAngle = camera.yaw + Math.atan(cameraX * tanHalfFov);
+        const floorX = Math.floor(camera.x + Math.cos(rayAngle) * depth);
+        const floorY = Math.floor(camera.y + Math.sin(rayAngle) * depth);
+        const cell = world.getCell(floorX, floorY);
+        const baseColor = cell?.floor.color ?? world.floorColor;
+        const tinted = this.resolveFloorColor(baseColor, manualStepActive, atmosphere);
+        this.context.fillStyle = colorToCss(this.scaleColor(tinted, shade));
+        this.context.fillRect(x, y, 2, 2);
+      }
     }
   }
 
