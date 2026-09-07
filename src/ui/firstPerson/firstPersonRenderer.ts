@@ -6,7 +6,14 @@ import type { ResolvedAtmosphereView } from '../../world/atmosphereTypes.js';
 import { createFirstPersonSpatialView } from '../presentation/renderSceneSpatialIndex.js';
 import type { WorldRenderScene } from '../presentation/worldRenderScene.js';
 import { shouldHideFirstPersonSelfBodyBillboard } from './firstPersonBodyVisibility.js';
-import { approachCamera, createCameraFromHead } from './firstPersonCamera.js';
+import {
+  cameraTargetDistance,
+  createCameraFromHead,
+  createCameraTransition,
+  isSameCameraTarget,
+  sampleCameraTransition,
+  type FirstPersonCameraTransition,
+} from './firstPersonCamera.js';
 import { projectBillboard } from './firstPersonProjection.js';
 import { castRay } from './firstPersonRaycaster.js';
 import type {
@@ -21,6 +28,12 @@ const INTERNAL_HEIGHT = 240;
 const FOV_RADIANS = (70 * Math.PI) / 180;
 const MAX_DISTANCE = 18;
 const NEAR_DISTANCE = 0.2;
+const DEFAULT_ACTION_STEP_INTERVAL_MS = 100;
+const MAX_INTERPOLATED_CAMERA_STEP_DISTANCE = 1.05;
+
+type ActionStepTimingScene = Phaser.Scene & {
+  getActionStepIntervalMs?: () => number;
+};
 
 export interface FirstPersonRenderOptions {
   roomSnapshot: ClientRoomSnapshot;
@@ -38,8 +51,16 @@ export class FirstPersonRenderer {
   private readonly image: Phaser.GameObjects.Image;
   private readonly context: CanvasRenderingContext2D;
   private camera: FirstPersonCamera | null = null;
+  private cameraTarget: FirstPersonCamera | null = null;
+  private cameraTransition: FirstPersonCameraTransition | null = null;
+  private activeOptions: FirstPersonRenderOptions | null = null;
   private readonly wallDepth = new Float32Array(INTERNAL_WIDTH);
   private renderedRoomId: string | null = null;
+
+  private readonly handlePostUpdate = (): void => {
+    if (!this.activeOptions) return;
+    this.renderFrame(this.activeOptions, this.scene.time.now);
+  };
 
   constructor(private readonly scene: Phaser.Scene) {
     const textureKey = 'first-person:daggerfell-frame';
@@ -61,6 +82,11 @@ export class FirstPersonRenderer {
       .setDepth(14)
       .setScrollFactor(0)
       .setVisible(false);
+
+    scene.events.on(Phaser.Scenes.Events.POST_UPDATE, this.handlePostUpdate);
+    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      scene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.handlePostUpdate);
+    });
   }
 
   render(options: FirstPersonRenderOptions): void {
@@ -70,13 +96,34 @@ export class FirstPersonRenderer {
       return;
     }
 
+    this.activeOptions = options;
+    this.renderFrame(options, options.renderTimeMs ?? this.scene.time.now);
+  }
+
+  hide(): void {
+    this.activeOptions = null;
+    this.camera = null;
+    this.cameraTarget = null;
+    this.cameraTransition = null;
+    this.renderedRoomId = null;
+    this.image.setVisible(false);
+  }
+
+  private renderFrame(options: FirstPersonRenderOptions, renderTimeMs: number): void {
+    const head = options.snakeBody[0];
+    if (!head) {
+      this.hide();
+      return;
+    }
+
     const localHead = this.findPresentedSnakeHead(options.presentationScene, head);
     const targetCamera = createCameraFromHead(localHead, options.direction);
-    const deltaMs = this.scene.game.loop.delta;
-    this.camera =
-      this.camera && this.renderedRoomId === options.roomSnapshot.id
-        ? approachCamera(this.camera, targetCamera, deltaMs)
-        : { ...targetCamera };
+    this.camera = this.resolveCamera(
+      targetCamera,
+      options.roomSnapshot.id,
+      renderTimeMs,
+      Boolean(options.manualStepActive),
+    );
     this.renderedRoomId = options.roomSnapshot.id;
     const world = createFirstPersonSpatialView(options.presentationScene, options.roomSnapshot.id);
 
@@ -85,7 +132,7 @@ export class FirstPersonRenderer {
     this.context.fillRect(0, 0, INTERNAL_WIDTH, INTERNAL_HEIGHT / 2);
     this.drawFloor(world, this.camera, options.manualStepActive, options.atmosphere);
     if (options.manualStepActive) {
-      this.drawManualStepFloor(options.renderTimeMs ?? this.scene.time.now);
+      this.drawManualStepFloor(renderTimeMs);
     }
     this.drawWalls(world, this.camera, options.atmosphere);
     this.drawBillboards(world, this.camera, options.atmosphere);
@@ -94,10 +141,56 @@ export class FirstPersonRenderer {
     this.image.setDisplaySize(this.scene.scale.width, this.scene.scale.height).setVisible(true);
   }
 
-  hide(): void {
-    this.camera = null;
-    this.renderedRoomId = null;
-    this.image.setVisible(false);
+  private resolveCamera(
+    targetCamera: FirstPersonCamera,
+    roomId: string,
+    renderTimeMs: number,
+    snapMovement: boolean,
+  ): FirstPersonCamera {
+    const roomChanged = this.renderedRoomId !== null && this.renderedRoomId !== roomId;
+    if (
+      !this.camera ||
+      !this.cameraTarget ||
+      !this.cameraTransition ||
+      roomChanged ||
+      snapMovement
+    ) {
+      return this.resetCamera(targetCamera, renderTimeMs);
+    }
+
+    if (isSameCameraTarget(this.cameraTarget, targetCamera)) {
+      return sampleCameraTransition(this.cameraTransition, renderTimeMs);
+    }
+
+    const previousTarget = this.cameraTarget;
+    if (cameraTargetDistance(previousTarget, targetCamera) > MAX_INTERPOLATED_CAMERA_STEP_DISTANCE) {
+      return this.resetCamera(targetCamera, renderTimeMs);
+    }
+
+    // A new authoritative Snake step starts from the previous authoritative camera endpoint,
+    // never from a lagging sampled camera. This makes positional debt impossible to accumulate.
+    this.cameraTarget = { ...targetCamera };
+    this.cameraTransition = createCameraTransition(
+      previousTarget,
+      targetCamera,
+      renderTimeMs,
+      this.resolveActionStepIntervalMs(),
+    );
+    return { ...previousTarget };
+  }
+
+  private resetCamera(targetCamera: FirstPersonCamera, renderTimeMs: number): FirstPersonCamera {
+    this.cameraTarget = { ...targetCamera };
+    this.cameraTransition = createCameraTransition(targetCamera, targetCamera, renderTimeMs, 1);
+    return { ...targetCamera };
+  }
+
+  private resolveActionStepIntervalMs(): number {
+    const intervalMs = (this.scene as ActionStepTimingScene).getActionStepIntervalMs?.();
+    if (typeof intervalMs !== 'number' || !Number.isFinite(intervalMs)) {
+      return DEFAULT_ACTION_STEP_INTERVAL_MS;
+    }
+    return Math.max(1, intervalMs);
   }
 
   private drawWalls(
