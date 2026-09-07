@@ -14,7 +14,7 @@ import {
 } from './renderCoordinates.js';
 import { resolveRenderTile } from './tileVisualResolver.js';
 import type { RenderRoom, RenderSprite, WorldRenderScene } from './worldRenderScene.js';
-import type { WorldVisualAssetResolver } from './worldVisualAssets.js';
+import type { NpcVisualDescriptor, WorldVisualAssetResolver } from './worldVisualAssets.js';
 import type { FurnitureSpriteVariant } from '../spriteRecipes/furnitureRecipe.js';
 
 export interface PresentationRoomInput {
@@ -35,6 +35,7 @@ export interface RuntimeNpcPresentation {
   id: string;
   x: number;
   y: number;
+  visual?: NpcVisualDescriptor;
 }
 
 export interface BuildWorldPresentationOptions {
@@ -225,7 +226,7 @@ function pushRoomSprites(
       height: 1,
       anchorY: 1,
       color: 0xf6bd60,
-      visual: assets.getNpcTexture(),
+      visual: assets.getNpcTexture(npc.visual),
       roomId: entry.room.id,
     });
   }
@@ -416,7 +417,7 @@ function pushAuthoredNpcs(
       height: 1,
       anchorY: 1,
       color: 0xf6bd60,
-      visual: assets.getNpcTexture(),
+      visual: assets.getNpcTexture(npc),
       roomId: room.id,
     });
   });

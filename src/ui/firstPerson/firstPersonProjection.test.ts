@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { projectBillboard } from './firstPersonProjection.js';
+import { shouldHideFirstPersonSelfBodyBillboard } from './firstPersonBodyVisibility.js';
 import type { FirstPersonBillboard } from './firstPersonTypes.js';
 
 const billboard: FirstPersonBillboard = {
@@ -57,5 +58,21 @@ describe('first-person projection', () => {
     const projected = projectBillboard(billboard, { x: 1.5, y: 1.5, yaw: 0 }, options);
     expect(projected?.bottom).toBeGreaterThan(options.height / 2);
     expect(projected?.top).toBeLessThan(options.height / 2);
+  });
+
+  it('hides nearby self-body topology while preserving folded tail ahead', () => {
+    const body = [1, 2, 3, 4, 5].map(
+      (segmentIndex): FirstPersonBillboard => ({
+        ...billboard,
+        id: `snake:${segmentIndex}`,
+        kind: 'snake-body',
+        x: 2.5,
+        segmentIndex,
+      }),
+    );
+
+    expect(body.slice(0, 4).every(shouldHideFirstPersonSelfBodyBillboard)).toBe(true);
+    expect(shouldHideFirstPersonSelfBodyBillboard(body[4]!)).toBe(false);
+    expect(projectBillboard(body[4]!, { x: 1.5, y: 1.5, yaw: 0 }, options)).not.toBeNull();
   });
 });

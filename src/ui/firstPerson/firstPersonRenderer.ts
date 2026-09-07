@@ -5,6 +5,7 @@ import type { ClientRoomSnapshot } from '../../session/GameSnapshot.js';
 import type { ResolvedAtmosphereView } from '../../world/atmosphereTypes.js';
 import { createFirstPersonSpatialView } from '../presentation/renderSceneSpatialIndex.js';
 import type { WorldRenderScene } from '../presentation/worldRenderScene.js';
+import { shouldHideFirstPersonSelfBodyBillboard } from './firstPersonBodyVisibility.js';
 import { approachCamera, createCameraFromHead } from './firstPersonCamera.js';
 import { projectBillboard } from './firstPersonProjection.js';
 import { castRay } from './firstPersonRaycaster.js';
@@ -231,11 +232,7 @@ export class FirstPersonRenderer {
   }
 
   private isImmediateSelfBodyBillboard(billboard: FirstPersonBillboard): boolean {
-    return (
-      billboard.kind === 'snake-body' &&
-      typeof billboard.segmentIndex === 'number' &&
-      billboard.segmentIndex <= 2
-    );
+    return shouldHideFirstPersonSelfBodyBillboard(billboard);
   }
 
   private drawManualStepFloor(renderTimeMs: number): void {

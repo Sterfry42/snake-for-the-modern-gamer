@@ -75,7 +75,10 @@ import {
   directionToMoveAction,
   mapFirstPersonMoveAction,
 } from '../ui/firstPerson/firstPersonInput.js';
-import { buildWorldPresentationScene } from '../ui/presentation/worldPresentationBuilder.js';
+import {
+  buildWorldPresentationScene,
+  type RuntimeNpcPresentation,
+} from '../ui/presentation/worldPresentationBuilder.js';
 import type { WorldRenderScene } from '../ui/presentation/worldRenderScene.js';
 import { WorldVisualAssets } from '../ui/presentation/worldVisualAssets.js';
 import { MinimapRenderer } from '../ui/minimapRenderer.js';
@@ -22867,14 +22870,58 @@ export default class SnakeScene extends Phaser.Scene {
     });
   }
 
-  private getFirstPersonRuntimeNpcs(
-    roomId: string,
-  ): readonly { id: string; x: number; y: number }[] {
+  private getFirstPersonRuntimeNpcs(roomId: string): readonly RuntimeNpcPresentation[] {
     const goblinStanding = this.snakeGame.getFactionAlignment('goblin-camps').standing;
     return this.snakeGame
       .getPresentRelationshipProfilesForRoom(roomId)
       .filter((profile) => profile.factionId !== 'goblin-camps' || goblinStanding !== 'violent')
-      .map((profile) => ({ id: profile.actorId, x: profile.x, y: profile.y }));
+      .flatMap((profile): RuntimeNpcPresentation[] => {
+        const actor = profile.actorId
+          ? this.snakeGame.getActorSystem().getActor(profile.actorId)
+          : undefined;
+        const actorPresence = actor?.presence;
+        if (
+          !profile.actorId ||
+          !actor ||
+          actorPresence?.roomId !== roomId ||
+          !actorPresence.materialized ||
+          actor.health?.state === 'dead' ||
+          actor.hostility === 'dead' ||
+          actor.flags.dead === true ||
+          actor.flags.eaten === true
+        ) {
+          return [];
+        }
+        const relationshipState = this.snakeGame.getRelationshipState(profile);
+        if (
+          relationshipState?.stage === 'dead' ||
+          this.snakeGame.isRelationshipHostile(profile) ||
+          this.snakeGame.isRelationshipNpcCombatHostile(profile)
+        ) {
+          return [];
+        }
+        const isGoblin = profile.factionId === 'goblin-camps' || profile.species === 'goblin';
+        const palette = isGoblin
+          ? this.paletteForGoblinResident(goblinStanding)
+          : this.paletteForResident(profile.actorId);
+        const textures = this.runtimeSpriteFactory.ensureRecipe(
+          questGiverSpriteRecipe,
+          Math.max(16, Math.floor(this.grid.cell * 0.84)),
+          palette,
+        );
+        return [
+          {
+            id: profile.actorId,
+            x: actorPresence.position.x,
+            y: actorPresence.position.y,
+            visual: {
+              textureKey: textures.idle,
+              factionId: profile.factionId,
+              species: profile.species,
+            },
+          },
+        ];
+      });
   }
 
   private actorActivityPropPalette(): ActorActivityPropPalette {

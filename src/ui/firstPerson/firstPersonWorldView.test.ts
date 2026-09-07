@@ -19,9 +19,9 @@ function createAssets(): WorldVisualAssetResolver {
       firstPersonTextureKey: 'apple-normal',
     }),
     getEnemyTexture: () => ({ defaultTextureKey: 'enemy', firstPersonTextureKey: 'enemy' }),
-    getNpcTexture: () => ({
-      defaultTextureKey: 'npc-texture',
-      firstPersonTextureKey: 'npc-texture',
+    getNpcTexture: (npc) => ({
+      defaultTextureKey: npc?.textureKey ?? 'npc-texture',
+      firstPersonTextureKey: npc?.textureKey ?? 'npc-texture',
     }),
     getAnimalTexture: () => ({ defaultTextureKey: 'animal', firstPersonTextureKey: 'animal' }),
     getVegetationTexture: () => ({
@@ -136,7 +136,19 @@ describe('first-person world view', () => {
       '................................',
     ]);
     const scene = buildWorldPresentationScene({
-      rooms: [{ room, runtimeNpcs: [{ id: 'town:actor:pickpocket-target', x: 6, y: 1 }] }],
+      rooms: [
+        {
+          room,
+          runtimeNpcs: [
+            {
+              id: 'town:actor:pickpocket-target',
+              x: 6,
+              y: 1,
+              visual: { textureKey: 'resident-real-texture' },
+            },
+          ],
+        },
+      ],
       currentRoomId: room.id,
       grid,
       snakeBody: [{ x: 2, y: 1 }],
@@ -152,9 +164,31 @@ describe('first-person world view', () => {
           kind: 'npc',
           x: 6.5,
           y: 1.5,
-          textureKey: 'npc-texture',
+          textureKey: 'resident-real-texture',
         }),
       ]),
     );
+  });
+
+  it('uses first-person projection dimensions without changing canonical sprite dimensions', () => {
+    const room = createRoomSnapshot('0,0,0', ['................................']);
+    const scene = buildWorldPresentationScene({
+      rooms: [{ room, runtimeNpcs: [{ id: 'tailor', x: 6, y: 1 }] }],
+      currentRoomId: room.id,
+      grid,
+      snakeBody: [{ x: 2, y: 1 }],
+      direction: { x: 1, y: 0 },
+      assets: createAssets(),
+    });
+    const npc = scene.sprites.find((sprite) => sprite.id === 'actor-npc:tailor');
+    if (npc) {
+      npc.firstPersonPresentation = { width: 0.5, height: 1.25, anchorY: 1 };
+    }
+    const projectedNpc = createFirstPersonSpatialView(scene, room.id)
+      .getBillboards()
+      .find((billboard) => billboard.id === 'actor-npc:tailor');
+
+    expect(npc?.width).toBe(0.64);
+    expect(projectedNpc).toEqual(expect.objectContaining({ width: 0.5, height: 1.25, anchorY: 1 }));
   });
 });

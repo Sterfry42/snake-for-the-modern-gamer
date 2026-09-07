@@ -14,6 +14,7 @@ import {
   furnitureSpriteRecipe,
   type FurnitureSpriteVariant,
 } from '../spriteRecipes/furnitureRecipe.js';
+import { molemanSpriteRecipe } from '../spriteRecipes/molemanRecipe.js';
 import { questGiverSpriteRecipe } from '../spriteRecipes/questGiverRecipe.js';
 import {
   snakeSpriteRecipe,
@@ -23,11 +24,18 @@ import {
 import { vegetationSpriteRecipe } from '../spriteRecipes/vegetationRecipe.js';
 import type { RenderSpriteVisual } from './worldRenderScene.js';
 
+export interface NpcVisualDescriptor {
+  textureKey?: string;
+  portraitId?: string;
+  factionId?: string;
+  species?: string;
+}
+
 export interface WorldVisualAssetResolver {
   getSnakeTexture(segmentIndex: number, direction: Vector2Like): RenderSpriteVisual;
   getAppleTexture(apple?: AppleSnapshot | null): RenderSpriteVisual;
   getEnemyTexture(enemy: EnemyInstance, segmentIndex: number): RenderSpriteVisual;
-  getNpcTexture(): RenderSpriteVisual;
+  getNpcTexture(npc?: NpcVisualDescriptor): RenderSpriteVisual;
   getAnimalTexture(animal: AnimalInstance): RenderSpriteVisual;
   getVegetationTexture(
     vegetation: VegetationInstance,
@@ -96,13 +104,42 @@ export class WorldVisualAssets implements WorldVisualAssetResolver {
     return { defaultTextureKey: key, firstPersonTextureKey: key };
   }
 
-  getNpcTexture(): RenderSpriteVisual {
-    const keys = this.spriteFactory.ensureRecipe(questGiverSpriteRecipe, 64, {
-      robeColor: '#f6bd60',
-      trimColor: '#9ad1ff',
-      outlineColor: '#2d1b08',
-      eyeColor: '#101820',
-    });
+  getNpcTexture(npc?: NpcVisualDescriptor): RenderSpriteVisual {
+    if (npc?.textureKey) {
+      return { defaultTextureKey: npc.textureKey, firstPersonTextureKey: npc.textureKey };
+    }
+    if (npc?.portraitId === 'moleman-foreman') {
+      const keys = this.spriteFactory.ensureRecipe(molemanSpriteRecipe, 64, {
+        furColor: '#5b4630',
+        bellyColor: '#e0c089',
+        clawColor: '#fff2ba',
+        helmetColor: '#54706f',
+        outlineColor: '#1b130c',
+        eyeColor: '#fff7cf',
+      });
+      return { defaultTextureKey: keys.idle, firstPersonTextureKey: keys.idle };
+    }
+    const goblin =
+      npc?.portraitId?.startsWith('goblin-') ||
+      npc?.factionId === 'goblin-camps' ||
+      npc?.species === 'goblin';
+    const keys = this.spriteFactory.ensureRecipe(
+      questGiverSpriteRecipe,
+      64,
+      goblin
+        ? {
+            robeColor: '#3d7a2f',
+            trimColor: '#b6ff6a',
+            outlineColor: '#10220b',
+            eyeColor: '#f8ffd0',
+          }
+        : {
+            robeColor: '#2f7f5f',
+            trimColor: '#5dd6a2',
+            outlineColor: '#1e3a2d',
+            eyeColor: '#e8ffe8',
+          },
+    );
     return { defaultTextureKey: keys.idle, firstPersonTextureKey: keys.idle };
   }
 

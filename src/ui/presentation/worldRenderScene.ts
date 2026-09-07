@@ -48,6 +48,14 @@ export interface RenderSpriteVisual {
   firstPersonTextureKey?: string;
 }
 
+export interface RenderSpriteProjectionPresentation {
+  textureKey?: string;
+  width?: number;
+  height?: number;
+  anchorY?: number;
+  color?: number;
+}
+
 export interface RenderSprite {
   id: string;
   kind: RenderSpriteKind;
@@ -58,6 +66,8 @@ export interface RenderSprite {
   anchorY: number;
   color: number;
   visual: RenderSpriteVisual;
+  topDownPresentation?: RenderSpriteProjectionPresentation;
+  firstPersonPresentation?: RenderSpriteProjectionPresentation;
   roomId?: string;
   facing?: Vector2Like;
   segmentIndex?: number;

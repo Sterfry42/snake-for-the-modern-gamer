@@ -248,4 +248,38 @@ describe('world presentation builder', () => {
       ]),
     );
   });
+
+  it('passes authored npc identity to the shared npc visual resolver', () => {
+    const room = createRoomSnapshot('0,0,0', ['................................']);
+    room.room.questGiver = {
+      id: 'foreman',
+      x: 4,
+      y: 1,
+      name: 'Foreman',
+      portraitId: 'moleman-foreman',
+    };
+    const scene = buildWorldPresentationScene({
+      rooms: [{ room }],
+      currentRoomId: room.id,
+      grid,
+      snakeBody: [{ x: 0, y: 0 }],
+      direction: { x: 1, y: 0 },
+      assets: {
+        ...createAssets(),
+        getNpcTexture: (npc) => ({
+          defaultTextureKey: `npc:${npc?.portraitId ?? 'missing'}`,
+          firstPersonTextureKey: `npc:${npc?.portraitId ?? 'missing'}`,
+        }),
+      },
+    });
+
+    expect(scene.sprites).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'npc:0,0,0:0:4,1',
+          visual: expect.objectContaining({ defaultTextureKey: 'npc:moleman-foreman' }),
+        }),
+      ]),
+    );
+  });
 });

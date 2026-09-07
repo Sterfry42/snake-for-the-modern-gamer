@@ -80,16 +80,20 @@ function toFirstPersonBillboard(sprite: RenderSprite): FirstPersonBillboard | nu
   if (sprite.kind === 'snake' && sprite.segmentIndex === 0) {
     return null;
   }
+  const presentation = sprite.firstPersonPresentation;
   return {
     id: sprite.id,
     kind: sprite.kind === 'snake' ? 'snake-body' : mapBillboardKind(sprite.kind),
     x: sprite.x,
     y: sprite.y,
-    width: sprite.width,
-    height: sprite.height,
-    anchorY: sprite.anchorY,
-    color: sprite.color,
-    textureKey: sprite.visual.firstPersonTextureKey ?? sprite.visual.defaultTextureKey,
+    width: presentation?.width ?? sprite.width,
+    height: presentation?.height ?? sprite.height,
+    anchorY: presentation?.anchorY ?? sprite.anchorY,
+    color: presentation?.color ?? sprite.color,
+    textureKey:
+      presentation?.textureKey ??
+      sprite.visual.firstPersonTextureKey ??
+      sprite.visual.defaultTextureKey,
     roomId: sprite.roomId,
     facing: sprite.facing,
     segmentIndex: sprite.segmentIndex,
