@@ -77,6 +77,11 @@ export class JuiceManager {
     return () => this.scene.random();
   }
 
+  setWorldEffectsVisible(visible: boolean): void {
+    this.particleLayer.setVisible(visible);
+    this.overlayLayer.setVisible(visible);
+  }
+
   appleChomp(worldX: number, worldY: number, violenceLevel = 0, appleTypeId?: string) {
     const level = Math.max(0, Math.min(3, Math.floor(violenceLevel)));
     const volume = 0.18 + level * 0.04;

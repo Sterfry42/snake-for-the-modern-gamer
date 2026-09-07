@@ -178,6 +178,17 @@ export const ITEMS: readonly Item[] = [
     },
   },
   {
+    id: 'helm-daggerfell',
+    name: 'Daggerfell Helm',
+    description:
+      'An ancient helm with an impossibly narrow eye slit. Gives the world a disturbing sense of depth.',
+    kind: 'equipment',
+    slot: 'helm',
+    modifiers: {
+      firstPersonView: true,
+    },
+  },
+  {
     id: 'ring-seismic',
     name: 'Seismic Ring',
     description: 'Each bite sends ripples through the stone.',

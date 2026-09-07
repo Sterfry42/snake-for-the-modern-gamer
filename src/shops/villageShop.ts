@@ -185,6 +185,13 @@ export const BLACK_MARKET_EQUIPMENT: readonly VillageShopEquipmentOffer[] = [
     note: 'A tunnel-listening helm for snakes who want the wall to confess first.',
   },
   {
+    id: 'black-daggerfell-helm',
+    itemId: 'helm-daggerfell',
+    price: 50,
+    slot: 'helm',
+    note: 'An old visor that makes the world uncomfortably dimensional.',
+  },
+  {
     id: 'black-scavenger-amulet',
     itemId: 'amulet-scavenger',
     price: 64,
