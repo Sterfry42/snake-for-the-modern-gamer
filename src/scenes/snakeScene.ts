@@ -62,7 +62,11 @@ import { LocalGameConnection } from '../session/LocalGameConnection.js';
 import { LocalGameSession } from '../session/LocalGameSession.js';
 import { FeatureManager } from '../systems/features.js';
 import type { RadioFeature } from '../features/definitions/radio.js';
-import { SimulationScheduler, type ClockRule } from '../systems/simulationScheduler.js';
+import {
+  SimulationScheduler,
+  type ClockDiagnostics,
+  type ClockRule,
+} from '../systems/simulationScheduler.js';
 import { createQuestRegistry } from '../systems/quests.js';
 import { SkillTreeManager } from '../systems/skillTreeManager.js';
 import type { OwnedSkillState } from '../systems/skillTypes.js';
@@ -71,6 +75,7 @@ import { QuestPopup } from '../ui/questPopup.js';
 import { ChoicePopup, type ChoiceOption } from '../ui/choicePopup.js';
 import { SnakeRenderer, type RoomRenderEntry } from '../ui/snakeRenderer.js';
 import { FirstPersonRenderer } from '../ui/firstPerson/firstPersonRenderer.js';
+import type { FirstPersonMovementPresentationState } from '../ui/firstPerson/firstPersonTypes.js';
 import {
   directionToMoveAction,
   mapFirstPersonMoveAction,
@@ -3324,6 +3329,49 @@ export default class SnakeScene extends Phaser.Scene {
       assets: this.worldVisualAssets,
       atmosphere: options.atmosphere,
     });
+  }
+
+  private buildFirstPersonMovementPresentationState(
+    roomSnapshot: ClientRoomSnapshot,
+    snakeBody: readonly Vector2Like[],
+    direction: Vector2Like,
+  ): FirstPersonMovementPresentationState | undefined {
+    const currentHead = snakeBody[0];
+    if (!currentHead) {
+      return undefined;
+    }
+    const previous = this.snakeGame.getFlag<{
+      body?: Vector2Like[];
+      roomId?: string;
+      direction?: Vector2Like;
+    }>('internal.previousSnapshot');
+    const previousHead = previous?.body?.[0];
+    if (!previousHead || previous.roomId !== roomSnapshot.id) {
+      return undefined;
+    }
+    const actionClock = this.getActionClockDiagnostics();
+    const phase =
+      actionClock.intervalMs > 0
+        ? Phaser.Math.Clamp(actionClock.accumulatorMs / actionClock.intervalMs, 0, 1)
+        : 1;
+    return {
+      previousHead: this.toRoomLocalTile(previousHead, roomSnapshot.id),
+      currentHead: this.toRoomLocalTile(currentHead, roomSnapshot.id),
+      previousDirection: previous.direction ?? direction,
+      currentDirection: direction,
+      phase,
+    };
+  }
+
+  private toRoomLocalTile(point: Vector2Like, roomId: string): Vector2Like {
+    const address = parseCoordinateRoomId(roomId);
+    if (!address) {
+      return { ...point };
+    }
+    return {
+      x: point.x - address.x * this.grid.cols,
+      y: point.y - address.y * this.grid.rows,
+    };
   }
 
   private handleMobileControlAction(actionId: ControlActionId): void {
@@ -7197,6 +7245,21 @@ export default class SnakeScene extends Phaser.Scene {
 
   getActionStepIntervalMs(): number {
     return this.actionStepIntervalMs;
+  }
+
+  getActionClockDiagnostics(): ClockDiagnostics {
+    const actionClock = this.simulationScheduler
+      .getDiagnostics()
+      .clocks.find((clock) => clock.id === 'action');
+    return (
+      actionClock ?? {
+        id: 'action',
+        intervalMs: this.actionStepIntervalMs,
+        accumulatorMs: 0,
+        droppedStepsLastUpdate: 0,
+        stepsLastUpdate: 0,
+      }
+    );
   }
 
   private updateSwimmingTerrainDrag(): void {
@@ -11577,6 +11640,11 @@ export default class SnakeScene extends Phaser.Scene {
     if (firstPersonRendered) {
       this.firstPersonInputFacing ??= direction;
       this.snakeRenderer.hide();
+      const movement = this.buildFirstPersonMovementPresentationState(
+        roomSnapshot!,
+        snakeBody,
+        direction,
+      );
       this.firstPersonRenderer.render({
         roomSnapshot: {
           ...roomSnapshot!,
@@ -11591,6 +11659,7 @@ export default class SnakeScene extends Phaser.Scene {
         renderTimeMs: this.time.now,
         manualStepActive: this.isManualHouseMovementActive(),
         presentationScene: presentationScene!,
+        movement,
       });
     } else {
       this.firstPersonInputFacing = null;

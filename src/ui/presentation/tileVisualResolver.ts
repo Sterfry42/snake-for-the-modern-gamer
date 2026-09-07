@@ -31,6 +31,12 @@ export function resolveFloorVisual(
   if (tile === '~') {
     return { color: shiftColor(room.biomeId === 'sunken-ocean' ? 0x1d5f8f : 0x2d7fb8, variation) };
   }
+  if (room.biomeId === 'mosaic-coast') {
+    return { color: resolveMosaicCoastFloor(tile, x, y) };
+  }
+  if (room.biomeId === 'liberty-badlands') {
+    return { color: resolveLibertyFloor(tile, x, y) };
+  }
   if (tile === 'O') {
     return { color: shiftColor(0x236b88, variation) };
   }
@@ -67,12 +73,6 @@ export function resolveFloorVisual(
   if (tile === 'Z') {
     return { color: 0x24142f };
   }
-  if (room.biomeId === 'mosaic-coast') {
-    return { color: resolveMosaicCoastFloor(tile, x, y) };
-  }
-  if (room.biomeId === 'liberty-badlands') {
-    return { color: resolveLibertyFloor(tile, x, y) };
-  }
   return { color: shiftColor(room.backgroundColor, variation) };
 }
 
@@ -105,6 +105,10 @@ function resolveWallColor(
   y: number,
 ): number {
   if (tile === '%') return 0x8a5a2f;
+  if (room.biomeId === 'mosaic-coast')
+    return darkenColor(resolveMosaicCoastFloor(tile, x, y), 0.18);
+  if (room.biomeId === 'liberty-badlands')
+    return darkenColor(resolveLibertyFloor(tile, x, y), 0.22);
   if (tile === 'S') return (x + y) % 2 === 0 ? 0xc7433d : 0xffe0a3;
   if (tile === 'Z') return 0x17202b;
   if (tile === 'D' || tile === 'N' || tile === 'U' || tile === 'Y') return 0x7f5635;

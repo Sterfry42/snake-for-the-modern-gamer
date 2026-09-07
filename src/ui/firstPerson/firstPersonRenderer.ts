@@ -9,16 +9,14 @@ import { shouldHideFirstPersonSelfBodyBillboard } from './firstPersonBodyVisibil
 import {
   cameraTargetDistance,
   createCameraFromHead,
-  createCameraTransition,
-  isSameCameraTarget,
-  sampleCameraTransition,
-  type FirstPersonCameraTransition,
+  interpolateCamera,
 } from './firstPersonCamera.js';
 import { projectBillboard } from './firstPersonProjection.js';
 import { castRay } from './firstPersonRaycaster.js';
 import type {
   FirstPersonBillboard,
   FirstPersonCamera,
+  FirstPersonMovementPresentationState,
   FirstPersonProjectedBillboard,
   FirstPersonWorldView,
 } from './firstPersonTypes.js';
@@ -28,12 +26,7 @@ const INTERNAL_HEIGHT = 240;
 const FOV_RADIANS = (70 * Math.PI) / 180;
 const MAX_DISTANCE = 18;
 const NEAR_DISTANCE = 0.2;
-const DEFAULT_ACTION_STEP_INTERVAL_MS = 100;
 const MAX_INTERPOLATED_CAMERA_STEP_DISTANCE = 1.05;
-
-type ActionStepTimingScene = Phaser.Scene & {
-  getActionStepIntervalMs?: () => number;
-};
 
 export interface FirstPersonRenderOptions {
   roomSnapshot: ClientRoomSnapshot;
@@ -44,6 +37,7 @@ export interface FirstPersonRenderOptions {
   renderTimeMs?: number;
   manualStepActive?: boolean;
   presentationScene: WorldRenderScene;
+  movement?: FirstPersonMovementPresentationState;
 }
 
 export class FirstPersonRenderer {
@@ -52,7 +46,6 @@ export class FirstPersonRenderer {
   private readonly context: CanvasRenderingContext2D;
   private camera: FirstPersonCamera | null = null;
   private cameraTarget: FirstPersonCamera | null = null;
-  private cameraTransition: FirstPersonCameraTransition | null = null;
   private activeOptions: FirstPersonRenderOptions | null = null;
   private readonly wallDepth = new Float32Array(INTERNAL_WIDTH);
   private renderedRoomId: string | null = null;
@@ -104,7 +97,6 @@ export class FirstPersonRenderer {
     this.activeOptions = null;
     this.camera = null;
     this.cameraTarget = null;
-    this.cameraTransition = null;
     this.renderedRoomId = null;
     this.image.setVisible(false);
   }
@@ -121,8 +113,8 @@ export class FirstPersonRenderer {
     this.camera = this.resolveCamera(
       targetCamera,
       options.roomSnapshot.id,
-      renderTimeMs,
       Boolean(options.manualStepActive),
+      options.movement,
     );
     this.renderedRoomId = options.roomSnapshot.id;
     const world = createFirstPersonSpatialView(options.presentationScene, options.roomSnapshot.id);
@@ -144,53 +136,29 @@ export class FirstPersonRenderer {
   private resolveCamera(
     targetCamera: FirstPersonCamera,
     roomId: string,
-    renderTimeMs: number,
     snapMovement: boolean,
+    movement: FirstPersonMovementPresentationState | undefined,
   ): FirstPersonCamera {
     const roomChanged = this.renderedRoomId !== null && this.renderedRoomId !== roomId;
+    if (!this.camera || !this.cameraTarget || roomChanged || snapMovement || !movement) {
+      return this.resetCamera(targetCamera);
+    }
+
+    const previousCamera = createCameraFromHead(movement.previousHead, movement.previousDirection);
+    const currentCamera = createCameraFromHead(movement.currentHead, movement.currentDirection);
     if (
-      !this.camera ||
-      !this.cameraTarget ||
-      !this.cameraTransition ||
-      roomChanged ||
-      snapMovement
+      cameraTargetDistance(previousCamera, currentCamera) > MAX_INTERPOLATED_CAMERA_STEP_DISTANCE
     ) {
-      return this.resetCamera(targetCamera, renderTimeMs);
+      return this.resetCamera(currentCamera);
     }
 
-    if (isSameCameraTarget(this.cameraTarget, targetCamera)) {
-      return sampleCameraTransition(this.cameraTransition, renderTimeMs);
-    }
-
-    const previousTarget = this.cameraTarget;
-    if (cameraTargetDistance(previousTarget, targetCamera) > MAX_INTERPOLATED_CAMERA_STEP_DISTANCE) {
-      return this.resetCamera(targetCamera, renderTimeMs);
-    }
-
-    // A new authoritative Snake step starts from the previous authoritative camera endpoint,
-    // never from a lagging sampled camera. This makes positional debt impossible to accumulate.
-    this.cameraTarget = { ...targetCamera };
-    this.cameraTransition = createCameraTransition(
-      previousTarget,
-      targetCamera,
-      renderTimeMs,
-      this.resolveActionStepIntervalMs(),
-    );
-    return { ...previousTarget };
+    this.cameraTarget = { ...currentCamera };
+    return interpolateCamera(previousCamera, currentCamera, movement.phase);
   }
 
-  private resetCamera(targetCamera: FirstPersonCamera, renderTimeMs: number): FirstPersonCamera {
+  private resetCamera(targetCamera: FirstPersonCamera): FirstPersonCamera {
     this.cameraTarget = { ...targetCamera };
-    this.cameraTransition = createCameraTransition(targetCamera, targetCamera, renderTimeMs, 1);
     return { ...targetCamera };
-  }
-
-  private resolveActionStepIntervalMs(): number {
-    const intervalMs = (this.scene as ActionStepTimingScene).getActionStepIntervalMs?.();
-    if (typeof intervalMs !== 'number' || !Number.isFinite(intervalMs)) {
-      return DEFAULT_ACTION_STEP_INTERVAL_MS;
-    }
-    return Math.max(1, intervalMs);
   }
 
   private drawWalls(
@@ -242,6 +210,8 @@ export class FirstPersonRenderer {
     for (let y = horizon; y < INTERNAL_HEIGHT; y += 2) {
       const depth = cameraHeight / Math.max(0.01, y / INTERNAL_HEIGHT - 0.5);
       const shade = Math.max(0.32, Math.min(1, 1 - depth / (MAX_DISTANCE * 1.12)));
+      let runColor: string | null = null;
+      let runStartX = 0;
       for (let x = 0; x < INTERNAL_WIDTH; x += 2) {
         const cameraX = (2 * x) / INTERNAL_WIDTH - 1;
         const rayAngle = camera.yaw + Math.atan(cameraX * tanHalfFov);
@@ -250,8 +220,20 @@ export class FirstPersonRenderer {
         const cell = world.getCell(floorX, floorY);
         const baseColor = cell?.floor.color ?? world.floorColor;
         const tinted = this.resolveFloorColor(baseColor, manualStepActive, atmosphere);
-        this.context.fillStyle = colorToCss(this.scaleColor(tinted, shade));
-        this.context.fillRect(x, y, 2, 2);
+        const color = colorToCss(this.scaleColor(tinted, shade));
+        if (runColor === null) {
+          runColor = color;
+          runStartX = x;
+        } else if (runColor !== color) {
+          this.context.fillStyle = runColor;
+          this.context.fillRect(runStartX, y, x - runStartX, 2);
+          runColor = color;
+          runStartX = x;
+        }
+      }
+      if (runColor !== null) {
+        this.context.fillStyle = runColor;
+        this.context.fillRect(runStartX, y, INTERNAL_WIDTH - runStartX, 2);
       }
     }
   }

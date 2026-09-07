@@ -8,6 +8,14 @@ export interface FirstPersonCamera {
   yaw: number;
 }
 
+export interface FirstPersonMovementPresentationState {
+  previousHead: Vector2Like;
+  currentHead: Vector2Like;
+  previousDirection: Vector2Like;
+  currentDirection: Vector2Like;
+  phase: number;
+}
+
 export interface FirstPersonMaterial {
   id: string;
   occludesVision: boolean;

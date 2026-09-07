@@ -61,7 +61,7 @@ describe('first-person projection', () => {
   });
 
   it('hides nearby self-body topology while preserving folded tail ahead', () => {
-    const body = [1, 2, 3, 4, 5].map(
+    const body = [1, 2, 3].map(
       (segmentIndex): FirstPersonBillboard => ({
         ...billboard,
         id: `snake:${segmentIndex}`,
@@ -71,8 +71,8 @@ describe('first-person projection', () => {
       }),
     );
 
-    expect(body.slice(0, 4).every(shouldHideFirstPersonSelfBodyBillboard)).toBe(true);
-    expect(shouldHideFirstPersonSelfBodyBillboard(body[4]!)).toBe(false);
-    expect(projectBillboard(body[4]!, { x: 1.5, y: 1.5, yaw: 0 }, options)).not.toBeNull();
+    expect(body.slice(0, 2).every(shouldHideFirstPersonSelfBodyBillboard)).toBe(true);
+    expect(shouldHideFirstPersonSelfBodyBillboard(body[2]!)).toBe(false);
+    expect(projectBillboard(body[2]!, { x: 1.5, y: 1.5, yaw: 0 }, options)).not.toBeNull();
   });
 });

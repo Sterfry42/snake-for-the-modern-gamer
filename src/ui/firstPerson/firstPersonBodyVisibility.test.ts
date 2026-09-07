@@ -17,7 +17,7 @@ function snakeSegment(segmentIndex: number): FirstPersonBillboard {
 }
 
 describe('first-person self-body visibility', () => {
-  it('hides only the immediate neck while leaving farther body visible', () => {
+  it('hides only the immediate neck/body while leaving farther body visible', () => {
     expect(shouldHideFirstPersonSelfBodyBillboard(snakeSegment(1))).toBe(true);
     expect(shouldHideFirstPersonSelfBodyBillboard(snakeSegment(2))).toBe(true);
     expect(shouldHideFirstPersonSelfBodyBillboard(snakeSegment(3))).toBe(false);
