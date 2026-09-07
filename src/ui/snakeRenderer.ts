@@ -47,6 +47,7 @@ import type { EnemyInstance, BulletInstance } from '../systems/enemies.js';
 import type { AnimalInstance } from '../animals/types.js';
 import type { BombInstance, FootballInstance } from '../game/snakeGame.js';
 import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
+import type { WorldRenderScene } from './presentation/worldRenderScene.js';
 
 type PowerupKind = NonNullable<RoomSnapshot['powerup']>['kind'];
 
@@ -113,6 +114,7 @@ interface SnakeRenderOptions {
   renderTimeMs?: number;
   renderRooms?: readonly RoomRenderEntry[];
   renderScale?: number;
+  presentationScene?: WorldRenderScene;
 }
 
 export interface RoomRenderEntry {
@@ -874,15 +876,16 @@ export class SnakeRenderer {
       staticCacheStatus,
       staticTileCount: 0,
       dynamicObjectCount:
+        options.presentationScene?.sprites.length ??
         snakeBody.length +
-        (appleInfo ? 1 : 0) +
-        (room.treasure ? 1 : 0) +
-        (room.powerup ? 1 : 0) +
-        (options.enemies?.length ?? 0) +
-        (options.followers?.length ?? 0) +
-        (options.bullets?.length ?? 0) +
-        (options.footballs?.length ?? 0) +
-        (options.animals?.length ?? 0),
+          (appleInfo ? 1 : 0) +
+          (room.treasure ? 1 : 0) +
+          (room.powerup ? 1 : 0) +
+          (options.enemies?.length ?? 0) +
+          (options.followers?.length ?? 0) +
+          (options.bullets?.length ?? 0) +
+          (options.footballs?.length ?? 0) +
+          (options.animals?.length ?? 0),
       treeTileCount: 0,
       detailedTreeTileCount: 0,
       cheapForestTileCount: 0,

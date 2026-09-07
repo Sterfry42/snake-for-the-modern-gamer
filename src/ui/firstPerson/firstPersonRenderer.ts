@@ -1,17 +1,10 @@
 import Phaser from 'phaser';
 import type { AppleSnapshot } from '../../apples/types.js';
-import type { GridConfig } from '../../config/gameConfig.js';
 import type { Vector2Like } from '../../core/math.js';
 import type { ClientRoomSnapshot } from '../../session/GameSnapshot.js';
 import type { ResolvedAtmosphereView } from '../../world/atmosphereTypes.js';
-import type { VegetationType } from '../../world/types.js';
-import { RuntimeSpriteFactory } from '../runtimeSpriteFactory.js';
-import { appleSpriteRecipe, type AppleSpriteVariant } from '../spriteRecipes/appleRecipe.js';
-import { animalSpriteRecipe, type AnimalSpriteVariant } from '../spriteRecipes/animalRecipe.js';
-import { enemySpriteRecipe } from '../spriteRecipes/enemyRecipe.js';
-import { questGiverSpriteRecipe } from '../spriteRecipes/questGiverRecipe.js';
-import { snakeSpriteRecipe } from '../spriteRecipes/snakeRecipe.js';
-import { vegetationSpriteRecipe } from '../spriteRecipes/vegetationRecipe.js';
+import { createFirstPersonSpatialView } from '../presentation/renderSceneSpatialIndex.js';
+import type { WorldRenderScene } from '../presentation/worldRenderScene.js';
 import { approachCamera, createCameraFromHead } from './firstPersonCamera.js';
 import { projectBillboard } from './firstPersonProjection.js';
 import { castRay } from './firstPersonRaycaster.js';
@@ -21,12 +14,6 @@ import type {
   FirstPersonProjectedBillboard,
   FirstPersonWorldView,
 } from './firstPersonTypes.js';
-import {
-  createFirstPersonWorldView,
-  normalizeFirstPersonRoomPoint,
-  type FirstPersonTextureKeys,
-  type FirstPersonRuntimeNpc,
-} from './firstPersonWorldView.js';
 
 const INTERNAL_WIDTH = 320;
 const INTERNAL_HEIGHT = 240;
@@ -42,22 +29,18 @@ export interface FirstPersonRenderOptions {
   atmosphere?: ResolvedAtmosphereView;
   renderTimeMs?: number;
   manualStepActive?: boolean;
-  runtimeNpcs?: readonly FirstPersonRuntimeNpc[];
+  presentationScene: WorldRenderScene;
 }
 
 export class FirstPersonRenderer {
   private readonly texture: Phaser.Textures.CanvasTexture;
   private readonly image: Phaser.GameObjects.Image;
   private readonly context: CanvasRenderingContext2D;
-  private readonly spriteFactory: RuntimeSpriteFactory;
   private camera: FirstPersonCamera | null = null;
   private readonly wallDepth = new Float32Array(INTERNAL_WIDTH);
   private renderedRoomId: string | null = null;
 
-  constructor(
-    private readonly scene: Phaser.Scene,
-    private readonly grid: GridConfig,
-  ) {
+  constructor(private readonly scene: Phaser.Scene) {
     const textureKey = 'first-person:daggerfell-frame';
     const existing = scene.textures.exists(textureKey) ? scene.textures.get(textureKey) : null;
     if (existing instanceof Phaser.Textures.CanvasTexture) {
@@ -77,7 +60,6 @@ export class FirstPersonRenderer {
       .setDepth(14)
       .setScrollFactor(0)
       .setVisible(false);
-    this.spriteFactory = new RuntimeSpriteFactory(scene);
   }
 
   render(options: FirstPersonRenderOptions): void {
@@ -87,13 +69,7 @@ export class FirstPersonRenderer {
       return;
     }
 
-    const localHead = normalizeFirstPersonRoomPoint(
-      head,
-      options.roomSnapshot.id,
-      this.grid,
-      options.roomSnapshot.room.layout[0]?.length ?? this.grid.cols,
-      options.roomSnapshot.room.layout.length || this.grid.rows,
-    );
+    const localHead = this.findPresentedSnakeHead(options.presentationScene, head);
     const targetCamera = createCameraFromHead(localHead, options.direction);
     const deltaMs = this.scene.game.loop.delta;
     this.camera =
@@ -101,14 +77,7 @@ export class FirstPersonRenderer {
         ? approachCamera(this.camera, targetCamera, deltaMs)
         : { ...targetCamera };
     this.renderedRoomId = options.roomSnapshot.id;
-    const world = createFirstPersonWorldView({
-      room: options.roomSnapshot,
-      snakeBody: options.snakeBody,
-      grid: this.grid,
-      apple: options.apple,
-      textureKeys: this.createTextureKeys(options.roomSnapshot, options.apple),
-      runtimeNpcs: options.runtimeNpcs,
-    });
+    const world = createFirstPersonSpatialView(options.presentationScene, options.roomSnapshot.id);
 
     this.context.clearRect(0, 0, INTERNAL_WIDTH, INTERNAL_HEIGHT);
     this.context.fillStyle = colorToCss(this.applyAmbient(world.skyColor, options.atmosphere));
@@ -177,7 +146,7 @@ export class FirstPersonRenderer {
   ): void {
     const projected = world
       .getBillboards()
-      .filter((billboard) => !this.isNearSelfBodyBillboard(billboard, camera))
+      .filter((billboard) => !this.isImmediateSelfBodyBillboard(billboard))
       .map((billboard) =>
         projectBillboard(billboard, camera, {
           width: INTERNAL_WIDTH,
@@ -238,16 +207,12 @@ export class FirstPersonRenderer {
     this.context.stroke();
   }
 
-  private isNearSelfBodyBillboard(
-    billboard: FirstPersonBillboard,
-    camera: FirstPersonCamera,
-  ): boolean {
-    if (billboard.kind !== 'snake-body') {
-      return false;
-    }
-    const dx = billboard.x - camera.x;
-    const dy = billboard.y - camera.y;
-    return Math.hypot(dx, dy) < 1.15;
+  private isImmediateSelfBodyBillboard(billboard: FirstPersonBillboard): boolean {
+    return (
+      billboard.kind === 'snake-body' &&
+      typeof billboard.segmentIndex === 'number' &&
+      billboard.segmentIndex <= 2
+    );
   }
 
   private drawManualStepFloor(renderTimeMs: number): void {
@@ -270,69 +235,11 @@ export class FirstPersonRenderer {
     }
   }
 
-  private createTextureKeys(
-    roomSnapshot: ClientRoomSnapshot,
-    apple?: AppleSnapshot | null,
-  ): FirstPersonTextureKeys {
-    const appleVariant = resolveAppleVariant(apple);
-    const appleKeys = this.spriteFactory.ensureRecipe(appleSpriteRecipe, 64, {
-      fillColor: colorToCss(apple?.color ?? 0xff3b30),
-      accentColor: '#ff8f7a',
-      outlineColor: '#5a1914',
-      leafColor: '#66bb6a',
-      stemColor: '#7a4f2a',
-      sparkleColor: '#fff3b0',
-    });
-    const snakeKeys = this.spriteFactory.ensureRecipe(snakeSpriteRecipe, 64, {
-      baseColor: '#4ecdc4',
-      bellyColor: '#b7fff8',
-      patternColor: '#2f9e9a',
-      outlineColor: '#123f3d',
-      eyeColor: '#f8f9fa',
-    });
-    const enemyKeys = this.spriteFactory.ensureRecipe(enemySpriteRecipe, 64, {
-      bodyColor: '#a82d3d',
-      accentColor: '#f28482',
-      outlineColor: '#2b1116',
-      eyeColor: '#fff7ad',
-      bulletColor: '#ffd166',
-      bulletOutlineColor: '#5f3b00',
-    });
-    const npcKeys = this.spriteFactory.ensureRecipe(questGiverSpriteRecipe, 64, {
-      robeColor: '#f6bd60',
-      trimColor: '#9ad1ff',
-      outlineColor: '#2d1b08',
-      eyeColor: '#101820',
-    });
-    const animalKeys = this.spriteFactory.ensureRecipe(animalSpriteRecipe, 64, {
-      bodyColor: '#d7b98c',
-      accentColor: '#f2d2a2',
-      outlineColor: '#4a3422',
-      eyeColor: '#101820',
-      flashColor: '#ffffff',
-    });
-    const vegetationKeys = this.spriteFactory.ensureRecipe(vegetationSpriteRecipe, 64, {
-      biomeAccentColor: roomSnapshot.room.backgroundColor,
-      paletteSize: 64,
-    });
-    const animalByType: Record<string, string | undefined> = {};
-    for (const animal of roomSnapshot.animals ?? []) {
-      const variant = `${animal.type}-down` as AnimalSpriteVariant;
-      animalByType[animal.type] = animalKeys[variant];
-    }
-    const vegetationByVariant: Record<string, string | undefined> = {};
-    for (const vegetation of roomSnapshot.room.vegetation ?? []) {
-      vegetationByVariant[vegetation.variant] = vegetationKeys[vegetation.variant];
-    }
-
-    return {
-      apple: appleKeys[appleVariant],
-      snakeBody: snakeKeys['body-horizontal'],
-      enemy: enemyKeys['enemy-down'],
-      npc: npcKeys.idle,
-      animalByType,
-      vegetationByVariant: vegetationByVariant as Partial<Record<VegetationType, string>>,
-    };
+  private findPresentedSnakeHead(scene: WorldRenderScene, fallback: Vector2Like): Vector2Like {
+    const head = scene.sprites.find(
+      (sprite) => sprite.kind === 'snake' && sprite.segmentIndex === 0,
+    );
+    return head ? { x: head.x - 0.5, y: head.y - 0.5 } : fallback;
   }
 
   private getTextureSource(
@@ -381,21 +288,6 @@ export class FirstPersonRenderer {
     const g = Math.round(((color >> 8) & 0xff) * scale);
     const b = Math.round((color & 0xff) * scale);
     return (r << 16) | (g << 8) | b;
-  }
-}
-
-function resolveAppleVariant(apple?: AppleSnapshot | null): AppleSpriteVariant {
-  switch (apple?.typeId) {
-    case 'shielded':
-      return 'shielded';
-    case 'gold':
-      return 'gold';
-    case 'skittish':
-      return 'skittish';
-    case 'road-rash':
-      return 'roadRash';
-    default:
-      return 'normal';
   }
 }
 

@@ -33,6 +33,7 @@ export interface FirstPersonBillboard {
   textureKey?: string;
   roomId?: string;
   facing?: Vector2Like;
+  segmentIndex?: number;
 }
 
 export interface FirstPersonRoomPlacement {

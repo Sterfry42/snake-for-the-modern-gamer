@@ -40,6 +40,7 @@ import {
   applyRuntimeModifierSource,
   createRuntimeModifierTotals,
 } from '../stats/gameplayModifierAccumulator.js';
+import type { AnimalInstance } from '../animals/types.js';
 import { getAlchemyDerivedStatSource } from '../alchemy/potionEffects.js';
 import { SnakeGame } from '../game/snakeGame.js';
 import type {
@@ -51,6 +52,7 @@ import type {
   QuestRoomActor,
 } from '../game/snakeGame.js';
 import type { HighlightClip } from '../systems/highlightReel.js';
+import type { EnemyInstance } from '../systems/enemies.js';
 import type { GameConnection } from '../session/GameConnection.js';
 import type { ClientRoomSnapshot, GameSnapshot } from '../session/GameSnapshot.js';
 import type { LocalAuthoritativeRuntime } from '../session/GameRuntime.js';
@@ -71,6 +73,9 @@ import {
   directionToMoveAction,
   mapFirstPersonMoveAction,
 } from '../ui/firstPerson/firstPersonInput.js';
+import { buildWorldPresentationScene } from '../ui/presentation/worldPresentationBuilder.js';
+import type { WorldRenderScene } from '../ui/presentation/worldRenderScene.js';
+import { WorldVisualAssets } from '../ui/presentation/worldVisualAssets.js';
 import { MinimapRenderer } from '../ui/minimapRenderer.js';
 import { JuiceManager } from '../ui/juice.js';
 import { BossHud } from '../ui/bossHud.js';
@@ -1835,6 +1840,7 @@ export default class SnakeScene extends Phaser.Scene {
   private firstPersonRenderer!: FirstPersonRenderer;
   private daggerfellPresentationActive = false;
   private firstPersonInputFacing: Vector2Like | null = null;
+  private worldVisualAssets!: WorldVisualAssets;
   private minimapRenderer: MinimapRenderer | null = null;
   juice!: JuiceManager;
   skillTree!: SkillTreeManager;
@@ -2209,8 +2215,9 @@ export default class SnakeScene extends Phaser.Scene {
     // Reduce subpixel jitter and keep lines crisp during shake/zoom
     this.cameras.main.setRoundPixels(true);
     this.runtimeSpriteFactory = new RuntimeSpriteFactory(this);
+    this.worldVisualAssets = new WorldVisualAssets(this);
     this.snakeRenderer = new SnakeRenderer(this, this.graphics, this.wallGraphics, this.grid);
-    this.firstPersonRenderer = new FirstPersonRenderer(this, this.grid);
+    this.firstPersonRenderer = new FirstPersonRenderer(this);
     this.minimapRenderer = new MinimapRenderer(
       {
         x: this.grid.cols * this.grid.cell - 222,
@@ -3272,6 +3279,38 @@ export default class SnakeScene extends Phaser.Scene {
       !this.minecraftMode &&
       this.snakeGame.getCharacterMode() !== 'raccoon'
     );
+  }
+
+  private buildCurrentWorldPresentationScene(
+    roomSnapshot: ClientRoomSnapshot,
+    options: {
+      snakeBody: readonly Vector2Like[];
+      direction: Vector2Like;
+      apple?: AppleSnapshot | null;
+      enemies: readonly EnemyInstance[];
+      followers: readonly EnemyInstance[];
+      animals: readonly AnimalInstance[];
+      atmosphere?: ResolvedAtmosphereView;
+    },
+  ): WorldRenderScene {
+    return buildWorldPresentationScene({
+      rooms: [
+        {
+          room: roomSnapshot,
+          apple: options.apple,
+          enemies: options.enemies,
+          followers: options.followers,
+          animals: options.animals,
+          runtimeNpcs: this.getFirstPersonRuntimeNpcs(roomSnapshot.id),
+        },
+      ],
+      currentRoomId: roomSnapshot.id,
+      grid: this.grid,
+      snakeBody: options.snakeBody,
+      direction: options.direction,
+      assets: this.worldVisualAssets,
+      atmosphere: options.atmosphere,
+    });
   }
 
   private handleMobileControlAction(actionId: ControlActionId): void {
@@ -11493,6 +11532,17 @@ export default class SnakeScene extends Phaser.Scene {
     const enemies = roomSnapshot?.enemies ?? this.snakeGame.getEnemies(room.id);
     const followers = roomSnapshot?.followers ?? [];
     const animals = roomSnapshot?.animals ?? this.snakeGame.getAnimals(room.id);
+    const presentationScene = roomSnapshot
+      ? this.buildCurrentWorldPresentationScene(roomSnapshot, {
+          snakeBody,
+          direction,
+          apple: currentApple,
+          enemies,
+          followers,
+          animals,
+          atmosphere,
+        })
+      : null;
     const firstPersonRendered = this.shouldRenderFirstPerson({
       localPlayer: Boolean(localPlayer),
       roomSnapshot: Boolean(roomSnapshot),
@@ -11514,7 +11564,7 @@ export default class SnakeScene extends Phaser.Scene {
         atmosphere,
         renderTimeMs: this.time.now,
         manualStepActive: this.isManualHouseMovementActive(),
-        runtimeNpcs: this.getFirstPersonRuntimeNpcs(room.id),
+        presentationScene: presentationScene!,
       });
     } else {
       this.firstPersonInputFacing = null;
@@ -11560,6 +11610,7 @@ export default class SnakeScene extends Phaser.Scene {
             }
           : null,
         atmosphere,
+        presentationScene: presentationScene ?? undefined,
         thermalBody: temperature,
         lightningStrike: binocularsView ? null : this.snakeGame.getLightningStrikeView(room.id),
         renderTimeMs: this.time.now,
