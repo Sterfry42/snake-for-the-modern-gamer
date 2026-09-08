@@ -106,6 +106,8 @@ function mapBillboardKind(kind: RenderSprite['kind']): FirstPersonBillboard['kin
       return 'apple';
     case 'enemy':
       return 'enemy';
+    case 'boss':
+      return 'boss';
     case 'npc':
       return 'npc';
     case 'animal':
