@@ -5,12 +5,18 @@ import type { ClientRoomSnapshot } from '../../session/GameSnapshot.js';
 import type { ResolvedAtmosphereView } from '../../world/atmosphereTypes.js';
 import { createFirstPersonSpatialView } from '../presentation/renderSceneSpatialIndex.js';
 import type { WorldRenderScene } from '../presentation/worldRenderScene.js';
-import { approachCamera, createCameraFromHead } from './firstPersonCamera.js';
+import { shouldHideFirstPersonSelfBodyBillboard } from './firstPersonBodyVisibility.js';
+import {
+  cameraTargetDistance,
+  createCameraFromHead,
+  interpolateCamera,
+} from './firstPersonCamera.js';
 import { projectBillboard } from './firstPersonProjection.js';
 import { castRay } from './firstPersonRaycaster.js';
 import type {
   FirstPersonBillboard,
   FirstPersonCamera,
+  FirstPersonMovementPresentationState,
   FirstPersonProjectedBillboard,
   FirstPersonWorldView,
 } from './firstPersonTypes.js';
@@ -20,6 +26,7 @@ const INTERNAL_HEIGHT = 240;
 const FOV_RADIANS = (70 * Math.PI) / 180;
 const MAX_DISTANCE = 18;
 const NEAR_DISTANCE = 0.2;
+const MAX_INTERPOLATED_CAMERA_STEP_DISTANCE = 1.05;
 
 export interface FirstPersonRenderOptions {
   roomSnapshot: ClientRoomSnapshot;
@@ -30,6 +37,7 @@ export interface FirstPersonRenderOptions {
   renderTimeMs?: number;
   manualStepActive?: boolean;
   presentationScene: WorldRenderScene;
+  movement?: FirstPersonMovementPresentationState;
 }
 
 export class FirstPersonRenderer {
@@ -37,8 +45,15 @@ export class FirstPersonRenderer {
   private readonly image: Phaser.GameObjects.Image;
   private readonly context: CanvasRenderingContext2D;
   private camera: FirstPersonCamera | null = null;
+  private cameraTarget: FirstPersonCamera | null = null;
+  private activeOptions: FirstPersonRenderOptions | null = null;
   private readonly wallDepth = new Float32Array(INTERNAL_WIDTH);
   private renderedRoomId: string | null = null;
+
+  private readonly handlePostUpdate = (): void => {
+    if (!this.activeOptions) return;
+    this.renderFrame(this.activeOptions, this.scene.time.now);
+  };
 
   constructor(private readonly scene: Phaser.Scene) {
     const textureKey = 'first-person:daggerfell-frame';
@@ -60,6 +75,11 @@ export class FirstPersonRenderer {
       .setDepth(14)
       .setScrollFactor(0)
       .setVisible(false);
+
+    scene.events.on(Phaser.Scenes.Events.POST_UPDATE, this.handlePostUpdate);
+    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      scene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.handlePostUpdate);
+    });
   }
 
   render(options: FirstPersonRenderOptions): void {
@@ -69,25 +89,42 @@ export class FirstPersonRenderer {
       return;
     }
 
+    this.activeOptions = options;
+    this.renderFrame(options, options.renderTimeMs ?? this.scene.time.now);
+  }
+
+  hide(): void {
+    this.activeOptions = null;
+    this.camera = null;
+    this.cameraTarget = null;
+    this.renderedRoomId = null;
+    this.image.setVisible(false);
+  }
+
+  private renderFrame(options: FirstPersonRenderOptions, renderTimeMs: number): void {
+    const head = options.snakeBody[0];
+    if (!head) {
+      this.hide();
+      return;
+    }
+
     const localHead = this.findPresentedSnakeHead(options.presentationScene, head);
     const targetCamera = createCameraFromHead(localHead, options.direction);
-    const deltaMs = this.scene.game.loop.delta;
-    this.camera =
-      this.camera && this.renderedRoomId === options.roomSnapshot.id
-        ? approachCamera(this.camera, targetCamera, deltaMs)
-        : { ...targetCamera };
+    this.camera = this.resolveCamera(
+      targetCamera,
+      options.roomSnapshot.id,
+      Boolean(options.manualStepActive),
+      options.movement,
+    );
     this.renderedRoomId = options.roomSnapshot.id;
     const world = createFirstPersonSpatialView(options.presentationScene, options.roomSnapshot.id);
 
     this.context.clearRect(0, 0, INTERNAL_WIDTH, INTERNAL_HEIGHT);
     this.context.fillStyle = colorToCss(this.applyAmbient(world.skyColor, options.atmosphere));
     this.context.fillRect(0, 0, INTERNAL_WIDTH, INTERNAL_HEIGHT / 2);
-    this.context.fillStyle = colorToCss(
-      this.resolveFloorColor(world.floorColor, options.manualStepActive, options.atmosphere),
-    );
-    this.context.fillRect(0, INTERNAL_HEIGHT / 2, INTERNAL_WIDTH, INTERNAL_HEIGHT / 2);
+    this.drawFloor(world, this.camera, options.manualStepActive, options.atmosphere);
     if (options.manualStepActive) {
-      this.drawManualStepFloor(options.renderTimeMs ?? this.scene.time.now);
+      this.drawManualStepFloor(renderTimeMs);
     }
     this.drawWalls(world, this.camera, options.atmosphere);
     this.drawBillboards(world, this.camera, options.atmosphere);
@@ -96,10 +133,32 @@ export class FirstPersonRenderer {
     this.image.setDisplaySize(this.scene.scale.width, this.scene.scale.height).setVisible(true);
   }
 
-  hide(): void {
-    this.camera = null;
-    this.renderedRoomId = null;
-    this.image.setVisible(false);
+  private resolveCamera(
+    targetCamera: FirstPersonCamera,
+    roomId: string,
+    snapMovement: boolean,
+    movement: FirstPersonMovementPresentationState | undefined,
+  ): FirstPersonCamera {
+    const roomChanged = this.renderedRoomId !== null && this.renderedRoomId !== roomId;
+    if (!this.camera || !this.cameraTarget || roomChanged || snapMovement || !movement) {
+      return this.resetCamera(targetCamera);
+    }
+
+    const previousCamera = createCameraFromHead(movement.previousHead, movement.previousDirection);
+    const currentCamera = createCameraFromHead(movement.currentHead, movement.currentDirection);
+    if (
+      cameraTargetDistance(previousCamera, currentCamera) > MAX_INTERPOLATED_CAMERA_STEP_DISTANCE
+    ) {
+      return this.resetCamera(currentCamera);
+    }
+
+    this.cameraTarget = { ...currentCamera };
+    return interpolateCamera(previousCamera, currentCamera, movement.phase);
+  }
+
+  private resetCamera(targetCamera: FirstPersonCamera): FirstPersonCamera {
+    this.cameraTarget = { ...targetCamera };
+    return { ...targetCamera };
   }
 
   private drawWalls(
@@ -136,6 +195,46 @@ export class FirstPersonRenderer {
       );
       this.context.fillStyle = colorToCss(color);
       this.context.fillRect(column, Math.floor(top), 1, Math.ceil(wallHeight));
+    }
+  }
+
+  private drawFloor(
+    world: FirstPersonWorldView,
+    camera: FirstPersonCamera,
+    manualStepActive: boolean | undefined,
+    atmosphere?: ResolvedAtmosphereView,
+  ): void {
+    const horizon = INTERNAL_HEIGHT / 2;
+    const cameraHeight = 0.52;
+    const tanHalfFov = Math.tan(FOV_RADIANS / 2);
+    for (let y = horizon; y < INTERNAL_HEIGHT; y += 2) {
+      const depth = cameraHeight / Math.max(0.01, y / INTERNAL_HEIGHT - 0.5);
+      const shade = Math.max(0.32, Math.min(1, 1 - depth / (MAX_DISTANCE * 1.12)));
+      let runColor: string | null = null;
+      let runStartX = 0;
+      for (let x = 0; x < INTERNAL_WIDTH; x += 2) {
+        const cameraX = (2 * x) / INTERNAL_WIDTH - 1;
+        const rayAngle = camera.yaw + Math.atan(cameraX * tanHalfFov);
+        const floorX = Math.floor(camera.x + Math.cos(rayAngle) * depth);
+        const floorY = Math.floor(camera.y + Math.sin(rayAngle) * depth);
+        const cell = world.getCell(floorX, floorY);
+        const baseColor = cell?.floor.color ?? world.floorColor;
+        const tinted = this.resolveFloorColor(baseColor, manualStepActive, atmosphere);
+        const color = colorToCss(this.scaleColor(tinted, shade));
+        if (runColor === null) {
+          runColor = color;
+          runStartX = x;
+        } else if (runColor !== color) {
+          this.context.fillStyle = runColor;
+          this.context.fillRect(runStartX, y, x - runStartX, 2);
+          runColor = color;
+          runStartX = x;
+        }
+      }
+      if (runColor !== null) {
+        this.context.fillStyle = runColor;
+        this.context.fillRect(runStartX, y, INTERNAL_WIDTH - runStartX, 2);
+      }
     }
   }
 
@@ -208,11 +307,7 @@ export class FirstPersonRenderer {
   }
 
   private isImmediateSelfBodyBillboard(billboard: FirstPersonBillboard): boolean {
-    return (
-      billboard.kind === 'snake-body' &&
-      typeof billboard.segmentIndex === 'number' &&
-      billboard.segmentIndex <= 2
-    );
+    return shouldHideFirstPersonSelfBodyBillboard(billboard);
   }
 
   private drawManualStepFloor(renderTimeMs: number): void {

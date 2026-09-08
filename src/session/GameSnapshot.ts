@@ -3,6 +3,7 @@ import type { AppleSnapshot } from '../apples/types.js';
 import type { Vector2Like } from '../core/math.js';
 import type { BombInstance, FootballInstance } from '../game/snakeGame.js';
 import type { PlayerId } from '../players/playerTypes.js';
+import type { Boss } from '../systems/boss.js';
 import type { BulletInstance, EnemyInstance } from '../systems/enemies.js';
 import type { RoomSnapshot } from '../world/types.js';
 
@@ -40,6 +41,7 @@ export interface ClientRoomSnapshot {
   apples?: AppleSnapshot | null;
   enemies?: readonly EnemyInstance[];
   followers?: readonly EnemyInstance[];
+  bosses?: readonly Boss[];
   bullets?: readonly BulletInstance[];
   npcs?: unknown[];
   pickups?: unknown[];

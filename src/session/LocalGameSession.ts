@@ -2,6 +2,7 @@ import { setSavedGameData } from '../game/saveManager.js';
 import type { ChoiceWithMods, GameSaveData } from '../game/saveTypes.js';
 import type { SnakeGame, StepResult } from '../game/snakeGame.js';
 import type { PlayerId } from '../players/playerTypes.js';
+import type { Boss } from '../systems/boss.js';
 import type { SaveStore } from '../storage/SaveStore.js';
 import type { ClientCommand, CommandResult } from './ClientCommand.js';
 import type { GameEvent } from './GameEvent.js';
@@ -31,7 +32,7 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
     this.localPlayerId = args.localPlayerId ?? this.game.getLocalPlayerId();
     this.saveStore = args.saveStore;
     this.saveSlotId = args.saveSlotId ?? 'default';
-    this.lastSnapshot = this.game.getSnapshot(this.localPlayerId);
+    this.lastSnapshot = this.buildSnapshot();
   }
 
   handleCommand(command: ClientCommand): CommandResult {
@@ -110,7 +111,7 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
   }
 
   getSnapshot(): GameSnapshot {
-    this.lastSnapshot = this.game.getSnapshot(this.localPlayerId);
+    this.lastSnapshot = this.buildSnapshot();
     return this.lastSnapshot;
   }
 
@@ -197,6 +198,14 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
       return;
     }
     await this.saveStore.clear(this.saveSlotId);
+  }
+
+  private buildSnapshot(): GameSnapshot {
+    const snapshot = this.game.getSnapshot(this.localPlayerId);
+    for (const room of Object.values(snapshot.viewport.rooms)) {
+      room.bosses = this.game.getBosses(room.id).map(cloneBossForSnapshot);
+    }
+    return snapshot;
   }
 
   private emitSnapshot(): void {
@@ -288,4 +297,20 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
       });
     }
   }
+}
+
+type SnapshotBossSource = ReturnType<SnakeGame['getBosses']>[number];
+
+function cloneBossForSnapshot(boss: SnapshotBossSource): Boss {
+  const pull =
+    'pull' in boss && boss.pull
+      ? { radius: boss.pull.radius, strength: boss.pull.strength }
+      : undefined;
+  return {
+    ...boss,
+    body: boss.body.map((segment) => ({ ...segment })),
+    direction: boss.direction ? { ...boss.direction } : { x: 0, y: 1 },
+    headCenter: boss.headCenter ? { ...boss.headCenter } : undefined,
+    pull,
+  };
 }

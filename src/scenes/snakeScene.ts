@@ -47,12 +47,14 @@ import type {
   ActorShopOfferCategory,
   ActorShopView,
   ActorJournalEntry,
+  BombInstance,
+  FootballInstance,
   PresentRelationshipProfile,
   QuestObjectiveSummary,
   QuestRoomActor,
 } from '../game/snakeGame.js';
 import type { HighlightClip } from '../systems/highlightReel.js';
-import type { EnemyInstance } from '../systems/enemies.js';
+import type { BulletInstance, EnemyInstance } from '../systems/enemies.js';
 import type { GameConnection } from '../session/GameConnection.js';
 import type { ClientRoomSnapshot, GameSnapshot } from '../session/GameSnapshot.js';
 import type { LocalAuthoritativeRuntime } from '../session/GameRuntime.js';
@@ -60,7 +62,11 @@ import { LocalGameConnection } from '../session/LocalGameConnection.js';
 import { LocalGameSession } from '../session/LocalGameSession.js';
 import { FeatureManager } from '../systems/features.js';
 import type { RadioFeature } from '../features/definitions/radio.js';
-import { SimulationScheduler, type ClockRule } from '../systems/simulationScheduler.js';
+import {
+  SimulationScheduler,
+  type ClockDiagnostics,
+  type ClockRule,
+} from '../systems/simulationScheduler.js';
 import { createQuestRegistry } from '../systems/quests.js';
 import { SkillTreeManager } from '../systems/skillTreeManager.js';
 import type { OwnedSkillState } from '../systems/skillTypes.js';
@@ -69,11 +75,15 @@ import { QuestPopup } from '../ui/questPopup.js';
 import { ChoicePopup, type ChoiceOption } from '../ui/choicePopup.js';
 import { SnakeRenderer, type RoomRenderEntry } from '../ui/snakeRenderer.js';
 import { FirstPersonRenderer } from '../ui/firstPerson/firstPersonRenderer.js';
+import type { FirstPersonMovementPresentationState } from '../ui/firstPerson/firstPersonTypes.js';
 import {
   directionToMoveAction,
   mapFirstPersonMoveAction,
 } from '../ui/firstPerson/firstPersonInput.js';
-import { buildWorldPresentationScene } from '../ui/presentation/worldPresentationBuilder.js';
+import {
+  buildWorldPresentationScene,
+  type RuntimeNpcPresentation,
+} from '../ui/presentation/worldPresentationBuilder.js';
 import type { WorldRenderScene } from '../ui/presentation/worldRenderScene.js';
 import { WorldVisualAssets } from '../ui/presentation/worldVisualAssets.js';
 import { MinimapRenderer } from '../ui/minimapRenderer.js';
@@ -3290,6 +3300,10 @@ export default class SnakeScene extends Phaser.Scene {
       enemies: readonly EnemyInstance[];
       followers: readonly EnemyInstance[];
       animals: readonly AnimalInstance[];
+      bullets: readonly BulletInstance[];
+      footballs: readonly FootballInstance[];
+      bombs: readonly BombInstance[];
+      alchemyStation?: { roomId: string; x: number; y: number } | null;
       atmosphere?: ResolvedAtmosphereView;
     },
   ): WorldRenderScene {
@@ -3301,6 +3315,10 @@ export default class SnakeScene extends Phaser.Scene {
           enemies: options.enemies,
           followers: options.followers,
           animals: options.animals,
+          bullets: options.bullets,
+          footballs: options.footballs,
+          bombs: options.bombs,
+          alchemyStation: options.alchemyStation,
           runtimeNpcs: this.getFirstPersonRuntimeNpcs(roomSnapshot.id),
         },
       ],
@@ -3311,6 +3329,49 @@ export default class SnakeScene extends Phaser.Scene {
       assets: this.worldVisualAssets,
       atmosphere: options.atmosphere,
     });
+  }
+
+  private buildFirstPersonMovementPresentationState(
+    roomSnapshot: ClientRoomSnapshot,
+    snakeBody: readonly Vector2Like[],
+    direction: Vector2Like,
+  ): FirstPersonMovementPresentationState | undefined {
+    const currentHead = snakeBody[0];
+    if (!currentHead) {
+      return undefined;
+    }
+    const previous = this.snakeGame.getFlag<{
+      body?: Vector2Like[];
+      roomId?: string;
+      direction?: Vector2Like;
+    }>('internal.previousSnapshot');
+    const previousHead = previous?.body?.[0];
+    if (!previousHead || previous.roomId !== roomSnapshot.id) {
+      return undefined;
+    }
+    const actionClock = this.getActionClockDiagnostics();
+    const phase =
+      actionClock.intervalMs > 0
+        ? Phaser.Math.Clamp(actionClock.accumulatorMs / actionClock.intervalMs, 0, 1)
+        : 1;
+    return {
+      previousHead: this.toRoomLocalTile(previousHead, roomSnapshot.id),
+      currentHead: this.toRoomLocalTile(currentHead, roomSnapshot.id),
+      previousDirection: previous.direction ?? direction,
+      currentDirection: direction,
+      phase,
+    };
+  }
+
+  private toRoomLocalTile(point: Vector2Like, roomId: string): Vector2Like {
+    const address = parseCoordinateRoomId(roomId);
+    if (!address) {
+      return { ...point };
+    }
+    return {
+      x: point.x - address.x * this.grid.cols,
+      y: point.y - address.y * this.grid.rows,
+    };
   }
 
   private handleMobileControlAction(actionId: ControlActionId): void {
@@ -7184,6 +7245,21 @@ export default class SnakeScene extends Phaser.Scene {
 
   getActionStepIntervalMs(): number {
     return this.actionStepIntervalMs;
+  }
+
+  getActionClockDiagnostics(): ClockDiagnostics {
+    const actionClock = this.simulationScheduler
+      .getDiagnostics()
+      .clocks.find((clock) => clock.id === 'action');
+    return (
+      actionClock ?? {
+        id: 'action',
+        intervalMs: this.actionStepIntervalMs,
+        accumulatorMs: 0,
+        droppedStepsLastUpdate: 0,
+        stepsLastUpdate: 0,
+      }
+    );
   }
 
   private updateSwimmingTerrainDrag(): void {
@@ -11532,6 +11608,15 @@ export default class SnakeScene extends Phaser.Scene {
     const enemies = roomSnapshot?.enemies ?? this.snakeGame.getEnemies(room.id);
     const followers = roomSnapshot?.followers ?? [];
     const animals = roomSnapshot?.animals ?? this.snakeGame.getAnimals(room.id);
+    const bullets = roomSnapshot?.bullets ?? this.snakeGame.getEnemyBullets(room.id);
+    const footballs = roomSnapshot?.footballs ?? this.snakeGame.getFootballs(room.id);
+    const alchemyStation = placedAlchemyStation
+      ? {
+          roomId: placedAlchemyStation.roomId,
+          x: placedAlchemyStation.position.x,
+          y: placedAlchemyStation.position.y,
+        }
+      : null;
     const presentationScene = roomSnapshot
       ? this.buildCurrentWorldPresentationScene(roomSnapshot, {
           snakeBody,
@@ -11540,6 +11625,10 @@ export default class SnakeScene extends Phaser.Scene {
           enemies,
           followers,
           animals,
+          bullets,
+          footballs,
+          bombs: visibleBombs,
+          alchemyStation,
           atmosphere,
         })
       : null;
@@ -11551,6 +11640,11 @@ export default class SnakeScene extends Phaser.Scene {
     if (firstPersonRendered) {
       this.firstPersonInputFacing ??= direction;
       this.snakeRenderer.hide();
+      const movement = this.buildFirstPersonMovementPresentationState(
+        roomSnapshot!,
+        snakeBody,
+        direction,
+      );
       this.firstPersonRenderer.render({
         roomSnapshot: {
           ...roomSnapshot!,
@@ -11565,6 +11659,7 @@ export default class SnakeScene extends Phaser.Scene {
         renderTimeMs: this.time.now,
         manualStepActive: this.isManualHouseMovementActive(),
         presentationScene: presentationScene!,
+        movement,
       });
     } else {
       this.firstPersonInputFacing = null;
@@ -11598,17 +11693,11 @@ export default class SnakeScene extends Phaser.Scene {
         activeEmoticon: this.getActiveEmoticonForRender(),
         enemies,
         followers,
-        bullets: roomSnapshot?.bullets ?? this.snakeGame.getEnemyBullets(room.id),
-        footballs: roomSnapshot?.footballs ?? this.snakeGame.getFootballs(room.id),
+        bullets,
+        footballs,
         bombs: visibleBombs,
         animals,
-        alchemyStation: placedAlchemyStation
-          ? {
-              roomId: placedAlchemyStation.roomId,
-              x: placedAlchemyStation.position.x,
-              y: placedAlchemyStation.position.y,
-            }
-          : null,
+        alchemyStation,
         atmosphere,
         presentationScene: presentationScene ?? undefined,
         thermalBody: temperature,
@@ -22850,14 +22939,58 @@ export default class SnakeScene extends Phaser.Scene {
     });
   }
 
-  private getFirstPersonRuntimeNpcs(
-    roomId: string,
-  ): readonly { id: string; x: number; y: number }[] {
+  private getFirstPersonRuntimeNpcs(roomId: string): readonly RuntimeNpcPresentation[] {
     const goblinStanding = this.snakeGame.getFactionAlignment('goblin-camps').standing;
     return this.snakeGame
       .getPresentRelationshipProfilesForRoom(roomId)
       .filter((profile) => profile.factionId !== 'goblin-camps' || goblinStanding !== 'violent')
-      .map((profile) => ({ id: profile.actorId, x: profile.x, y: profile.y }));
+      .flatMap((profile): RuntimeNpcPresentation[] => {
+        const actor = profile.actorId
+          ? this.snakeGame.getActorSystem().getActor(profile.actorId)
+          : undefined;
+        const actorPresence = actor?.presence;
+        if (
+          !profile.actorId ||
+          !actor ||
+          actorPresence?.roomId !== roomId ||
+          !actorPresence.materialized ||
+          actor.health?.state === 'dead' ||
+          actor.hostility === 'dead' ||
+          actor.flags.dead === true ||
+          actor.flags.eaten === true
+        ) {
+          return [];
+        }
+        const relationshipState = this.snakeGame.getRelationshipState(profile);
+        if (
+          relationshipState?.stage === 'dead' ||
+          this.snakeGame.isRelationshipHostile(profile) ||
+          this.snakeGame.isRelationshipNpcCombatHostile(profile)
+        ) {
+          return [];
+        }
+        const isGoblin = profile.factionId === 'goblin-camps' || profile.species === 'goblin';
+        const palette = isGoblin
+          ? this.paletteForGoblinResident(goblinStanding)
+          : this.paletteForResident(profile.actorId);
+        const textures = this.runtimeSpriteFactory.ensureRecipe(
+          questGiverSpriteRecipe,
+          Math.max(16, Math.floor(this.grid.cell * 0.84)),
+          palette,
+        );
+        return [
+          {
+            id: profile.actorId,
+            x: actorPresence.position.x,
+            y: actorPresence.position.y,
+            visual: {
+              textureKey: textures.idle,
+              factionId: profile.factionId,
+              species: profile.species,
+            },
+          },
+        ];
+      });
   }
 
   private actorActivityPropPalette(): ActorActivityPropPalette {

@@ -1,10 +1,19 @@
 import type { Vector2Like } from '../../core/math.js';
 import type { ClientRoomSnapshot } from '../../session/GameSnapshot.js';
+import type { SurfaceVisual } from '../presentation/worldRenderScene.js';
 
 export interface FirstPersonCamera {
   x: number;
   y: number;
   yaw: number;
+}
+
+export interface FirstPersonMovementPresentationState {
+  previousHead: Vector2Like;
+  currentHead: Vector2Like;
+  previousDirection: Vector2Like;
+  currentDirection: Vector2Like;
+  phase: number;
 }
 
 export interface FirstPersonMaterial {
@@ -18,12 +27,13 @@ export interface FirstPersonCell {
   x: number;
   y: number;
   tile: string | undefined;
+  floor: SurfaceVisual;
   material: FirstPersonMaterial;
 }
 
 export interface FirstPersonBillboard {
   id: string;
-  kind: 'apple' | 'enemy' | 'snake-body' | 'npc' | 'animal' | 'prop';
+  kind: 'apple' | 'enemy' | 'boss' | 'snake-body' | 'npc' | 'animal' | 'prop';
   x: number;
   y: number;
   width: number;

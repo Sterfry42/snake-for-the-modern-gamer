@@ -2,6 +2,14 @@ import type { Vector2Like } from '../../core/math.js';
 import type { FirstPersonCamera } from './firstPersonTypes.js';
 
 const TAU = Math.PI * 2;
+const CAMERA_EPSILON = 0.0001;
+
+export interface FirstPersonCameraTransition {
+  from: FirstPersonCamera;
+  to: FirstPersonCamera;
+  startedAtMs: number;
+  durationMs: number;
+}
 
 export function directionToYaw(direction: Vector2Like): number {
   if (direction.x > 0) return 0;
@@ -18,18 +26,51 @@ export function createCameraFromHead(head: Vector2Like, direction: Vector2Like):
   };
 }
 
-export function approachCamera(
-  current: FirstPersonCamera,
-  target: FirstPersonCamera,
-  deltaMs: number,
-): FirstPersonCamera {
-  const moveAlpha = clamp01(deltaMs / 95);
-  const turnAlpha = clamp01(deltaMs / 120);
+export function createCameraTransition(
+  from: FirstPersonCamera,
+  to: FirstPersonCamera,
+  startedAtMs: number,
+  durationMs: number,
+): FirstPersonCameraTransition {
   return {
-    x: lerp(current.x, target.x, moveAlpha),
-    y: lerp(current.y, target.y, moveAlpha),
-    yaw: current.yaw + shortestAngleDelta(current.yaw, target.yaw) * turnAlpha,
+    from: { ...from },
+    to: { ...to },
+    startedAtMs,
+    durationMs: Math.max(1, durationMs),
   };
+}
+
+export function sampleCameraTransition(
+  transition: FirstPersonCameraTransition,
+  nowMs: number,
+): FirstPersonCamera {
+  const phase = clamp01((nowMs - transition.startedAtMs) / transition.durationMs);
+  return interpolateCamera(transition.from, transition.to, phase);
+}
+
+export function interpolateCamera(
+  from: FirstPersonCamera,
+  to: FirstPersonCamera,
+  phase: number,
+): FirstPersonCamera {
+  const t = clamp01(phase);
+  return {
+    x: lerp(from.x, to.x, t),
+    y: lerp(from.y, to.y, t),
+    yaw: from.yaw + shortestAngleDelta(from.yaw, to.yaw) * t,
+  };
+}
+
+export function isSameCameraTarget(a: FirstPersonCamera, b: FirstPersonCamera): boolean {
+  return (
+    Math.abs(a.x - b.x) <= CAMERA_EPSILON &&
+    Math.abs(a.y - b.y) <= CAMERA_EPSILON &&
+    Math.abs(shortestAngleDelta(a.yaw, b.yaw)) <= CAMERA_EPSILON
+  );
+}
+
+export function cameraTargetDistance(a: FirstPersonCamera, b: FirstPersonCamera): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
 export function shortestAngleDelta(from: number, to: number): number {

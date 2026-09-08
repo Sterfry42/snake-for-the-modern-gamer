@@ -19,6 +19,7 @@ function world(layout: readonly string[]): FirstPersonWorldView {
         x,
         y,
         tile: layout[y]?.[x],
+        floor: { color: 0 },
         material: layout[y]?.[x] === '#' ? wall : open,
       };
     },
