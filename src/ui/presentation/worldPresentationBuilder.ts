@@ -4,6 +4,7 @@ import type { GridConfig } from '../../config/gameConfig.js';
 import type { Vector2Like } from '../../core/math.js';
 import type { BombInstance, FootballInstance } from '../../game/snakeGame.js';
 import type { ClientRoomSnapshot } from '../../session/GameSnapshot.js';
+import type { Boss } from '../../systems/boss.js';
 import type { BulletInstance, EnemyInstance } from '../../systems/enemies.js';
 import type { ResolvedAtmosphereView } from '../../world/atmosphereTypes.js';
 import type { RoomSnapshot, WorldHumanoidSpawn } from '../../world/types.js';
@@ -17,12 +18,15 @@ import type { RenderRoom, RenderSprite, WorldRenderScene } from './worldRenderSc
 import type { NpcVisualDescriptor, WorldVisualAssetResolver } from './worldVisualAssets.js';
 import type { FurnitureSpriteVariant } from '../spriteRecipes/furnitureRecipe.js';
 
+const FREAKER_RAINBOW = [0xff4fd8, 0xff7b54, 0xffd166, 0x6eff95, 0x5fd7ff, 0xb46cff] as const;
+
 export interface PresentationRoomInput {
   room: ClientRoomSnapshot;
   offset?: Vector2Like;
   apple?: AppleSnapshot | null;
   enemies?: readonly EnemyInstance[];
   followers?: readonly EnemyInstance[];
+  bosses?: readonly Boss[];
   animals?: readonly AnimalInstance[];
   bullets?: readonly BulletInstance[];
   footballs?: readonly FootballInstance[];
@@ -87,7 +91,7 @@ export function buildWorldPresentationScene(
   for (const entry of options.rooms) {
     const placement = placements.get(entry.room.id);
     if (!placement) continue;
-    pushRoomSprites(sprites, entry, placement, options.assets);
+    pushRoomSprites(sprites, entry, placement, options.grid, options.assets);
   }
   return { rooms, sprites, effects: [], atmosphere: options.atmosphere };
 }
@@ -141,6 +145,7 @@ function pushRoomSprites(
   sprites: RenderSprite[],
   entry: PresentationRoomInput,
   placement: RenderRoomPlacement,
+  grid: GridConfig,
   assets: WorldVisualAssetResolver,
 ): void {
   const activeApple = entry.apple ?? entry.room.apples ?? null;
@@ -184,6 +189,7 @@ function pushRoomSprites(
       });
     });
   }
+  pushBossSprites(sprites, entry, placement, grid);
   for (const animal of entry.animals ?? entry.room.animals ?? []) {
     const position = localRenderPoint(animal.position, placement);
     sprites.push({
@@ -230,6 +236,99 @@ function pushRoomSprites(
       roomId: entry.room.id,
     });
   }
+}
+
+function pushBossSprites(
+  sprites: RenderSprite[],
+  entry: PresentationRoomInput,
+  placement: RenderRoomPlacement,
+  grid: GridConfig,
+): void {
+  for (const boss of entry.bosses ?? entry.room.bosses ?? []) {
+    boss.body.forEach((segment, index) => {
+      const position = normalizeRenderPoint(segment, placement, grid);
+      if (
+        position.x < placement.offsetX ||
+        position.x >= placement.offsetX + placement.width ||
+        position.y < placement.offsetY ||
+        position.y >= placement.offsetY + placement.height
+      ) {
+        return;
+      }
+
+      const isHead = boss.kind === 'freak-you' ? index < 3 : index === 0;
+      const size = bossFirstPersonSize(boss, isHead);
+      const color = bossPresentationColor(boss, index, isHead);
+      sprites.push({
+        id: `boss:${boss.id}:${index}`,
+        kind: 'boss',
+        x: position.x + 0.5,
+        y: position.y + 0.5,
+        width: 1,
+        height: 1,
+        anchorY: 1,
+        color,
+        // Bosses are still authored as colored multi-cell bodies in the top-down renderer.
+        // First-person preserves that identity as giant old-school billboard slabs until
+        // dedicated boss sprite recipes exist.
+        visual: { defaultTextureKey: '' },
+        firstPersonPresentation: {
+          width: size.width,
+          height: size.height,
+          anchorY: 1,
+          color,
+        },
+        roomId: entry.room.id,
+        facing: boss.direction,
+        segmentIndex: index,
+      });
+    });
+  }
+}
+
+function bossFirstPersonSize(
+  boss: Boss,
+  isHead: boolean,
+): { width: number; height: number } {
+  if (boss.kind === 'freak-you') {
+    return isHead ? { width: 1.55, height: 2.8 } : { width: 1.2, height: 2 };
+  }
+  if (!isHead) {
+    return { width: 1.4, height: 2.2 };
+  }
+  switch (boss.kind) {
+    case 'angel':
+      return { width: 2.45, height: 4.2 };
+    case 'jason-statham':
+      return { width: 2.35, height: 3.8 };
+    case 'freaker-dennis':
+      return { width: 2.25, height: 3.7 };
+    default:
+      return { width: 2.15, height: 3.5 };
+  }
+}
+
+function bossPresentationColor(boss: Boss, index: number, isHead: boolean): number {
+  if (boss.kind === 'angel') return 0xfff2a8;
+  if (boss.kind === 'freak-you') return isHead ? 0xff7a8f : 0xff2d55;
+  if (boss.kind === 'freaker-dennis' && boss.rainbowPalette) {
+    return FREAKER_RAINBOW[index % FREAKER_RAINBOW.length] ?? 0xff00ff;
+  }
+  if (boss.kind === 'jason-statham') {
+    switch (boss.jasonPhase) {
+      case 'vulnerable':
+        return 0xff2d2d;
+      case 'attacking':
+        return 0xcc0000;
+      case 'calm':
+        return 0x881111;
+      case 'defeated':
+        return 0x333333;
+      default:
+        return 0xaa1111;
+    }
+  }
+  return boss.kind === 'revenant' ? 0x7f39b8 : 0xff00ff;
 }
 
 function pushRoomItemSprites(
