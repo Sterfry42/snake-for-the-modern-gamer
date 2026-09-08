@@ -30,6 +30,7 @@ export interface RenderRoom {
 export type RenderSpriteKind =
   | 'snake'
   | 'enemy'
+  | 'boss'
   | 'npc'
   | 'apple'
   | 'animal'
