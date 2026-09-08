@@ -31,7 +31,7 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
     this.localPlayerId = args.localPlayerId ?? this.game.getLocalPlayerId();
     this.saveStore = args.saveStore;
     this.saveSlotId = args.saveSlotId ?? 'default';
-    this.lastSnapshot = this.game.getSnapshot(this.localPlayerId);
+    this.lastSnapshot = this.buildSnapshot();
   }
 
   handleCommand(command: ClientCommand): CommandResult {
@@ -110,7 +110,7 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
   }
 
   getSnapshot(): GameSnapshot {
-    this.lastSnapshot = this.game.getSnapshot(this.localPlayerId);
+    this.lastSnapshot = this.buildSnapshot();
     return this.lastSnapshot;
   }
 
@@ -197,6 +197,20 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
       return;
     }
     await this.saveStore.clear(this.saveSlotId);
+  }
+
+  private buildSnapshot(): GameSnapshot {
+    const snapshot = this.game.getSnapshot(this.localPlayerId);
+    for (const room of Object.values(snapshot.viewport.rooms)) {
+      room.bosses = this.game.getBosses(room.id).map((boss) => ({
+        ...boss,
+        body: boss.body.map((segment) => ({ ...segment })),
+        direction: { ...boss.direction },
+        headCenter: boss.headCenter ? { ...boss.headCenter } : undefined,
+        pull: boss.pull ? { ...boss.pull } : undefined,
+      }));
+    }
+    return snapshot;
   }
 
   private emitSnapshot(): void {
