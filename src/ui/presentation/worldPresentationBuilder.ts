@@ -286,10 +286,7 @@ function pushBossSprites(
   }
 }
 
-function bossFirstPersonSize(
-  boss: Boss,
-  isHead: boolean,
-): { width: number; height: number } {
+function bossFirstPersonSize(boss: Boss, isHead: boolean): { width: number; height: number } {
   if (boss.kind === 'freak-you') {
     return isHead ? { width: 1.55, height: 2.8 } : { width: 1.2, height: 2 };
   }
