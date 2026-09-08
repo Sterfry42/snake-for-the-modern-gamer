@@ -33,7 +33,7 @@ export interface FirstPersonCell {
 
 export interface FirstPersonBillboard {
   id: string;
-  kind: 'apple' | 'enemy' | 'snake-body' | 'npc' | 'animal' | 'prop';
+  kind: 'apple' | 'enemy' | 'boss' | 'snake-body' | 'npc' | 'animal' | 'prop';
   x: number;
   y: number;
   width: number;
