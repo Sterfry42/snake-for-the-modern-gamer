@@ -7035,6 +7035,31 @@ export default class SnakeScene extends Phaser.Scene {
       }
       return { ok: false, message: 'Could not spawn any structures.', color: '#ff6b6b' };
     }
+    if (code === 'construction' || code === 'buildmode') {
+      if (this.snakeGame.getStructurePlacement()) {
+        this.snakeGame.cancelStructurePlacement();
+        this.isDirty = true;
+        return {
+          ok: true,
+          message: 'Cheat inactive: construction placement canceled.',
+          color: '#9ad1ff',
+        };
+      }
+      this.snakeGame.claimRoom();
+      const started = this.snakeGame.beginStructurePlacement('small-house');
+      this.isDirty = true;
+      return started
+        ? {
+            ok: true,
+            message: 'Cheat active: construction mode. Small House preview ready.',
+            color: '#5dd6a2',
+          }
+        : {
+            ok: false,
+            message: 'Could not enter construction mode.',
+            color: '#ff6b6b',
+          };
+    }
     if (code === 'clearroom' || code === 'clear' || code === 'clearr') {
       this.snakeGame?.clearRoom();
       this.isDirty = true;

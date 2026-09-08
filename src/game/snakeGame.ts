@@ -89,6 +89,19 @@ import {
   type AnimalCompanionView,
 } from '../animals/companions.js';
 import { WorldService } from '../world/worldService.js';
+import {
+  ConstructionState,
+  type ConstructionPermission,
+  type PlacedStructure,
+  type StructurePlacementContext,
+  type StructurePlacementValidation,
+} from '../building/constructionState.js';
+import {
+  anchorOneTileAhead,
+  getStructureBlueprint,
+  planStructureStamp,
+  rotationFromDirection,
+} from '../building/structureBlueprint.js';
 import { QuestController } from '../systems/questController.js';
 import type { QuestGiverRequest } from '../systems/questController.js';
 import type { Quest } from '../quests/quest.js';
@@ -1202,6 +1215,8 @@ export class SnakeGame implements QuestRuntime {
   private footballIdCounter = 0;
   private readonly bombs = new Map<string, BombInstance[]>();
   private bombIdCounter = 0;
+  private readonly construction = new ConstructionState();
+  private constructionPlacement: { blueprintId: string; roomId: string } | null = null;
 
   constructor(
     config: GameConfig = defaultGameConfig,
@@ -1282,6 +1297,8 @@ export class SnakeGame implements QuestRuntime {
     this.bombs.clear();
     this.bombIdCounter = 0;
     this.animals.clearAll();
+    this.construction.clear();
+    this.constructionPlacement = null;
     this.questController.reset(this);
     this.actors.reset();
     this.rumors.load(undefined);
@@ -1674,6 +1691,7 @@ export class SnakeGame implements QuestRuntime {
             wallColor: room.wallColor,
             wallOutlineColor: room.wallOutlineColor,
             portals: room.portals,
+            structures: this.placedStructures(roomId),
             caveEntrances: room.caveEntrances,
             layerEntrances: room.layerEntrances,
             apples: this.getApple(roomId),
@@ -2074,6 +2092,9 @@ export class SnakeGame implements QuestRuntime {
       advanceNormalizationTick(this.normalizationState);
     }
     if (paused) {
+      return this.createNoopActionStepResult(appleBeforeStep, roomsChanged);
+    }
+    if (this.constructionPlacement) {
       return this.createNoopActionStepResult(appleBeforeStep, roomsChanged);
     }
 
@@ -3139,6 +3160,7 @@ export class SnakeGame implements QuestRuntime {
         const room = this.world.getRoom(roomId);
         this.applyTownRuntimeToRoom(room);
       },
+      isSolidCell: (room, x, y) => this.isEffectivelySolidCell(room, x, y),
       ensureApple: (roomId: string, snake, score) => {
         const room = this.world.getRoom(roomId);
         const policy = getSpawnPolicy(room);
@@ -6737,6 +6759,169 @@ export class SnakeGame implements QuestRuntime {
 
   getRoom(roomId: string) {
     return this.world.getRoom(roomId);
+  }
+
+  claimRoom(
+    roomId: string = this.snake.currentRoomId,
+    ownerId: string = this.localPlayerId,
+    permissions?: readonly ConstructionPermission[],
+  ) {
+    return this.construction.claimRoom(roomId, ownerId, permissions);
+  }
+
+  getRoomClaim(roomId: string = this.snake.currentRoomId) {
+    return this.construction.getClaim(roomId);
+  }
+
+  beginStructurePlacement(blueprintId: string): boolean {
+    if (!getStructureBlueprint(blueprintId)) {
+      this.setFlag('construction.lastRejection', { reason: 'unknown-blueprint', blueprintId });
+      return false;
+    }
+    this.constructionPlacement = { blueprintId, roomId: this.snake.currentRoomId };
+    this.setFlag('construction.mode', {
+      active: true,
+      blueprintId,
+      roomId: this.snake.currentRoomId,
+    });
+    return true;
+  }
+
+  getStructurePlacement() {
+    return this.constructionPlacement ? { ...this.constructionPlacement } : null;
+  }
+
+  previewStructurePlacement(): StructurePlacementValidation | null {
+    const context = this.createStructurePlacementContext();
+    if (!context) return null;
+    return this.construction.validatePlacement(context);
+  }
+
+  confirmStructurePlacement():
+    | { ok: true; structure: PlacedStructure }
+    | { ok: false; validation: StructurePlacementValidation | null } {
+    const context = this.createStructurePlacementContext();
+    if (!context) {
+      return { ok: false, validation: null };
+    }
+    const result = this.construction.placeStructure(context);
+    if (!result.ok) {
+      this.setFlag('construction.lastRejection', {
+        blueprintId: context.plan.blueprintId,
+        roomId: context.room.id,
+        anchor: context.plan.anchor,
+        rotation: context.plan.rotation,
+        reasons: result.validation.reasons,
+      });
+      return result;
+    }
+    this.constructionPlacement = null;
+    this.setFlag('construction.mode', undefined);
+    this.setFlag('construction.lastPlaced', {
+      id: result.structure.id,
+      blueprintId: result.structure.blueprintId,
+      roomId: result.structure.roomId,
+    });
+    return result;
+  }
+
+  cancelStructurePlacement(): void {
+    this.constructionPlacement = null;
+    this.setFlag('construction.mode', undefined);
+  }
+
+  stepStructurePlacement(direction: Vector2Like): void {
+    if (!this.constructionPlacement) return;
+    if (direction.x !== 0 || direction.y !== 0) {
+      this.snake.forceDirection(direction.x, direction.y);
+    }
+    const head = this.snake.bodySegments[0];
+    if (!head) return;
+    const local = this.worldToLocal(this.snake.currentRoomId, head);
+    const next = {
+      x: Math.max(1, Math.min(this.config.grid.cols - 2, local.x + direction.x)),
+      y: Math.max(1, Math.min(this.config.grid.rows - 2, local.y + direction.y)),
+    };
+    this.moveToRoom(this.snake.currentRoomId, next);
+  }
+
+  faceStructurePlacement(direction: Vector2Like): void {
+    if (direction.x === 0 && direction.y === 0) return;
+    this.snake.forceDirection(direction.x, direction.y);
+  }
+
+  placedStructures(roomId?: string): PlacedStructure[] {
+    return this.construction.getStructures(roomId);
+  }
+
+  placedStructure(id: string): PlacedStructure | undefined {
+    return this.construction.getStructure(id);
+  }
+
+  demolishStructure(structureId: string, ownerId: string = this.localPlayerId): boolean {
+    const structure = this.construction.getStructure(structureId);
+    if (!structure) return false;
+    return this.construction.demolishStructure(structure.roomId, structureId, ownerId);
+  }
+
+  effectiveCell(roomId: string, x: number, y: number) {
+    return this.construction.effectiveCell(this.world.getRoom(roomId), x, y);
+  }
+
+  private createStructurePlacementContext(): StructurePlacementContext | null {
+    const placement = this.constructionPlacement;
+    if (!placement) return null;
+    const blueprint = getStructureBlueprint(placement.blueprintId);
+    const head = this.snake.bodySegments[0];
+    if (!blueprint || !head) return null;
+    const room = this.world.getRoom(placement.roomId);
+    const localHead = this.worldToLocal(placement.roomId, head);
+    const direction = this.snake.directionVector;
+    const anchor = anchorOneTileAhead(localHead, direction);
+    const rotation = rotationFromDirection(direction);
+    const plan = planStructureStamp(blueprint, anchor, rotation);
+    return {
+      room,
+      ownerId: this.localPlayerId,
+      plan,
+      playerCells: this.snake.bodySegments.map((segment) =>
+        this.worldToLocal(this.snake.currentRoomId, segment),
+      ),
+      npcCells: this.collectActorOccupancy(room.id),
+      enemyCells: this.collectEnemyOccupancy(room.id),
+      bossCells: this.collectBossOccupancy(room.id),
+    };
+  }
+
+  private isEffectivelySolidCell(room: RoomSnapshot, x: number, y: number): boolean {
+    return this.construction.isEffectivelySolid(room, x, y);
+  }
+
+  private collectActorOccupancy(roomId: string): Vector2Like[] {
+    return this.actors
+      .getActorsInRoom(roomId)
+      .filter(
+        (actor) =>
+          actor.presence &&
+          actor.health?.state !== 'dead' &&
+          actor.hostility !== 'dead' &&
+          actor.presence.materialized,
+      )
+      .map((actor) => ({ ...actor.presence!.position }));
+  }
+
+  private collectEnemyOccupancy(roomId: string): Vector2Like[] {
+    return this.enemies
+      .getEnemiesInRoom(roomId)
+      .flatMap((enemy) => (enemy.body && enemy.body.length > 0 ? enemy.body : [enemy.position]))
+      .map((cell) => this.worldToLocal(roomId, cell));
+  }
+
+  private collectBossOccupancy(roomId: string): Vector2Like[] {
+    return this.bosses
+      .getBossesInRoom(roomId)
+      .flatMap((boss) => boss.body)
+      .map((cell) => this.worldToLocal(roomId, cell));
   }
 
   getActorSystem(): ActorSystem {
@@ -10791,7 +10976,13 @@ export class SnakeGame implements QuestRuntime {
       return false;
     }
     const tile = room.layout[position.y]?.[position.x];
-    if (!tile || tile === '#' || tile === '~' || tile === 'S' || isBlockingTownTile(tile)) {
+    if (
+      !tile ||
+      this.isEffectivelySolidCell(room, position.x, position.y) ||
+      tile === '~' ||
+      tile === 'S' ||
+      isBlockingTownTile(tile)
+    ) {
       return false;
     }
     return !this.actors.registry
@@ -11877,7 +12068,13 @@ export class SnakeGame implements QuestRuntime {
       return false;
     }
     const tile = room.layout[position.y]?.[position.x];
-    if (!tile || tile === '#' || tile === '~' || tile === 'S' || isBlockingTownTile(tile)) {
+    if (
+      !tile ||
+      this.isEffectivelySolidCell(room, position.x, position.y) ||
+      tile === '~' ||
+      tile === 'S' ||
+      isBlockingTownTile(tile)
+    ) {
       return false;
     }
     const actor = body.actorId ? this.actors.getActor(body.actorId) : undefined;
@@ -19025,6 +19222,7 @@ export class SnakeGame implements QuestRuntime {
       special: this.specialStats.exportState(),
       levelProgression: this.levelProgression,
       layerInstances: this.world.getLayerInstances(),
+      construction: this.construction.save(),
       questsActive: this.questController.getActive().map((q: Quest) => q.id),
       questsCompleted: this.questController.getCompletedIds(),
       questsAccepted: this.questController.getAcceptedIds(),
@@ -19287,6 +19485,7 @@ export class SnakeGame implements QuestRuntime {
         });
         logRunSeed(data.worldGeneration.seed, 'load');
       }
+      this.construction.load(data.construction);
       this.atmosphere.hydrate(data.atmosphere);
       if (data.snakeBody?.length && data.snakeDirection && data.snakeRoomId) {
         this.snake.restoreFromSave(

@@ -6,10 +6,11 @@ import { QuestRegistry } from '../../quests/questRegistry.js';
 import { LocalGameSession } from '../../session/LocalGameSession.js';
 import { SimulationScheduler, type ClockRule } from '../../systems/simulationScheduler.js';
 import { parseCoordinateRoomId } from '../../world/roomAddress.js';
-import { isSolidTile } from '../../world/tiles.js';
 import type { RoomSnapshot } from '../../world/types.js';
 import type { Actor, ActorGoal, ActorPresence } from '../../actors/actorTypes.js';
 import type { ActorTelemetryEvent } from '../../actors/actorTelemetry.js';
+import type { ConstructionPermission } from '../../building/constructionState.js';
+import type { Vector2Like } from '../../core/math.js';
 
 export interface HeadlessScenarioOptions {
   seed: string;
@@ -190,6 +191,62 @@ export class HeadlessScenario {
     return this.game.getRoom(roomId);
   }
 
+  claimRoom(roomId = this.currentRoom().id, permissions?: readonly ConstructionPermission[]) {
+    return this.game.claimRoom(roomId, undefined, permissions);
+  }
+
+  claimCurrentRoom(permissions?: readonly ConstructionPermission[]) {
+    return this.claimRoom(this.currentRoom().id, permissions);
+  }
+
+  getRoomClaim(roomId = this.currentRoom().id) {
+    return this.game.getRoomClaim(roomId);
+  }
+
+  beginStructurePlacement(blueprintId: string): boolean {
+    return this.game.beginStructurePlacement(blueprintId);
+  }
+
+  structurePlacement() {
+    return this.game.getStructurePlacement();
+  }
+
+  structurePreview() {
+    return this.game.previewStructurePlacement();
+  }
+
+  face(direction: Vector2Like): void {
+    this.game.faceStructurePlacement(direction);
+  }
+
+  stepPlacement(direction: Vector2Like): void {
+    this.game.stepStructurePlacement(direction);
+  }
+
+  confirmStructurePlacement() {
+    return this.game.confirmStructurePlacement();
+  }
+
+  cancelStructurePlacement(): void {
+    this.game.cancelStructurePlacement();
+  }
+
+  placedStructures(roomId = this.currentRoom().id) {
+    return this.game.placedStructures(roomId);
+  }
+
+  structure(id: string) {
+    return this.game.placedStructure(id);
+  }
+
+  effectiveCell(roomId: string, x: number, y: number) {
+    return this.game.effectiveCell(roomId, x, y);
+  }
+
+  saveAndReload(): HeadlessScenario {
+    return HeadlessScenario.fromSave(this.game.getSaveData());
+  }
+
   enterRoom(roomId: string, position = { x: 5, y: 5 }): void {
     this.game.moveToRoom(roomId, position);
   }
@@ -345,8 +402,14 @@ export class HeadlessScenario {
         `Actor ${actor.id} should keep currentRoomId with Presence.`,
       ).toBe(actor.presence.roomId);
       expect(isInsideRoom(room, actor.presence.position), this.describeActor(actor)).toBe(true);
-      const tile = room.layout[actor.presence.position.y]?.[actor.presence.position.x];
-      expect(isSolidTile(tile), `Actor ${actor.id} is on solid tile "${tile}".`).toBe(false);
+      const cell = this.game.effectiveCell(
+        room.id,
+        actor.presence.position.x,
+        actor.presence.position.y,
+      );
+      expect(cell.solid, `Actor ${actor.id} is on effectively solid tile "${cell.tile}".`).toBe(
+        false,
+      );
       if (!actor.presence.materialized) {
         continue;
       }

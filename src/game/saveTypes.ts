@@ -10,6 +10,7 @@ import type { ArcadeSnakeSaveData } from '../arcade/arcadeSnakeTypes.js';
 import type { AtmosphereState } from '../world/atmosphereTypes.js';
 import type { DrivingCarState } from '../vehicles/car.js';
 import type { LayerInstance } from '../layers/layerTypes.js';
+import type { ConstructionSaveData } from '../building/constructionState.js';
 
 export interface ChoiceWithMods {
   id: string;
@@ -76,6 +77,7 @@ export interface GameSaveData {
   atmosphere?: AtmosphereState;
   activeVehicle?: DrivingCarState;
   layerInstances?: LayerInstance[];
+  construction?: ConstructionSaveData;
 }
 
 /** Compare two semver-style version strings. Returns true if `a < b`. */

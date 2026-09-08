@@ -382,6 +382,14 @@ export const CHEAT_DEFINITIONS: readonly CheatDefinition[] = [
     category: 'structures',
   },
   {
+    name: 'CONSTRUCTION MODE',
+    code: 'construction / buildmode',
+    primaryCode: 'construction',
+    description: 'Toggle player construction placement for a Small House.',
+    aliases: ['construction', 'buildmode'],
+    category: 'structures',
+  },
+  {
     name: 'CLEAR ROOM',
     code: 'clearroom / clear / clearr',
     primaryCode: 'clearroom',

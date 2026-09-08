@@ -32,6 +32,7 @@ export interface SnakeStepDependencies {
   getRoom(roomId: string): RoomSnapshot;
   ensureApple(roomId: string, snake: readonly Vector2Like[], score: number): void;
   prepareRoomForCollision?: (roomId: string) => void;
+  isSolidCell?: (room: RoomSnapshot, x: number, y: number) => boolean;
   getBossManager(): BossManager;
   skipSelfCollision?: boolean;
   onJasonDamage?: (bossId: string, defeated: boolean, scoreBonus: number) => void;
@@ -370,7 +371,7 @@ export class SnakeState {
           return false;
         const tile = currentRoom.layout[localY]?.[localX];
         if (!tile) return true;
-        if (isSolidTile(tile)) return true;
+        if (deps.isSolidCell?.(currentRoom, localX, localY) ?? isSolidTile(tile)) return true;
         // Avoid stepping into own body if possible
         return this.body.some((seg) => seg.x === candidate.x && seg.y === candidate.y);
       };
@@ -470,7 +471,7 @@ export class SnakeState {
     const tile = finalizedRoom.layout[finalLocalHeadY]?.[finalLocalHeadX];
     const invulnTicks = Math.max(protection.invulnerabilityTicks, protection.phaseTicks);
     const wallInvulnerable = canPhaseThroughWalls(this.flags, safeZoneRules?.phaseThroughWalls);
-    if (isSolidTile(tile)) {
+    if (deps.isSolidCell?.(finalizedRoom, finalLocalHeadX, finalLocalHeadY) ?? isSolidTile(tile)) {
       if (wallInvulnerable) {
         // Invulnerability lets us phase through the wall.
       } else if (this.flags['equipment.wallSmiteEnabled']) {

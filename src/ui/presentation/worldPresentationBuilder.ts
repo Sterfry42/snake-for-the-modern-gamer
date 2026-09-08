@@ -3,6 +3,7 @@ import type { AnimalInstance } from '../../animals/types.js';
 import type { GridConfig } from '../../config/gameConfig.js';
 import type { Vector2Like } from '../../core/math.js';
 import type { BombInstance, FootballInstance } from '../../game/snakeGame.js';
+import type { PlacedStructure } from '../../building/constructionState.js';
 import type { ClientRoomSnapshot } from '../../session/GameSnapshot.js';
 import type { Boss } from '../../systems/boss.js';
 import type { BulletInstance, EnemyInstance } from '../../systems/enemies.js';
@@ -68,7 +69,7 @@ export function buildWorldPresentationScene(
       height,
     };
     placements.set(entry.room.id, placement);
-    return buildRenderRoom(room, placement);
+    return buildRenderRoom(room, placement, placedStructuresForRoom(entry.room.structures));
   });
   const currentPlacement =
     placements.get(options.currentRoomId) ??
@@ -96,11 +97,24 @@ export function buildWorldPresentationScene(
   return { rooms, sprites, effects: [], atmosphere: options.atmosphere };
 }
 
-function buildRenderRoom(room: RoomSnapshot, placement: RenderRoomPlacement): RenderRoom {
+function buildRenderRoom(
+  room: RoomSnapshot,
+  placement: RenderRoomPlacement,
+  structures: readonly PlacedStructure[],
+): RenderRoom {
+  const solidStructureCells = new Map<string, string>();
+  for (const structure of structures) {
+    for (const cell of structure.cells) {
+      if (cell.solid) {
+        solidStructureCells.set(`${cell.localX},${cell.localY}`, cell.tile);
+      }
+    }
+  }
   const tiles = room.layout.flatMap((row, y) =>
-    [...row].map((tile, x) =>
-      resolveRenderTile(room, tile, x + placement.offsetX, y + placement.offsetY),
-    ),
+    [...row].map((tile, x) => {
+      const effectiveTile = solidStructureCells.get(`${x},${y}`) ?? tile;
+      return resolveRenderTile(room, effectiveTile, x + placement.offsetX, y + placement.offsetY);
+    }),
   );
   return {
     id: placement.roomId,
@@ -221,6 +235,7 @@ function pushRoomSprites(
     });
   }
   pushRoomItemSprites(sprites, entry, placement, assets);
+  pushPlacedStructureSprites(sprites, entry, placement);
   pushAuthoredNpcs(sprites, entry.room.room, placement, assets);
   for (const npc of entry.runtimeNpcs ?? []) {
     sprites.push({
@@ -236,6 +251,35 @@ function pushRoomSprites(
       roomId: entry.room.id,
     });
   }
+}
+
+function pushPlacedStructureSprites(
+  sprites: RenderSprite[],
+  entry: PresentationRoomInput,
+  placement: RenderRoomPlacement,
+): void {
+  for (const structure of placedStructuresForRoom(entry.room.structures)) {
+    for (const cell of structure.cells) {
+      if (cell.solid) continue;
+      const position = localRenderPoint({ x: cell.localX, y: cell.localY }, placement);
+      sprites.push({
+        id: `structure:${structure.id}:${cell.kind}:${cell.localX},${cell.localY}`,
+        kind: 'prop',
+        x: position.x + 0.5,
+        y: position.y + 0.5,
+        width: cell.kind === 'door' ? 0.9 : 0.72,
+        height: cell.kind === 'door' ? 0.35 : 0.82,
+        anchorY: 1,
+        color: cell.kind === 'light' ? 0xffdf7e : cell.kind === 'door' ? 0x9a5b2e : 0x8f5a67,
+        visual: { defaultTextureKey: '' },
+        roomId: entry.room.id,
+      });
+    }
+  }
+}
+
+function placedStructuresForRoom(value: unknown): readonly PlacedStructure[] {
+  return Array.isArray(value) ? (value as PlacedStructure[]) : [];
 }
 
 function pushBossSprites(
