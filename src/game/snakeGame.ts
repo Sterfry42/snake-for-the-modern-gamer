@@ -164,13 +164,15 @@ import type {
   ShelterMode,
 } from '../world/atmosphereTypes.js';
 import {
-  applyTownRuntimeState as applyTownRuntimeStateToTown,
   createTownRuntimeState,
+  FlagTownRuntimeStore,
+  type TownRuntimeStore,
   type TownRuntimeState,
 } from '../world/townRuntime.js';
 import { CivicService } from '../civic/civicService.js';
 import type {
   MayoralPlatformId,
+  PlayerGuildAffiliationKnowledge,
   TownCivicState,
   TownPolicyModifiers,
 } from '../civic/civicTypes.js';
@@ -6604,11 +6606,7 @@ export class SnakeGame implements QuestRuntime {
 
   private applyTownRuntimeState(town: TownStructure): TownStructure {
     const baseTown = this.ensurePhysicalTrainerInTown(town);
-    const runtime = this.getTownRuntimeState(baseTown);
-    if (!runtime) {
-      return baseTown;
-    }
-    const next = applyTownRuntimeStateToTown(baseTown, runtime);
+    const next = this.createTownRuntimeStore().applyToTown(baseTown);
     next.gates = (next.gates ?? []).map((gate) =>
       this.getFlag<boolean>(this.townGateFlagKey(next.id, gate))
         ? { ...gate, state: 'open' }
@@ -6618,21 +6616,15 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private getTownRuntimeState(town: TownStructure): TownRuntimeState | undefined {
-    return this.getFlag<TownRuntimeState>(`town.runtime.${town.id}`);
+    return this.createTownRuntimeStore().get(town.id);
   }
 
   private getOrCreateTownRuntimeState(town: TownStructure): TownRuntimeState {
     const runtime = this.getTownRuntimeState(town);
     if (runtime) {
-      return {
-        ...createTownRuntimeState(town, this.civic, runtime),
-        ...runtime,
-        civic: runtime.civic ?? this.civic.createInitialState(town),
-      };
+      return runtime;
     }
-    const created = createTownRuntimeState(town, this.civic);
-    this.setFlag(`town.runtime.${town.id}`, created);
-    return created;
+    return this.createTownRuntimeStore().update(town.id, (state) => state);
   }
 
   private getTownCivicState(town: TownStructure): TownCivicState {
@@ -6652,20 +6644,14 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private getActivePlayerCampaignTownIds(): string[] {
-    return Object.entries(this.snake.flags)
-      .filter(
-        ([key, value]) =>
-          key.startsWith('town.runtime.') &&
-          Boolean((value as Partial<TownRuntimeState> | undefined)?.civic?.activeElection),
-      )
-      .map(([, value]) => (value as TownRuntimeState).townId);
+    return this.createTownRuntimeStore()
+      .list()
+      .filter((runtime) => Boolean(runtime.civic.activeElection))
+      .map((runtime) => runtime.townId);
   }
 
   private updateTownCivicState(town: TownStructure, civic: TownCivicState): TownRuntimeState {
-    const current = this.getOrCreateTownRuntimeState(town);
-    const next = { ...current, civic };
-    this.setFlag(`town.runtime.${town.id}`, next);
-    return next;
+    return this.createTownRuntimeStore().update(town.id, (state) => ({ ...state, civic }));
   }
 
   private ensurePhysicalTrainerInTown(town: TownStructure): TownStructure {
@@ -6728,8 +6714,8 @@ export class SnakeGame implements QuestRuntime {
 
   private saveTownRuntimeState(town: TownStructure): void {
     const previous = this.getTownRuntimeState(town);
-    const runtime: TownRuntimeState = createTownRuntimeState(town, this.civic, previous);
-    this.setFlag(`town.runtime.${town.id}`, {
+    this.createTownRuntimeStore().update(town.id, (runtime) => ({
+      ...createTownRuntimeState(town, this.civic, previous),
       ...runtime,
       openedGates: [
         ...new Set([
@@ -6743,7 +6729,25 @@ export class SnakeGame implements QuestRuntime {
         ]),
       ],
       civic: previous?.civic ?? runtime.civic,
-    });
+    }));
+  }
+
+  private createTownRuntimeStore(): TownRuntimeStore {
+    return new FlagTownRuntimeStore(
+      (key) => this.getFlag(key),
+      (key, value) => this.setFlag(key, value),
+      (townId) => this.findBaseTownById(townId),
+      () => Object.entries(this.snake.flags),
+    );
+  }
+
+  private findBaseTownById(townId: string): TownStructure | undefined {
+    for (const room of this.world.snapshot().values()) {
+      if (room.town?.id === townId) {
+        return this.ensurePhysicalTrainerInTown(room.town);
+      }
+    }
+    return undefined;
   }
 
   describeTownRoom(kind: TownRoomKind): string {
@@ -7006,12 +7010,18 @@ export class SnakeGame implements QuestRuntime {
     const room = this.world.getRoom(this.snake.currentRoomId);
     const canPickpocket = Boolean(room.town) && this.canPickpocketForCurrentTownGuild();
     return buildActorInteractionMenu(actor, {
-      thievesGuildUnlocked: Boolean(room.town?.thievesGuild?.discovered),
-      canPickpocket,
-      canUseRelationshipActions: true,
-      recentRumorCount: this.getRecentWorldRumors().length,
-      shopClosedReason: this.getActorShopClosedReason(actor),
-      tavernRest: actor.role === 'bartender' ? this.getCurrentInnServiceView() : undefined,
+      crime: {
+        thievesGuildUnlocked: Boolean(room.town?.thievesGuild?.discovered),
+        canPickpocket,
+      },
+      social: {
+        canUseRelationshipActions: true,
+        recentRumorCount: this.getRecentWorldRumors().length,
+      },
+      services: {
+        shopClosedReason: this.getActorShopClosedReason(actor),
+        tavernRest: actor.role === 'bartender' ? this.getCurrentInnServiceView() : undefined,
+      },
       civic: this.getCivicInteractionContext(actor, room.town),
     });
   }
@@ -7031,6 +7041,7 @@ export class SnakeGame implements QuestRuntime {
       activeCampaignTownIds: this.getActivePlayerCampaignTownIds(),
     });
     const activeElection = civic.activeElection;
+    const isEligibleVoter = this.civic.isEligibleVoter(civic, actor);
     return {
       townId: actorTown.id,
       isCivicOfficial:
@@ -7039,6 +7050,7 @@ export class SnakeGame implements QuestRuntime {
       canDeclare: canDeclare.ok,
       declarationReason: canDeclare.reason,
       activeElection,
+      isEligibleVoter,
       voterState: activeElection?.voterActions[actor.id],
       boughtRoundAvailable: activeElection ? !activeElection.boughtRound : false,
       freeCommunityBeerAvailable:
@@ -7208,6 +7220,9 @@ export class SnakeGame implements QuestRuntime {
     ) {
       return this.refuseCivicAction(actor, 'campaign-shake-hands', 'No handshake is available.');
     }
+    if (!this.civic.isEligibleVoter(civic, actor)) {
+      return this.refuseCivicAction(actor, 'campaign-shake-hands', 'That voter is not eligible.');
+    }
     const nextCivic = this.civic.recordHandshake(civic, actor.id);
     this.updateTownCivicState(town, nextCivic);
     this.emitWorldEvent({
@@ -7239,6 +7254,9 @@ export class SnakeGame implements QuestRuntime {
       civic.activeElection.voterActions[actor.id]?.buttonAttempted
     ) {
       return this.refuseCivicAction(actor, 'campaign-button', 'No button offer is available.');
+    }
+    if (!this.civic.isEligibleVoter(civic, actor)) {
+      return this.refuseCivicAction(actor, 'campaign-button', 'That voter is not eligible.');
     }
     const result = this.civic.recordButtonOutcome(civic, actor);
     this.updateTownCivicState(town, result.civic);
@@ -7279,6 +7297,9 @@ export class SnakeGame implements QuestRuntime {
       civic.activeElection.voterActions[actor.id]?.smearAttempted
     ) {
       return this.refuseCivicAction(actor, 'campaign-smear', 'No smear attempt is available.');
+    }
+    if (!this.civic.isEligibleVoter(civic, actor)) {
+      return this.refuseCivicAction(actor, 'campaign-smear', 'That voter is not eligible.');
     }
     const result = this.civic.recordSmear(civic, actor);
     this.updateTownCivicState(town, result.civic);
@@ -7333,7 +7354,7 @@ export class SnakeGame implements QuestRuntime {
       .getActorsInRoom(this.snake.currentRoomId)
       .filter((entry) => entry.id !== actor.id && entry.townId === town.id)
       .map((entry) => entry.id);
-    const nextCivic = this.civic.recordBoughtRound(civic, presentActorIds);
+    const nextCivic = this.civic.recordBoughtRound(civic);
     this.updateTownCivicState(town, nextCivic);
     this.emitWorldEvent({
       type: 'campaign-event',
@@ -7551,6 +7572,11 @@ export class SnakeGame implements QuestRuntime {
 
   getCurrentTownPolicyModifiers(): TownPolicyModifiers {
     const town = this.getCurrentTown();
+    return this.civic.getPolicyModifiers(town ? this.getTownCivicState(town) : undefined);
+  }
+
+  private getActorTownPolicyModifiers(actor: Actor): TownPolicyModifiers {
+    const town = this.findTownById(actor.townId);
     return this.civic.getPolicyModifiers(town ? this.getTownCivicState(town) : undefined);
   }
 
@@ -8298,6 +8324,8 @@ export class SnakeGame implements QuestRuntime {
     if (!actor) {
       return null;
     }
+    const positiveScalar = this.getActorTownPolicyModifiers(actor).positiveOpinionScalar;
+    const positiveDelta = (value: number) => Math.max(1, Math.ceil(value * positiveScalar));
     this.actors.registry.update(actorId, (current) => ({
       ...current,
       hostility: current.hostility === 'suspicious' ? 'neutral' : current.hostility,
@@ -8305,13 +8333,13 @@ export class SnakeGame implements QuestRuntime {
         ...current.mood,
         anger: Math.max(0, current.mood.anger - 18),
         stress: Math.max(0, current.mood.stress - 8),
-        trust: Math.min(100, current.mood.trust + 6),
+        trust: Math.min(100, current.mood.trust + positiveDelta(6)),
       },
       opinions: {
         ...current.opinions,
         player: {
           targetId: 'player',
-          trust: Math.min(100, (current.opinions.player?.trust ?? 0) + 8),
+          trust: Math.min(100, (current.opinions.player?.trust ?? 0) + positiveDelta(8)),
           fear: Math.max(-100, (current.opinions.player?.fear ?? 0) - 3),
           respect: current.opinions.player?.respect ?? 0,
           affection: current.opinions.player?.affection ?? 0,
@@ -12529,6 +12557,8 @@ export class SnakeGame implements QuestRuntime {
       return;
     }
     room.town = this.applyTownRuntimeState(room.town);
+    this.resolveDueMayoralElectionForTown(room.town, this.getAtmosphereState());
+    room.town = this.applyTownRuntimeState(room.town);
     this.normalizeTownQuestBoardTiles(room);
     this.openTownGateTiles(room);
     if (room.town.discoveredGuild) {
@@ -13030,51 +13060,54 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private resolveDueMayoralElections(after: AtmosphereState): void {
-    for (const [key, value] of Object.entries(this.snake.flags)) {
-      if (!key.startsWith('town.runtime.')) {
-        continue;
-      }
-      const runtime = value as TownRuntimeState | undefined;
+    for (const runtime of this.createTownRuntimeStore().list()) {
       const town = this.findTownById(runtime?.townId);
-      const civic = runtime?.civic;
-      if (!town || !civic || !this.civic.shouldResolve(civic, after.worldDay, after.dayPhase)) {
+      if (!town) {
         continue;
       }
-      this.ensureActorsForTown(town.id);
-      const voters = this.actors.getActorsForTown(town.id).map((actor) => ({
-        actor,
-        knowledge: {
-          knowsPlayerGuildAffiliation:
-            town.discoveredGuild ||
-            actor.factionId === 'thieves-guild' ||
-            actor.memory.some(
-              (memory) => memory.tags.includes('guild') && memory.tags.includes('player'),
-            ),
-        },
-      }));
-      const resolved = this.civic.resolveElection({
-        town,
-        civic,
-        voters,
-        worldDay: after.worldDay,
-      });
-      this.updateTownCivicState(town, resolved.civic);
-      if (resolved.result) {
-        this.emitWorldEvent({
-          type: 'mayoral-election-result',
-          roomId: town.entranceRoomId,
-          severity: 40,
-          loudness: 55,
-          tags: ['town', 'civic', 'campaign', 'election-result', resolved.result.platformId],
-          summary:
-            resolved.result.winner.kind === 'player'
-              ? `The snake won the mayoral election in ${town.name}.`
-              : `The incumbent held City Hall in ${town.name}.`,
-          createdAtRoomNumber: this.getRoomsVisitedCount(),
-          data: { townId: town.id, result: resolved.result },
-        });
-      }
+      this.resolveDueMayoralElectionForTown(town, after);
     }
+  }
+
+  private resolveDueMayoralElectionForTown(
+    town: TownStructure,
+    atmosphere: AtmosphereState,
+  ): TownCivicState {
+    const civic = this.getTownCivicState(town);
+    if (!this.civic.shouldResolve(civic, atmosphere.worldDay, atmosphere.dayPhase)) {
+      return civic;
+    }
+    this.ensureActorsForTown(town.id);
+    const voters = this.actors.getActorsForTown(town.id).map((actor) => ({
+      actor,
+      knowledge: this.getCivicVoterKnowledge(actor, town),
+    }));
+    const resolved = this.civic.resolveElection({
+      town,
+      civic,
+      voters,
+      worldDay: atmosphere.worldDay,
+    });
+    this.updateTownCivicState(town, resolved.civic);
+    if (resolved.result) {
+      const platform = getMayoralPlatform(resolved.result.platformId);
+      const message =
+        resolved.result.winner.kind === 'player'
+          ? `Election result: you won ${town.name} Mayor, ${resolved.result.playerVotes}-${resolved.result.incumbentVotes}. ${platform.label} is now enacted.`
+          : `Election result: the incumbent held ${town.name}, ${resolved.result.incumbentVotes}-${resolved.result.playerVotes}.`;
+      this.emitWorldEvent({
+        type: 'mayoral-election-result',
+        roomId: town.entranceRoomId,
+        severity: 40,
+        loudness: 55,
+        tags: ['town', 'civic', 'campaign', 'election-result', resolved.result.platformId],
+        summary: message,
+        createdAtRoomNumber: this.getRoomsVisitedCount(),
+        data: { townId: town.id, result: resolved.result },
+      });
+      this.setFlag('ui.questInteraction', { message });
+    }
+    return resolved.civic;
   }
 
   private ensureActorsForTown(townId: string): void {
@@ -13083,6 +13116,35 @@ export class SnakeGame implements QuestRuntime {
         this.ensureActorsFromRoomContent(room);
       }
     }
+  }
+
+  private getCivicVoterKnowledge(
+    actor: Actor,
+    town: TownStructure,
+  ): { playerGuildAffiliation: PlayerGuildAffiliationKnowledge } {
+    const hasExplicitMemberMemory = actor.memory.some(
+      (memory) =>
+        memory.tags.includes('guild') &&
+        memory.tags.includes('player') &&
+        (memory.tags.includes('member') || memory.tags.includes('thieves-guild')),
+    );
+    const hasExplicitNotMemberMemory = actor.memory.some(
+      (memory) =>
+        memory.tags.includes('guild') &&
+        memory.tags.includes('player') &&
+        memory.tags.includes('not-member'),
+    );
+    if (
+      hasExplicitMemberMemory ||
+      ((town.discoveredGuild || town.thievesGuild?.discovered) &&
+        (actor.factionId === 'thieves-guild' || isTownCriminalRole(actor.role)))
+    ) {
+      return { playerGuildAffiliation: 'member' };
+    }
+    if (hasExplicitNotMemberMemory) {
+      return { playerGuildAffiliation: 'not-member' };
+    }
+    return { playerGuildAffiliation: 'unknown' };
   }
 
   getAtmosphereState(): AtmosphereState {
@@ -20049,6 +20111,7 @@ export class SnakeGame implements QuestRuntime {
       });
       this.rumors.load(this.getFlag<RumorSaveData>('rumors.save'));
       this.factionEvents.load(this.getFlag<FactionSaveData>('factions.v2.save'));
+      this.resolveDueMayoralElections(this.getAtmosphereState());
       this.migrateWorldEffectCardsToItems();
 
       this.questController.restoreQuestIds(

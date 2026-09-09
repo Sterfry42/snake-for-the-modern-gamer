@@ -4,7 +4,12 @@ import type { Actor } from '../../actors/actorTypes.js';
 import { createPhysicalHumanTown, type TownStructure } from '../../world/town.js';
 import { CivicService } from '../civicService.js';
 import { resolveTownElection } from '../electionResolver.js';
-import type { CivicTownContext, TownCivicState, TownElectionState } from '../civicTypes.js';
+import type {
+  CivicTownContext,
+  CivicVoterKnowledge,
+  TownCivicState,
+  TownElectionState,
+} from '../civicTypes.js';
 
 describe('mayoral elections', () => {
   it('declares a campaign that resolves two world days later', () => {
@@ -28,6 +33,7 @@ describe('mayoral elections', () => {
     expect(civic.shouldResolve(next, 8, 'dawn')).toBe(false);
     expect(civic.shouldResolve(next, 9, 'day')).toBe(false);
     expect(civic.shouldResolve(next, 9, 'dawn')).toBe(true);
+    expect(civic.shouldResolve(next, 10, 'day')).toBe(true);
   });
 
   it('counts one deterministic ballot per eligible living town actor', () => {
@@ -58,15 +64,15 @@ describe('mayoral elections', () => {
       election,
       town,
       voters: [
-        voter(guard, { knowsPlayerGuildAffiliation: false }),
-        voter(thief, { knowsPlayerGuildAffiliation: true }),
+        voter(guard, { playerGuildAffiliation: 'unknown' }),
+        voter(thief, { playerGuildAffiliation: 'member' }),
       ],
       worldDay: 4,
     });
     const publicResult = resolveTownElection({
       election,
       town,
-      voters: [voter(guard, { knowsPlayerGuildAffiliation: true })],
+      voters: [voter(guard, { playerGuildAffiliation: 'member' })],
       worldDay: 4,
     });
 
@@ -81,6 +87,13 @@ describe('mayoral elections', () => {
   it('makes accepted campaign buttons the only badge source', () => {
     const civic = new CivicService();
     const supporter = actor('supporter', 'resident');
+    const hostileSupporter = actor('hostile-supporter', 'resident');
+    hostileSupporter.playerHostility = {
+      state: 'hostile',
+      reason: 'test',
+      startedAtRoomNumber: 1,
+    };
+    const deadSupporter = actor('dead-supporter', 'resident', { dead: true });
     const state: TownCivicState = {
       mayor: { kind: 'actor', actorId: 'incumbent' },
       activeElection: fixtureElection(),
@@ -95,6 +108,66 @@ describe('mayoral elections', () => {
 
     expect(civic.getActorBadges(accepted, supporter)).toEqual(['campaign-button']);
     expect(civic.getActorBadges(refused, actor('refused', 'resident'))).toEqual([]);
+    expect(civic.getActorBadges(accepted, hostileSupporter)).toEqual([]);
+    expect(
+      civic.getActorBadges(
+        civic.recordButtonOutcome(state, deadSupporter, 'wearing').civic,
+        deadSupporter,
+      ),
+    ).toEqual([]);
+  });
+
+  it('records exactly three campaign button outcomes', () => {
+    const civic = new CivicService();
+    const state: TownCivicState = {
+      mayor: { kind: 'actor', actorId: 'incumbent' },
+      activeElection: fixtureElection(),
+      electionHistory: [],
+    };
+
+    const outcomes = [
+      civic.recordButtonOutcome(state, actor('hard', 'resident'), 'hard-refusal').outcome,
+      civic.recordButtonOutcome(state, actor('polite', 'resident'), 'polite-refusal').outcome,
+      civic.recordButtonOutcome(state, actor('wearing', 'resident'), 'wearing').outcome,
+    ];
+
+    expect(new Set(outcomes)).toEqual(new Set(['hard-refusal', 'polite-refusal', 'wearing']));
+  });
+
+  it('keeps bought rounds separate from handshakes', () => {
+    const civic = new CivicService();
+    const state: TownCivicState = {
+      mayor: { kind: 'actor', actorId: 'incumbent' },
+      activeElection: fixtureElection(),
+      electionHistory: [],
+    };
+
+    const next = civic.recordBoughtRound(state);
+
+    expect(next.activeElection?.boughtRound).toBe(true);
+    expect(next.activeElection?.voterActions.bartender?.shookHands).not.toBe(true);
+  });
+
+  it('guarantees active campaign button endorsements in the ballot', () => {
+    const election = fixtureElection();
+    const hostileSupporter = actor('hostile-supporter', 'resident');
+    hostileSupporter.playerHostility = {
+      state: 'hostile',
+      reason: 'test',
+      startedAtRoomNumber: 1,
+    };
+    const result = resolveTownElection({
+      election,
+      town: { ...fixtureTownContext(), reputation: -80, wantedLevel: 5 },
+      voters: [voter(actor('a', 'resident')), voter(hostileSupporter)],
+      worldDay: 4,
+    });
+
+    expect(result.ballots.find((ballot) => ballot.actorId === 'a')).toMatchObject({
+      vote: 'player',
+      playerScore: 999,
+    });
+    expect(result.ballots.map((ballot) => ballot.actorId)).not.toContain('hostile-supporter');
   });
 
   it('allows Community & Celebration mayors one local beer per world day', () => {
@@ -115,6 +188,91 @@ describe('mayoral elections', () => {
       civic.canRedeemCommunityBeer({ ...state, enactedPlatformId: 'business-first' }, 12),
     ).toBe(false);
   });
+
+  it('prevents a dead incumbent from winning', () => {
+    const civic = new CivicService();
+    const town = fixtureTown();
+    const incumbent = actor('incumbent', 'civicOfficial', { dead: true });
+    const supporter = actor('supporter', 'resident');
+    const state: TownCivicState = {
+      mayor: { kind: 'actor', actorId: incumbent.id },
+      activeElection: {
+        ...fixtureElection(),
+        incumbentActorId: incumbent.id,
+        voterActions: {},
+      },
+      electionHistory: [],
+    };
+
+    const resolved = civic.resolveElection({
+      town,
+      civic: state,
+      voters: [voter(incumbent), voter(supporter)],
+      worldDay: 4,
+    });
+
+    expect(resolved.result?.winner).toEqual({ kind: 'player', playerId: 'player' });
+    expect(resolved.civic.mayor).toEqual({ kind: 'player', playerId: 'player' });
+  });
+
+  it.each(['law-and-order', 'business-first', 'people-first', 'community-celebration'] as const)(
+    'enacts the winning platform %s as the town-local policy',
+    (platformId) => {
+      const civic = new CivicService();
+      const town = fixtureTown();
+      const supporter = actor('supporter', 'resident');
+      const state: TownCivicState = {
+        mayor: { kind: 'actor', actorId: 'incumbent' },
+        activeElection: {
+          ...fixtureElection(),
+          platformId,
+          voterActions: {
+            supporter: {
+              shookHands: false,
+              buttonAttempted: true,
+              buttonOutcome: 'wearing',
+              smearAttempted: false,
+            },
+          },
+        },
+        electionHistory: [],
+      };
+
+      const resolved = civic.resolveElection({
+        town,
+        civic: state,
+        voters: [voter(supporter), voter(actor('incumbent', 'civicOfficial'))],
+        worldDay: 4,
+      });
+
+      expect(resolved.result?.winner.kind).toBe('player');
+      expect(resolved.civic.enactedPlatformId).toBe(platformId);
+      expect(civic.getPolicyModifiers(resolved.civic)).toEqual(
+        {
+          'law-and-order': {
+            shopPriceScalar: 1,
+            positiveOpinionScalar: 1,
+            guardPresenceBonus: 1,
+          },
+          'business-first': {
+            shopPriceScalar: 0.88,
+            positiveOpinionScalar: 1,
+            guardPresenceBonus: 0,
+          },
+          'people-first': {
+            shopPriceScalar: 1,
+            positiveOpinionScalar: 1.2,
+            guardPresenceBonus: 0,
+          },
+          'community-celebration': {
+            shopPriceScalar: 1,
+            positiveOpinionScalar: 1.05,
+            guardPresenceBonus: 0,
+          },
+        }[platformId],
+      );
+    },
+  );
 });
 
 function fixtureElection(): TownElectionState {
@@ -166,7 +324,10 @@ function fixtureTown(): TownStructure {
   });
 }
 
-function voter(entry: Actor, knowledge = { knowsPlayerGuildAffiliation: false }) {
+function voter(
+  entry: Actor,
+  knowledge: CivicVoterKnowledge = { playerGuildAffiliation: 'unknown' },
+) {
   return { actor: entry, knowledge };
 }
 

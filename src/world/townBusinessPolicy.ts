@@ -1,5 +1,6 @@
 import type { ActorScheduleRoutine } from '../actors/actorTypes.js';
 import type { DayPhase } from './atmosphereTypes.js';
+import { townInteriorDefinitionForTemplate } from './townInteriorDefinitions.js';
 import { isTownShopRole } from './townRoles.js';
 
 export type TownBusinessPolicyId =
@@ -72,6 +73,15 @@ const ALWAYS_OPEN_SERVICE_POLICY: TownBusinessPolicy = {
   recoveryDeadlineMs: {},
 };
 
+const TOWN_BUSINESS_POLICIES: ReadonlyMap<TownBusinessPolicyId, TownBusinessPolicy> = new Map(
+  [
+    ORDINARY_SHOP_POLICY,
+    TAVERN_SERVICE_POLICY,
+    CIVIC_OFFICE_POLICY,
+    ALWAYS_OPEN_SERVICE_POLICY,
+  ].map((policy) => [policy.id, policy]),
+);
+
 const ORDINARY_SHOP_ROLES = new Set<string>([
   'shopkeeper',
   'equipmentMerchant',
@@ -113,22 +123,8 @@ export function townBusinessPolicyForTemplate(
   if (ownerPolicy) {
     return ownerPolicy;
   }
-  if (templateId === 'tavern') {
-    return TAVERN_SERVICE_POLICY;
-  }
-  if (templateId === 'townHall') {
-    return CIVIC_OFFICE_POLICY;
-  }
-  if (
-    templateId === 'generalStore' ||
-    templateId === 'butcherShop' ||
-    templateId === 'potionMaker' ||
-    templateId === 'mapper' ||
-    templateId === 'wizardShop'
-  ) {
-    return ORDINARY_SHOP_POLICY;
-  }
-  return undefined;
+  const policyId = townInteriorDefinitionForTemplate(templateId)?.servicePolicyId;
+  return policyId ? TOWN_BUSINESS_POLICIES.get(policyId) : undefined;
 }
 
 export function isTownBusinessOpenForPhase(

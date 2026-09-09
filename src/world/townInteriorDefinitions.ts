@@ -82,7 +82,7 @@ export const TOWN_INTERIORS = {
 } as const satisfies Record<string, TownInteriorDefinition>;
 
 export function townInteriorDefinitionForTemplate(
-  templateId: LayerTemplateId,
+  templateId?: string,
 ): TownInteriorDefinition | undefined {
   return Object.values(TOWN_INTERIORS).find((definition) => definition.templateId === templateId);
 }

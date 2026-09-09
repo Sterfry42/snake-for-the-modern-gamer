@@ -25,10 +25,12 @@ describe('Town civic stories', () => {
     await scenario.advanceActorTicks(3);
     const official = currentRoomActorWithRole(scenario, 'civicOfficial');
 
-    const declareOption = scenario.game
-      .getActorInteractionMenu(official.id)
-      ?.options.find((option) => option.id === 'run-for-mayor:community-celebration');
+    const declarationOptions = scenario.game.getActorInteractionMenu(official.id)?.options ?? [];
+    const declareOption = declarationOptions.find((option) => option.id === 'run-for-mayor');
     expect(declareOption).toMatchObject({ enabled: true });
+    expect(declarationOptions.filter((option) => option.id.startsWith('run-for-mayor:'))).toEqual(
+      [],
+    );
 
     const declared = await scenario.game.chooseActorInteraction(
       official.id,
@@ -42,6 +44,18 @@ describe('Town civic stories', () => {
     moveSnakeIntoDoor(scenario, tavernRoom, tavernDoor);
     await scenario.advanceActorTicks(3);
     const bartender = currentRoomActorWithRole(scenario, 'bartender');
+    const bartenderOptions = scenario.game
+      .getActorInteractionMenu(bartender.id)
+      ?.options.map((option) => option.id);
+
+    expect(bartenderOptions).toEqual(
+      expect.arrayContaining([
+        'campaign-shake-hands',
+        'campaign-button',
+        'campaign-smear',
+        'campaign-buy-round',
+      ]),
+    );
 
     scenario.game.setScore(139);
     expect(
@@ -61,6 +75,37 @@ describe('Town civic stories', () => {
       actorId: bartender.id,
     });
     expect(scenario.game.getScore()).toBe(0);
+    expect(
+      round.ok && round.action === 'campaign-buy-round' && round.civic.activeElection?.boughtRound,
+    ).toBe(true);
+    expect(
+      round.ok &&
+        round.action === 'campaign-buy-round' &&
+        round.civic.activeElection?.voterActions[bartender.id]?.shookHands,
+    ).not.toBe(true);
+
+    const handshake = await scenario.game.chooseActorInteraction(
+      bartender.id,
+      'campaign-shake-hands',
+    );
+    expect(handshake).toMatchObject({
+      ok: true,
+      action: 'campaign-shake-hands',
+      actorId: bartender.id,
+    });
+    expect(
+      handshake.ok &&
+        handshake.action === 'campaign-shake-hands' &&
+        handshake.civic.activeElection?.voterActions[bartender.id],
+    ).toMatchObject({
+      shookHands: true,
+    });
+    expect(
+      scenario.game
+        .getActorInteractionMenu(official.id)
+        ?.options.map((option) => option.id)
+        .some((id) => id.startsWith('campaign-')),
+    ).toBe(false);
     scenario.assertWorldIntegrity();
   });
 
@@ -85,6 +130,90 @@ describe('Town civic stories', () => {
     const baseline = 1 + (stableStringHashPositive(`${town.id}:patrol:size`) % 4);
 
     expect(patrol?.members).toHaveLength(baseline + 1);
+    scenario.assertWorldIntegrity();
+  });
+
+  it('TOWN-CIVIC-003 - overdue election resolves on save/load with an obvious result', async () => {
+    const scenario = createHeadlessScenario({ seed: 'town-civic-003-overdue-load' });
+    const { room: townHallRoom, entrance: townHallDoor } = findGeneratedTownDoor(scenario, {
+      templateId: 'townHall',
+    });
+
+    scenario.setDayPhase('day');
+    moveSnakeIntoDoor(scenario, townHallRoom, townHallDoor);
+    await scenario.advanceActorTicks(3);
+    const official = currentRoomActorWithRole(scenario, 'civicOfficial');
+    const declared = await scenario.game.chooseActorInteraction(
+      official.id,
+      'run-for-mayor:law-and-order',
+    );
+    expect(declared).toMatchObject({ ok: true });
+    if (!declared.ok) {
+      throw new Error('Expected mayoral declaration to succeed.');
+    }
+
+    const loaded = scenario.game.loadFromSaveData({
+      ...scenario.game.getSaveData(),
+      atmosphere: {
+        ...scenario.game.getAtmosphereState(),
+        worldDay:
+          declared.ok && declared.action === 'run-for-mayor:law-and-order'
+            ? declared.civic.activeElection!.resolveAtWorldDay + 1
+            : 3,
+        dayPhase: 'day',
+      },
+    });
+
+    expect(loaded).toBe(true);
+    const runtime = scenario.game.getFlag<TownRuntimeSnapshot>(
+      `town.runtime.${
+        declared.ok && declared.action === 'run-for-mayor:law-and-order'
+          ? declared.civic.activeElection!.townId
+          : ''
+      }`,
+    );
+    expect(runtime?.civic.activeElection).toBeUndefined();
+    expect(runtime?.civic.electionHistory).toHaveLength(1);
+    expect(scenario.game.getFlag<{ message?: string }>('ui.questInteraction')?.message).toContain(
+      'Election result:',
+    );
+    scenario.assertWorldIntegrity();
+  });
+
+  it('TOWN-CIVIC-004 - overdue unloaded town resolves when the town becomes available', () => {
+    const scenario = createHeadlessScenario({ seed: 'town-civic-004-overdue-return' });
+    const { room } = findGeneratedTownDoor(scenario, { templateId: 'townHall' });
+    const town = requireTown(room);
+    const civic = new CivicService();
+    const runtime = createTownRuntimeState(town, civic);
+
+    scenario.game.setFlag(`town.runtime.${town.id}`, {
+      ...runtime,
+      civic: {
+        ...runtime.civic,
+        activeElection: {
+          id: `election:${town.id}:player:overdue`,
+          townId: town.id,
+          incumbentActorId:
+            runtime.civic.mayor.kind === 'actor' ? runtime.civic.mayor.actorId : undefined,
+          candidatePlayerId: 'player',
+          platformId: 'business-first',
+          declaredAtWorldDay: 0,
+          resolveAtWorldDay: -1,
+          boughtRound: false,
+          voterActions: {},
+        },
+      },
+    });
+
+    scenario.enterRoom(room.id, town.center);
+
+    const resolved = scenario.game.getFlag<TownRuntimeSnapshot>(`town.runtime.${town.id}`);
+    expect(resolved?.civic.activeElection).toBeUndefined();
+    expect(resolved?.civic.electionHistory).toHaveLength(1);
+    expect(scenario.game.getFlag<{ message?: string }>('ui.questInteraction')?.message).toContain(
+      'Election result:',
+    );
     scenario.assertWorldIntegrity();
   });
 });
@@ -113,4 +242,11 @@ function requireTown(room: RoomSnapshot): TownStructure {
     throw new Error(`Expected room ${room.id} to belong to a town.`);
   }
   return room.town;
+}
+
+interface TownRuntimeSnapshot {
+  civic: {
+    activeElection?: unknown;
+    electionHistory: unknown[];
+  };
 }

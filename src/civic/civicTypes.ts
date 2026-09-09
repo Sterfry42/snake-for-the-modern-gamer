@@ -66,10 +66,8 @@ export interface TownCivicState {
 
 export interface TownPolicyModifiers {
   shopPriceScalar: number;
-  positiveReputationScalar: number;
   positiveOpinionScalar: number;
   guardPresenceBonus: number;
-  crimePressureScalar: number;
 }
 
 export interface CivicTownContext {
@@ -82,8 +80,10 @@ export interface CivicTownContext {
   tags: readonly string[];
 }
 
+export type PlayerGuildAffiliationKnowledge = 'member' | 'not-member' | 'unknown';
+
 export interface CivicVoterKnowledge {
-  knowsPlayerGuildAffiliation: boolean;
+  playerGuildAffiliation: PlayerGuildAffiliationKnowledge;
 }
 
 export interface CivicVoterContext {
@@ -97,6 +97,7 @@ export interface CivicInteractionContext {
   canDeclare?: boolean;
   declarationReason?: string;
   activeElection?: TownElectionState;
+  isEligibleVoter?: boolean;
   voterState?: VoterCampaignState;
   boughtRoundAvailable?: boolean;
   freeCommunityBeerAvailable?: boolean;

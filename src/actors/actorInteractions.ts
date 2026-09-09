@@ -2,7 +2,6 @@ import type { Actor } from './actorTypes.js';
 import { getActorIndicators, type ActorIndicator } from './actorIndicators.js';
 import { i18n } from '../i18n/i18nManager.js';
 import { isTownShopRole } from '../world/townRoles.js';
-import { MAYORAL_PLATFORMS } from '../civic/mayoralPlatforms.js';
 import type { CivicInteractionContext, MayoralPlatformId } from '../civic/civicTypes.js';
 
 export type ActorInteractionId =
@@ -18,6 +17,7 @@ export type ActorInteractionId =
   | 'give-gift'
   | 'apologize'
   | 'pickpocket'
+  | 'run-for-mayor'
   | `run-for-mayor:${MayoralPlatformId}`
   | 'campaign-shake-hands'
   | 'campaign-button'
@@ -55,16 +55,6 @@ export interface ActorInteractionContext {
   crime?: ActorCrimeInteractionContext;
   combat?: ActorCombatInteractionContext;
   civic?: CivicInteractionContext;
-  thievesGuildUnlocked?: boolean;
-  canPickpocket?: boolean;
-  canUseRelationshipActions?: boolean;
-  recentRumorCount?: number;
-  shopClosedReason?: string;
-  tavernRest?: {
-    available: boolean;
-    cost: number;
-    reason?: string;
-  };
 }
 
 export interface ActorBaseInteractionContext {
@@ -329,17 +319,19 @@ function buildCivicInteractionOptions(
   const options: ActorInteractionOption[] = [];
   const hostile = actor.hostility === 'hostile' || actor.hostility === 'surrendering';
   if (context.isCivicOfficial) {
-    for (const platform of MAYORAL_PLATFORMS) {
-      options.push({
-        id: `run-for-mayor:${platform.id}`,
-        label: `Run for Mayor: ${platform.label}`,
-        enabled: !hostile && context.canDeclare === true,
-        reason: hostile ? tActor('tooHostile') : context.declarationReason,
-        priority: 88,
-      });
-    }
+    options.push({
+      id: 'run-for-mayor',
+      label: 'Run for Mayor',
+      enabled: !hostile && context.canDeclare === true,
+      reason: hostile ? tActor('tooHostile') : context.declarationReason,
+      priority: 88,
+    });
   }
-  if (context.activeElection && actor.townId === context.activeElection.townId) {
+  if (
+    context.activeElection &&
+    actor.townId === context.activeElection.townId &&
+    context.isEligibleVoter === true
+  ) {
     const state = context.voterState;
     options.push({
       id: 'campaign-shake-hands',
@@ -389,22 +381,9 @@ function normalizeInteractionContext(
 ): NormalizedActorInteractionContext {
   return {
     base: context.base ?? {},
-    services: {
-      ...(context.services ?? {}),
-      shopClosedReason: context.services?.shopClosedReason ?? context.shopClosedReason,
-      tavernRest: context.services?.tavernRest ?? context.tavernRest,
-    },
-    social: {
-      ...(context.social ?? {}),
-      canUseRelationshipActions:
-        context.social?.canUseRelationshipActions ?? context.canUseRelationshipActions,
-      recentRumorCount: context.social?.recentRumorCount ?? context.recentRumorCount,
-    },
-    crime: {
-      ...(context.crime ?? {}),
-      thievesGuildUnlocked: context.crime?.thievesGuildUnlocked ?? context.thievesGuildUnlocked,
-      canPickpocket: context.crime?.canPickpocket ?? context.canPickpocket,
-    },
+    services: context.services ?? {},
+    social: context.social ?? {},
+    crime: context.crime ?? {},
     combat: context.combat ?? {},
     civic: context.civic ?? {},
   };

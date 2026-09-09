@@ -21,6 +21,7 @@ export interface TownRuntimeState {
 
 export interface TownRuntimeStore {
   get(townId: string): TownRuntimeState | undefined;
+  list(): TownRuntimeState[];
   update(townId: string, update: (state: TownRuntimeState) => TownRuntimeState): TownRuntimeState;
   applyToTown(base: TownStructure): TownStructure;
 }
@@ -32,10 +33,24 @@ export class FlagTownRuntimeStore implements TownRuntimeStore {
     private readonly read: (key: string) => unknown,
     private readonly write: (key: string, value: TownRuntimeState) => void,
     private readonly baseTown: (townId: string) => TownStructure | undefined,
+    private readonly entries: () => Iterable<readonly [string, unknown]> = () => [],
   ) {}
 
   get(townId: string): TownRuntimeState | undefined {
     return normalizeTownRuntimeState(this.read(this.key(townId)), this.baseTown(townId));
+  }
+
+  list(): TownRuntimeState[] {
+    return Array.from(this.entries())
+      .filter(([key]) => this.isRuntimeStateKey(key))
+      .map(([, value]) => {
+        const townId =
+          typeof value === 'object' && value
+            ? (value as Partial<TownRuntimeState>).townId
+            : undefined;
+        return townId ? normalizeTownRuntimeState(value, this.baseTown(townId)) : undefined;
+      })
+      .filter((value): value is TownRuntimeState => Boolean(value));
   }
 
   update(townId: string, update: (state: TownRuntimeState) => TownRuntimeState): TownRuntimeState {
@@ -56,6 +71,14 @@ export class FlagTownRuntimeStore implements TownRuntimeStore {
 
   private key(townId: string): string {
     return `town.runtime.${townId}`;
+  }
+
+  private isRuntimeStateKey(key: string): boolean {
+    return (
+      key.startsWith('town.runtime.') &&
+      !key.startsWith('town.runtime.patrol.') &&
+      !key.startsWith('town.runtime.raid.')
+    );
   }
 }
 

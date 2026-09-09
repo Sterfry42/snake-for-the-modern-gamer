@@ -111,17 +111,13 @@ export class CivicService {
     };
   }
 
-  recordBoughtRound(civic: TownCivicState, actorIds: readonly string[]): TownCivicState {
-    let next: TownCivicState = {
+  recordBoughtRound(civic: TownCivicState): TownCivicState {
+    return {
       ...civic,
       activeElection: civic.activeElection
         ? { ...civic.activeElection, boughtRound: true }
         : civic.activeElection,
     };
-    for (const actorId of actorIds) {
-      next = this.updateVoter(next, actorId, (state) => ({ ...state, shookHands: true }));
-    }
-    return next;
   }
 
   canRedeemCommunityBeer(civic: TownCivicState | undefined, worldDay: number): boolean {
@@ -147,8 +143,7 @@ export class CivicService {
     const state = civic.activeElection.voterActions[actor.id];
     if (
       state?.buttonOutcome === 'wearing' &&
-      actor.health?.state !== 'dead' &&
-      actor.hostility !== 'dead' &&
+      this.isEligibleVoter(civic, actor) &&
       actor.playerHostility?.state !== 'hostile'
     ) {
       return ['campaign-button'];
@@ -156,7 +151,25 @@ export class CivicService {
     return [];
   }
 
+  isEligibleVoter(civic: TownCivicState | undefined, actor: Actor): boolean {
+    const election = civic?.activeElection;
+    return Boolean(
+      election &&
+      actor.townId === election.townId &&
+      actor.id !== election.incumbentActorId &&
+      actor.species === 'human' &&
+      actor.health?.state !== 'dead' &&
+      actor.hostility !== 'dead' &&
+      actor.flags.dead !== true &&
+      actor.flags.eaten !== true &&
+      actor.playerHostility?.state !== 'hostile',
+    );
+  }
+
   shouldResolve(civic: TownCivicState, worldDay: number, dayPhase: string): boolean {
+    if (civic.activeElection && worldDay > civic.activeElection.resolveAtWorldDay) {
+      return true;
+    }
     return Boolean(
       civic.activeElection &&
       worldDay >= civic.activeElection.resolveAtWorldDay &&
@@ -172,21 +185,38 @@ export class CivicService {
   }): { civic: TownCivicState; result?: TownElectionResult } {
     const election = args.civic.activeElection;
     if (!election) return { civic: args.civic };
+    const incumbent = election.incumbentActorId
+      ? args.voters.find((voter) => voter.actor.id === election.incumbentActorId)?.actor
+      : undefined;
+    const incumbentCanWin = Boolean(
+      incumbent &&
+      incumbent.health?.state !== 'dead' &&
+      incumbent.hostility !== 'dead' &&
+      incumbent.flags.dead !== true &&
+      incumbent.flags.eaten !== true,
+    );
     const result = resolveTownElection({
       election,
       town: townContext(args.town),
       voters: args.voters,
       worldDay: args.worldDay,
     });
-    const playerWon = result.winner.kind === 'player';
+    const effectiveResult =
+      result.winner.kind === 'actor' && !incumbentCanWin
+        ? {
+            ...result,
+            winner: { kind: 'player' as const, playerId: election.candidatePlayerId },
+          }
+        : result;
+    const playerWon = effectiveResult.winner.kind === 'player';
     return {
-      result,
+      result: effectiveResult,
       civic: {
         ...args.civic,
-        mayor: result.winner,
+        mayor: effectiveResult.winner,
         activeElection: undefined,
-        electionHistory: [...args.civic.electionHistory, result],
-        enactedPlatformId: playerWon ? result.platformId : args.civic.enactedPlatformId,
+        electionHistory: [...args.civic.electionHistory, effectiveResult],
+        enactedPlatformId: playerWon ? effectiveResult.platformId : args.civic.enactedPlatformId,
       },
     };
   }

@@ -21,10 +21,8 @@ export const MAYORAL_PLATFORMS: readonly MayoralPlatformDefinition[] = [
     description: 'More guards, less crime pressure, and a reputation for clean streets.',
     modifiers: {
       shopPriceScalar: 1,
-      positiveReputationScalar: 1,
       positiveOpinionScalar: 1,
       guardPresenceBonus: 1,
-      crimePressureScalar: 0.8,
     },
   },
   {
@@ -33,10 +31,8 @@ export const MAYORAL_PLATFORMS: readonly MayoralPlatformDefinition[] = [
     description: 'Local merchants give the Mayor a practical discount.',
     modifiers: {
       shopPriceScalar: 0.88,
-      positiveReputationScalar: 1,
       positiveOpinionScalar: 1,
       guardPresenceBonus: 0,
-      crimePressureScalar: 1,
     },
   },
   {
@@ -45,10 +41,8 @@ export const MAYORAL_PLATFORMS: readonly MayoralPlatformDefinition[] = [
     description: 'Good deeds and friendly moments travel farther in town.',
     modifiers: {
       shopPriceScalar: 1,
-      positiveReputationScalar: 1.25,
       positiveOpinionScalar: 1.2,
       guardPresenceBonus: 0,
-      crimePressureScalar: 1,
     },
   },
   {
@@ -57,20 +51,16 @@ export const MAYORAL_PLATFORMS: readonly MayoralPlatformDefinition[] = [
     description: 'The Mayor gets one local tavern drink on the house each day.',
     modifiers: {
       shopPriceScalar: 1,
-      positiveReputationScalar: 1,
       positiveOpinionScalar: 1.05,
       guardPresenceBonus: 0,
-      crimePressureScalar: 1,
     },
   },
 ] as const;
 
 export const DEFAULT_TOWN_POLICY_MODIFIERS: TownPolicyModifiers = {
   shopPriceScalar: 1,
-  positiveReputationScalar: 1,
   positiveOpinionScalar: 1,
   guardPresenceBonus: 0,
-  crimePressureScalar: 1,
 };
 
 export function getMayoralPlatform(platformId: MayoralPlatformId): MayoralPlatformDefinition {
@@ -89,8 +79,11 @@ export function platformAffinityScore(
       if (town.wantedLevel <= 0) score += 8;
       if (town.danger >= 50) score += 7;
       if (isTownCriminalRole(actor.role)) score -= 14;
-      if (knowledge.knowsPlayerGuildAffiliation) {
+      if (knowledge.playerGuildAffiliation === 'member') {
         score += isTownCriminalRole(actor.role) ? 24 : -24;
+      }
+      if (knowledge.playerGuildAffiliation === 'not-member' && isTownGuardRole(actor.role)) {
+        score += 6;
       }
       return score;
     }

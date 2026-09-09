@@ -233,8 +233,8 @@ describe('ActorSystem', () => {
     }));
 
     const menu = buildActorInteractionMenu(actors.getActor(shopkeeper.id) ?? shopkeeper, {
-      thievesGuildUnlocked: false,
-      recentRumorCount: 1,
+      crime: { thievesGuildUnlocked: false },
+      social: { recentRumorCount: 1 },
     });
     expect(menu.options.map((option) => option.id)).toContain('shop');
     expect(menu.options.map((option) => option.id)).toContain('ask-personal');
@@ -243,8 +243,7 @@ describe('ActorSystem', () => {
     expect(menu.indicators.map((indicator) => indicator.kind)).not.toContain('shop');
 
     const initiationMenu = buildActorInteractionMenu(actors.getActor(shopkeeper.id) ?? shopkeeper, {
-      thievesGuildUnlocked: false,
-      canPickpocket: true,
+      crime: { thievesGuildUnlocked: false, canPickpocket: true },
     });
     expect(initiationMenu.options.find((option) => option.id === 'pickpocket')?.enabled).toBe(true);
 
@@ -268,6 +267,74 @@ describe('ActorSystem', () => {
       enabled: false,
       reason: 'Closed: let them sleep',
     });
+  });
+
+  it('keeps mayor declaration and campaign verbs gated by civic context', () => {
+    const actors = new ActorSystem();
+    const mayor = actors.registry.ensureTownResidentActor({
+      residentId: 'mayor',
+      name: 'Mayor Cobb',
+      role: 'civicOfficial',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: '0,0,0',
+    });
+    const voter = actors.registry.ensureTownResidentActor({
+      residentId: 'nina',
+      name: 'Nina',
+      role: 'resident',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: '0,0,0',
+    });
+    const activeElection = {
+      id: 'election:eastmere:player:3',
+      townId: 'eastmere',
+      incumbentActorId: mayor.id,
+      candidatePlayerId: 'player',
+      platformId: 'people-first' as const,
+      declaredAtWorldDay: 3,
+      resolveAtWorldDay: 5,
+      boughtRound: false,
+      voterActions: {},
+    };
+
+    const declarationMenu = buildActorInteractionMenu(mayor, {
+      civic: {
+        isCivicOfficial: true,
+        canDeclare: true,
+      },
+    });
+    const declarationIds = declarationMenu.options.map((option) => option.id);
+
+    expect(declarationIds).toContain('run-for-mayor');
+    expect(declarationIds.filter((id) => id.startsWith('run-for-mayor:'))).toHaveLength(0);
+
+    const mayorCampaignMenu = buildActorInteractionMenu(mayor, {
+      civic: {
+        activeElection,
+        isEligibleVoter: false,
+      },
+    });
+    expect(mayorCampaignMenu.options.map((option) => option.id)).not.toContain(
+      'campaign-shake-hands',
+    );
+
+    const voterCampaignMenu = buildActorInteractionMenu(voter, {
+      civic: {
+        activeElection,
+        isEligibleVoter: true,
+        voterState: {
+          shookHands: false,
+          buttonAttempted: false,
+          smearAttempted: false,
+        },
+      },
+    });
+
+    expect(voterCampaignMenu.options.map((option) => option.id)).toEqual(
+      expect.arrayContaining(['campaign-shake-hands', 'campaign-button', 'campaign-smear']),
+    );
   });
 
   it('enriches resident actors with relationship state without replacing their role', () => {

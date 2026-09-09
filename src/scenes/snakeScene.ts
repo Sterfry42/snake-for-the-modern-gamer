@@ -138,6 +138,9 @@ import {
 import type { Quest } from '../../quests.js';
 import type { AppleSnapshot } from '../apples/types.js';
 import { stableStringHashPositive, type Vector2Like } from '../core/math.js';
+import { MAYORAL_PLATFORMS } from '../civic/mayoralPlatforms.js';
+import type { MayoralPlatformId } from '../civic/civicTypes.js';
+import { isSnakeSceneSupportedActorInteraction } from './snakeSceneActorInteractionSupport.js';
 import {
   CAR_COLLISION_DAMAGE_HEARTS,
   CAR_HEIGHT_TILES,
@@ -20361,6 +20364,24 @@ export default class SnakeScene extends Phaser.Scene {
           });
           return;
         }
+        if (id === 'run-for-mayor') {
+          this.showMayoralPlatformChoice(profile, conversationPortraitId);
+          return;
+        }
+        if (
+          id === 'campaign-shake-hands' ||
+          id === 'campaign-button' ||
+          id === 'campaign-smear' ||
+          id === 'campaign-buy-round' ||
+          id === 'mayor-free-beer'
+        ) {
+          void this.snakeGame.chooseActorInteraction(profile.actorId ?? '', id).then((result) => {
+            this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
+            this.skillTree.getOverlay().refresh();
+            this.paused = false;
+          });
+          return;
+        }
         if (id === 'buy-rumor') {
           this.showQuestHintPopup(this.currentTownActorLine(profile.displayName), '#fff3a8');
           this.closeVillageShop();
@@ -20483,23 +20504,8 @@ export default class SnakeScene extends Phaser.Scene {
         { id: 'leave', title: 'Leave', description: 'Keep things safely ordinary.' },
       ];
     }
-    const supported = new Set([
-      'wake',
-      'talk',
-      'tavern-rest',
-      'ask-rumor',
-      'ask-personal',
-      'take-quest',
-      'shop',
-      'apologize',
-      'threaten',
-      'parley',
-      'romance',
-      'pickpocket',
-      'leave',
-    ]);
     const options = actorMenu.options
-      .filter((option) => supported.has(option.id))
+      .filter((option) => isSnakeSceneSupportedActorInteraction(option.id))
       .filter((option) => option.enabled || option.id === 'shop')
       .filter((option) => option.id !== 'pickpocket' || canPickpocket)
       .map((option) => ({
@@ -20576,6 +20582,49 @@ export default class SnakeScene extends Phaser.Scene {
       });
     }
     return options;
+  }
+
+  private showMayoralPlatformChoice(
+    profile: RelationshipCandidateProfile,
+    portraitId?: string,
+  ): void {
+    this.paused = true;
+    this.setChoicePopupVisible(true);
+    this.villageShopPopup.show(
+      `${profile.displayName}: Mayor Papers`,
+      MAYORAL_PLATFORMS.map((platform) => ({
+        id: platform.id,
+        title: platform.label,
+        description: platform.description,
+      })),
+      (platformId) => {
+        this.setChoicePopupVisible(false);
+        void this.snakeGame
+          .chooseActorInteraction(
+            profile.actorId ?? '',
+            `run-for-mayor:${platformId as MayoralPlatformId}`,
+          )
+          .then((result) => {
+            this.showQuestDialogue(
+              profile.displayName,
+              [
+                result.ok
+                  ? `"Filed. ${result.message} The Mayor's seal looks personally offended."`
+                  : `"Denied. ${result.message}"`,
+              ],
+              {
+                onClose: () => {
+                  this.closeQuestPopup();
+                  this.skillTree.getOverlay().refresh();
+                  this.paused = false;
+                },
+              },
+              { closeLabel: 'Leave', nextLabel: 'Listen' },
+              { portraitId },
+            );
+          });
+      },
+    );
   }
 
   private shouldSuppressGenericTownOption(
@@ -23571,6 +23620,18 @@ function actorInteractionDescription(id: string): string {
       return 'Open the dating scene and opt into dating-game nonsense.';
     case 'pickpocket':
       return 'Lift score or contraband. Trust is also in the pocket, unfortunately.';
+    case 'run-for-mayor':
+      return 'File candidacy papers and choose a platform.';
+    case 'campaign-shake-hands':
+      return 'Make the pitch directly. Once per voter.';
+    case 'campaign-button':
+      return 'Ask for a public campaign endorsement.';
+    case 'campaign-smear':
+      return 'Attack the incumbent. It can land, stall, or backfire.';
+    case 'campaign-buy-round':
+      return 'Buy the tavern a campaign round. Once per campaign.';
+    case 'mayor-free-beer':
+      return 'Claim today’s Community & Celebration tavern beer.';
     case 'leave':
       return 'Keep things safely ordinary.';
     default:
