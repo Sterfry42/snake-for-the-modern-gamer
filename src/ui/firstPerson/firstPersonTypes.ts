@@ -41,6 +41,7 @@ export interface FirstPersonBillboard {
   anchorY: number;
   color: number;
   textureKey?: string;
+  badges?: readonly string[];
   roomId?: string;
   facing?: Vector2Like;
   segmentIndex?: number;

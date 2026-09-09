@@ -69,6 +69,7 @@ export interface RenderSprite {
   visual: RenderSpriteVisual;
   topDownPresentation?: RenderSpriteProjectionPresentation;
   firstPersonPresentation?: RenderSpriteProjectionPresentation;
+  badges?: readonly string[];
   roomId?: string;
   facing?: Vector2Like;
   segmentIndex?: number;

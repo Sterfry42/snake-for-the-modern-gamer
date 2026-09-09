@@ -32,6 +32,8 @@ export function rumorTypeForWorldEvent(event: WorldEvent): RumorType {
     return 'shop';
   }
   if (
+    event.tags.includes('campaign') ||
+    event.tags.includes('civic') ||
     event.type === 'animal-tamed' ||
     event.type === 'food-cooked' ||
     event.type === 'quest-completed' ||
@@ -55,6 +57,7 @@ export function sourceKindForWorldEvent(event: WorldEvent): RumorSourceKind {
   if (event.tags.includes('bandit')) return 'bandit';
   if (event.tags.includes('relationship') || event.tags.includes('marriage')) return 'romance';
   if (event.tags.includes('holy') || event.tags.includes('religion')) return 'religious';
+  if (event.tags.includes('civic') || event.type === 'mayoral-election-result') return 'official';
   if (event.type === 'quest-completed' || event.type === 'gate-opened') return 'official';
   if (event.type === 'food-cooked' || event.type === 'animal-tamed') return 'personal';
   if (event.type === 'modern-run-synergy') return 'rumor';
@@ -82,6 +85,8 @@ export function shouldCreateRumorFromWorldEvent(event: WorldEvent): boolean {
       'player-revival',
       'quest-completed',
       'modern-run-synergy',
+      'campaign-event',
+      'mayoral-election-result',
     ].includes(event.type)
   ) {
     return true;
@@ -110,6 +115,8 @@ export function shouldCreateRumorFromWorldEvent(event: WorldEvent): boolean {
       'king',
       'quest',
       'revival',
+      'campaign',
+      'civic',
     ].includes(tag),
   );
 }

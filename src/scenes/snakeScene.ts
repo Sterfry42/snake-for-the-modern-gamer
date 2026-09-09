@@ -48,10 +48,12 @@ import type {
   ActorShopView,
   ActorJournalEntry,
   BombInstance,
+  CivicOfficeSummary,
   FootballInstance,
   PresentRelationshipProfile,
   QuestObjectiveSummary,
   QuestRoomActor,
+  TownBoardView,
 } from '../game/snakeGame.js';
 import type { HighlightClip } from '../systems/highlightReel.js';
 import type { BulletInstance, EnemyInstance } from '../systems/enemies.js';
@@ -138,6 +140,12 @@ import {
 import type { Quest } from '../../quests.js';
 import type { AppleSnapshot } from '../apples/types.js';
 import { stableStringHashPositive, type Vector2Like } from '../core/math.js';
+import { MAYORAL_PLATFORMS } from '../civic/mayoralPlatforms.js';
+import type { MayoralPlatformId } from '../civic/civicTypes.js';
+import {
+  hasSnakeSceneButcherSegmentSale,
+  isSnakeSceneSupportedActorInteraction,
+} from './snakeSceneActorInteractionSupport.js';
 import {
   CAR_COLLISION_DAMAGE_HEARTS,
   CAR_HEIGHT_TILES,
@@ -2015,6 +2023,7 @@ export default class SnakeScene extends Phaser.Scene {
   private readonly villageResidentSpeechTexts: Phaser.GameObjects.Text[] = [];
   private readonly villageResidentSleepTexts: Phaser.GameObjects.Text[] = [];
   private readonly villageResidentActivityPropSprites: Phaser.GameObjects.Sprite[] = [];
+  private readonly villageResidentBadgeTexts: Phaser.GameObjects.Text[] = [];
   private runtimeSpriteFactory!: RuntimeSpriteFactory;
   private houseRestCounter = 0;
   private jasonDefeatCount = 0;
@@ -7035,6 +7044,31 @@ export default class SnakeScene extends Phaser.Scene {
       }
       return { ok: false, message: 'Could not spawn any structures.', color: '#ff6b6b' };
     }
+    if (code === 'construction' || code === 'buildmode') {
+      if (this.snakeGame.getStructurePlacement()) {
+        this.snakeGame.cancelStructurePlacement();
+        this.isDirty = true;
+        return {
+          ok: true,
+          message: 'Cheat inactive: construction placement canceled.',
+          color: '#9ad1ff',
+        };
+      }
+      this.snakeGame.claimRoom();
+      const started = this.snakeGame.beginStructurePlacement('small-house');
+      this.isDirty = true;
+      return started
+        ? {
+            ok: true,
+            message: 'Cheat active: construction mode. Small House preview ready.',
+            color: '#5dd6a2',
+          }
+        : {
+            ok: false,
+            message: 'Could not enter construction mode.',
+            color: '#ff6b6b',
+          };
+    }
     if (code === 'clearroom' || code === 'clear' || code === 'clearr') {
       this.snakeGame?.clearRoom();
       this.isDirty = true;
@@ -9780,6 +9814,10 @@ export default class SnakeScene extends Phaser.Scene {
 
   getPeopleJournalView(): ActorJournalEntry[] {
     return this.snakeGame.getPeopleJournalView();
+  }
+
+  getPlayerCivicOfficeSummaries(): CivicOfficeSummary[] {
+    return this.snakeGame.getPlayerCivicOfficeSummaries();
   }
 
   getAnimalCompanionViews(): AnimalCompanionView[] {
@@ -14616,7 +14654,7 @@ export default class SnakeScene extends Phaser.Scene {
       return { text: `${alchemyStation.title} (${interact})` };
     }
     if (this.isNearTownQuestBoard()) {
-      return { text: `Read quest board (${interact})` };
+      return { text: `Read town board (${interact})` };
     }
     const townDoor = this.snakeGame.getNearbyTownBuildingDoor();
     if (townDoor) {
@@ -14687,12 +14725,78 @@ export default class SnakeScene extends Phaser.Scene {
     if (!town) {
       return false;
     }
-    const quests = this.snakeGame.getTownQuestBoardOptions();
+    const board = this.snakeGame.getTownBoardView();
+    if (!board) {
+      return false;
+    }
+    this.showTownBoardRoot(board);
+    return true;
+  }
+
+  private showTownBoardRoot(board: TownBoardView): void {
     this.paused = true;
     this.skillTree.hideOverlay();
+    const options: ChoiceOption[] = [
+      {
+        id: 'quests',
+        title: 'Quests',
+        description:
+          board.quests.length > 0
+            ? `${board.quests.length} notices posted.`
+            : 'No work posted right now.',
+      },
+    ];
+    if (board.campaignStatus) {
+      options.push({
+        id: 'campaign-status',
+        title: 'Campaign Status',
+        description: `${board.campaignStatus.playerName} ${board.campaignStatus.playerPercent}% / ${board.campaignStatus.incumbentName} ${board.campaignStatus.incumbentPercent}%`,
+      });
+    }
+    if (board.latestResult) {
+      options.push({
+        id: 'election-results',
+        title: 'Election Results',
+        description: board.latestResult.lastElectionLine,
+      });
+    }
+    if (board.mayorOffice) {
+      options.push({
+        id: 'mayors-office',
+        title: "Mayor's Office",
+        description: board.mayorOffice.platformLabel
+          ? `Mayor: ${board.mayorOffice.mayorName}. Platform: ${board.mayorOffice.platformLabel}.`
+          : `Mayor: ${board.mayorOffice.mayorName}.`,
+      });
+    }
+    options.push({ id: 'leave', title: 'Leave', description: 'Step away from the board.' });
+    this.villageShopPopup.show(`${board.townName} Town Board`, options, (id) => {
+      if (id === 'leave') {
+        this.closeVillageShop();
+        return;
+      }
+      if (id === 'quests') {
+        this.showTownBoardQuests(board);
+        return;
+      }
+      if (id === 'campaign-status') {
+        this.showTownBoardInfo(board, 'Campaign Status', this.townBoardCampaignLines(board));
+        return;
+      }
+      if (id === 'election-results') {
+        this.showTownBoardInfo(board, 'Election Results', this.townBoardResultLines(board));
+        return;
+      }
+      if (id === 'mayors-office') {
+        this.showTownBoardInfo(board, "Mayor's Office", this.townBoardOfficeLines(board));
+      }
+    });
+  }
+
+  private showTownBoardQuests(board: TownBoardView): void {
     const options: ChoiceOption[] =
-      quests.length > 0
-        ? quests.map((quest) => ({
+      board.quests.length > 0
+        ? board.quests.map((quest) => ({
             id: `quest:${quest.id}`,
             title: quest.label,
             description: this.townQuestBoardDescription(quest),
@@ -14702,12 +14806,13 @@ export default class SnakeScene extends Phaser.Scene {
               id: 'empty',
               title: 'No Work Posted',
               description: 'Every useful notice has already been claimed.',
+              disabled: true,
             },
           ];
-    options.push({ id: 'leave', title: 'Step Back', description: 'Return to the room.' });
-    this.villageShopPopup.show(`${town.name} Quest Board`, options, (id) => {
-      if (id === 'leave' || id === 'empty') {
-        this.closeVillageShop();
+    options.push({ id: 'back', title: 'Back', description: 'Return to the Town Board.' });
+    this.villageShopPopup.show(`${board.townName} Quests`, options, (id) => {
+      if (id === 'back' || id === 'empty') {
+        this.showTownBoardRoot(this.snakeGame.getTownBoardView() ?? board);
         return;
       }
       const questId = id.replace(/^quest:/, '');
@@ -14719,7 +14824,50 @@ export default class SnakeScene extends Phaser.Scene {
         this.applyPendingQuestCosmeticRewards();
       }
     });
-    return true;
+  }
+
+  private showTownBoardInfo(board: TownBoardView, title: string, lines: readonly string[]): void {
+    const options: ChoiceOption[] = lines.map((line, index) => ({
+      id: `line:${index}`,
+      title: line,
+      description: '',
+      disabled: true,
+    }));
+    options.push({ id: 'back', title: 'Back', description: 'Return to the Town Board.' });
+    this.villageShopPopup.show(`${board.townName} ${title}`, options, (id) => {
+      if (id === 'back') {
+        this.showTownBoardRoot(this.snakeGame.getTownBoardView() ?? board);
+      }
+    });
+  }
+
+  private townBoardCampaignLines(board: TownBoardView): string[] {
+    const status = board.campaignStatus;
+    if (!status) return ['No active campaign.'];
+    return [
+      `${status.incumbentName} ${status.incumbentPercent}%`,
+      `${status.playerName} ${status.playerPercent}%`,
+      status.summary,
+    ];
+  }
+
+  private townBoardResultLines(board: TownBoardView): string[] {
+    const result = board.latestResult;
+    if (!result) return ['No election results posted.'];
+    return [
+      `Mayor: ${result.mayorName}`,
+      `Platform: ${result.platformLabel}`,
+      `Last Election: ${result.lastElectionLine}`,
+    ];
+  }
+
+  private townBoardOfficeLines(board: TownBoardView): string[] {
+    const office = board.mayorOffice;
+    if (!office) return ['No Mayor currently seated.'];
+    return [
+      `Mayor: ${office.mayorName}`,
+      ...(office.platformLabel ? [`Platform: ${office.platformLabel}`] : []),
+    ];
   }
 
   private tryInteractAlchemyStation(): boolean {
@@ -15495,6 +15643,13 @@ export default class SnakeScene extends Phaser.Scene {
         });
       }
     }
+    if (this.currentShopActorIdForRole('butcher')) {
+      options.push({
+        id: 'sell-length',
+        title: 'Sell Snake Segments',
+        description: 'Sell safe tail length to the butcher for score.',
+      });
+    }
     options.push({ id: 'leave', title: 'Leave', description: 'Step away from the counter.' });
     this.villageShopPopup.show(title, options, (id) => {
       if (id === 'leave') {
@@ -15787,10 +15942,28 @@ export default class SnakeScene extends Phaser.Scene {
       title: actorShopCategoryTitle(category),
       description: actorShopCategoryDescription(category),
     }));
+    if (hasSnakeSceneButcherSegmentSale(shop.role)) {
+      options.push({
+        id: 'sell-length',
+        title: 'Sell Snake Segments',
+        description: 'Sell safe tail length to the butcher for score.',
+      });
+    }
     options.push({ id: 'leave', title: 'Leave', description: 'Step away from the counter.' });
     this.villageShopPopup.show(shop.title, options, (id) => {
       if (id === 'leave') {
         this.closeVillageShop();
+        return;
+      }
+      if (id === 'sell-length') {
+        const result = this.snakeGame.sellSnakeLengthToButcher(shop.actorId);
+        this.showQuestHintPopup(result.message, result.color);
+        const updatedShop = this.snakeGame.getActorShopView(shop.actorId);
+        if (updatedShop?.open) {
+          this.showActorShopRoot(updatedShop);
+        } else {
+          this.closeVillageShop();
+        }
         return;
       }
       if (id.startsWith('actor-category:')) {
@@ -20335,6 +20508,24 @@ export default class SnakeScene extends Phaser.Scene {
           });
           return;
         }
+        if (id === 'run-for-mayor') {
+          this.showMayoralPlatformChoice(profile, conversationPortraitId);
+          return;
+        }
+        if (
+          id === 'campaign-shake-hands' ||
+          id === 'campaign-button' ||
+          id === 'campaign-smear' ||
+          id === 'campaign-buy-round' ||
+          id === 'mayor-free-beer'
+        ) {
+          void this.snakeGame.chooseActorInteraction(profile.actorId ?? '', id).then((result) => {
+            this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
+            this.skillTree.getOverlay().refresh();
+            this.paused = false;
+          });
+          return;
+        }
         if (id === 'buy-rumor') {
           this.showQuestHintPopup(this.currentTownActorLine(profile.displayName), '#fff3a8');
           this.closeVillageShop();
@@ -20457,23 +20648,8 @@ export default class SnakeScene extends Phaser.Scene {
         { id: 'leave', title: 'Leave', description: 'Keep things safely ordinary.' },
       ];
     }
-    const supported = new Set([
-      'wake',
-      'talk',
-      'tavern-rest',
-      'ask-rumor',
-      'ask-personal',
-      'take-quest',
-      'shop',
-      'apologize',
-      'threaten',
-      'parley',
-      'romance',
-      'pickpocket',
-      'leave',
-    ]);
     const options = actorMenu.options
-      .filter((option) => supported.has(option.id))
+      .filter((option) => isSnakeSceneSupportedActorInteraction(option.id))
       .filter((option) => option.enabled || option.id === 'shop')
       .filter((option) => option.id !== 'pickpocket' || canPickpocket)
       .map((option) => ({
@@ -20550,6 +20726,49 @@ export default class SnakeScene extends Phaser.Scene {
       });
     }
     return options;
+  }
+
+  private showMayoralPlatformChoice(
+    profile: RelationshipCandidateProfile,
+    portraitId?: string,
+  ): void {
+    this.paused = true;
+    this.setChoicePopupVisible(true);
+    this.villageShopPopup.show(
+      `${profile.displayName}: Mayor Papers`,
+      MAYORAL_PLATFORMS.map((platform) => ({
+        id: platform.id,
+        title: platform.label,
+        description: platform.description,
+      })),
+      (platformId) => {
+        this.setChoicePopupVisible(false);
+        void this.snakeGame
+          .chooseActorInteraction(
+            profile.actorId ?? '',
+            `run-for-mayor:${platformId as MayoralPlatformId}`,
+          )
+          .then((result) => {
+            this.showQuestDialogue(
+              profile.displayName,
+              [
+                result.ok
+                  ? `"Filed. ${result.message} The Mayor's seal looks personally offended."`
+                  : `"Denied. ${result.message}"`,
+              ],
+              {
+                onClose: () => {
+                  this.closeQuestPopup();
+                  this.skillTree.getOverlay().refresh();
+                  this.paused = false;
+                },
+              },
+              { closeLabel: 'Leave', nextLabel: 'Listen' },
+              { portraitId },
+            );
+          });
+      },
+    );
   }
 
   private shouldSuppressGenericTownOption(
@@ -22689,6 +22908,26 @@ export default class SnakeScene extends Phaser.Scene {
     return sprite;
   }
 
+  private ensureVillageResidentBadgeText(index: number): Phaser.GameObjects.Text {
+    let text = this.villageResidentBadgeTexts[index];
+    if (text) {
+      return text;
+    }
+    text = this.add
+      .text(0, 0, '●', {
+        fontFamily: 'monospace',
+        fontSize: `${Math.max(7, Math.floor(this.grid.cell * 0.22))}px`,
+        color: '#ffd34d',
+        stroke: '#401c12',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5, 0.5)
+      .setDepth(32)
+      .setVisible(false);
+    this.villageResidentBadgeTexts[index] = text;
+    return text;
+  }
+
   private getDefaultNpcTextures(size: number): Record<'idle' | 'blink', string> {
     const palette: QuestGiverSpritePalette = {
       robeColor: '#2f7f5f',
@@ -22802,6 +23041,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.villageResidentSpeechTexts.forEach((text) => text.setVisible(false));
     this.villageResidentSleepTexts.forEach((text) => text.setVisible(false));
     this.villageResidentActivityPropSprites.forEach((sprite) => sprite.setVisible(false));
+    this.villageResidentBadgeTexts.forEach((text) => text.setVisible(false));
     if (!this.snakeGame) {
       return;
     }
@@ -22822,6 +23062,7 @@ export default class SnakeScene extends Phaser.Scene {
       const speechText = this.ensureVillageResidentSpeechText(index);
       const sleepText = this.ensureVillageResidentSleepText(index);
       const activityPropSprite = this.ensureVillageResidentActivityPropSprite(index);
+      const badgeText = this.ensureVillageResidentBadgeText(index);
       const isGoblin = resident.factionId === 'goblin-camps' || resident.species === 'goblin';
       const relationshipProfile: PresentRelationshipProfile = resident;
       const actor = relationshipProfile.actorId
@@ -22842,6 +23083,7 @@ export default class SnakeScene extends Phaser.Scene {
         speechText.setVisible(false);
         sleepText.setVisible(false);
         activityPropSprite.setVisible(false);
+        badgeText.setVisible(false);
         return;
       }
       const relationshipState = this.snakeGame.getRelationshipState(relationshipProfile);
@@ -22855,6 +23097,7 @@ export default class SnakeScene extends Phaser.Scene {
         speechText.setVisible(false);
         sleepText.setVisible(false);
         activityPropSprite.setVisible(false);
+        badgeText.setVisible(false);
         return;
       }
       const palette = isGoblin
@@ -22905,6 +23148,10 @@ export default class SnakeScene extends Phaser.Scene {
         .setText(speechVisible ? speech!.text : '')
         .setPosition(world.x, world.y - this.grid.cell * 0.78 + bobOffset)
         .setVisible(speechVisible);
+      const badges = this.snakeGame.getCivicBadgesForActor(actor.id);
+      badgeText
+        .setPosition(world.x - this.grid.cell * 0.2, world.y + this.grid.cell * 0.18 + bobOffset)
+        .setVisible(badges.includes('campaign-button'));
       if (activityProp) {
         const propSize = Math.max(8, Math.floor(this.grid.cell * activityProp.maxTileWidth));
         const propTextures = this.runtimeSpriteFactory.ensureRecipe(
@@ -22988,6 +23235,7 @@ export default class SnakeScene extends Phaser.Scene {
               factionId: profile.factionId,
               species: profile.species,
             },
+            badges: this.snakeGame.getCivicBadgesForActor(actor.id),
           },
         ];
       });
@@ -23516,6 +23764,18 @@ function actorInteractionDescription(id: string): string {
       return 'Open the dating scene and opt into dating-game nonsense.';
     case 'pickpocket':
       return 'Lift score or contraband. Trust is also in the pocket, unfortunately.';
+    case 'run-for-mayor':
+      return 'File candidacy papers and choose a platform.';
+    case 'campaign-shake-hands':
+      return 'Make the pitch directly. Once per voter.';
+    case 'campaign-button':
+      return 'Ask for a public campaign endorsement.';
+    case 'campaign-smear':
+      return 'Attack the incumbent. It can land, stall, or backfire.';
+    case 'campaign-buy-round':
+      return 'Buy the tavern a campaign round. Once per campaign.';
+    case 'mayor-free-beer':
+      return 'Claim today’s Community & Celebration tavern beer.';
     case 'leave':
       return 'Keep things safely ordinary.';
     default:

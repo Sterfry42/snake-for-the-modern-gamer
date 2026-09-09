@@ -330,6 +330,10 @@ export class ActorSystem {
     return this.registry.getByRoom(roomId);
   }
 
+  getActorsForTown(townId: string): Actor[] {
+    return this.registry.getByTown(townId);
+  }
+
   getActor(actorId: string): Actor | undefined {
     return this.registry.get(actorId);
   }
@@ -979,7 +983,9 @@ function serviceInteriorRoomIdForResident(
       ? 'tavern'
       : resident.role === 'innkeeper'
         ? 'inn'
-        : undefined;
+        : resident.role === 'civicOfficial'
+          ? 'townHall'
+          : undefined;
   if (!buildingKind) {
     return undefined;
   }
@@ -1107,6 +1113,55 @@ function applyEventConsequences(
         affection: shift(playerOpinion?.affection ?? 0, 8),
       }),
     };
+  }
+
+  if (event.type === 'campaign-event' && isTarget) {
+    if (event.tags.includes('handshake')) {
+      return {
+        ...actor,
+        mood: shiftMood(actor.mood, { trust: 4, curiosity: 6 }),
+        opinions: updateOpinion(actor.opinions, 'player', {
+          ...playerOpinion,
+          trust: shift(playerOpinion?.trust ?? 0, 5),
+          respect: shift(playerOpinion?.respect ?? 0, 4),
+        }),
+      };
+    }
+    if (event.tags.includes('button') && event.tags.includes('wearing')) {
+      return {
+        ...actor,
+        mood: shiftMood(actor.mood, { trust: 6, affection: 4 }),
+        opinions: updateOpinion(actor.opinions, 'player', {
+          ...playerOpinion,
+          trust: shift(playerOpinion?.trust ?? 0, 8),
+          respect: shift(playerOpinion?.respect ?? 0, 6),
+        }),
+      };
+    }
+    if (event.tags.includes('smear')) {
+      const backfired = event.tags.includes('backfired');
+      return {
+        ...actor,
+        mood: shiftMood(actor.mood, { anger: backfired ? 10 : 0, curiosity: 5 }),
+        opinions: updateOpinion(actor.opinions, 'player', {
+          ...playerOpinion,
+          trust: shift(playerOpinion?.trust ?? 0, backfired ? -8 : 2),
+          resentment: shift(playerOpinion?.resentment ?? 0, backfired ? 8 : 0),
+          respect: shift(playerOpinion?.respect ?? 0, backfired ? -4 : 3),
+        }),
+      };
+    }
+    if (event.tags.includes('round')) {
+      return {
+        ...actor,
+        mood: shiftMood(actor.mood, { affection: 5, stress: -4 }),
+        opinions: updateOpinion(actor.opinions, 'player', {
+          ...playerOpinion,
+          affection: shift(playerOpinion?.affection ?? 0, 5),
+          trust: shift(playerOpinion?.trust ?? 0, 3),
+        }),
+      };
+    }
   }
 
   if (event.type === 'animal-hunted' && isWitness && actor.personality.includes('softhearted')) {

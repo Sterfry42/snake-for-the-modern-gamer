@@ -16,6 +16,8 @@ export type WorldEventType =
   | 'food-cooked'
   | 'shop-purchase'
   | 'gate-opened'
+  | 'campaign-event'
+  | 'mayoral-election-result'
   | 'quest-completed'
   | 'pickpocket'
   | 'town-crime'

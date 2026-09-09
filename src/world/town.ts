@@ -269,6 +269,7 @@ export type TownBuildingKind =
   | 'mapper'
   | 'wizardShop'
   | 'inn'
+  | 'townHall'
   | 'residentialHome'
   | 'guildAccess';
 
@@ -850,7 +851,7 @@ export function createPhysicalHumanTown(args: {
     },
     { role: 'guard' as const, name: pickNpcName('guard', rng), workDistrict: 'backAlley' as const },
     {
-      role: 'scribe' as const,
+      role: 'civicOfficial' as const,
       name: pickNpcName('scribe', rng),
       workDistrict: 'townCenter' as const,
     },
@@ -931,16 +932,18 @@ export function createPhysicalHumanTown(args: {
     homeRoomId: roomFor(
       spot.role === 'resident'
         ? 'residentialStreet'
-        : spot.role === 'questGiver' || spot.role === 'bartender' || spot.role === 'cardDealer'
+        : spot.role === 'civicOfficial'
           ? 'townCenter'
-          : spot.role === 'equipmentMerchant' ||
-              spot.role === 'potionMaker' ||
-              spot.role === 'butcher' ||
-              spot.role === 'mapper' ||
-              spot.role === 'wizard' ||
-              spot.role === 'physicalTrainer'
-            ? 'marketStreet'
-            : 'townCenter',
+          : spot.role === 'questGiver' || spot.role === 'bartender' || spot.role === 'cardDealer'
+            ? 'townCenter'
+            : spot.role === 'equipmentMerchant' ||
+                spot.role === 'potionMaker' ||
+                spot.role === 'butcher' ||
+                spot.role === 'mapper' ||
+                spot.role === 'wizard' ||
+                spot.role === 'physicalTrainer'
+              ? 'marketStreet'
+              : 'townCenter',
     ),
     workRoomId: roomFor(spot.workDistrict),
     id: `${town.id}:resident:${spot.role}:${index}`,
@@ -1088,6 +1091,25 @@ function createTownBuildings(
     crimeTarget: true,
   });
   return [
+    {
+      id: `${town.id}:building:town-hall`,
+      townId: town.id,
+      district: 'townCenter',
+      roomId: centerRoom,
+      kind: 'townHall',
+      displayName: `${town.name} Town Hall`,
+      shortLabel: 'Town Hall',
+      interiorTitle: `${town.name} Town Hall`,
+      doorLabel: 'Enter Town Hall',
+      doorKind: 'civicDoor',
+      door: { x: 25, y: 10 },
+      bounds: { left: 21, top: 4, width: 8, height: 7 },
+      templateId: 'townHall',
+      ownerResidentId: ownerIdFor('civicOfficial'),
+      ownerResidentRole: 'civicOfficial',
+      enterable: true,
+      publicAccess: true,
+    },
     {
       id: `${town.id}:building:gatehouse`,
       townId: town.id,
@@ -1939,6 +1961,8 @@ function townDoorTile(kind: TownDoorKind | undefined): string {
   switch (kind) {
     case 'tavernDoor':
       return 't';
+    case 'civicDoor':
+      return 'd';
     case 'shopDoorClosed':
     case 'shopDoorOpen':
       return 'd';
@@ -2169,6 +2193,7 @@ export function createTownDistrictRoom(args: {
     case 'townCenter':
       {
         const tavern = townBuildingFor(town, 'tavern', 'townCenter');
+        const townHall = townBuildingFor(town, 'townHall', 'townCenter');
         drawConnectedRoad(layout, openSides);
         fillRect(layout, center.x - 4, center.y - 3, 9, 7, 'E');
         fillRect(layout, center.x - 1, center.y - 1, 3, 3, 'P');
@@ -2195,6 +2220,31 @@ export function createTownDistrictRoom(args: {
               x: tavern.door.x,
               y: tavern.door.y,
               building: tavern,
+            }),
+            context,
+          );
+        }
+        if (townHall) {
+          drawBuildingShell(layout, 21, 4, 8, 7, {
+            x: townHall.door.x,
+            y: townHall.door.y,
+            tile: townDoorTile(townHall.doorKind),
+          });
+          fillRect(layout, 22, 5, 6, 2, 'S');
+          setChar(layout, 24, 8, 'M');
+          setChar(layout, 26, 8, 'P');
+          addTownLayerEntrance(
+            layout,
+            layerEntrances,
+            createTownLayerEntrance({
+              townId: town.id,
+              parentRoomId: args.roomId,
+              templateId: 'townHall',
+              key: 'town-hall-door',
+              label: 'Town Hall door',
+              x: townHall.door.x,
+              y: townHall.door.y,
+              building: townHall,
             }),
             context,
           );

@@ -1,5 +1,6 @@
 import type { Actor, ActorHostilityState, ActorPersonalityTag, ActorRole } from './actorTypes.js';
 import type { BiomeId } from '../world/biomes.js';
+import type { ActorCivicContextTag, ActorCivicConversationContext } from './voice/voiceTypes.js';
 
 interface ActorVoiceLineResult {
   id: string;
@@ -18,6 +19,7 @@ interface ActorVoiceContext {
   snakeLength: number;
   flags: Record<string, unknown>;
   recentEvents: string[];
+  civic?: ActorCivicConversationContext;
   random?(): number;
 }
 
@@ -29,9 +31,110 @@ interface ActorVoiceLine extends ActorVoiceLineResult {
   minimumFocus?: number;
   requiresSoul?: 'wound' | 'secret' | 'insecurity';
   requiresKingLore?: boolean;
+  civicTags?: ActorCivicContextTag[];
 }
 
 const ACTOR_VOICE_LINES: readonly ActorVoiceLine[] = [
+  {
+    id: 'actor-civic-mayor-introduction',
+    text: 'Welcome to town hall. I am {{name}}, Mayor of {{town}}, and paperwork has already survived worse than a talking snake.',
+    priority: 160,
+    actorRoles: ['civicOfficial'],
+    civicTags: ['actor-mayor'],
+    tags: ['civic', 'mayor', 'introduction'],
+    portraitId: 'villager-old-neutral',
+  },
+  {
+    id: 'actor-civic-mayor-campaign-bureaucratic',
+    text: 'Your campaign is noted. My office will continue operating despite the theatrical reptiles.',
+    priority: 176,
+    actorRoles: ['civicOfficial'],
+    personalityTags: ['bureaucratic', 'lawful'],
+    civicTags: ['running-against-actor'],
+    tags: ['civic', 'mayor', 'campaign'],
+    portraitId: 'villager-old-neutral',
+  },
+  {
+    id: 'actor-civic-mayor-campaign-petty',
+    text: 'A campaign button does not make you civic-minded. It makes you shiny.',
+    priority: 174,
+    actorRoles: ['civicOfficial'],
+    personalityTags: ['petty', 'cynical', 'statusHungry'],
+    civicTags: ['running-against-actor'],
+    tags: ['civic', 'mayor', 'campaign'],
+    portraitId: 'villager-old-neutral',
+  },
+  {
+    id: 'actor-civic-mayor-campaign-friendly',
+    text: 'Campaign hard, snake. If you win clean, I will call that civic health instead of personal inconvenience.',
+    priority: 172,
+    actorRoles: ['civicOfficial'],
+    personalityTags: ['kind', 'idealistic', 'practical'],
+    civicTags: ['running-against-actor'],
+    tags: ['civic', 'mayor', 'campaign'],
+    portraitId: 'villager-old-neutral',
+  },
+  {
+    id: 'actor-civic-former-mayor',
+    text: 'Former Mayor. Current citizen. Trying to enjoy the downgrade with dignity.',
+    priority: 180,
+    actorRoles: ['civicOfficial'],
+    civicTags: ['former-mayor'],
+    tags: ['civic', 'mayor', 'former'],
+    portraitId: 'villager-old-neutral',
+  },
+  {
+    id: 'actor-civic-mayor-won',
+    text: 'The election is settled. {{town}} kept its Mayor and I kept the better desk.',
+    priority: 178,
+    actorRoles: ['civicOfficial'],
+    civicTags: ['player-lost-to-actor'],
+    tags: ['civic', 'mayor', 'winner'],
+    portraitId: 'villager-old-neutral',
+  },
+  {
+    id: 'actor-civic-resident-campaign-button',
+    text: 'Those buttons are everywhere. Small metal circles, big municipal feelings.',
+    priority: 150,
+    civicTags: ['active-election'],
+    memoryTags: ['button'],
+    tags: ['civic', 'campaign', 'button'],
+    portraitId: 'villager-neutral',
+  },
+  {
+    id: 'actor-civic-resident-campaign',
+    text: 'This town has an election now. Even gossip is wearing a tie.',
+    priority: 146,
+    civicTags: ['active-election'],
+    tags: ['civic', 'campaign'],
+    portraitId: 'villager-neutral',
+  },
+  {
+    id: 'actor-civic-resident-player-mayor-kind',
+    text: 'Morning, Mayor. I mean that kindly, even if it still sounds impossible.',
+    priority: 152,
+    personalityTags: ['kind', 'softhearted', 'idealistic'],
+    civicTags: ['player-mayor'],
+    tags: ['civic', 'mayor'],
+    portraitId: 'villager-neutral',
+  },
+  {
+    id: 'actor-civic-resident-player-mayor-petty',
+    text: 'Did not vote for you, but congratulations. See? Democracy made me polite.',
+    priority: 151,
+    personalityTags: ['petty', 'cynical', 'deadpan'],
+    civicTags: ['player-mayor'],
+    tags: ['civic', 'mayor'],
+    portraitId: 'villager-neutral',
+  },
+  {
+    id: 'actor-civic-resident-player-mayor',
+    text: 'Morning, Mayor.',
+    priority: 148,
+    civicTags: ['player-mayor'],
+    tags: ['civic', 'mayor'],
+    portraitId: 'villager-neutral',
+  },
   {
     id: 'actor-hostile-warning',
     text: 'Back up. I am done making this a conversation.',
@@ -185,7 +288,9 @@ export function selectActorVoiceLine(context: ActorVoiceContext): ActorVoiceLine
       ? best.filter((line) => line.id !== lastId)
       : best;
   const random = context.random ?? Math.random;
-  return freshBest[Math.floor(random() * freshBest.length)] ?? freshBest[0] ?? best[0] ?? fallback;
+  const selected =
+    freshBest[Math.floor(random() * freshBest.length)] ?? freshBest[0] ?? best[0] ?? fallback;
+  return { ...selected, text: fillActorVoiceSlots(selected.text, context) };
 }
 
 function isActorLineValid(line: ActorVoiceLine, context: ActorVoiceContext): boolean {
@@ -217,10 +322,25 @@ function isActorLineValid(line: ActorVoiceLine, context: ActorVoiceContext): boo
   if (line.requiresKingLore && !actor.lore?.knowsAboutKing) {
     return false;
   }
+  if (line.civicTags && !line.civicTags.every((tag) => context.civic?.tags.includes(tag))) {
+    return false;
+  }
   if (line.tags?.includes('health') && !isLowHealth(context)) {
     return false;
   }
   return true;
+}
+
+function fillActorVoiceSlots(text: string, context: ActorVoiceContext): string {
+  return text
+    .split('{{name}}')
+    .join(context.actor.displayName)
+    .split('{{town}}')
+    .join(context.civic?.townName ?? 'town')
+    .split('{{mayor}}')
+    .join(context.civic?.currentMayorName ?? 'the Mayor')
+    .split('{{platform}}')
+    .join(context.civic?.platformLabel ?? 'the platform');
 }
 
 function moodPriorityBonus(line: ActorVoiceLine, context: ActorVoiceContext): number {

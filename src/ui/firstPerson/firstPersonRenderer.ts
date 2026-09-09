@@ -286,7 +286,21 @@ export class FirstPersonRenderer {
           this.context.fillRect(column, top, 1, bottom - top);
         }
       }
+      this.drawBillboardBadges(billboard);
     }
+  }
+
+  private drawBillboardBadges(billboard: FirstPersonProjectedBillboard): void {
+    if (!billboard.billboard.badges?.includes('campaign-button')) {
+      return;
+    }
+    const size = Math.max(3, Math.min(8, Math.floor(billboard.width * 0.16)));
+    const x = Math.max(0, Math.floor(billboard.left + billboard.width * 0.18));
+    const y = Math.max(0, Math.floor(billboard.bottom - billboard.height * 0.22));
+    this.context.fillStyle = '#f8f1c4';
+    this.context.fillRect(x, y, size, size);
+    this.context.fillStyle = '#2f5fb8';
+    this.context.fillRect(x + 1, y + 1, Math.max(1, size - 2), Math.max(1, size - 2));
   }
 
   private drawReticle(): void {

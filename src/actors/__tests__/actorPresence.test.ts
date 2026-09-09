@@ -180,6 +180,50 @@ describe('actor presence simulation', () => {
     expect(bark?.expiresAtMs).toBeGreaterThan(2_000);
   });
 
+  it('selects civic-aware radiant barks for active local elections and player mayors', () => {
+    const resident = actor('actor:civic-barker', 'hearthbound-remnant');
+    resident.flags.radiantBarkChance = 1;
+    resident.memory = [
+      {
+        id: 'memory:civic:button',
+        type: 'town-gossip',
+        summary: 'The resident accepted a campaign button.',
+        tags: ['civic', 'campaign', 'button'],
+        intensity: 12,
+        createdAtRoomNumber: 4,
+        source: 'heard',
+      },
+    ];
+
+    const campaignBark = selectActorRadiantBark(resident, {
+      roomNumber: 12,
+      atmosphere: atmosphere({ dayPhase: 'day', globalWeather: 'clear' }),
+      nowMs: 500,
+      civic: {
+        townId: 'eastmere',
+        townName: 'Eastmere',
+        currentMayorName: 'Mayor Jenkins',
+        tags: ['active-election'],
+      },
+      random: randomSequence(0, 0.34),
+    });
+    const mayorBark = selectActorRadiantBark(resident, {
+      roomNumber: 12,
+      atmosphere: atmosphere({ dayPhase: 'dawn', globalWeather: 'clear' }),
+      nowMs: 500,
+      civic: {
+        townId: 'eastmere',
+        townName: 'Eastmere',
+        currentMayorName: 'Snake',
+        tags: ['player-mayor'],
+      },
+      random: () => 0,
+    });
+
+    expect(campaignBark?.text).toContain('button');
+    expect(mayorBark?.text).toContain('Morning, Mayor');
+  });
+
   it('queries materialized room membership from actor presence rather than authored room', () => {
     const registry = new ActorRegistry();
     const resident = actor('actor:alice', 'hearthbound-remnant');
@@ -302,6 +346,11 @@ function actor(id: string, factionId: string): Actor {
     },
     hostility: 'neutral',
   });
+}
+
+function randomSequence(...values: number[]): () => number {
+  let index = 0;
+  return () => values[index++] ?? values[values.length - 1] ?? 0;
 }
 
 function atmosphere(

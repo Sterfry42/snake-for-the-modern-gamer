@@ -36,7 +36,11 @@ import {
 
 import type { ActionAbilityView } from '../systems/actionSlots.js';
 import type { DatingCandidateView } from '../relationships/relationshipTypes.js';
-import type { ActorJournalEntry, QuestObjectiveSummary } from '../game/snakeGame.js';
+import type {
+  ActorJournalEntry,
+  CivicOfficeSummary,
+  QuestObjectiveSummary,
+} from '../game/snakeGame.js';
 import type { ArtifactView } from '../artifacts/artifacts.js';
 import type { AnimalCompanionView } from '../animals/companions.js';
 import type { SpecialStatsView } from '../stats/chanceBreakdowns.js';
@@ -117,6 +121,7 @@ interface OverlayHandlers {
   onBindSpellSlot?: (abilityId: string) => void;
   getDatingView?: () => readonly DatingCandidateView[];
   getPeopleView?: () => readonly ActorJournalEntry[];
+  getCivicOfficeSummaries?: () => readonly CivicOfficeSummary[];
   getAnimalCompanionView?: () => readonly AnimalCompanionView[];
   onFeedAnimalCompanion?: (companionId: string) => boolean;
   onReleaseAnimalCompanion?: (companionId: string) => boolean;
@@ -4151,6 +4156,7 @@ export class SkillTreeOverlay {
 
   private buildQuestCards(rect: UiRect): void {
     const quests = this.scene.getAcceptedQuestList();
+    const civicOffices = this.handlers.getCivicOfficeSummaries?.() ?? [];
     const content = insetRect(rect, 14);
     addUiText(this.scene, this.structuredContainer, content.x, content.y, 'QUESTS', {
       color: uiColors.textPrimary,
@@ -4214,6 +4220,38 @@ export class SkillTreeOverlay {
         this.refresh();
       });
       y += 70;
+    }
+    if (civicOffices.length > 0) {
+      y += 8;
+      addUiText(this.scene, this.structuredContainer, content.x, y, 'CIVIC OFFICES', {
+        color: uiColors.textPrimary,
+        fontSize: '13px',
+        fontStyle: 'bold',
+      });
+      y += 26;
+      for (const office of civicOffices.slice(0, 4)) {
+        const card: UiRect = { x: content.x, y, width: content.width, height: 42 };
+        drawUiCard(this.structuredGraphics, {
+          rect: card,
+          fill: uiColors.panelBgInset,
+          stroke: uiColors.accentWorld,
+          alpha: 0.58,
+          strokeAlpha: 0.5,
+        });
+        addUiText(
+          this.scene,
+          this.structuredContainer,
+          card.x + 10,
+          card.y + 10,
+          `Mayor of ${office.townName} - ${office.platformLabel}`,
+          {
+            color: uiColors.textSecondary,
+            fontSize: '11px',
+            wordWrapWidth: card.width - 20,
+          },
+        );
+        y += 48;
+      }
     }
     this.setStructuredContentHeight(content, y);
     this.detailTitle.setText('Quests').setVisible(true);

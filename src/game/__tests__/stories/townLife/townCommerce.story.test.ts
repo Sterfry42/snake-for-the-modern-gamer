@@ -359,6 +359,25 @@ describe('Town life commerce hardening stories', () => {
     }
   });
 
+  it('TOWN-HARDEN-005 - physical butchers buy safe snake segments', () => {
+    const scenario = createHeadlessScenario({ seed: 'town-harden-005-butcher-segments' });
+    scenario.setDayPhase('day');
+    const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'butcherShop' });
+
+    moveSnakeIntoDoor(scenario, room, entrance);
+    const butcher = currentRoomActorWithRole(scenario, 'butcher');
+    scenario.game.growSnake(20);
+    const lengthBefore = scenario.game.getSnakeLength();
+    const scoreBefore = scenario.game.getScore();
+
+    const result = scenario.game.sellSnakeLengthToButcher(butcher.id);
+
+    expect(result.ok).toBe(true);
+    expect(scenario.game.getSnakeLength()).toBeLessThan(lengthBefore);
+    expect(scenario.game.getScore()).toBeGreaterThan(scoreBefore);
+    scenario.assertWorldIntegrity();
+  });
+
   it('TOWN-ALCHEMY-001 - potion maker and wizard interiors sell usable alchemy stock', async () => {
     for (const entry of [
       { templateId: 'potionMaker', role: 'potionMaker' },
