@@ -5,6 +5,7 @@ import type {
   CivicTownContext,
   CivicVoterContext,
   TownElectionBallot,
+  TownElectionPoll,
   TownElectionResult,
   TownElectionState,
 } from './civicTypes.js';
@@ -55,11 +56,59 @@ export function resolveTownElection(args: {
   };
 }
 
+export function projectTownElectionPoll(args: {
+  election: TownElectionState;
+  town: CivicTownContext;
+  voters: readonly CivicVoterContext[];
+  worldDay: number;
+}): TownElectionPoll {
+  const supporters = args.voters
+    .filter((voter) => isEligibleVoter(voter, args.election))
+    .map((voter) => scoreVoterSupport(args.election, args.town, voter, 'poll'));
+  const sampleSize = supporters.length;
+  const rawPlayerShare =
+    sampleSize === 0
+      ? 0.5
+      : supporters.reduce((total, score) => total + score.playerShare, 0) / sampleSize;
+  const pollingError =
+    deterministicPollingError(`${args.election.id}:${args.worldDay}:poll`) +
+    (Math.abs(rawPlayerShare - 0.5) < 0.08
+      ? deterministicPollingError(`${args.election.id}:${args.worldDay}:close-poll`) * 0.7
+      : 0);
+  const playerShare = clamp(rawPlayerShare + pollingError, 0.03, 0.97);
+  const playerPercent = Math.round(playerShare * 100);
+  const incumbentPercent = 100 - playerPercent;
+  return {
+    townId: args.election.townId,
+    electionId: args.election.id,
+    worldDay: args.worldDay,
+    playerPercent,
+    incumbentPercent,
+    tooCloseToCall: Math.abs(playerPercent - incumbentPercent) <= 8,
+    sampleSize,
+  };
+}
+
 function castBallot(
   election: TownElectionState,
   town: CivicTownContext,
   voter: CivicVoterContext,
 ): TownElectionBallot {
+  const scores = scoreVoterSupport(election, town, voter, 'election');
+  return {
+    actorId: voter.actor.id,
+    vote: scores.playerScore >= scores.incumbentScore ? 'player' : 'incumbent',
+    playerScore: Math.round(scores.playerScore),
+    incumbentScore: Math.round(scores.incumbentScore),
+  };
+}
+
+function scoreVoterSupport(
+  election: TownElectionState,
+  town: CivicTownContext,
+  voter: CivicVoterContext,
+  mode: 'election' | 'poll',
+): { playerScore: number; incumbentScore: number; playerShare: number } {
   const action = election.voterActions[voter.actor.id];
   if (
     action?.buttonOutcome === 'wearing' &&
@@ -68,10 +117,9 @@ function castBallot(
     voter.actor.playerHostility?.state !== 'hostile'
   ) {
     return {
-      actorId: voter.actor.id,
-      vote: 'player',
       playerScore: 999,
       incumbentScore: 0,
+      playerShare: 0.98,
     };
   }
   let playerScore =
@@ -91,14 +139,16 @@ function castBallot(
 
   playerScore += campaignMemoryScore(voter);
   playerScore += platformAffinityScore(election.platformId, voter.actor, town, voter.knowledge);
-  playerScore += deterministicUncertainty(`${election.id}:${voter.actor.id}:player`);
-  incumbentScore += deterministicUncertainty(`${election.id}:${voter.actor.id}:incumbent`);
+  if (mode === 'election') {
+    playerScore += deterministicUncertainty(`${election.id}:${voter.actor.id}:player`);
+    incumbentScore += deterministicUncertainty(`${election.id}:${voter.actor.id}:incumbent`);
+  }
 
+  const baseline = Math.max(1, Math.abs(playerScore) + Math.abs(incumbentScore));
   return {
-    actorId: voter.actor.id,
-    vote: playerScore >= incumbentScore ? 'player' : 'incumbent',
-    playerScore: Math.round(playerScore),
-    incumbentScore: Math.round(incumbentScore),
+    playerScore,
+    incumbentScore,
+    playerShare: clamp(0.5 + (playerScore - incumbentScore) / (baseline * 2), 0.02, 0.98),
   };
 }
 
@@ -125,4 +175,12 @@ function campaignMemoryScore(voter: CivicVoterContext): number {
 
 function deterministicUncertainty(seed: string): number {
   return (stableStringHashPositive(seed) % 15) - 7;
+}
+
+function deterministicPollingError(seed: string): number {
+  return ((stableStringHashPositive(seed) % 17) - 8) / 100;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }

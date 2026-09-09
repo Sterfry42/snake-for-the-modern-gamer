@@ -31,9 +31,22 @@ describe('mayoral elections', () => {
       resolveAtWorldDay: 9,
     });
     expect(civic.shouldResolve(next, 8, 'dawn')).toBe(false);
-    expect(civic.shouldResolve(next, 9, 'day')).toBe(false);
+    expect(civic.shouldResolve(next, 9, 'day')).toBe(true);
     expect(civic.shouldResolve(next, 9, 'dawn')).toBe(true);
     expect(civic.shouldResolve(next, 10, 'day')).toBe(true);
+  });
+
+  it('resolves immediately after target dawn on the same world day', () => {
+    const civic = new CivicService();
+    const state: TownCivicState = {
+      mayor: { kind: 'actor', actorId: 'incumbent' },
+      activeElection: fixtureElection(),
+      electionHistory: [],
+    };
+
+    expect(civic.shouldResolve(state, 4, 'day')).toBe(true);
+    expect(civic.shouldResolve(state, 4, 'dusk')).toBe(true);
+    expect(civic.shouldResolve(state, 4, 'night')).toBe(true);
   });
 
   it('counts one deterministic ballot per eligible living town actor', () => {
@@ -168,6 +181,65 @@ describe('mayoral elections', () => {
       playerScore: 999,
     });
     expect(result.ballots.map((ballot) => ballot.actorId)).not.toContain('hostile-supporter');
+  });
+
+  it('projects deterministic imperfect polling from current support', () => {
+    const civic = new CivicService();
+    const town = fixtureTown();
+    const state: TownCivicState = {
+      mayor: { kind: 'actor', actorId: 'incumbent' },
+      activeElection: { ...fixtureElection(), voterActions: {} },
+      electionHistory: [],
+    };
+    const voters = [voter(actor('a', 'resident')), voter(actor('b', 'resident'))];
+
+    const first = civic.pollElection({ town, civic: state, voters, worldDay: 4 });
+    const second = civic.pollElection({ town, civic: state, voters, worldDay: 4 });
+    const changed = civic.pollElection({
+      town,
+      civic: {
+        ...state,
+        activeElection: {
+          ...fixtureElection(),
+          voterActions: {
+            a: {
+              shookHands: false,
+              buttonAttempted: true,
+              buttonOutcome: 'wearing',
+              smearAttempted: false,
+            },
+          },
+        },
+      },
+      voters,
+      worldDay: 4,
+    });
+
+    expect(second).toEqual(first);
+    expect(changed?.playerPercent).not.toBe(first?.playerPercent);
+  });
+
+  it('keeps polling separate from final deterministic ballots', () => {
+    const civic = new CivicService();
+    const town = fixtureTown();
+    const state: TownCivicState = {
+      mayor: { kind: 'actor', actorId: 'incumbent' },
+      activeElection: { ...fixtureElection(), voterActions: {} },
+      electionHistory: [],
+    };
+    const voters = [voter(actor('a', 'resident')), voter(actor('b', 'resident'))];
+    const poll = civic.pollElection({ town, civic: state, voters, worldDay: 2 });
+    const result = resolveTownElection({
+      election: state.activeElection!,
+      town: fixtureTownContext(),
+      voters,
+      worldDay: 4,
+    });
+
+    expect(poll?.sampleSize).toBe(result.ballots.length);
+    expect(poll?.playerPercent).not.toBe(
+      Math.round((result.playerVotes / result.ballots.length) * 100),
+    );
   });
 
   it('allows Community & Celebration mayors one local beer per world day', () => {

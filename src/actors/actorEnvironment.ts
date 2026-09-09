@@ -2,6 +2,7 @@ import type { AtmosphereEffectTag, AtmosphereState, SkyEvent } from '../world/at
 import { isTownShopRole } from '../world/townRoles.js';
 import type { Actor, ActorActivity, ActorGoal, ActorSpeechBubble } from './actorTypes.js';
 import { actorCanSpeakNow } from './actorSpeech.js';
+import type { ActorCivicConversationContext } from './voice/voiceTypes.js';
 
 export interface ActorEnvironmentContext {
   roomNumber: number;
@@ -32,6 +33,7 @@ interface ActorEnvironmentReaction {
 interface ActorRadiantBarkContext {
   roomNumber: number;
   atmosphere: AtmosphereState;
+  civic?: ActorCivicConversationContext;
   nowMs?: number;
   random(): number;
 }
@@ -174,7 +176,7 @@ export function selectActorRadiantBark(
   if (chance <= 0 || context.random() > chance) {
     return undefined;
   }
-  const text = radiantBarkText(actor, context.atmosphere);
+  const text = civicRadiantBarkText(actor, context.civic, context.random) ?? radiantBarkText(actor, context.atmosphere);
   return {
     text,
     category: 'ambient',
@@ -184,6 +186,30 @@ export function selectActorRadiantBark(
     expiresAtMs:
       context.nowMs === undefined ? undefined : context.nowMs + speechDurationMs(text.length),
   };
+}
+
+function civicRadiantBarkText(
+  actor: Actor,
+  civic: ActorCivicConversationContext | undefined,
+  random: () => number,
+): string | undefined {
+  if (!civic) return undefined;
+  if (civic.tags.includes('player-mayor')) {
+    const lines =
+      actor.personality.includes('petty') || actor.personality.includes('cynical')
+        ? ['Did not vote for you, but congratulations.', 'Morning, Mayor. Legally, anyway.']
+        : ['Morning, Mayor.', `Mayor Snake. ${civic.townName} does not do boring anymore.`];
+    return lines[Math.floor(random() * lines.length)] ?? lines[0];
+  }
+  if (civic.tags.includes('active-election')) {
+    const lines = [
+      `${civic.currentMayorName} and Snake. That is the whole town's breakfast argument.`,
+      'Campaign buttons are small until everyone starts counting them.',
+      `I heard the platform is ${civic.platformLabel ?? 'something official'}. We will see.`,
+    ];
+    return lines[Math.floor(random() * lines.length)] ?? lines[0];
+  }
+  return undefined;
 }
 
 function speechDurationMs(length: number): number {

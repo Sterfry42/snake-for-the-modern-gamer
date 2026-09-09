@@ -63,6 +63,7 @@ export class SkillTreeManager implements SkillTreeRuntime {
       onBindSpellSlot: (abilityId) => this.bindQSlot(abilityId),
       getDatingView: () => this.scene.getDatingCandidateViews(),
       getPeopleView: () => this.scene.getPeopleJournalView(),
+      getCivicOfficeSummaries: () => this.scene.getPlayerCivicOfficeSummaries(),
       getAnimalCompanionView: () => this.scene.getAnimalCompanionViews(),
       onFeedAnimalCompanion: (companionId) => this.scene.feedAnimalCompanion(companionId),
       onReleaseAnimalCompanion: (companionId) => this.scene.releaseAnimalCompanion(companionId),

@@ -54,6 +54,16 @@ export interface TownElectionResult {
   ballots: TownElectionBallot[];
 }
 
+export interface TownElectionPoll {
+  townId: string;
+  electionId: string;
+  worldDay: number;
+  playerPercent: number;
+  incumbentPercent: number;
+  tooCloseToCall: boolean;
+  sampleSize: number;
+}
+
 export interface TownCivicState {
   mayor: CivicOfficeHolder;
   activeElection?: TownElectionState;

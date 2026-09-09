@@ -174,6 +174,7 @@ import type {
   MayoralPlatformId,
   PlayerGuildAffiliationKnowledge,
   TownCivicState,
+  TownElectionPoll,
   TownPolicyModifiers,
 } from '../civic/civicTypes.js';
 import { getMayoralPlatform } from '../civic/mayoralPlatforms.js';
@@ -324,6 +325,7 @@ import {
 import { selectActorRadiantBark } from '../actors/actorEnvironment.js';
 import { selectActorConversation } from '../actors/voice/voiceSelector.js';
 import type {
+  ActorCivicConversationContext,
   ActorConversationBucket,
   ActorConversationResult,
   ActorConversationRumor,
@@ -673,6 +675,35 @@ export interface TownQuestOption {
   id: string;
   label: string;
   description: string;
+}
+
+export interface TownBoardView {
+  townId: string;
+  townName: string;
+  quests: TownQuestOption[];
+  campaignStatus?: {
+    incumbentName: string;
+    playerName: string;
+    incumbentPercent: number;
+    playerPercent: number;
+    summary: string;
+  };
+  latestResult?: {
+    mayorName: string;
+    platformLabel: string;
+    lastElectionLine: string;
+    playerWon: boolean;
+  };
+  mayorOffice?: {
+    mayorName: string;
+    platformLabel?: string;
+  };
+}
+
+export interface CivicOfficeSummary {
+  townId: string;
+  townName: string;
+  platformLabel: string;
 }
 
 export interface QuestRoomActor {
@@ -7206,8 +7237,21 @@ export class SnakeGame implements QuestRuntime {
       action,
       actorId: actor.id,
       civic: nextCivic,
-      message: `Campaign declared for ${platform.label}. Election resolves at dawn on day ${nextCivic.activeElection?.resolveAtWorldDay}.`,
+      message: `Campaign declared for ${platform.label}. ${this.mayorDeclarationReaction(actor)} Election resolves at dawn on day ${nextCivic.activeElection?.resolveAtWorldDay}.`,
     };
+  }
+
+  private mayorDeclarationReaction(actor: Actor): string {
+    if (actor.personality.includes('petty') || actor.personality.includes('cynical')) {
+      return `"A campaign button does not make you civic-minded," ${actor.displayName} says. "It makes you shiny."`;
+    }
+    if (actor.personality.includes('kind') || actor.personality.includes('idealistic')) {
+      return `"A real contest, then," ${actor.displayName} says. "Make the town proud enough to argue honestly."`;
+    }
+    if (actor.personality.includes('bureaucratic') || actor.personality.includes('lawful')) {
+      return `"Your candidacy is entered into the ledger," ${actor.displayName} says, already reaching for another form.`;
+    }
+    return `"So we are doing this," ${actor.displayName} says. "Very well. Campaign clean or campaign memorable."`;
   }
 
   private applyCampaignHandshake(actor: Actor): ActorInteractionDispatchResult {
@@ -7778,6 +7822,7 @@ export class SnakeGame implements QuestRuntime {
       ),
       rumors: this.getConversationRumorsForActor(currentActor),
       factionEvents: this.getConversationFactionEvents(currentActor),
+      civic: this.getActorCivicConversationContext(currentActor),
       town: room.town
         ? {
             id: room.town.id,
@@ -12423,6 +12468,7 @@ export class SnakeGame implements QuestRuntime {
     const bark = selectActorRadiantBark(actor, {
       roomNumber: this.getRoomsVisitedCount(),
       atmosphere,
+      civic: this.getActorCivicConversationContext(actor),
       nowMs,
       random: this._rng,
     });
@@ -13120,7 +13166,7 @@ export class SnakeGame implements QuestRuntime {
 
   private getCivicVoterKnowledge(
     actor: Actor,
-    town: TownStructure,
+    _town: TownStructure,
   ): { playerGuildAffiliation: PlayerGuildAffiliationKnowledge } {
     const hasExplicitMemberMemory = actor.memory.some(
       (memory) =>
@@ -13134,17 +13180,59 @@ export class SnakeGame implements QuestRuntime {
         memory.tags.includes('player') &&
         memory.tags.includes('not-member'),
     );
-    if (
-      hasExplicitMemberMemory ||
-      ((town.discoveredGuild || town.thievesGuild?.discovered) &&
-        (actor.factionId === 'thieves-guild' || isTownCriminalRole(actor.role)))
-    ) {
+    if (hasExplicitMemberMemory) {
       return { playerGuildAffiliation: 'member' };
     }
     if (hasExplicitNotMemberMemory) {
       return { playerGuildAffiliation: 'not-member' };
     }
     return { playerGuildAffiliation: 'unknown' };
+  }
+
+  private getActorCivicConversationContext(
+    actor: Actor,
+  ): ActorCivicConversationContext | undefined {
+    const town = this.findTownById(actor.townId);
+    if (!town) {
+      return undefined;
+    }
+    const civic = this.getTownCivicState(town);
+    const latestResult = civic.electionHistory[civic.electionHistory.length - 1];
+    const activeElection = civic.activeElection;
+    const tags: ActorCivicConversationContext['tags'] = [];
+    if (civic.mayor.kind === 'actor' && civic.mayor.actorId === actor.id) {
+      tags.push('actor-mayor');
+    }
+    if (civic.mayor.kind === 'player') {
+      tags.push('player-mayor');
+    }
+    if (activeElection) {
+      tags.push('active-election');
+      if (activeElection.incumbentActorId === actor.id) {
+        tags.push('running-against-actor');
+      }
+    }
+    if (latestResult?.incumbentActorId === actor.id && latestResult.winner.kind === 'player') {
+      tags.push('player-beat-actor', 'former-mayor');
+    }
+    if (latestResult?.winner.kind === 'actor' && latestResult.winner.actorId === actor.id) {
+      tags.push('player-lost-to-actor');
+    }
+    const platformId =
+      activeElection?.platformId ?? latestResult?.platformId ?? civic.enactedPlatformId;
+    const currentMayorName =
+      civic.mayor.kind === 'player'
+        ? 'Snake'
+        : civic.mayor.kind === 'actor'
+          ? (this.actors.getActor(civic.mayor.actorId)?.displayName ?? 'the Mayor')
+          : 'the Mayor';
+    return {
+      townId: town.id,
+      townName: town.name,
+      currentMayorName,
+      platformLabel: platformId ? getMayoralPlatform(platformId).label : undefined,
+      tags,
+    };
   }
 
   getAtmosphereState(): AtmosphereState {
@@ -15191,6 +15279,104 @@ export class SnakeGame implements QuestRuntime {
       )
       .slice(0, 4)
       .map((quest) => this.toTownQuestOption(quest));
+  }
+
+  getTownBoardView(): TownBoardView | null {
+    const town = this.getCurrentTown();
+    if (!town) {
+      return null;
+    }
+    const civic = this.getTownCivicState(town);
+    const latestResult = civic.electionHistory[civic.electionHistory.length - 1];
+    const platformId = civic.activeElection?.platformId ?? civic.enactedPlatformId;
+    const mayorName =
+      civic.mayor.kind === 'player'
+        ? 'Snake'
+        : civic.mayor.kind === 'actor'
+          ? (this.actors.getActor(civic.mayor.actorId)?.displayName ?? 'the Mayor')
+          : 'Vacant';
+    return {
+      townId: town.id,
+      townName: town.name,
+      quests: this.getTownQuestBoardOptions(),
+      campaignStatus: civic.activeElection
+        ? this.buildTownBoardCampaignStatus(town, civic)
+        : undefined,
+      latestResult: latestResult
+        ? {
+            mayorName,
+            platformLabel: getMayoralPlatform(latestResult.platformId).label,
+            lastElectionLine: this.formatTownElectionResultLine(latestResult),
+            playerWon: latestResult.winner.kind === 'player',
+          }
+        : undefined,
+      mayorOffice:
+        civic.mayor.kind !== 'vacant'
+          ? {
+              mayorName,
+              platformLabel: platformId ? getMayoralPlatform(platformId).label : undefined,
+            }
+          : undefined,
+    };
+  }
+
+  getPlayerCivicOfficeSummaries(): CivicOfficeSummary[] {
+    return this.createTownRuntimeStore()
+      .list()
+      .filter((runtime) => runtime.civic.mayor.kind === 'player' && runtime.civic.enactedPlatformId)
+      .map((runtime) => ({
+        townId: runtime.townId,
+        townName: this.findTownById(runtime.townId)?.name ?? runtime.townId,
+        platformLabel: getMayoralPlatform(runtime.civic.enactedPlatformId!).label,
+      }))
+      .sort((a, b) => a.townName.localeCompare(b.townName));
+  }
+
+  private buildTownBoardCampaignStatus(
+    town: TownStructure,
+    civic: TownCivicState,
+  ): TownBoardView['campaignStatus'] {
+    const poll = this.pollTownElection(town, civic);
+    const incumbentName =
+      civic.activeElection?.incumbentActorId &&
+      this.actors.getActor(civic.activeElection.incumbentActorId)?.displayName
+        ? this.actors.getActor(civic.activeElection.incumbentActorId)!.displayName
+        : 'Incumbent Mayor';
+    return poll
+      ? {
+          incumbentName,
+          playerName: 'Snake',
+          incumbentPercent: poll.incumbentPercent,
+          playerPercent: poll.playerPercent,
+          summary: poll.tooCloseToCall ? 'Too Close To Call' : this.pollLeaderLine(poll),
+        }
+      : undefined;
+  }
+
+  private pollTownElection(town: TownStructure, civic: TownCivicState): TownElectionPoll | undefined {
+    this.ensureActorsForTown(town.id);
+    const voters = this.actors.getActorsForTown(town.id).map((actor) => ({
+      actor,
+      knowledge: this.getCivicVoterKnowledge(actor, town),
+    }));
+    return this.civic.pollElection({
+      town,
+      civic,
+      voters,
+      worldDay: this.getAtmosphereState().worldDay,
+    });
+  }
+
+  private pollLeaderLine(poll: TownElectionPoll): string {
+    return poll.playerPercent >= poll.incumbentPercent ? 'Snake Leads' : 'Mayor Leads';
+  }
+
+  private formatTownElectionResultLine(result: TownCivicState['electionHistory'][number]): string {
+    const playerName = 'Snake';
+    const incumbentName = result.incumbentActorId
+      ? (this.actors.getActor(result.incumbentActorId)?.displayName ?? 'Incumbent Mayor')
+      : 'Incumbent Mayor';
+    return `${playerName} ${result.playerVotes} - ${incumbentName} ${result.incumbentVotes}`;
   }
 
   acceptTownQuestBoardQuest(questId: string): { ok: boolean; message: string; quest?: Quest } {
@@ -18693,6 +18879,7 @@ export class SnakeGame implements QuestRuntime {
         snakeLength: this.snake.bodySegments.length,
         flags: this.snake.flags,
         recentEvents,
+        civic: this.getActorCivicConversationContext(actor),
         random: this._rng,
       });
       this.setFlag(`actor.voice.last.${actor.id}`, line.id);

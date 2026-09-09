@@ -21,3 +21,7 @@ export function isSnakeSceneSupportedActorInteraction(id: string): boolean {
     id === 'leave'
   );
 }
+
+export function hasSnakeSceneButcherSegmentSale(role: string | undefined): boolean {
+  return role === 'butcher';
+}

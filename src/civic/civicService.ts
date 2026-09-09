@@ -6,13 +6,14 @@ import type {
   CivicVoterContext,
   MayoralPlatformId,
   TownCivicState,
+  TownElectionPoll,
   TownElectionResult,
   TownElectionState,
   TownPolicyModifiers,
   VoterCampaignState,
 } from './civicTypes.js';
 import { createDefaultVoterCampaignState } from './civicTypes.js';
-import { resolveTownElection } from './electionResolver.js';
+import { projectTownElectionPoll, resolveTownElection } from './electionResolver.js';
 import { DEFAULT_TOWN_POLICY_MODIFIERS, getMayoralPlatform } from './mayoralPlatforms.js';
 
 const PLAYER_ID = 'player';
@@ -172,9 +173,25 @@ export class CivicService {
     }
     return Boolean(
       civic.activeElection &&
-      worldDay >= civic.activeElection.resolveAtWorldDay &&
-      dayPhase === 'dawn',
+        worldDay >= civic.activeElection.resolveAtWorldDay &&
+        ['dawn', 'day', 'dusk', 'night'].includes(dayPhase),
     );
+  }
+
+  pollElection(args: {
+    town: TownStructure;
+    civic: TownCivicState;
+    voters: readonly CivicVoterContext[];
+    worldDay: number;
+  }): TownElectionPoll | undefined {
+    const election = args.civic.activeElection;
+    if (!election) return undefined;
+    return projectTownElectionPoll({
+      election,
+      town: townContext(args.town),
+      voters: args.voters,
+      worldDay: args.worldDay,
+    });
   }
 
   resolveElection(args: {

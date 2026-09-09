@@ -195,6 +195,11 @@ function isEntryValid(entry: ActorVoiceEntry, context: ActorConversationContext)
   )
     return false;
   if (entry.townMoodTags?.includes('wanted') && (context.town?.wantedLevel ?? 0) <= 0) return false;
+  if (
+    entry.civicTags &&
+    !entry.civicTags.every((tag) => context.civic?.tags.includes(tag))
+  )
+    return false;
   if (entry.minFocus !== undefined && (actor.focus ?? 0) < entry.minFocus) return false;
   if (entry.maxFocus !== undefined && (actor.focus ?? 0) > entry.maxFocus) return false;
   if (entry.requiresSoul && !hasSoulRequirement(entry.requiresSoul, context)) return false;
@@ -243,6 +248,7 @@ function priorityBonus(entry: ActorVoiceEntry, context: ActorConversationContext
   if (entry.tags.includes('health') && healthBand(context) === 'critical') bonus += 10;
   if (entry.tags.includes('danger') && context.dangerLevel >= 6) bonus += 8;
   if (entry.tags.includes('wanted') && (context.town?.wantedLevel ?? 0) >= 3) bonus += 10;
+  if (entry.civicTags && entry.civicTags.length > 0) bonus += 420;
   if (entry.tags.includes('goblin') && context.actor.personality.includes('goblin')) bonus += 4;
   return bonus;
 }
@@ -302,6 +308,10 @@ function fillSlots(
     .join(context.socialTargetName ?? 'someone')
     .split('{{town}}')
     .join(context.town?.name ?? 'this place')
+    .split('{{mayor}}')
+    .join(context.civic?.currentMayorName ?? 'the Mayor')
+    .split('{{platform}}')
+    .join(context.civic?.platformLabel ?? 'the platform')
     .split('{{rumor}}')
     .join(rumor?.summary ?? 'the rumor')
     .split('{{factionEvent}}')

@@ -133,8 +133,48 @@ describe('Town civic stories', () => {
     scenario.assertWorldIntegrity();
   });
 
-  it('TOWN-CIVIC-003 - overdue election resolves on save/load with an obvious result', async () => {
-    const scenario = createHeadlessScenario({ seed: 'town-civic-003-overdue-load' });
+  it('TOWN-CIVIC-003 - Town Board shows quests before civic business', () => {
+    const scenario = createHeadlessScenario({ seed: 'town-civic-003-board-quests' });
+    const { room } = findGeneratedTownDoor(scenario, { templateId: 'townHall' });
+    const town = requireTown(room);
+
+    scenario.enterRoom(room.id, town.center);
+    const board = scenario.game.getTownBoardView();
+
+    expect(board?.townId).toBe(town.id);
+    expect(board?.quests).toBeDefined();
+    expect(board?.campaignStatus).toBeUndefined();
+    scenario.assertWorldIntegrity();
+  });
+
+  it('TOWN-CIVIC-004 - Town Board shows campaign status during an active election', async () => {
+    const scenario = createHeadlessScenario({ seed: 'town-civic-004-board-campaign' });
+    const { room: townHallRoom, entrance: townHallDoor } = findGeneratedTownDoor(scenario, {
+      templateId: 'townHall',
+    });
+
+    scenario.setDayPhase('day');
+    moveSnakeIntoDoor(scenario, townHallRoom, townHallDoor);
+    await scenario.advanceActorTicks(3);
+    const official = currentRoomActorWithRole(scenario, 'civicOfficial');
+
+    expect(
+      await scenario.game.chooseActorInteraction(official.id, 'run-for-mayor:people-first'),
+    ).toMatchObject({ ok: true });
+
+    const board = scenario.game.getTownBoardView();
+
+    expect(board?.campaignStatus).toMatchObject({
+      playerName: 'Snake',
+      incumbentName: official.displayName,
+    });
+    expect(board?.campaignStatus?.playerPercent).toBeGreaterThanOrEqual(0);
+    expect(board?.campaignStatus?.incumbentPercent).toBeGreaterThanOrEqual(0);
+    scenario.assertWorldIntegrity();
+  });
+
+  it('TOWN-CIVIC-005 - overdue election resolves on save/load with an obvious result', async () => {
+    const scenario = createHeadlessScenario({ seed: 'town-civic-005-overdue-load' });
     const { room: townHallRoom, entrance: townHallDoor } = findGeneratedTownDoor(scenario, {
       templateId: 'townHall',
     });
@@ -180,8 +220,8 @@ describe('Town civic stories', () => {
     scenario.assertWorldIntegrity();
   });
 
-  it('TOWN-CIVIC-004 - overdue unloaded town resolves when the town becomes available', () => {
-    const scenario = createHeadlessScenario({ seed: 'town-civic-004-overdue-return' });
+  it('TOWN-CIVIC-006 - overdue unloaded town resolves when the town becomes available', () => {
+    const scenario = createHeadlessScenario({ seed: 'town-civic-006-overdue-return' });
     const { room } = findGeneratedTownDoor(scenario, { templateId: 'townHall' });
     const town = requireTown(room);
     const civic = new CivicService();
@@ -214,6 +254,57 @@ describe('Town civic stories', () => {
     expect(scenario.game.getFlag<{ message?: string }>('ui.questInteraction')?.message).toContain(
       'Election result:',
     );
+    scenario.assertWorldIntegrity();
+  });
+
+  it('TOWN-CIVIC-007 - Town Board persists latest result and Mayor office', () => {
+    const scenario = createHeadlessScenario({ seed: 'town-civic-007-board-result' });
+    const { room } = findGeneratedTownDoor(scenario, { templateId: 'townHall' });
+    const town = requireTown(room);
+    const civic = new CivicService();
+    const runtime = createTownRuntimeState(town, civic);
+
+    scenario.game.setFlag(`town.runtime.${town.id}`, {
+      ...runtime,
+      civic: {
+        ...runtime.civic,
+        mayor: { kind: 'player', playerId: 'player' },
+        enactedPlatformId: 'law-and-order',
+        electionHistory: [
+          {
+            id: `result:election:${town.id}`,
+            townId: town.id,
+            platformId: 'law-and-order',
+            candidatePlayerId: 'player',
+            incumbentActorId:
+              runtime.civic.mayor.kind === 'actor' ? runtime.civic.mayor.actorId : undefined,
+            resolvedAtWorldDay: 4,
+            winner: { kind: 'player', playerId: 'player' },
+            playerVotes: 9,
+            incumbentVotes: 7,
+            ballots: [],
+          },
+        ],
+      },
+    });
+    scenario.enterRoom(room.id, town.center);
+
+    const board = scenario.game.getTownBoardView();
+
+    expect(board?.latestResult).toMatchObject({
+      mayorName: 'Snake',
+      platformLabel: 'Law & Order',
+      lastElectionLine: expect.stringContaining('Snake 9'),
+    });
+    expect(board?.mayorOffice).toMatchObject({
+      mayorName: 'Snake',
+      platformLabel: 'Law & Order',
+    });
+    expect(scenario.game.getPlayerCivicOfficeSummaries()).toContainEqual({
+      townId: town.id,
+      townName: town.name,
+      platformLabel: 'Law & Order',
+    });
     scenario.assertWorldIntegrity();
   });
 });

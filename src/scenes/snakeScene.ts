@@ -48,10 +48,12 @@ import type {
   ActorShopView,
   ActorJournalEntry,
   BombInstance,
+  CivicOfficeSummary,
   FootballInstance,
   PresentRelationshipProfile,
   QuestObjectiveSummary,
   QuestRoomActor,
+  TownBoardView,
 } from '../game/snakeGame.js';
 import type { HighlightClip } from '../systems/highlightReel.js';
 import type { BulletInstance, EnemyInstance } from '../systems/enemies.js';
@@ -140,7 +142,10 @@ import type { AppleSnapshot } from '../apples/types.js';
 import { stableStringHashPositive, type Vector2Like } from '../core/math.js';
 import { MAYORAL_PLATFORMS } from '../civic/mayoralPlatforms.js';
 import type { MayoralPlatformId } from '../civic/civicTypes.js';
-import { isSnakeSceneSupportedActorInteraction } from './snakeSceneActorInteractionSupport.js';
+import {
+  hasSnakeSceneButcherSegmentSale,
+  isSnakeSceneSupportedActorInteraction,
+} from './snakeSceneActorInteractionSupport.js';
 import {
   CAR_COLLISION_DAMAGE_HEARTS,
   CAR_HEIGHT_TILES,
@@ -9811,6 +9816,10 @@ export default class SnakeScene extends Phaser.Scene {
     return this.snakeGame.getPeopleJournalView();
   }
 
+  getPlayerCivicOfficeSummaries(): CivicOfficeSummary[] {
+    return this.snakeGame.getPlayerCivicOfficeSummaries();
+  }
+
   getAnimalCompanionViews(): AnimalCompanionView[] {
     return this.snakeGame.getAnimalCompanions();
   }
@@ -14645,7 +14654,7 @@ export default class SnakeScene extends Phaser.Scene {
       return { text: `${alchemyStation.title} (${interact})` };
     }
     if (this.isNearTownQuestBoard()) {
-      return { text: `Read quest board (${interact})` };
+      return { text: `Read town board (${interact})` };
     }
     const townDoor = this.snakeGame.getNearbyTownBuildingDoor();
     if (townDoor) {
@@ -14716,12 +14725,78 @@ export default class SnakeScene extends Phaser.Scene {
     if (!town) {
       return false;
     }
-    const quests = this.snakeGame.getTownQuestBoardOptions();
+    const board = this.snakeGame.getTownBoardView();
+    if (!board) {
+      return false;
+    }
+    this.showTownBoardRoot(board);
+    return true;
+  }
+
+  private showTownBoardRoot(board: TownBoardView): void {
     this.paused = true;
     this.skillTree.hideOverlay();
+    const options: ChoiceOption[] = [
+      {
+        id: 'quests',
+        title: 'Quests',
+        description:
+          board.quests.length > 0
+            ? `${board.quests.length} notices posted.`
+            : 'No work posted right now.',
+      },
+    ];
+    if (board.campaignStatus) {
+      options.push({
+        id: 'campaign-status',
+        title: 'Campaign Status',
+        description: `${board.campaignStatus.playerName} ${board.campaignStatus.playerPercent}% / ${board.campaignStatus.incumbentName} ${board.campaignStatus.incumbentPercent}%`,
+      });
+    }
+    if (board.latestResult) {
+      options.push({
+        id: 'election-results',
+        title: 'Election Results',
+        description: board.latestResult.lastElectionLine,
+      });
+    }
+    if (board.mayorOffice) {
+      options.push({
+        id: 'mayors-office',
+        title: "Mayor's Office",
+        description: board.mayorOffice.platformLabel
+          ? `Mayor: ${board.mayorOffice.mayorName}. Platform: ${board.mayorOffice.platformLabel}.`
+          : `Mayor: ${board.mayorOffice.mayorName}.`,
+      });
+    }
+    options.push({ id: 'leave', title: 'Leave', description: 'Step away from the board.' });
+    this.villageShopPopup.show(`${board.townName} Town Board`, options, (id) => {
+      if (id === 'leave') {
+        this.closeVillageShop();
+        return;
+      }
+      if (id === 'quests') {
+        this.showTownBoardQuests(board);
+        return;
+      }
+      if (id === 'campaign-status') {
+        this.showTownBoardInfo(board, 'Campaign Status', this.townBoardCampaignLines(board));
+        return;
+      }
+      if (id === 'election-results') {
+        this.showTownBoardInfo(board, 'Election Results', this.townBoardResultLines(board));
+        return;
+      }
+      if (id === 'mayors-office') {
+        this.showTownBoardInfo(board, "Mayor's Office", this.townBoardOfficeLines(board));
+      }
+    });
+  }
+
+  private showTownBoardQuests(board: TownBoardView): void {
     const options: ChoiceOption[] =
-      quests.length > 0
-        ? quests.map((quest) => ({
+      board.quests.length > 0
+        ? board.quests.map((quest) => ({
             id: `quest:${quest.id}`,
             title: quest.label,
             description: this.townQuestBoardDescription(quest),
@@ -14731,12 +14806,13 @@ export default class SnakeScene extends Phaser.Scene {
               id: 'empty',
               title: 'No Work Posted',
               description: 'Every useful notice has already been claimed.',
+              disabled: true,
             },
           ];
-    options.push({ id: 'leave', title: 'Step Back', description: 'Return to the room.' });
-    this.villageShopPopup.show(`${town.name} Quest Board`, options, (id) => {
-      if (id === 'leave' || id === 'empty') {
-        this.closeVillageShop();
+    options.push({ id: 'back', title: 'Back', description: 'Return to the Town Board.' });
+    this.villageShopPopup.show(`${board.townName} Quests`, options, (id) => {
+      if (id === 'back' || id === 'empty') {
+        this.showTownBoardRoot(this.snakeGame.getTownBoardView() ?? board);
         return;
       }
       const questId = id.replace(/^quest:/, '');
@@ -14748,7 +14824,50 @@ export default class SnakeScene extends Phaser.Scene {
         this.applyPendingQuestCosmeticRewards();
       }
     });
-    return true;
+  }
+
+  private showTownBoardInfo(board: TownBoardView, title: string, lines: readonly string[]): void {
+    const options: ChoiceOption[] = lines.map((line, index) => ({
+      id: `line:${index}`,
+      title: line,
+      description: '',
+      disabled: true,
+    }));
+    options.push({ id: 'back', title: 'Back', description: 'Return to the Town Board.' });
+    this.villageShopPopup.show(`${board.townName} ${title}`, options, (id) => {
+      if (id === 'back') {
+        this.showTownBoardRoot(this.snakeGame.getTownBoardView() ?? board);
+      }
+    });
+  }
+
+  private townBoardCampaignLines(board: TownBoardView): string[] {
+    const status = board.campaignStatus;
+    if (!status) return ['No active campaign.'];
+    return [
+      `${status.incumbentName} ${status.incumbentPercent}%`,
+      `${status.playerName} ${status.playerPercent}%`,
+      status.summary,
+    ];
+  }
+
+  private townBoardResultLines(board: TownBoardView): string[] {
+    const result = board.latestResult;
+    if (!result) return ['No election results posted.'];
+    return [
+      `Mayor: ${result.mayorName}`,
+      `Platform: ${result.platformLabel}`,
+      `Last Election: ${result.lastElectionLine}`,
+    ];
+  }
+
+  private townBoardOfficeLines(board: TownBoardView): string[] {
+    const office = board.mayorOffice;
+    if (!office) return ['No Mayor currently seated.'];
+    return [
+      `Mayor: ${office.mayorName}`,
+      ...(office.platformLabel ? [`Platform: ${office.platformLabel}`] : []),
+    ];
   }
 
   private tryInteractAlchemyStation(): boolean {
@@ -15524,6 +15643,13 @@ export default class SnakeScene extends Phaser.Scene {
         });
       }
     }
+    if (this.currentShopActorIdForRole('butcher')) {
+      options.push({
+        id: 'sell-length',
+        title: 'Sell Snake Segments',
+        description: 'Sell safe tail length to the butcher for score.',
+      });
+    }
     options.push({ id: 'leave', title: 'Leave', description: 'Step away from the counter.' });
     this.villageShopPopup.show(title, options, (id) => {
       if (id === 'leave') {
@@ -15816,10 +15942,28 @@ export default class SnakeScene extends Phaser.Scene {
       title: actorShopCategoryTitle(category),
       description: actorShopCategoryDescription(category),
     }));
+    if (hasSnakeSceneButcherSegmentSale(shop.role)) {
+      options.push({
+        id: 'sell-length',
+        title: 'Sell Snake Segments',
+        description: 'Sell safe tail length to the butcher for score.',
+      });
+    }
     options.push({ id: 'leave', title: 'Leave', description: 'Step away from the counter.' });
     this.villageShopPopup.show(shop.title, options, (id) => {
       if (id === 'leave') {
         this.closeVillageShop();
+        return;
+      }
+      if (id === 'sell-length') {
+        const result = this.snakeGame.sellSnakeLengthToButcher(shop.actorId);
+        this.showQuestHintPopup(result.message, result.color);
+        const updatedShop = this.snakeGame.getActorShopView(shop.actorId);
+        if (updatedShop?.open) {
+          this.showActorShopRoot(updatedShop);
+        } else {
+          this.closeVillageShop();
+        }
         return;
       }
       if (id.startsWith('actor-category:')) {
