@@ -11,6 +11,7 @@ export type LayerTemplateId =
   | 'mapper'
   | 'wizardShop'
   | 'inn'
+  | 'townHall'
   | 'residentialHome';
 
 export type TownDoorKind =
@@ -19,6 +20,7 @@ export type TownDoorKind =
   | 'homeDoorClosed'
   | 'homeDoorOpen'
   | 'tavernDoor'
+  | 'civicDoor'
   | 'guildGrateClosed'
   | 'guildGrateOpen'
   | 'gateBarrierClosed'

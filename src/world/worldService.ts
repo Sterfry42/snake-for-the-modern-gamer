@@ -1333,6 +1333,8 @@ function townDistrictForInteriorTemplate(templateId: LayerTemplateId): TownRoomK
     case 'mapper':
     case 'wizardShop':
       return 'marketStreet';
+    case 'townHall':
+      return 'townCenter';
     case 'inn':
       return 'tavernInterior';
     case 'residentialHome':
@@ -1367,6 +1369,13 @@ function townInteriorResidentsForBuilding(
       return owner && !social.some((resident) => resident.id === owner.id)
         ? [owner, ...social].slice(0, 3)
         : social.slice(0, 3);
+    }
+    case 'townHall': {
+      const roles = new Set(['civicOfficial', 'scribe']);
+      const officials = town.residents.filter((resident) => roles.has(resident.role));
+      return owner && !officials.some((resident) => resident.id === owner.id)
+        ? [owner, ...officials].slice(0, 2)
+        : officials.slice(0, 2);
     }
     case 'thievesGuild': {
       const roles = new Set(['thiefContact', 'thief']);
@@ -1452,6 +1461,13 @@ function townInteriorPalette(
         wallColor: 0x4a367a,
         wallOutlineColor: 0xc1a4ff,
       };
+    case 'townHall':
+      return {
+        title: titleOverride ?? 'Town Hall',
+        backgroundColor: 0x1b2024,
+        wallColor: 0x46545c,
+        wallOutlineColor: 0xd8e0c8,
+      };
     case 'inn':
       return {
         title: titleOverride ?? 'Inn',
@@ -1484,6 +1500,7 @@ function townInteriorBounds(
     case 'potionMaker':
     case 'mapper':
     case 'wizardShop':
+    case 'townHall':
       return { left: 7, top: 5, width: cols - 14, height: rows - 7 };
     case 'inn':
       return { left: 5, top: 4, width: cols - 10, height: rows - 6 };
@@ -1558,6 +1575,15 @@ function stampTownInteriorTemplate(
       setTile(centerX - 3, bottom - 4, 'S');
       setTile(centerX + 3, bottom - 4, 'A');
       break;
+    case 'townHall':
+      fillTile(left + 2, top + 2, bounds.width - 4, 1, 'A');
+      fillTile(centerX - 5, centerY - 2, 10, 2, 'S');
+      setTile(centerX, centerY - 4, 'M');
+      setTile(centerX - 4, centerY + 2, 'P');
+      setTile(centerX + 4, centerY + 2, 'P');
+      setTile(left + 3, bottom - 4, 'S');
+      setTile(right - 3, bottom - 4, 'A');
+      break;
     case 'inn':
       fillTile(left + 2, top + 2, bounds.width - 4, 2, 'A');
       setTile(left + 4, top + 5, 'R');
@@ -1602,6 +1628,7 @@ function townInteriorResidentPositions(
     case 'potionMaker':
     case 'mapper':
     case 'wizardShop':
+    case 'townHall':
       return [{ x: centerX, y: bounds.top + 5 }];
     case 'inn':
       return [{ x: centerX, y: bounds.top + 5 }];

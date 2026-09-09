@@ -94,6 +94,7 @@ function toFirstPersonBillboard(sprite: RenderSprite): FirstPersonBillboard | nu
       presentation?.textureKey ??
       sprite.visual.firstPersonTextureKey ??
       sprite.visual.defaultTextureKey,
+    badges: sprite.badges,
     roomId: sprite.roomId,
     facing: sprite.facing,
     segmentIndex: sprite.segmentIndex,

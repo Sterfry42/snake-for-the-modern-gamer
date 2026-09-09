@@ -2015,6 +2015,7 @@ export default class SnakeScene extends Phaser.Scene {
   private readonly villageResidentSpeechTexts: Phaser.GameObjects.Text[] = [];
   private readonly villageResidentSleepTexts: Phaser.GameObjects.Text[] = [];
   private readonly villageResidentActivityPropSprites: Phaser.GameObjects.Sprite[] = [];
+  private readonly villageResidentBadgeTexts: Phaser.GameObjects.Text[] = [];
   private runtimeSpriteFactory!: RuntimeSpriteFactory;
   private houseRestCounter = 0;
   private jasonDefeatCount = 0;
@@ -22714,6 +22715,26 @@ export default class SnakeScene extends Phaser.Scene {
     return sprite;
   }
 
+  private ensureVillageResidentBadgeText(index: number): Phaser.GameObjects.Text {
+    let text = this.villageResidentBadgeTexts[index];
+    if (text) {
+      return text;
+    }
+    text = this.add
+      .text(0, 0, '●', {
+        fontFamily: 'monospace',
+        fontSize: `${Math.max(7, Math.floor(this.grid.cell * 0.22))}px`,
+        color: '#ffd34d',
+        stroke: '#401c12',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5, 0.5)
+      .setDepth(32)
+      .setVisible(false);
+    this.villageResidentBadgeTexts[index] = text;
+    return text;
+  }
+
   private getDefaultNpcTextures(size: number): Record<'idle' | 'blink', string> {
     const palette: QuestGiverSpritePalette = {
       robeColor: '#2f7f5f',
@@ -22827,6 +22848,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.villageResidentSpeechTexts.forEach((text) => text.setVisible(false));
     this.villageResidentSleepTexts.forEach((text) => text.setVisible(false));
     this.villageResidentActivityPropSprites.forEach((sprite) => sprite.setVisible(false));
+    this.villageResidentBadgeTexts.forEach((text) => text.setVisible(false));
     if (!this.snakeGame) {
       return;
     }
@@ -22847,6 +22869,7 @@ export default class SnakeScene extends Phaser.Scene {
       const speechText = this.ensureVillageResidentSpeechText(index);
       const sleepText = this.ensureVillageResidentSleepText(index);
       const activityPropSprite = this.ensureVillageResidentActivityPropSprite(index);
+      const badgeText = this.ensureVillageResidentBadgeText(index);
       const isGoblin = resident.factionId === 'goblin-camps' || resident.species === 'goblin';
       const relationshipProfile: PresentRelationshipProfile = resident;
       const actor = relationshipProfile.actorId
@@ -22867,6 +22890,7 @@ export default class SnakeScene extends Phaser.Scene {
         speechText.setVisible(false);
         sleepText.setVisible(false);
         activityPropSprite.setVisible(false);
+        badgeText.setVisible(false);
         return;
       }
       const relationshipState = this.snakeGame.getRelationshipState(relationshipProfile);
@@ -22880,6 +22904,7 @@ export default class SnakeScene extends Phaser.Scene {
         speechText.setVisible(false);
         sleepText.setVisible(false);
         activityPropSprite.setVisible(false);
+        badgeText.setVisible(false);
         return;
       }
       const palette = isGoblin
@@ -22930,6 +22955,10 @@ export default class SnakeScene extends Phaser.Scene {
         .setText(speechVisible ? speech!.text : '')
         .setPosition(world.x, world.y - this.grid.cell * 0.78 + bobOffset)
         .setVisible(speechVisible);
+      const badges = this.snakeGame.getCivicBadgesForActor(actor.id);
+      badgeText
+        .setPosition(world.x - this.grid.cell * 0.2, world.y + this.grid.cell * 0.18 + bobOffset)
+        .setVisible(badges.includes('campaign-button'));
       if (activityProp) {
         const propSize = Math.max(8, Math.floor(this.grid.cell * activityProp.maxTileWidth));
         const propTextures = this.runtimeSpriteFactory.ensureRecipe(
@@ -23013,6 +23042,7 @@ export default class SnakeScene extends Phaser.Scene {
               factionId: profile.factionId,
               species: profile.species,
             },
+            badges: this.snakeGame.getCivicBadgesForActor(actor.id),
           },
         ];
       });

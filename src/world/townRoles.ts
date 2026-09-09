@@ -17,6 +17,7 @@ type TownMerchantRole = (typeof TOWN_MERCHANT_ROLE_VALUES)[number];
 
 export const TOWN_RESIDENT_ROLE_VALUES = [
   'resident',
+  'civicOfficial',
   ...TOWN_MERCHANT_ROLE_VALUES,
   'guard',
   'gateGuard',
@@ -49,6 +50,7 @@ const STATIONARY_TOWN_ROLES = new Set<string>([
   'gateGuard',
   ...TOWN_MERCHANT_ROLE_VALUES,
   'questGiver',
+  'civicOfficial',
 ]);
 const TOWN_GUARD_ROLES = new Set<string>(['guard', 'gateGuard']);
 const TOWN_CRIMINAL_ROLES = new Set<string>([

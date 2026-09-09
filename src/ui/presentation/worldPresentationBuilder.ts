@@ -41,6 +41,7 @@ export interface RuntimeNpcPresentation {
   x: number;
   y: number;
   visual?: NpcVisualDescriptor;
+  badges?: readonly string[];
 }
 
 export interface BuildWorldPresentationOptions {
@@ -248,6 +249,7 @@ function pushRoomSprites(
       anchorY: 1,
       color: 0xf6bd60,
       visual: assets.getNpcTexture(npc.visual),
+      badges: npc.badges,
       roomId: entry.room.id,
     });
   }

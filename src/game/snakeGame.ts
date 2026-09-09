@@ -163,7 +163,18 @@ import type {
   ResolvedAtmosphereView,
   ShelterMode,
 } from '../world/atmosphereTypes.js';
-import type { TownRuntimeState } from '../world/townRuntime.js';
+import {
+  applyTownRuntimeState as applyTownRuntimeStateToTown,
+  createTownRuntimeState,
+  type TownRuntimeState,
+} from '../world/townRuntime.js';
+import { CivicService } from '../civic/civicService.js';
+import type {
+  MayoralPlatformId,
+  TownCivicState,
+  TownPolicyModifiers,
+} from '../civic/civicTypes.js';
+import { getMayoralPlatform } from '../civic/mayoralPlatforms.js';
 import {
   createWorldGenerationIdentity,
   type WorldGenerationIdentity,
@@ -248,6 +259,7 @@ import {
   type ShopOfferView,
   type ShopTabId,
 } from '../shops/shopProfiles.js';
+import { VILLAGE_SHOP_SUPPLIES } from '../shops/villageShop.js';
 import {
   ALCHEMY_STATE_FLAG,
   ALCHEMY_STATION_ITEM_ID,
@@ -754,6 +766,19 @@ export type ActorInteractionDispatchResult =
       message: string;
     }
   | {
+      ok: true;
+      action:
+        | `run-for-mayor:${MayoralPlatformId}`
+        | 'campaign-shake-hands'
+        | 'campaign-button'
+        | 'campaign-smear'
+        | 'campaign-buy-round'
+        | 'mayor-free-beer';
+      actorId: string;
+      message: string;
+      civic: TownCivicState;
+    }
+  | {
       ok: false;
       action: 'tavern-rest';
       actorId: string;
@@ -768,6 +793,19 @@ export type ActorInteractionDispatchResult =
       shop?: ActorShopView;
       message: string;
       reason: 'missing-actor' | 'closed' | 'unsupported-action';
+    }
+  | {
+      ok: false;
+      action:
+        | `run-for-mayor:${MayoralPlatformId}`
+        | 'campaign-shake-hands'
+        | 'campaign-button'
+        | 'campaign-smear'
+        | 'campaign-buy-round'
+        | 'mayor-free-beer';
+      actorId: string;
+      message: string;
+      reason: 'missing-actor' | 'unsupported-action' | 'unavailable' | 'insufficient-score';
     }
   | {
       ok: false;
@@ -1169,6 +1207,7 @@ export class SnakeGame implements QuestRuntime {
   private readonly actors: ActorSystem;
   private readonly rumors: RumorSystem;
   private readonly factionEvents: FactionEventSystem;
+  private readonly civic = new CivicService();
   private readonly inventory: InventorySystem;
   private readonly maneuvers = new ManeuverController();
   private readonly specialStats = new SpecialStatsService();
@@ -6564,42 +6603,68 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private applyTownRuntimeState(town: TownStructure): TownStructure {
-    const runtime = this.getFlag<TownRuntimeState>(`town.runtime.${town.id}`);
     const baseTown = this.ensurePhysicalTrainerInTown(town);
+    const runtime = this.getTownRuntimeState(baseTown);
     if (!runtime) {
       return baseTown;
     }
-    const next = cloneTown(baseTown);
-    next.wantedLevel = runtime.wantedLevel;
-    next.suspicion = runtime.suspicion;
-    next.reputation = runtime.reputation;
-    next.discoveredGuild = runtime.discoveredGuild;
-    next.buildings = next.buildings.map((building) =>
-      building.kind === 'guildAccess'
-        ? {
-            ...building,
-            hidden: !runtime.discoveredGuild,
-            publicAccess: runtime.discoveredGuild,
-            doorKind: runtime.discoveredGuild ? 'guildGrateOpen' : 'guildGrateClosed',
-            doorLabel: runtime.discoveredGuild ? 'Enter Thieves Guild' : 'Inspect old grate',
-            shortLabel: runtime.discoveredGuild ? 'Thieves Guild' : 'Old Drain',
-          }
-        : building,
-    );
-    next.rumors = runtime.rumors;
+    const next = applyTownRuntimeStateToTown(baseTown, runtime);
     next.gates = (next.gates ?? []).map((gate) =>
-      runtime.openedGates.includes(gate.id) ||
-      runtime.openedGates.includes(gate.townRoomId) ||
-      runtime.openedGates.includes(gate.approachRoomId) ||
       this.getFlag<boolean>(this.townGateFlagKey(next.id, gate))
         ? { ...gate, state: 'open' }
         : gate,
     );
-    if (next.thievesGuild) {
-      next.thievesGuild.discovered = runtime.discoveredGuild;
-      next.thievesGuild.completedJobs = [...runtime.completedGuildJobs];
-      next.thievesGuild.failedJobs = [...runtime.failedGuildJobs];
+    return next;
+  }
+
+  private getTownRuntimeState(town: TownStructure): TownRuntimeState | undefined {
+    return this.getFlag<TownRuntimeState>(`town.runtime.${town.id}`);
+  }
+
+  private getOrCreateTownRuntimeState(town: TownStructure): TownRuntimeState {
+    const runtime = this.getTownRuntimeState(town);
+    if (runtime) {
+      return {
+        ...createTownRuntimeState(town, this.civic, runtime),
+        ...runtime,
+        civic: runtime.civic ?? this.civic.createInitialState(town),
+      };
     }
+    const created = createTownRuntimeState(town, this.civic);
+    this.setFlag(`town.runtime.${town.id}`, created);
+    return created;
+  }
+
+  private getTownCivicState(town: TownStructure): TownCivicState {
+    return this.getOrCreateTownRuntimeState(town).civic;
+  }
+
+  private findTownById(townId: string | undefined): TownStructure | undefined {
+    if (!townId) {
+      return undefined;
+    }
+    for (const room of this.world.snapshot().values()) {
+      if (room.town?.id === townId) {
+        return this.applyTownRuntimeState(room.town);
+      }
+    }
+    return undefined;
+  }
+
+  private getActivePlayerCampaignTownIds(): string[] {
+    return Object.entries(this.snake.flags)
+      .filter(
+        ([key, value]) =>
+          key.startsWith('town.runtime.') &&
+          Boolean((value as Partial<TownRuntimeState> | undefined)?.civic?.activeElection),
+      )
+      .map(([, value]) => (value as TownRuntimeState).townId);
+  }
+
+  private updateTownCivicState(town: TownStructure, civic: TownCivicState): TownRuntimeState {
+    const current = this.getOrCreateTownRuntimeState(town);
+    const next = { ...current, civic };
+    this.setFlag(`town.runtime.${town.id}`, next);
     return next;
   }
 
@@ -6662,28 +6727,23 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private saveTownRuntimeState(town: TownStructure): void {
-    const runtime: TownRuntimeState = {
-      townId: town.id,
-      wantedLevel: town.wantedLevel,
-      suspicion: town.suspicion ?? 0,
-      reputation: town.reputation,
-      discoveredGuild: town.discoveredGuild,
+    const previous = this.getTownRuntimeState(town);
+    const runtime: TownRuntimeState = createTownRuntimeState(town, this.civic, previous);
+    this.setFlag(`town.runtime.${town.id}`, {
+      ...runtime,
       openedGates: [
-        ...(town.gates ?? [])
-          .filter(
-            (gate) =>
-              gate.state === 'open' || this.getFlag<boolean>(this.townGateFlagKey(town.id, gate)),
-          )
-          .map((gate) => gate.id),
+        ...new Set([
+          ...(previous?.openedGates ?? []),
+          ...(town.gates ?? [])
+            .filter(
+              (gate) =>
+                gate.state === 'open' || this.getFlag<boolean>(this.townGateFlagKey(town.id, gate)),
+            )
+            .map((gate) => gate.id),
+        ]),
       ],
-      completedGuildJobs: town.thievesGuild?.completedJobs ?? [],
-      failedGuildJobs: town.thievesGuild?.failedJobs ?? [],
-      rumors: town.rumors,
-      noticesSeen: [],
-      stolenItemIds: [],
-      residents: {},
-    };
-    this.setFlag(`town.runtime.${town.id}`, runtime);
+      civic: previous?.civic ?? runtime.civic,
+    });
   }
 
   describeTownRoom(kind: TownRoomKind): string {
@@ -6932,6 +6992,12 @@ export class SnakeGame implements QuestRuntime {
     return this.actors.getActorsInRoom(this.snake.currentRoomId);
   }
 
+  getCivicBadgesForActor(actorId: string): string[] {
+    const actor = this.actors.getActor(actorId);
+    const town = this.findTownById(actor?.townId);
+    return actor && town ? this.civic.getActorBadges(this.getTownCivicState(town), actor) : [];
+  }
+
   getActorInteractionMenu(actorId: string): ActorInteractionMenuModel | null {
     const actor = this.actors.getActor(actorId);
     if (!actor) {
@@ -6946,7 +7012,40 @@ export class SnakeGame implements QuestRuntime {
       recentRumorCount: this.getRecentWorldRumors().length,
       shopClosedReason: this.getActorShopClosedReason(actor),
       tavernRest: actor.role === 'bartender' ? this.getCurrentInnServiceView() : undefined,
+      civic: this.getCivicInteractionContext(actor, room.town),
     });
+  }
+
+  private getCivicInteractionContext(
+    actor: Actor,
+    town: TownStructure | undefined,
+  ): NonNullable<Parameters<typeof buildActorInteractionMenu>[1]>['civic'] {
+    const actorTown = town && actor.townId === town.id ? town : this.findTownById(actor.townId);
+    if (!actorTown) {
+      return {};
+    }
+    const civic = this.getTownCivicState(actorTown);
+    const canDeclare = this.civic.canDeclareCandidacy({
+      town: actorTown,
+      civic,
+      activeCampaignTownIds: this.getActivePlayerCampaignTownIds(),
+    });
+    const activeElection = civic.activeElection;
+    return {
+      townId: actorTown.id,
+      isCivicOfficial:
+        actor.role === 'civicOfficial' &&
+        (civic.mayor.kind === 'actor' ? civic.mayor.actorId === actor.id : true),
+      canDeclare: canDeclare.ok,
+      declarationReason: canDeclare.reason,
+      activeElection,
+      voterState: activeElection?.voterActions[actor.id],
+      boughtRoundAvailable: activeElection ? !activeElection.boughtRound : false,
+      freeCommunityBeerAvailable:
+        actor.role === 'bartender'
+          ? this.civic.canRedeemCommunityBeer(civic, this.getAtmosphereState().worldDay)
+          : undefined,
+    };
   }
 
   async chooseActorInteraction(
@@ -7003,12 +7102,315 @@ export class SnakeGame implements QuestRuntime {
         reason: rest.refusedReason ?? 'danger',
       };
     }
+    const civicResult = this.chooseCivicActorInteraction(actor, actionId);
+    if (civicResult) {
+      return civicResult;
+    }
     return {
       ok: false,
       action: actionId,
       actorId,
       message: `${actor.displayName} cannot do that right now.`,
       reason: 'unsupported-action',
+    };
+  }
+
+  private chooseCivicActorInteraction(
+    actor: Actor,
+    actionId: string,
+  ): ActorInteractionDispatchResult | null {
+    if (actionId.startsWith('run-for-mayor:')) {
+      return this.declareMayoralCampaign(actor, actionId);
+    }
+    switch (actionId) {
+      case 'campaign-shake-hands':
+        return this.applyCampaignHandshake(actor);
+      case 'campaign-button':
+        return this.applyCampaignButton(actor);
+      case 'campaign-smear':
+        return this.applyCampaignSmear(actor);
+      case 'campaign-buy-round':
+        return this.applyCampaignRound(actor);
+      case 'mayor-free-beer':
+        return this.redeemMayoralCommunityBeer(actor);
+      default:
+        return null;
+    }
+  }
+
+  private declareMayoralCampaign(actor: Actor, actionId: string): ActorInteractionDispatchResult {
+    const platformId = actionId.replace('run-for-mayor:', '') as MayoralPlatformId;
+    const action: `run-for-mayor:${MayoralPlatformId}` = `run-for-mayor:${platformId}`;
+    const town = this.findTownById(actor.townId);
+    if (!town || actor.role !== 'civicOfficial') {
+      return {
+        ok: false,
+        action,
+        actorId: actor.id,
+        message: 'There is no civic office to declare from here.',
+        reason: 'unavailable',
+      };
+    }
+    const civic = this.getTownCivicState(town);
+    const eligibility = this.civic.canDeclareCandidacy({
+      town,
+      civic,
+      activeCampaignTownIds: this.getActivePlayerCampaignTownIds(),
+    });
+    if (!eligibility.ok) {
+      return {
+        ok: false,
+        action,
+        actorId: actor.id,
+        message: eligibility.reason ?? 'You cannot run here.',
+        reason: 'unavailable',
+      };
+    }
+    const nextCivic = this.civic.declareCandidacy({
+      town,
+      civic,
+      platformId,
+      worldDay: this.getAtmosphereState().worldDay,
+    });
+    this.updateTownCivicState(town, nextCivic);
+    const platform = getMayoralPlatform(platformId);
+    this.emitWorldEvent({
+      type: 'campaign-event',
+      roomId: this.snake.currentRoomId,
+      sourceActorId: actor.id,
+      severity: 30,
+      loudness: 45,
+      tags: ['town', 'civic', 'campaign', 'declaration', platformId],
+      summary: `The snake declared a mayoral campaign in ${town.name} on ${platform.label}.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: {
+        townId: town.id,
+        platformId,
+        resolveAtWorldDay: nextCivic.activeElection?.resolveAtWorldDay,
+      },
+    });
+    return {
+      ok: true,
+      action,
+      actorId: actor.id,
+      civic: nextCivic,
+      message: `Campaign declared for ${platform.label}. Election resolves at dawn on day ${nextCivic.activeElection?.resolveAtWorldDay}.`,
+    };
+  }
+
+  private applyCampaignHandshake(actor: Actor): ActorInteractionDispatchResult {
+    const town = this.findTownById(actor.townId);
+    const civic = town ? this.getTownCivicState(town) : undefined;
+    if (
+      !town ||
+      !civic?.activeElection ||
+      civic.activeElection.voterActions[actor.id]?.shookHands
+    ) {
+      return this.refuseCivicAction(actor, 'campaign-shake-hands', 'No handshake is available.');
+    }
+    const nextCivic = this.civic.recordHandshake(civic, actor.id);
+    this.updateTownCivicState(town, nextCivic);
+    this.emitWorldEvent({
+      type: 'campaign-event',
+      roomId: this.snake.currentRoomId,
+      targetActorIds: [actor.id],
+      severity: 12,
+      loudness: 16,
+      tags: ['town', 'civic', 'campaign', 'handshake'],
+      summary: `${actor.displayName} shook hands with the mayoral candidate.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { townId: town.id, actorId: actor.id },
+    });
+    return {
+      ok: true,
+      action: 'campaign-shake-hands',
+      actorId: actor.id,
+      civic: nextCivic,
+      message: `${actor.displayName} hears the pitch.`,
+    };
+  }
+
+  private applyCampaignButton(actor: Actor): ActorInteractionDispatchResult {
+    const town = this.findTownById(actor.townId);
+    const civic = town ? this.getTownCivicState(town) : undefined;
+    if (
+      !town ||
+      !civic?.activeElection ||
+      civic.activeElection.voterActions[actor.id]?.buttonAttempted
+    ) {
+      return this.refuseCivicAction(actor, 'campaign-button', 'No button offer is available.');
+    }
+    const result = this.civic.recordButtonOutcome(civic, actor);
+    this.updateTownCivicState(town, result.civic);
+    const accepted = result.outcome === 'wearing';
+    this.emitWorldEvent({
+      type: 'campaign-event',
+      roomId: this.snake.currentRoomId,
+      targetActorIds: [actor.id],
+      severity: accepted ? 24 : 10,
+      loudness: accepted ? 35 : 12,
+      tags: ['town', 'civic', 'campaign', 'button', result.outcome],
+      summary: accepted
+        ? `${actor.displayName} publicly wore the snake's campaign button.`
+        : `${actor.displayName} declined the snake's campaign button.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { townId: town.id, actorId: actor.id, outcome: result.outcome },
+    });
+    return {
+      ok: true,
+      action: 'campaign-button',
+      actorId: actor.id,
+      civic: result.civic,
+      message:
+        result.outcome === 'wearing'
+          ? `${actor.displayName} pins on the campaign button.`
+          : result.outcome === 'hard-refusal'
+            ? '"Absolutely not."'
+            : '"No thanks. Good luck."',
+    };
+  }
+
+  private applyCampaignSmear(actor: Actor): ActorInteractionDispatchResult {
+    const town = this.findTownById(actor.townId);
+    const civic = town ? this.getTownCivicState(town) : undefined;
+    if (
+      !town ||
+      !civic?.activeElection ||
+      civic.activeElection.voterActions[actor.id]?.smearAttempted
+    ) {
+      return this.refuseCivicAction(actor, 'campaign-smear', 'No smear attempt is available.');
+    }
+    const result = this.civic.recordSmear(civic, actor);
+    this.updateTownCivicState(town, result.civic);
+    this.emitWorldEvent({
+      type: 'campaign-event',
+      roomId: this.snake.currentRoomId,
+      targetActorIds: [actor.id],
+      severity: result.outcome === 'backfired' ? 28 : 18,
+      loudness: 35,
+      tags: ['town', 'civic', 'campaign', 'smear', result.outcome],
+      summary:
+        result.outcome === 'landed'
+          ? `${actor.displayName} believed the campaign attack on the incumbent.`
+          : result.outcome === 'backfired'
+            ? `${actor.displayName} resented the campaign attack on the incumbent.`
+            : `${actor.displayName} heard the campaign attack and stayed undecided.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { townId: town.id, actorId: actor.id, outcome: result.outcome },
+    });
+    return {
+      ok: true,
+      action: 'campaign-smear',
+      actorId: actor.id,
+      civic: result.civic,
+      message: `The attack ${result.outcome === 'landed' ? 'lands' : result.outcome}.`,
+    };
+  }
+
+  private applyCampaignRound(actor: Actor): ActorInteractionDispatchResult {
+    const town = this.findTownById(actor.townId);
+    const civic = town ? this.getTownCivicState(town) : undefined;
+    if (
+      !town ||
+      !civic?.activeElection ||
+      civic.activeElection.boughtRound ||
+      actor.role !== 'bartender'
+    ) {
+      return this.refuseCivicAction(actor, 'campaign-buy-round', 'No campaign round is available.');
+    }
+    const cost = this.getCampaignRoundCost();
+    if (this.getScore() < cost) {
+      return {
+        ok: false,
+        action: 'campaign-buy-round',
+        actorId: actor.id,
+        message: `Buying the tavern a round costs ${cost} score.`,
+        reason: 'insufficient-score',
+      };
+    }
+    this.addScore(-cost);
+    const presentActorIds = this.actors
+      .getActorsInRoom(this.snake.currentRoomId)
+      .filter((entry) => entry.id !== actor.id && entry.townId === town.id)
+      .map((entry) => entry.id);
+    const nextCivic = this.civic.recordBoughtRound(civic, presentActorIds);
+    this.updateTownCivicState(town, nextCivic);
+    this.emitWorldEvent({
+      type: 'campaign-event',
+      roomId: this.snake.currentRoomId,
+      sourceActorId: actor.id,
+      targetActorIds: presentActorIds,
+      severity: 24,
+      loudness: 45,
+      tags: ['town', 'civic', 'campaign', 'round', 'tavern'],
+      summary: `The snake bought the tavern a campaign round in ${town.name}.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { townId: town.id, cost, actorIds: presentActorIds },
+    });
+    return {
+      ok: true,
+      action: 'campaign-buy-round',
+      actorId: actor.id,
+      civic: nextCivic,
+      message: `You buy the room a round for ${cost} score.`,
+    };
+  }
+
+  private redeemMayoralCommunityBeer(actor: Actor): ActorInteractionDispatchResult {
+    const town = this.findTownById(actor.townId);
+    const civic = town ? this.getTownCivicState(town) : undefined;
+    const worldDay = this.getAtmosphereState().worldDay;
+    if (
+      !town ||
+      !civic ||
+      actor.role !== 'bartender' ||
+      !this.civic.canRedeemCommunityBeer(civic, worldDay)
+    ) {
+      return this.refuseCivicAction(
+        actor,
+        'mayor-free-beer',
+        'No mayoral tavern beer is available.',
+      );
+    }
+    const nextCivic = this.civic.recordCommunityBeerRedeemed(civic, worldDay);
+    this.updateTownCivicState(town, nextCivic);
+    this.addItem('beer', 1);
+    this.emitWorldEvent({
+      type: 'campaign-event',
+      roomId: this.snake.currentRoomId,
+      sourceActorId: actor.id,
+      severity: 10,
+      loudness: 10,
+      tags: ['town', 'civic', 'mayor', 'community-celebration', 'tavern'],
+      summary: `The Mayor claimed a community beer in ${town.name}.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { townId: town.id, itemId: 'beer', worldDay },
+    });
+    return {
+      ok: true,
+      action: 'mayor-free-beer',
+      actorId: actor.id,
+      civic: nextCivic,
+      message: 'The tavern slides over the Mayor beer on the house.',
+    };
+  }
+
+  private refuseCivicAction(
+    actor: Actor,
+    action:
+      | 'campaign-shake-hands'
+      | 'campaign-button'
+      | 'campaign-smear'
+      | 'campaign-buy-round'
+      | 'mayor-free-beer',
+    message: string,
+  ): ActorInteractionDispatchResult {
+    return {
+      ok: false,
+      action,
+      actorId: actor.id,
+      message,
+      reason: 'unavailable',
     };
   }
 
@@ -7138,7 +7540,18 @@ export class SnakeGame implements QuestRuntime {
   private getActorShopPriceScalar(): number {
     const derivedScalar = Number(this.getFlag<number>('derived.shopPriceScalar') ?? 1);
     const specialScalar = this.getSpecialGameplayModifiers().shopPriceScalar;
-    return Math.max(0.25, Math.min(2, derivedScalar * specialScalar));
+    const civicScalar = this.getCurrentTownPolicyModifiers().shopPriceScalar;
+    return Math.max(0.25, Math.min(2, derivedScalar * specialScalar * civicScalar));
+  }
+
+  private getCampaignRoundCost(): number {
+    const beer = VILLAGE_SHOP_SUPPLIES.find((offer) => offer.id === 'beer');
+    return (beer?.price ?? 7) * 20;
+  }
+
+  getCurrentTownPolicyModifiers(): TownPolicyModifiers {
+    const town = this.getCurrentTown();
+    return this.civic.getPolicyModifiers(town ? this.getTownCivicState(town) : undefined);
   }
 
   private getActorShopStockCountBonus(): number {
@@ -8690,7 +9103,9 @@ export class SnakeGame implements QuestRuntime {
       return existing;
     }
     const routeRoomIds = this.createTownPatrolRoute(town);
-    const memberCount = 1 + (stableStringHashPositive(`${town.id}:patrol:size`) % 4);
+    const modifiers = this.civic.getPolicyModifiers(this.getTownCivicState(town));
+    const memberCount =
+      1 + (stableStringHashPositive(`${town.id}:patrol:size`) % 4) + modifiers.guardPresenceBonus;
     const members: TownPatrolMember[] = Array.from({ length: memberCount }, (_, index) => ({
       actorId: `town-patrol:${town.id}:${index}`,
       health: 3,
@@ -12602,8 +13017,72 @@ export class SnakeGame implements QuestRuntime {
     const after = this.atmosphere.update(deltaMs);
     if (after.dayPhase !== before.dayPhase || after.worldDay !== before.worldDay) {
       this.actors.markSchedulesDirty();
+      this.handleWorldTimeTransition(before, after);
     }
     return after;
+  }
+
+  private handleWorldTimeTransition(before: AtmosphereState, after: AtmosphereState): void {
+    if (before.dayPhase === after.dayPhase && before.worldDay === after.worldDay) {
+      return;
+    }
+    this.resolveDueMayoralElections(after);
+  }
+
+  private resolveDueMayoralElections(after: AtmosphereState): void {
+    for (const [key, value] of Object.entries(this.snake.flags)) {
+      if (!key.startsWith('town.runtime.')) {
+        continue;
+      }
+      const runtime = value as TownRuntimeState | undefined;
+      const town = this.findTownById(runtime?.townId);
+      const civic = runtime?.civic;
+      if (!town || !civic || !this.civic.shouldResolve(civic, after.worldDay, after.dayPhase)) {
+        continue;
+      }
+      this.ensureActorsForTown(town.id);
+      const voters = this.actors.getActorsForTown(town.id).map((actor) => ({
+        actor,
+        knowledge: {
+          knowsPlayerGuildAffiliation:
+            town.discoveredGuild ||
+            actor.factionId === 'thieves-guild' ||
+            actor.memory.some(
+              (memory) => memory.tags.includes('guild') && memory.tags.includes('player'),
+            ),
+        },
+      }));
+      const resolved = this.civic.resolveElection({
+        town,
+        civic,
+        voters,
+        worldDay: after.worldDay,
+      });
+      this.updateTownCivicState(town, resolved.civic);
+      if (resolved.result) {
+        this.emitWorldEvent({
+          type: 'mayoral-election-result',
+          roomId: town.entranceRoomId,
+          severity: 40,
+          loudness: 55,
+          tags: ['town', 'civic', 'campaign', 'election-result', resolved.result.platformId],
+          summary:
+            resolved.result.winner.kind === 'player'
+              ? `The snake won the mayoral election in ${town.name}.`
+              : `The incumbent held City Hall in ${town.name}.`,
+          createdAtRoomNumber: this.getRoomsVisitedCount(),
+          data: { townId: town.id, result: resolved.result },
+        });
+      }
+    }
+  }
+
+  private ensureActorsForTown(townId: string): void {
+    for (const room of this.world.snapshot().values()) {
+      if (room.town?.id === townId) {
+        this.ensureActorsFromRoomContent(room);
+      }
+    }
   }
 
   getAtmosphereState(): AtmosphereState {

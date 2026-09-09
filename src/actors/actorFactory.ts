@@ -654,7 +654,7 @@ function mapTownResidentKind(role: ActorRole): ActorKind {
     return 'shopkeeper';
   }
   if (isTownGuardRole(role)) return 'guard';
-  if (role === 'questGiver') return 'civilian';
+  if (role === 'questGiver' || role === 'civicOfficial') return 'civilian';
   if (isTownCriminalRole(role)) return 'criminal';
   return 'civilian';
 }
@@ -664,7 +664,7 @@ function brainForRole(role: ActorRole): ActorBrainId {
     return 'shopkeeper';
   }
   if (isTownGuardRole(role)) return 'guard';
-  if (role === 'questGiver') return 'resident';
+  if (role === 'questGiver' || role === 'civicOfficial') return 'resident';
   if (role === 'thief' || role === 'thiefContact') return 'thief';
   return 'resident';
 }
@@ -692,6 +692,8 @@ function personalityForTownRole(role: ActorRole, species: ActorSpecies): ActorPe
       return ['nosy', 'sentimental', 'sharp'];
     case 'innkeeper':
       return ['practical', 'kind', 'deadpan'];
+    case 'civicOfficial':
+      return ['bureaucratic', 'lawful', 'statusHungry'];
     case 'bartender':
       return ['nosy', 'deadpan', 'practical'];
     case 'guard':

@@ -34,6 +34,7 @@ export type ActorRole =
   | 'mapper'
   | 'wizard'
   | 'innkeeper'
+  | 'civicOfficial'
   | 'guard'
   | 'gateGuard'
   | 'bartender'
