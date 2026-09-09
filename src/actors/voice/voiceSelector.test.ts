@@ -31,6 +31,7 @@ function baseContext(overrides: Partial<ActorConversationContext> = {}): ActorCo
     rumors: overrides.rumors ?? [],
     factionEvents: overrides.factionEvents ?? [],
     town: overrides.town,
+    civic: overrides.civic,
     relationship: overrides.relationship,
     socialTargetName: overrides.socialTargetName,
     socialLink: overrides.socialLink,

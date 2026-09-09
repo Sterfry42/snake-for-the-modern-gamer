@@ -205,7 +205,7 @@ describe('actor presence simulation', () => {
         currentMayorName: 'Mayor Jenkins',
         tags: ['active-election'],
       },
-      random: () => 0,
+      random: randomSequence(0, 0.34),
     });
     const mayorBark = selectActorRadiantBark(resident, {
       roomNumber: 12,
@@ -346,6 +346,11 @@ function actor(id: string, factionId: string): Actor {
     },
     hostility: 'neutral',
   });
+}
+
+function randomSequence(...values: number[]): () => number {
+  let index = 0;
+  return () => values[index++] ?? values[values.length - 1] ?? 0;
 }
 
 function atmosphere(

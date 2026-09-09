@@ -322,10 +322,7 @@ function isActorLineValid(line: ActorVoiceLine, context: ActorVoiceContext): boo
   if (line.requiresKingLore && !actor.lore?.knowsAboutKing) {
     return false;
   }
-  if (
-    line.civicTags &&
-    !line.civicTags.every((tag) => context.civic?.tags.includes(tag))
-  ) {
+  if (line.civicTags && !line.civicTags.every((tag) => context.civic?.tags.includes(tag))) {
     return false;
   }
   if (line.tags?.includes('health') && !isLowHealth(context)) {

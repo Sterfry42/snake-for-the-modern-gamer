@@ -173,8 +173,8 @@ export class CivicService {
     }
     return Boolean(
       civic.activeElection &&
-        worldDay >= civic.activeElection.resolveAtWorldDay &&
-        ['dawn', 'day', 'dusk', 'night'].includes(dayPhase),
+      worldDay >= civic.activeElection.resolveAtWorldDay &&
+      ['dawn', 'day', 'dusk', 'night'].includes(dayPhase),
     );
   }
 

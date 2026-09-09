@@ -176,7 +176,9 @@ export function selectActorRadiantBark(
   if (chance <= 0 || context.random() > chance) {
     return undefined;
   }
-  const text = civicRadiantBarkText(actor, context.civic, context.random) ?? radiantBarkText(actor, context.atmosphere);
+  const text =
+    civicRadiantBarkText(actor, context.civic, context.random) ??
+    radiantBarkText(actor, context.atmosphere);
   return {
     text,
     category: 'ambient',

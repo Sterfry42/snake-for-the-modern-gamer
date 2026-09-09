@@ -307,6 +307,84 @@ describe('Town civic stories', () => {
     });
     scenario.assertWorldIntegrity();
   });
+
+  it('TOWN-CIVIC-008 - Law & Order polling uses actual known guild membership', () => {
+    const scenario = createHeadlessScenario({ seed: 'town-civic-008-guild-knowledge' });
+    const { room } = findGeneratedTownDoor(scenario, { templateId: 'townHall' });
+    const town = requireTown(room);
+    const civic = new CivicService();
+    const runtime = createTownRuntimeState(town, civic);
+    const activeElection = {
+      id: `election:${town.id}:player:guild-knowledge`,
+      townId: town.id,
+      incumbentActorId:
+        runtime.civic.mayor.kind === 'actor' ? runtime.civic.mayor.actorId : undefined,
+      candidatePlayerId: 'player',
+      platformId: 'law-and-order' as const,
+      declaredAtWorldDay: 2,
+      resolveAtWorldDay: 4,
+      boughtRound: false,
+      voterActions: {},
+    };
+
+    town.discoveredGuild = true;
+    if (town.thievesGuild) {
+      town.thievesGuild.discovered = true;
+    }
+    scenario.game.setFlag(`town.runtime.${town.id}`, {
+      ...runtime,
+      discoveredGuild: true,
+      civic: {
+        ...runtime.civic,
+        activeElection,
+      },
+    });
+    scenario.enterRoom(room.id, town.center);
+
+    const actorSystem = scenario.game.getActorSystem();
+    const thiefIds = Array.from({ length: 12 }, (_, index) => `poll-thief-${index}`);
+    for (const residentId of thiefIds) {
+      actorSystem.registry.ensureTownResidentActor({
+        residentId,
+        name: `Guild Voter ${residentId}`,
+        role: 'thief',
+        factionId: 'thieves-guild',
+        townId: town.id,
+        currentRoomId: room.id,
+        homeRoomId: room.id,
+        workRoomId: room.id,
+        postPosition: town.center,
+      });
+    }
+
+    const unknownPoll = scenario.game.getTownBoardView()?.campaignStatus?.playerPercent;
+
+    for (const residentId of thiefIds) {
+      const actorId = `town:${town.id}:thief:${residentId}`;
+      actorSystem.registry.update(actorId, (actor) => ({
+        ...actor,
+        memory: [
+          ...actor.memory,
+          {
+            id: `memory:${actorId}:knows-player-guild-member`,
+            type: 'town-gossip',
+            summary: 'The voter knows the player is a member of the local guild.',
+            tags: ['guild', 'player', 'member'],
+            intensity: 18,
+            createdAtRoomNumber: 6,
+            source: 'heard',
+          },
+        ],
+      }));
+    }
+
+    const knownPoll = scenario.game.getTownBoardView()?.campaignStatus?.playerPercent;
+
+    expect(unknownPoll).toBeDefined();
+    expect(knownPoll).toBeDefined();
+    expect(knownPoll).toBeGreaterThan(unknownPoll ?? 0);
+    scenario.assertWorldIntegrity();
+  });
 });
 
 function moveSnakeIntoDoor(

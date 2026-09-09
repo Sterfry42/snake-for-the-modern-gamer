@@ -195,9 +195,16 @@ function isEntryValid(entry: ActorVoiceEntry, context: ActorConversationContext)
   )
     return false;
   if (entry.townMoodTags?.includes('wanted') && (context.town?.wantedLevel ?? 0) <= 0) return false;
+  if (entry.civicTags && !entry.civicTags.every((tag) => context.civic?.tags.includes(tag)))
+    return false;
   if (
-    entry.civicTags &&
-    !entry.civicTags.every((tag) => context.civic?.tags.includes(tag))
+    entry.civicTags?.includes('actor-mayor') &&
+    entry.tags.includes('introduction') &&
+    context.civic?.tags.some((tag) =>
+      ['active-election', 'player-beat-actor', 'player-lost-to-actor', 'former-mayor'].includes(
+        tag,
+      ),
+    )
   )
     return false;
   if (entry.minFocus !== undefined && (actor.focus ?? 0) < entry.minFocus) return false;

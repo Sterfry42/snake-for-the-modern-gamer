@@ -13126,7 +13126,7 @@ export class SnakeGame implements QuestRuntime {
     this.ensureActorsForTown(town.id);
     const voters = this.actors.getActorsForTown(town.id).map((actor) => ({
       actor,
-      knowledge: this.getCivicVoterKnowledge(actor, town),
+      knowledge: this.getCivicVoterKnowledge(actor),
     }));
     const resolved = this.civic.resolveElection({
       town,
@@ -13164,10 +13164,9 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
-  private getCivicVoterKnowledge(
-    actor: Actor,
-    _town: TownStructure,
-  ): { playerGuildAffiliation: PlayerGuildAffiliationKnowledge } {
+  private getCivicVoterKnowledge(actor: Actor): {
+    playerGuildAffiliation: PlayerGuildAffiliationKnowledge;
+  } {
     const hasExplicitMemberMemory = actor.memory.some(
       (memory) =>
         memory.tags.includes('guild') &&
@@ -13193,7 +13192,7 @@ export class SnakeGame implements QuestRuntime {
     actor: Actor,
   ): ActorCivicConversationContext | undefined {
     const town = this.findTownById(actor.townId);
-    if (!town) {
+    if (!town || !Array.isArray(town.residents) || !Array.isArray(town.buildings)) {
       return undefined;
     }
     const civic = this.getTownCivicState(town);
@@ -15353,11 +15352,14 @@ export class SnakeGame implements QuestRuntime {
       : undefined;
   }
 
-  private pollTownElection(town: TownStructure, civic: TownCivicState): TownElectionPoll | undefined {
+  private pollTownElection(
+    town: TownStructure,
+    civic: TownCivicState,
+  ): TownElectionPoll | undefined {
     this.ensureActorsForTown(town.id);
     const voters = this.actors.getActorsForTown(town.id).map((actor) => ({
       actor,
-      knowledge: this.getCivicVoterKnowledge(actor, town),
+      knowledge: this.getCivicVoterKnowledge(actor),
     }));
     return this.civic.pollElection({
       town,
