@@ -1,3 +1,6 @@
+/**
+ * Wrap Wall Feature
+ */
 import { Feature } from '../feature.js';
 import type SnakeScene from '../../scenes/snakeScene.js';
 

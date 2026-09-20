@@ -1,3 +1,6 @@
+/**
+ * Animal Types
+ */
 import type { Vector2Like } from '../core/math.js';
 
 export type AnimalType =
@@ -16,7 +19,8 @@ export type AnimalType =
   | 'bison'
   | 'bass'
   | 'possum'
-  | 'armadillo';
+  | 'armadillo'
+  | 'frog';
 
 export interface DropEntry {
   itemId: string;

@@ -12,7 +12,19 @@ function generateRoom(
 ): RoomSnapshot {
   const rng = createRng(seed);
   const generator = new RoomGenerator(grid, defaultGameConfig.world, rng);
-  return generator.generate(roomId, grid);
+  return generator.generate(roomId);
+}
+
+function findRoomByBiome(biomeId: RoomSnapshot['biomeId'], seed: string): RoomSnapshot {
+  for (let y = -40; y <= 40; y += 1) {
+    for (let x = -40; x <= 40; x += 1) {
+      const room = generateRoom(`${x},${y},0`, seed);
+      if (room.biomeId === biomeId) {
+        return room;
+      }
+    }
+  }
+  throw new Error(`Expected to find biome ${biomeId}.`);
 }
 
 describe('vegetation generation', () => {
@@ -22,12 +34,12 @@ describe('vegetation generation', () => {
   });
 
   it('does not place vegetation in elderwood-maze', () => {
-    const room = generateRoom('3,-1,0', 'veg-elderwood');
+    const room = generateRoom('6,0,0', 'veg-elderwood');
     expect(room.vegetation).toBeUndefined();
   });
 
   it('does not place vegetation in sunken-ocean', () => {
-    const room = generateRoom('0,-9,0', 'veg-ocean');
+    const room = findRoomByBiome('sunken-ocean', 'veg-ocean');
     expect(room.vegetation).toBeUndefined();
   });
 
@@ -63,8 +75,8 @@ describe('vegetation generation', () => {
     }
   });
 
-  it('creates 40 vegetation variant names', () => {
-    expect(ALL_VEGETATION_VARIANTS.length).toBe(40);
+  it('creates 45 vegetation variant names', () => {
+    expect(ALL_VEGETATION_VARIANTS.length).toBe(45);
   });
 
   it('produces deterministic vegetation for the same room and seed', () => {

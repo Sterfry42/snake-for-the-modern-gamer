@@ -1,6 +1,10 @@
+/**
+ * Kami Blessing Feature
+ */
 import Phaser from 'phaser';
 import { Feature } from '../feature.js';
 import type SnakeScene from '../../scenes/snakeScene.js';
+import { pickRandom } from '../../core/math.js';
 
 interface BlessingState {
   shrineTimer: number;
@@ -40,10 +44,6 @@ const BLESSING_TYPES = [
   },
 ];
 
-function pickRandom<T>(arr: T[], rng: () => number): T {
-  return arr[Math.floor(rng() * arr.length)];
-}
-
 class KamiBlessingFeature extends Feature {
   private state: BlessingState = {
     shrineTimer: 0,
@@ -59,6 +59,7 @@ class KamiBlessingFeature extends Feature {
   }
 
   override onRegister(scene: SnakeScene): void {
+    void scene;
     this.state = {
       shrineTimer: 0,
       shrineCooldown: SHRINE_COOLDOWN_TICKS,
@@ -119,13 +120,13 @@ class KamiBlessingFeature extends Feature {
   }
 
   private hasShrineBlessing(scene: SnakeScene): boolean {
-    const mods = (scene as any).religionMods;
+    const mods = (scene as unknown as { religionMods: Record<string, unknown> }).religionMods;
     return !!mods?.shrineBlessing;
   }
 
   private grantBlessing(scene: SnakeScene): void {
     const rng = scene.random?.bind(scene) ?? Math.random;
-    const blessing = pickRandom(BLESSING_TYPES, rng);
+    const blessing = pickRandom(rng, BLESSING_TYPES);
 
     blessing.apply(this.state);
 
@@ -193,6 +194,7 @@ class KamiBlessingFeature extends Feature {
   }
 
   private destroyCallout(_scene?: SnakeScene): void {
+    void _scene;
     if (this.callout) {
       this.callout.destroy();
       this.callout = undefined;

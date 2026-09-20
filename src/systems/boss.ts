@@ -1,6 +1,7 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import type { Vector2Like } from '../core/math.js';
 import { addVectors, manhattanDistance } from '../core/math.js';
+import type { RandomGenerator } from '../core/rng.js';
 import type { RoomSnapshot } from '../world/types.js';
 
 const FREAK_YOU_TURN_MARGIN = 5;
@@ -51,15 +52,18 @@ export interface BossStepDependencies {
 export class BossManager {
   private bosses = new Map<string, Boss>();
   private readonly grid: GridConfig;
-  private rainbowColorTimer: number = 0;
+  private readonly rng: RandomGenerator;
+  private bossIdCounter = 0;
 
-  constructor(grid: GridConfig) {
+  constructor(grid: GridConfig, rng: RandomGenerator) {
     this.grid = grid;
+    this.rng = rng;
   }
 
   public spawnBoss(
     roomId: string,
     bossType: 'freak-dennis' | 'freaker-dennis' | 'random' | 'fallen-angel' = 'random',
+    room?: RoomSnapshot,
   ): void {
     if (!roomId || typeof roomId !== 'string' || !roomId.includes(',')) {
       console.warn('[spawnBoss] Invalid roomId provided:', roomId);
@@ -69,7 +73,7 @@ export class BossManager {
     const roomOffsetX = roomX * this.grid.cols;
     const roomOffsetY = roomY * this.grid.rows;
 
-    const id = `boss-${Date.now()}`;
+    const id = `boss-${this.bossIdCounter++}`;
     const name =
       bossType === 'freak-dennis'
         ? 'Freak Dennis'
@@ -85,8 +89,13 @@ export class BossManager {
           ? 'freak-dennis'
           : 'freaker-dennis';
 
-    const centerX = roomOffsetX + this.grid.cols / 2 + 5;
-    const centerY = roomOffsetY + this.grid.rows / 2;
+    const preferredLocal = {
+      x: Math.floor(this.grid.cols / 2) + 5,
+      y: Math.floor(this.grid.rows / 2),
+    };
+    const spawnLocal = room ? this.findOpenBossCenter(room, preferredLocal) : preferredLocal;
+    const centerX = roomOffsetX + spawnLocal.x;
+    const centerY = roomOffsetY + spawnLocal.y;
     const body: Vector2Like[] = [];
     body.push({ x: centerX, y: centerY });
     for (let dy = -1; dy <= 1; dy++) {
@@ -120,6 +129,34 @@ export class BossManager {
     this.bosses.set(id, boss);
   }
 
+  private findOpenBossCenter(room: RoomSnapshot, preferred: Vector2Like): Vector2Like {
+    const candidates: Array<Vector2Like & { distance: number }> = [];
+    for (let y = 1; y < this.grid.rows - 1; y += 1) {
+      for (let x = 1; x < this.grid.cols - 1; x += 1) {
+        let open = true;
+        for (let dy = -1; dy <= 1 && open; dy += 1) {
+          for (let dx = -1; dx <= 1; dx += 1) {
+            const tile = room.layout[y + dy]?.[x + dx];
+            if (!tile || tile === '#' || tile === '~') {
+              open = false;
+              break;
+            }
+          }
+        }
+        if (open) {
+          candidates.push({
+            x,
+            y,
+            distance: Math.abs(x - preferred.x) + Math.abs(y - preferred.y),
+          });
+        }
+      }
+    }
+    candidates.sort((a, b) => a.distance - b.distance || a.y - b.y || a.x - b.x);
+    const selected = candidates[0];
+    return selected ? { x: selected.x, y: selected.y } : preferred;
+  }
+
   public spawnJasonStatham(roomId: string): void {
     if (!roomId || typeof roomId !== 'string' || !roomId.includes(',')) {
       console.warn('[spawnJasonStatham] Invalid roomId provided:', roomId);
@@ -129,7 +166,7 @@ export class BossManager {
     const roomOffsetX = roomX * this.grid.cols;
     const roomOffsetY = roomY * this.grid.rows;
 
-    const id = `boss-jason-${Date.now()}`;
+    const id = `boss-jason-${this.bossIdCounter++}`;
     const name = 'Jason Statham';
 
     const centerX = roomOffsetX + this.grid.cols / 2;
@@ -168,7 +205,6 @@ export class BossManager {
     boss.health = Math.max(0, boss.health - damage);
     if (boss.health <= 0) {
       boss.jasonPhase = 'defeated';
-      const score = boss.maxHealth * 10;
       return true; // defeated
     }
     return false; // not defeated
@@ -276,7 +312,7 @@ export class BossManager {
         boss.jasonAttackingTimer = 0;
         boss.jasonAttackCooldown = 0;
         boss.jasonMoveIndex = 0;
-        boss.jasonAttackStartOffset = Math.floor(Math.random() * 3);
+        boss.jasonAttackStartOffset = Math.floor(this.rng() * 3);
         deps.onEvent?.({ kind: 'jason-statham', phase: 'vulnerable-exited' });
         return;
       }
@@ -298,7 +334,7 @@ export class BossManager {
         }
       }
       // Fallback: biased toward center if no flee direction works
-      if (boss.body.length > 0 && Math.random() < 0.5) {
+      if (boss.body.length > 0 && this.rng() < 0.5) {
         const dir = this._pickDirectionTowardCenter(boss, Math.random);
         if (dir) {
           boss.direction = dir;
@@ -336,7 +372,6 @@ export class BossManager {
 
       // Execute the chosen attack
       boss.jasonMoveIndex = (boss.jasonMoveIndex ?? 0) + 1;
-      const moveId = `jason-move-${boss.id}-${boss.jasonMoveIndex}`;
 
       switch (attackType) {
         case 0:
@@ -382,13 +417,13 @@ export class BossManager {
         boss.jasonAttackCooldown = 0;
         boss.jasonAttackingTimer = 0;
         boss.jasonMoveIndex = 0;
-        boss.jasonAttackStartOffset = Math.floor(Math.random() * 3);
+        boss.jasonAttackStartOffset = Math.floor(this.rng() * 3);
         deps.onEvent?.({ kind: 'jason-statham-attacking' });
         return;
       }
     }
     // Proximity not met: shuffle biased toward center
-    if (boss.body.length > 0 && Math.random() < 0.2) {
+    if (boss.body.length > 0 && this.rng() < 0.2) {
       const dir = this._pickDirectionTowardCenter(boss, Math.random);
       if (dir) {
         boss.direction = dir;
@@ -419,7 +454,7 @@ export class BossManager {
             { x: Math.sign(dx), y: 0 },
           ];
 
-    if (Math.random() < 0.6) {
+    if (this.rng() < 0.6) {
       for (const direction of preferred) {
         if (direction.x === 0 && direction.y === 0) continue;
         if (direction.x + boss.direction.x === 0 && direction.y + boss.direction.y === 0) continue;
@@ -716,7 +751,12 @@ export class BossManager {
     return `${Math.floor(head.x / this.grid.cols)},${Math.floor(head.y / this.grid.rows)},${roomZ}`;
   }
 
-  public getPullFor(snakeHead: Vector2Like, roomId: string, rng: () => number): Vector2Like | null {
+  public getPullFor(
+    snakeHead: Vector2Like,
+    roomId: string,
+    rng?: () => number,
+  ): Vector2Like | null {
+    const roll = rng ?? this.rng;
     const bossesInRoom = this.getBossesInRoom(roomId);
     for (const boss of bossesInRoom) {
       if (!boss.pull || !boss.body.length) continue;
@@ -726,11 +766,11 @@ export class BossManager {
 
       if (distance > 0 && distance <= boss.pull.radius) {
         if (boss.kind === 'freaker-dennis') {
-          if (rng() > boss.pull.strength * 0.8) {
+          if (roll() > boss.pull.strength * 0.8) {
             return null;
           }
         } else {
-          if (rng() > boss.pull.strength) {
+          if (roll() > boss.pull.strength) {
             return null;
           }
         }
@@ -748,58 +788,6 @@ export class BossManager {
     }
 
     return null;
-  }
-
-  private moveBoss(boss: Boss, deps: BossStepDependencies): void {
-    if (boss.kind === 'angel') {
-      this.moveAngelBoss(boss, deps);
-      return;
-    }
-
-    if (Math.random() < 0.2) {
-      const directions = [
-        { x: 1, y: 0 },
-        { x: -1, y: 0 },
-        { x: 0, y: 1 },
-        { x: 0, y: -1 },
-      ];
-      const validDirections = directions.filter(
-        (d) => d.x + boss.direction.x !== 0 || d.y + boss.direction.y !== 0,
-      );
-      const choices = validDirections.length > 0 ? validDirections : directions;
-      boss.direction = choices[Math.floor(Math.random() * choices.length)];
-    }
-
-    if (!boss.body.length) {
-      return;
-    }
-
-    const nextHead = addVectors(boss.body[0], boss.direction);
-    const [, , roomZ = 0] = boss.roomId.split(',').map(Number);
-
-    const targetRoomX = Math.floor(nextHead.x / this.grid.cols);
-    const targetRoomY = Math.floor(nextHead.y / this.grid.rows);
-    const baseRoomX = targetRoomX * this.grid.cols;
-    const baseRoomY = targetRoomY * this.grid.rows;
-    const localHeadX = nextHead.x - baseRoomX;
-    const localHeadY = nextHead.y - baseRoomY;
-
-    const targetRoomId = `${targetRoomX},${targetRoomY},${roomZ}`;
-    const targetRoom = deps.getRoom(targetRoomId);
-    if (!targetRoom) {
-      boss.direction = { x: -boss.direction.x, y: -boss.direction.y };
-      return;
-    }
-
-    const tile = targetRoom.layout[localHeadY]?.[localHeadX];
-    if (tile === '#') {
-      boss.direction = { x: -boss.direction.x, y: -boss.direction.y };
-      return;
-    }
-
-    const moveVector = boss.direction;
-    boss.body = boss.body.map((segment) => addVectors(segment, moveVector));
-    boss.roomId = targetRoomId;
   }
 
   private moveFreakerDennis(boss: Boss, deps: BossStepDependencies): void {
@@ -848,13 +836,13 @@ export class BossManager {
       if (targetDirection.x !== 0 && boss.direction.x !== 0) return;
       if (targetDirection.y !== 0 && boss.direction.y !== 0) return;
 
-      if (Math.random() < 0.7) {
+      if (this.rng() < 0.7) {
         shouldMove = true;
       }
     }
 
     if (!shouldMove) {
-      if (Math.random() < 0.2) {
+      if (this.rng() < 0.2) {
         const directions = [
           { x: 1, y: 0 },
           { x: -1, y: 0 },
@@ -864,7 +852,7 @@ export class BossManager {
         const validDirections = directions.filter(
           (d) => d.x + boss.direction.x !== 0 || d.y + boss.direction.y !== 0,
         );
-        boss.direction = validDirections[Math.floor(Math.random() * validDirections.length)];
+        boss.direction = validDirections[Math.floor(this.rng() * validDirections.length)];
       }
     }
 
@@ -874,7 +862,7 @@ export class BossManager {
   }
 
   private moveStandardBoss(boss: Boss, deps: BossStepDependencies): void {
-    if (Math.random() < 0.2) {
+    if (this.rng() < 0.2) {
       const directions = [
         { x: 1, y: 0 },
         { x: -1, y: 0 },
@@ -885,7 +873,7 @@ export class BossManager {
         (d) => d.x + boss.direction.x !== 0 || d.y + boss.direction.y !== 0,
       );
       const choices = validDirections.length > 0 ? validDirections : directions;
-      boss.direction = choices[Math.floor(Math.random() * choices.length)];
+      boss.direction = choices[Math.floor(this.rng() * choices.length)];
     }
 
     if (boss.body.length > 0) {
@@ -1000,7 +988,10 @@ export class BossManager {
       const localHeadX = cell.x - targetRoomX * this.grid.cols;
       const localHeadY = cell.y - targetRoomY * this.grid.rows;
       const targetRoom = deps.getRoom(`${targetRoomX},${targetRoomY},${roomZ}`);
-      if (targetRoom.layout[localHeadY]?.[localHeadX] === '#') {
+      if (
+        targetRoom.layout[localHeadY]?.[localHeadX] === '#' ||
+        targetRoom.layout[localHeadY]?.[localHeadX] === '%'
+      ) {
         this.carveBossWall(targetRoom, localHeadX, localHeadY);
       }
     }
@@ -1093,7 +1084,11 @@ export class BossManager {
       }
     }
     const targetRoom = deps.getRoom(targetRoomId);
-    if (!targetRoom || targetRoom.layout[localHeadY]?.[localHeadX] === '#') {
+    if (
+      !targetRoom ||
+      targetRoom.layout[localHeadY]?.[localHeadX] === '#' ||
+      targetRoom.layout[localHeadY]?.[localHeadX] === '%'
+    ) {
       return false;
     }
 
@@ -1139,7 +1134,7 @@ export class BossManager {
     }
 
     const tile = targetRoom.layout[localHeadY]?.[localHeadX];
-    if (tile === '#') {
+    if (tile === '#' || tile === '%') {
       boss.direction = { x: -direction.x, y: -direction.y };
       return;
     }

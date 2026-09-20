@@ -1,4 +1,5 @@
 import type { GridConfig } from '../../config/gameConfig.js';
+import { biomeCountsAs } from '../biomes.js';
 import type { BiomeMap } from './biomeMap.js';
 import {
   formatRoomId,
@@ -15,14 +16,10 @@ const HUMAN_TOWN_REGION_SIZE = 10;
 const HUMAN_TOWN_CANDIDATE_ATTEMPTS = 6;
 
 export const HUMAN_TOWN_DISTRICTS: Readonly<Record<string, TownPhysicalDistrictKind>> = {
-  '0,0': 'outskirts',
-  '1,0': 'gate',
-  '2,0': 'square',
-  '3,0': 'marketStreet',
-  '2,1': 'tavernInterior',
+  '1,1': 'townCenter',
+  '2,1': 'marketStreet',
   '1,2': 'residentialStreet',
   '2,2': 'backAlley',
-  '2,3': 'townExit',
 };
 
 type CardinalSide = 'north' | 'south' | 'east' | 'west';
@@ -81,6 +78,43 @@ function footprintForSeed(seed: number): HumanTownFootprint {
   );
 }
 
+function offsetsOnSide(
+  districts: Readonly<Record<string, TownPhysicalDistrictKind>>,
+  side: CardinalSide,
+): Array<{ dx: number; dy: number; district: TownPhysicalDistrictKind }> {
+  return Object.entries(districts)
+    .map(([key, district]) => {
+      const [dx = 0, dy = 0] = key.split(',').map(Number);
+      return { dx, dy, district };
+    })
+    .filter(({ dx, dy }) => {
+      switch (side) {
+        case 'north':
+          return !districts[`${dx},${dy - 1}`];
+        case 'south':
+          return !districts[`${dx},${dy + 1}`];
+        case 'east':
+          return !districts[`${dx + 1},${dy}`];
+        case 'west':
+          return !districts[`${dx - 1},${dy}`];
+      }
+    })
+    .sort((a, b) => {
+      const axis = side === 'north' || side === 'south' ? 'dx' : 'dy';
+      return a[axis] - b[axis];
+    });
+}
+
+function sideOffsetForFootprint(
+  footprint: HumanTownFootprint,
+  side: CardinalSide,
+  prefer: 'first' | 'last',
+): { dx: number; dy: number } {
+  const candidates = offsetsOnSide(footprint.districts, side);
+  const candidate = prefer === 'last' ? candidates[candidates.length - 1] : candidates[0];
+  return candidate ? { dx: candidate.dx, dy: candidate.dy } : { dx: 1, dy: 1 };
+}
+
 export function getHumanTownFootprint(placement: MultiRoomStructurePlacement): HumanTownFootprint {
   return footprintForSeed(placement.seed);
 }
@@ -92,7 +126,8 @@ export function getHumanTownDistricts(
 }
 
 export function getHumanTownEntranceRoomId(placement: MultiRoomStructurePlacement): string {
-  const offset = getHumanTownFootprint(placement).entranceOffset;
+  const footprint = getHumanTownFootprint(placement);
+  const offset = sideOffsetForFootprint(footprint, footprint.entranceSide, 'first');
   return formatRoomId({
     x: placement.anchor.x + offset.dx,
     y: placement.anchor.y + offset.dy,
@@ -101,13 +136,15 @@ export function getHumanTownEntranceRoomId(placement: MultiRoomStructurePlacemen
 }
 
 export function getHumanTownExitRoomIds(placement: MultiRoomStructurePlacement): string[] {
-  return getHumanTownFootprint(placement).exitOffsets.map((offset) =>
+  const footprint = getHumanTownFootprint(placement);
+  const offset = sideOffsetForFootprint(footprint, footprint.exitSide, 'last');
+  return [
     formatRoomId({
       x: placement.anchor.x + offset.dx,
       y: placement.anchor.y + offset.dy,
       z: placement.anchor.z,
     }),
-  );
+  ];
 }
 
 function offsetForSide(side: CardinalSide): { dx: number; dy: number } {
@@ -124,6 +161,8 @@ function offsetForSide(side: CardinalSide): { dx: number; dy: number } {
 }
 
 export class MultiRoomStructureResolver {
+  private readonly regionTownCache = new Map<string, MultiRoomStructurePlacement | null>();
+
   constructor(
     private readonly identity: WorldGenerationIdentity,
     private readonly biomeMap: BiomeMap,
@@ -165,7 +204,9 @@ export class MultiRoomStructureResolver {
     addIfTown('east', 1, 0);
     addIfTown('west', -1, 0);
 
-    if (membership.district === 'outskirts') {
+    const districtIsEntrance = roomId === getHumanTownEntranceRoomId(membership.placement);
+    const districtIsExit = getHumanTownExitRoomIds(membership.placement).includes(roomId);
+    if (districtIsEntrance) {
       const offset = offsetForSide(footprint.entranceSide);
       connections[footprint.entranceSide] = formatRoomId({
         x: coord.x + offset.dx,
@@ -173,7 +214,7 @@ export class MultiRoomStructureResolver {
         z: coord.z,
       });
     }
-    if (membership.district === 'townExit') {
+    if (districtIsExit) {
       const offset = offsetForSide(footprint.exitSide);
       connections[footprint.exitSide] = formatRoomId({
         x: coord.x + offset.dx,
@@ -214,12 +255,18 @@ export class MultiRoomStructureResolver {
     regionY: number,
     z: number,
   ): MultiRoomStructurePlacement | null {
+    const cacheKey = `${regionX},${regionY},${z}`;
+    if (this.regionTownCache.has(cacheKey)) {
+      return this.regionTownCache.get(cacheKey) ?? null;
+    }
     for (let attempt = 0; attempt < HUMAN_TOWN_CANDIDATE_ATTEMPTS; attempt += 1) {
       const placement = this.createRegionPlacement(regionX, regionY, z, attempt);
       if (this.isValidTownPlacement(placement)) {
+        this.regionTownCache.set(cacheKey, placement);
         return placement;
       }
     }
+    this.regionTownCache.set(cacheKey, null);
     return null;
   }
 
@@ -271,9 +318,18 @@ export class MultiRoomStructureResolver {
   }
 
   private isValidTownPlacement(placement: MultiRoomStructurePlacement): boolean {
-    const originDistance = Math.abs(placement.anchor.x) + Math.abs(placement.anchor.y);
-    if (placement.anchor.z === 0 && originDistance < 6) {
-      return false;
+    if (placement.anchor.z === 0) {
+      for (const key of Object.keys(getHumanTownDistricts(placement))) {
+        const [dx = 0, dy = 0] = key.split(',').map(Number);
+        const roomX = placement.anchor.x + dx;
+        const roomY = placement.anchor.y + dy;
+        if (Math.max(Math.abs(roomX), Math.abs(roomY)) <= 2) {
+          return false;
+        }
+        if (roomX >= -5 && roomX <= 3 && roomY >= -12 && roomY <= -8) {
+          return false;
+        }
+      }
     }
     for (const [key] of Object.entries(getHumanTownDistricts(placement))) {
       const [dx = 0, dy = 0] = key.split(',').map(Number);
@@ -283,7 +339,7 @@ export class MultiRoomStructureResolver {
         z: placement.anchor.z,
       });
       const biome = this.biomeMap.getBiomeForRoomId(roomId);
-      if (biome.id === 'sunken-ocean' || biome.id === 'elderwood-maze') {
+      if (biomeCountsAs(biome.id, 'ocean') || biome.id === 'elderwood-maze') {
         return false;
       }
     }
@@ -318,16 +374,17 @@ export class MultiRoomStructureResolver {
       return null;
     }
     const adjacentSideFacingTown = sides[0];
-    const entranceOffset = offsetForSide(footprint.entranceSide);
-    const exitOffset = offsetForSide(footprint.exitSide);
+    const entranceSideOffset = offsetForSide(footprint.entranceSide);
+    const exitSideOffset = offsetForSide(footprint.exitSide);
+    const entranceCoreOffset = sideOffsetForFootprint(footprint, footprint.entranceSide, 'first');
+    const exitCoreOffset = sideOffsetForFootprint(footprint, footprint.exitSide, 'last');
     const entranceApproach = {
-      x: placement.anchor.x + footprint.entranceOffset.dx + entranceOffset.dx,
-      y: placement.anchor.y + footprint.entranceOffset.dy + entranceOffset.dy,
+      x: placement.anchor.x + entranceCoreOffset.dx + entranceSideOffset.dx,
+      y: placement.anchor.y + entranceCoreOffset.dy + entranceSideOffset.dy,
     };
-    const primaryExit = footprint.exitOffsets[0] ?? { dx: 0, dy: 0 };
     const exitApproach = {
-      x: placement.anchor.x + primaryExit.dx + exitOffset.dx,
-      y: placement.anchor.y + primaryExit.dy + exitOffset.dy,
+      x: placement.anchor.x + exitCoreOffset.dx + exitSideOffset.dx,
+      y: placement.anchor.y + exitCoreOffset.dy + exitSideOffset.dy,
     };
     return {
       placement,

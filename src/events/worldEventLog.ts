@@ -1,4 +1,5 @@
 import type { CreateWorldEventInput, WorldEvent, WorldEventSaveData } from './worldEventTypes.js';
+import { clamp } from '../core/math.js';
 
 const WORLD_EVENT_SAVE_VERSION = 1;
 const DEFAULT_EVENT_CAP = 200;
@@ -11,7 +12,7 @@ export class WorldEventLog {
 
   add(input: CreateWorldEventInput): WorldEvent {
     const event: WorldEvent = {
-      id: `event:${Date.now()}:${this.counter++}`,
+      id: `event:${this.counter++}`,
       type: input.type,
       roomId: input.roomId,
       sourceActorId: input.sourceActorId,
@@ -60,8 +61,4 @@ export class WorldEventLog {
     this.events.push(...data.events.slice(-this.cap));
     this.counter = this.events.length;
   }
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
 }

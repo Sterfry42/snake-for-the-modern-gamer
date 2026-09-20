@@ -1,5 +1,5 @@
 import { Quest } from '../quest.js';
-import type { QuestRuntime, CatchJournalAccess } from '../quest.js';
+import type { QuestRuntime } from '../quest.js';
 
 /**
  * Quest: catch 2 legendary fish.

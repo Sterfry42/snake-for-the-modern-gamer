@@ -1,3 +1,6 @@
+/**
+ * Apple Types
+ */
 import type { GridConfig } from '../config/gameConfig.js';
 import type { Vector2Like } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
@@ -42,25 +45,31 @@ export abstract class AppleInstance {
     public readonly color: number,
   ) {}
 
-  initialize(_context: AppleInitializationContext): void {}
+  initialize(context: AppleInitializationContext): void {
+    void context;
+  }
 
   onConsume(): AppleRewards {
     return { growth: 1, bonusScore: 0 };
   }
 
-  isFatalApproach(_context: AppleConsumptionContext): boolean {
+  isFatalApproach(context: AppleConsumptionContext): boolean {
+    void context;
     return false;
   }
 
-  shouldAttemptMove(_context: AppleMoveContext): boolean {
+  shouldAttemptMove(context: AppleMoveContext): boolean {
+    void context;
     return false;
   }
 
-  getMoveDirections(_context: AppleMoveContext): Vector2Like[] {
+  getMoveDirections(context: AppleMoveContext): Vector2Like[] {
+    void context;
     return [];
   }
 
-  maybeMove(_context: AppleMoveContext): { roomId: string; position: Vector2Like } | null {
+  maybeMove(context: AppleMoveContext): { roomId: string; position: Vector2Like } | null {
+    void context;
     return null;
   }
 

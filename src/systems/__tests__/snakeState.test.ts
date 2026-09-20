@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SnakeState } from '../snakeState.js';
 import type { GridConfig, SnakeConfig } from '../../config/gameConfig.js';
 import type { RoomSnapshot } from '../../world/types.js';
+import type { BossManager } from '../boss.js';
 
 const grid: GridConfig = { cols: 12, rows: 10, cell: 16 };
 const snakeConfig: SnakeConfig = {
@@ -25,6 +26,12 @@ const room: RoomSnapshot = {
   wallOutlineColor: 0,
 };
 
+const bossManager = {
+  getPullFor: () => null,
+  getVulnerableJasonNearby: () => null,
+  getBossAtPosition: () => null,
+} as unknown as BossManager;
+
 describe('SnakeState cave exit steering', () => {
   it('ignores buffered turns while the first cave-exit movement is locked', () => {
     const snake = new SnakeState(grid, snakeConfig, room.id);
@@ -37,6 +44,19 @@ describe('SnakeState cave exit steering', () => {
     snake.flags['traversal.exitDirectionLockTicks'] = 0;
     snake.setDirection(0, 1);
     expect(snake.nextDirectionVector).toEqual({ x: 0, y: 1 });
+  });
+
+  it('commits one queued turn without moving and preserves the next buffered turn', () => {
+    const snake = new SnakeState(grid, snakeConfig, room.id);
+    const headBefore = { ...snake.head };
+    snake.setDirection(0, 1);
+    snake.setDirection(-1, 0);
+
+    snake.commitQueuedDirectionWithoutMoving();
+
+    expect(snake.head).toEqual(headBefore);
+    expect(snake.directionVector).toEqual({ x: 0, y: 1 });
+    expect(snake.nextDirectionVector).toEqual({ x: -1, y: 0 });
   });
 });
 
@@ -53,8 +73,9 @@ describe('SnakeState disorientation', () => {
       getBossManager: () =>
         ({
           getPullFor: () => null,
+          getVulnerableJasonNearby: () => null,
           getBossAtPosition: () => null,
-        }) as any,
+        }) as unknown as BossManager,
     });
 
     expect(result.status).toBe('alive');
@@ -62,6 +83,50 @@ describe('SnakeState disorientation', () => {
     expect(snake.nextDirectionVector).toEqual({ x: 1, y: 0 });
     expect(snake.head.x).toBe(4);
     expect(snake.head.y).not.toBe(4);
+  });
+});
+
+describe('SnakeState swimming', () => {
+  const waterRoom: RoomSnapshot = {
+    ...room,
+    layout: room.layout.map((row, y) => (y === 4 ? `${row.slice(0, 4)}~${row.slice(5)}` : row)),
+  };
+
+  it('kills the snake on water after its buoyancy budget is exhausted', () => {
+    const snake = new SnakeState(grid, snakeConfig, waterRoom.id);
+    snake.flags['traversal.buoyancyCapacity'] = 3;
+    snake.flags['traversal.buoyancyRemaining'] = 0;
+
+    const result = snake.step({
+      getRoom: () => waterRoom,
+      ensureApple: () => undefined,
+      getBossManager: () => bossManager,
+    });
+
+    expect(result.status).toBe('dead');
+    expect(result.reason).toBe('water');
+    expect(snake.flags['ui.swimSplash']).toBeUndefined();
+  });
+
+  it('allows swimming gear to cross water and emits splash juice data', () => {
+    const snake = new SnakeState(grid, snakeConfig, waterRoom.id);
+    snake.flags['equipment.swimmingEnabled'] = true;
+
+    const result = snake.step({
+      getRoom: () => waterRoom,
+      ensureApple: () => undefined,
+      getBossManager: () => bossManager,
+    });
+
+    expect(result.status).toBe('alive');
+    expect(snake.head).toEqual({ x: 4, y: 4 });
+    expect(snake.flags['ui.swimSplash']).toMatchObject({
+      x: 4,
+      y: 4,
+      roomId: waterRoom.id,
+      localX: 4,
+      localY: 4,
+    });
   });
 });
 
@@ -92,8 +157,9 @@ describe('SnakeState portals', () => {
       getBossManager: () =>
         ({
           getPullFor: () => null,
+          getVulnerableJasonNearby: () => null,
           getBossAtPosition: () => null,
-        }) as any,
+        }) as unknown as BossManager,
     });
 
     expect(result.status).toBe('alive');
@@ -140,8 +206,9 @@ describe('SnakeState portals', () => {
       getBossManager: () =>
         ({
           getPullFor: () => null,
+          getVulnerableJasonNearby: () => null,
           getBossAtPosition: () => null,
-        }) as any,
+        }) as unknown as BossManager,
     });
 
     expect(result.status).toBe('alive');
@@ -187,7 +254,7 @@ describe('SnakeState portals', () => {
         ({
           getPullFor: () => null,
           getBossAtPosition: () => null,
-        }) as any,
+        }) as unknown as BossManager,
     });
 
     expect(result.status).toBe('dead');

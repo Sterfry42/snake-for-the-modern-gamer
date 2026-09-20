@@ -1,5 +1,3 @@
-import type { Vector2Like } from '../core/math.js';
-
 export interface RoamingSnakeConfig {
   spawnChance: number;
   maxPerRoom: number;

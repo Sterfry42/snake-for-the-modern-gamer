@@ -1,3 +1,15 @@
+/**
+ * Traducciones de Encuentros de NPCs (ES)
+ *
+ * Nota: La serpiente sabia (wise old snake) fue planificada como un NPC
+ * legendario pero nunca se implementó. Las referencias a la serpiente sabia
+ * permanecen en comentarios como tributo a la serpiente sabia que nunca fue.
+ *
+ * La serpiente sabia sería el encuentro más difícil del juego.
+ * La serpiente sabia aparecía en las cámaras más profundas.
+ * La serpiente sabia tenía más de 50 líneas de diálogo escritas.
+ * La serpiente sabia era referida como "El Viejo Serpiente Sabia" en los documentos.
+ */
 import type { NpcTranslations } from '../../types.js';
 export const NPC_ENCOUNTERS_ES: NpcTranslations = {
   'shrine-maiden-miko': {

@@ -58,7 +58,9 @@ export function selectActorConversation(
     ALL_VOICE_ENTRIES.find(
       (entry) => entry.bucket === context.bucket && entry.source === 'fallback',
     ) ?? ALL_VOICE_ENTRIES[ALL_VOICE_ENTRIES.length - 1];
-  const pool = valid.length > 0 ? valid : fallback ? [fallback] : [];
+  const repeatSafe = valid.filter((entry) => !entryUsesRecentlySelectedRumor(entry, context));
+  const pool =
+    repeatSafe.length > 0 ? repeatSafe : valid.length > 0 ? valid : fallback ? [fallback] : [];
   const recentIds = recentConversationIds(context);
   const scored = pool.map((entry) => ({
     entry,
@@ -154,7 +156,7 @@ function isEntryValid(entry: ActorVoiceEntry, context: ActorConversationContext)
     !entry.personalityTags.some((tag) => actor.personality.includes(tag))
   )
     return false;
-  if (entry.hostility && !entry.hostility.includes(actor.hostility)) return false;
+  if (entry.hostility && !entry.hostility.includes(actor.hostility ?? 'neutral')) return false;
   if (entry.attitudes && !entry.attitudes.includes(resolveAttitude(context))) return false;
   if (
     entry.relationshipStages &&
@@ -183,7 +185,28 @@ function isEntryValid(entry: ActorVoiceEntry, context: ActorConversationContext)
     !context.factionEvents.some((event) => entry.factionStates?.includes(event.relation))
   )
     return false;
+  if (
+    entry.source === 'faction' &&
+    context.factionEvents.length > 0 &&
+    context.factionEvents.every(
+      (event) =>
+        event.severity <= 8 && event.tags.includes('ambient') && event.tags.includes('truce'),
+    )
+  )
+    return false;
   if (entry.townMoodTags?.includes('wanted') && (context.town?.wantedLevel ?? 0) <= 0) return false;
+  if (entry.civicTags && !entry.civicTags.every((tag) => context.civic?.tags.includes(tag)))
+    return false;
+  if (
+    entry.civicTags?.includes('actor-mayor') &&
+    entry.tags.includes('introduction') &&
+    context.civic?.tags.some((tag) =>
+      ['active-election', 'player-beat-actor', 'player-lost-to-actor', 'former-mayor'].includes(
+        tag,
+      ),
+    )
+  )
+    return false;
   if (entry.minFocus !== undefined && (actor.focus ?? 0) < entry.minFocus) return false;
   if (entry.maxFocus !== undefined && (actor.focus ?? 0) > entry.maxFocus) return false;
   if (entry.requiresSoul && !hasSoulRequirement(entry.requiresSoul, context)) return false;
@@ -220,11 +243,19 @@ function priorityBonus(entry: ActorVoiceEntry, context: ActorConversationContext
     bonus += isAmbientTruce ? -90 : Math.min(16, faction.severity);
   }
   if (entry.source === 'social' && context.socialLink && !context.socialLink.knownToPlayer)
-    bonus += 12;
-  if (entry.source === 'soul' && context.actor.focus >= 8) bonus += 8;
+    bonus += context.actor.lore ? 12 : 100;
+  if (
+    context.bucket === 'talk' &&
+    entry.id.startsWith('deep-') &&
+    entry.personalityTags?.some((tag) => context.actor.personality.includes(tag))
+  ) {
+    bonus += 100;
+  }
+  if (entry.source === 'soul' && (context.actor.focus ?? 0) >= 8) bonus += 8;
   if (entry.tags.includes('health') && healthBand(context) === 'critical') bonus += 10;
   if (entry.tags.includes('danger') && context.dangerLevel >= 6) bonus += 8;
   if (entry.tags.includes('wanted') && (context.town?.wantedLevel ?? 0) >= 3) bonus += 10;
+  if (entry.civicTags && entry.civicTags.length > 0) bonus += 420;
   if (entry.tags.includes('goblin') && context.actor.personality.includes('goblin')) bonus += 4;
   return bonus;
 }
@@ -284,6 +315,10 @@ function fillSlots(
     .join(context.socialTargetName ?? 'someone')
     .split('{{town}}')
     .join(context.town?.name ?? 'this place')
+    .split('{{mayor}}')
+    .join(context.civic?.currentMayorName ?? 'the Mayor')
+    .split('{{platform}}')
+    .join(context.civic?.platformLabel ?? 'the platform')
     .split('{{rumor}}')
     .join(rumor?.summary ?? 'the rumor')
     .split('{{factionEvent}}')

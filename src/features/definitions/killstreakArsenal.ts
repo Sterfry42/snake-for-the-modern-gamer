@@ -1,3 +1,6 @@
+/**
+ * Killstreak Arsenal Feature
+ */
 import Phaser from 'phaser';
 import { Feature } from '../feature.js';
 import type SnakeScene from '../../scenes/snakeScene.js';

@@ -27,6 +27,7 @@ export class RuntimeSpriteFactory {
       }
 
       const texture = this.scene.textures.createCanvas(key, size, size);
+      if (!texture) return;
       const context = texture.getContext();
       context.clearRect(0, 0, size, size);
       recipe.draw(context, variant, size, palette);

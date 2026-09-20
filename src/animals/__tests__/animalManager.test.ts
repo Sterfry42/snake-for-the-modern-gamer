@@ -1,9 +1,9 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { AnimalManager } from '../animalManager.js';
-import { AnimalRegistry } from '../animalRegistry.js';
 import type { AnimalInstance } from '../types.js';
 import type { Vector2Like } from '../../core/math.js';
-import type { RoomSnapshot } from '../../world/types.js';
+import type { RoomSnapshot, WorldHumanoidSpawn } from '../../world/types.js';
+import type { ResolvedAtmosphereView } from '../../world/atmosphereTypes.js';
 import { createRng } from '../../core/rng.js';
 
 const grid = { cols: 32, rows: 24, cell: 24 };
@@ -68,7 +68,12 @@ describe('AnimalManager', () => {
           safeArea: { left: 10, top: 8, width: 12, height: 8 },
           lanterns: [],
           residents: [],
-          shopkeeper: { name: 'Shopkeeper', description: '', x: 10, y: 10 } as any,
+          shopkeeper: {
+            name: 'Shopkeeper',
+            description: '',
+            x: 10,
+            y: 10,
+          } as unknown as WorldHumanoidSpawn,
         },
       });
       manager.ensureAnimals('0,0,0', room, []);
@@ -86,7 +91,12 @@ describe('AnimalManager', () => {
           tents: [],
           fires: [],
           guards: [],
-          shopkeeper: { name: 'Goblin Shop', description: '', x: 10, y: 10 } as any,
+          shopkeeper: {
+            name: 'Goblin Shop',
+            description: '',
+            x: 10,
+            y: 10,
+          } as unknown as WorldHumanoidSpawn,
         },
       });
       manager.ensureAnimals('0,0,0', room, []);
@@ -124,6 +134,20 @@ describe('AnimalManager', () => {
         expect(isOnSnake).toBe(false);
       }
     });
+
+    it('uses atmosphere animal bias in spawn priority and caps', () => {
+      const room = createTestRoom();
+      const testManager = new AnimalManager(grid, () => 0);
+      testManager.ensureAnimals('0,0,0', room, [], {
+        gameplay: {
+          animalSpawnChanceScalar: 1,
+          animalSpawnBiasAdd: { frog: 1 },
+        },
+      } as unknown as ResolvedAtmosphereView);
+
+      const animals = testManager.getAnimalsInRoom('0,0,0');
+      expect(animals.filter((animal) => animal.type === 'frog')).toHaveLength(4);
+    });
   });
 
   describe('step', () => {
@@ -159,7 +183,7 @@ describe('AnimalManager', () => {
       };
       testManager['animals'].set('0,0,0', [rabbit]);
 
-      const result = testManager.step({
+      testManager.step({
         getRoom: () => room,
         snake: makeSnake(20, 20),
         currentRoomId: '0,0,0',
@@ -310,6 +334,11 @@ describe('AnimalManager', () => {
       const result = manager.handleSnakeOverlap('0,0,0', { x: 10, y: 10 }, { x: 1, y: 0 });
 
       expect(result.damaged).toBe(true);
+      expect(result.damagingAnimal).toMatchObject({
+        id: 'test-wolf',
+        type: 'wolf',
+        position: { x: 10, y: 10 },
+      });
     });
 
     it('does nothing for non-overlapping animals', () => {
@@ -330,6 +359,33 @@ describe('AnimalManager', () => {
 
       expect(result.startleCount).toBe(0);
       expect(result.damaged).toBe(false);
+    });
+
+    it('offers a normally dangerous tamable animal when requirements are met', () => {
+      const wolf: AnimalInstance = {
+        id: 'test-wolf',
+        type: 'wolf',
+        roomId: '0,0,0',
+        position: { x: 10, y: 10 },
+        direction: { x: 1, y: 0 },
+        moveCooldown: 0,
+        isTamed: false,
+        flashTicks: 0,
+      };
+      manager['animals'].set('0,0,0', [wolf]);
+
+      const result = manager.handleSnakeOverlap(
+        '0,0,0',
+        { x: 10, y: 10 },
+        { x: 1, y: 0 },
+        false,
+        (type) => type === 'wolf',
+      );
+
+      expect(result.tamed).toBe(true);
+      expect(result.damaged).toBe(false);
+      expect(result.tamableAnimal?.id).toBe('test-wolf');
+      expect(manager.getAnimalsInRoom('0,0,0')).toHaveLength(1);
     });
   });
 
@@ -482,6 +538,29 @@ describe('AnimalManager', () => {
       const result = manager.tameAnimal('0,0,0', 'test-rabbit', 'player-1');
       expect(result.success).toBe(false);
     });
+
+    it('releases a tamed animal back into the room', () => {
+      const fox: AnimalInstance = {
+        id: 'test-fox',
+        type: 'fox',
+        roomId: '0,0,0',
+        position: { x: 10, y: 10 },
+        direction: { x: 1, y: 0 },
+        moveCooldown: 0,
+        isTamed: true,
+        tameOwner: 'player-1',
+        flashTicks: 0,
+      };
+      manager['animals'].set('0,0,0', [fox]);
+
+      expect(manager.releaseTamedAnimal('0,0,0', 'test-fox')).toBe(true);
+      expect(manager.getAnimalsInRoom('0,0,0')[0]).toMatchObject({
+        id: 'test-fox',
+        isTamed: false,
+        flashTicks: 4,
+      });
+      expect(manager.getAnimalsInRoom('0,0,0')[0].tameOwner).toBeUndefined();
+    });
   });
 
   describe('getAnimalsInRoom', () => {
@@ -527,6 +606,43 @@ describe('AnimalManager', () => {
       expect(Array.isArray(result)).toBe(true);
       expect(result.length).toBe(1);
       expect(result[0]).toEqual(rabbit);
+    });
+  });
+
+  describe('companion travel', () => {
+    it('transfers tamed animals and leaves wildlife behind', () => {
+      manager['animals'].set('0,0,0', [
+        {
+          id: 'fox-friend',
+          type: 'fox',
+          roomId: '0,0,0',
+          position: { x: 4, y: 4 },
+          direction: { x: 1, y: 0 },
+          moveCooldown: 0,
+          isTamed: true,
+          tameOwner: 'player',
+          flashTicks: 0,
+        },
+        {
+          id: 'wild-rabbit',
+          type: 'rabbit',
+          roomId: '0,0,0',
+          position: { x: 8, y: 8 },
+          direction: { x: 1, y: 0 },
+          moveCooldown: 0,
+          isTamed: false,
+          flashTicks: 0,
+        },
+      ]);
+
+      manager.transferTamedAnimals('0,0,0', '1,0,0', { x: 2, y: 10 });
+
+      expect(manager.getAnimalsInRoom('0,0,0').map((animal) => animal.id)).toEqual(['wild-rabbit']);
+      expect(manager.getAnimalsInRoom('1,0,0')[0]).toMatchObject({
+        id: 'fox-friend',
+        roomId: '1,0,0',
+        isTamed: true,
+      });
     });
   });
 

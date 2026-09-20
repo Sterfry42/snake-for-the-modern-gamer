@@ -4,6 +4,8 @@ import type { Vector2Like } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 import type { RoomSnapshot } from '../world/types.js';
 import { getBiomeDefinition, getBiomeEnemySpawnChance } from '../world/biomes.js';
+import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
+import { isSolidTile } from '../world/tiles.js';
 
 export interface EnemyInstance {
   id: string;
@@ -27,7 +29,9 @@ export interface EnemyInstance {
     | 'goblin'
     | 'rival-snake'
     | 'roaming-snake'
-    | 'baby';
+    | 'baby'
+    | 'rat';
+  _colorHex?: string;
 }
 
 export interface BulletInstance {
@@ -136,7 +140,12 @@ export class EnemyManager {
     this.idCounter = 0;
   }
 
-  ensureEnemy(roomId: string, room: RoomSnapshot, occupied: readonly Vector2Like[]): void {
+  ensureEnemy(
+    roomId: string,
+    room: RoomSnapshot,
+    occupied: readonly Vector2Like[],
+    atmosphere?: ResolvedAtmosphereView,
+  ): void {
     if (roomId === '0,-1,0') {
       return;
     }
@@ -160,7 +169,10 @@ export class EnemyManager {
     }
 
     const biome = getBiomeDefinition(room.biomeId);
-    if (this.rng() > getBiomeEnemySpawnChance(biome)) {
+    if (
+      this.rng() >
+      getBiomeEnemySpawnChance(biome) * (atmosphere?.gameplay.enemySpawnChanceScalar ?? 1)
+    ) {
       return;
     }
 
@@ -177,8 +189,20 @@ export class EnemyManager {
       actorId: `enemy:${roomId}:${id}`,
       roomId,
       position,
-      fireCooldown: Math.max(4, 8 + biome.enemyFireBias + Math.floor(this.rng() * 5)),
-      moveCooldown: Math.max(2, 4 + biome.enemyMoveBias + Math.floor(this.rng() * 4)),
+      fireCooldown: Math.max(
+        4,
+        Math.round(
+          (8 + biome.enemyFireBias + Math.floor(this.rng() * 5)) *
+            (atmosphere?.gameplay.enemyFireCooldownScalar ?? 1),
+        ),
+      ),
+      moveCooldown: Math.max(
+        2,
+        Math.round(
+          (4 + biome.enemyMoveBias + Math.floor(this.rng() * 4)) *
+            (atmosphere?.gameplay.enemyMoveCooldownScalar ?? 1),
+        ),
+      ),
       aimDirection: { x: 0, y: 1 },
       flashTicks: 0,
       currentHearts: 1,
@@ -506,7 +530,7 @@ export class EnemyManager {
     for (let y = 0; y < this.grid.rows; y++) {
       for (let x = 0; x < this.grid.cols; x++) {
         const tile = room.layout[y]?.[x];
-        if (!tile || tile === '#' || tile === '~') continue;
+        if (!tile || isSolidTile(tile) || tile === '%' || tile === '~') continue;
         if (room.apple && room.apple.x === x && room.apple.y === y) continue;
         if (occupiedLocals.some((seg) => seg.x === x && seg.y === y)) continue;
         candidates.push({ x, y });
@@ -525,7 +549,7 @@ export class EnemyManager {
       const segX = head.x - i;
       if (segX < 0) break;
       const tile = room.layout[head.y]?.[segX];
-      if (tile === '#' || tile === '~') break;
+      if (isSolidTile(tile) || tile === '%' || tile === '~') break;
       if (occupiedLocals.some((seg) => seg.x === segX && seg.y === head.y)) break;
       body.push({ x: segX, y: head.y });
     }
@@ -550,7 +574,7 @@ export class EnemyManager {
       encounterKind: 'roaming-snake',
       aimDirection: { x: 1, y: 0 },
     };
-    (roaming as any)._colorHex = colorHex;
+    roaming._colorHex = colorHex;
 
     const current = this.enemies.get(roomId) ?? [];
     current.push(roaming);
@@ -564,6 +588,8 @@ export class EnemyManager {
     obstacleSet: ReadonlySet<string>,
     rng: RandomGenerator,
   ): { dir: Vector2Like; nextLocal: Vector2Like } | null {
+    void roomId;
+    void rng;
     const head = snake.body[0];
     const currentDir = snake.aimDirection ?? { x: 1, y: 0 };
 
@@ -587,8 +613,7 @@ export class EnemyManager {
       if (tried.has(key)) continue;
       tried.add(key);
 
-      const next = { x: head.x + dir.x, y: head.y + dir.y };
-      const nextLocal = globalToLocal(roomId, next, this.grid);
+      const nextLocal = { x: head.x + dir.x, y: head.y + dir.y };
 
       const isRoomTransition =
         nextLocal.x < 0 ||
@@ -600,14 +625,24 @@ export class EnemyManager {
         return {
           dir,
           nextLocal: {
-            x: Math.max(0, Math.min(next.x, this.grid.cols - 1)),
-            y: Math.max(0, Math.min(next.y, this.grid.rows - 1)),
+            x:
+              nextLocal.x < 0
+                ? this.grid.cols - 1
+                : nextLocal.x >= this.grid.cols
+                  ? 0
+                  : nextLocal.x,
+            y:
+              nextLocal.y < 0
+                ? this.grid.rows - 1
+                : nextLocal.y >= this.grid.rows
+                  ? 0
+                  : nextLocal.y,
           },
         };
       }
 
       const tile = room.layout[nextLocal.y]?.[nextLocal.x];
-      if (!tile || tile === '#' || tile === '~') continue;
+      if (!tile || isSolidTile(tile) || tile === '%' || tile === '~') continue;
       if (obstacleSet.has(`${nextLocal.x},${nextLocal.y}`)) continue;
 
       return { dir, nextLocal };
@@ -687,7 +722,10 @@ export class EnemyManager {
           continue;
         }
 
-        if (room.layout[nextPosition.y]?.[nextPosition.x] === '#') {
+        if (
+          room.layout[nextPosition.y]?.[nextPosition.x] === '#' ||
+          room.layout[nextPosition.y]?.[nextPosition.x] === '%'
+        ) {
           continue;
         }
 
@@ -1055,7 +1093,7 @@ export class EnemyManager {
     let cy = enemy.position.y + direction.y;
 
     while (cx >= 0 && cx < this.grid.cols && cy >= 0 && cy < this.grid.rows) {
-      if (room.layout[cy]?.[cx] === '#') {
+      if (room.layout[cy]?.[cx] === '#' || room.layout[cy]?.[cx] === '%') {
         return null;
       }
       if (cx === headLocal.x && cy === headLocal.y) {
@@ -1076,7 +1114,8 @@ export class EnemyManager {
       spawnX >= this.grid.cols ||
       spawnY < 0 ||
       spawnY >= this.grid.rows ||
-      room.layout[spawnY]?.[spawnX] === '#'
+      room.layout[spawnY]?.[spawnX] === '#' ||
+      room.layout[spawnY]?.[spawnX] === '%'
     ) {
       return null;
     }

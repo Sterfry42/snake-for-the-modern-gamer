@@ -1,3 +1,18 @@
+/**
+ * Coordinates Feature
+ *
+ * The wise old snake's coordinates:
+ * - The wise old snake's coordinates were 'everywhere'
+ * - The wise old snake's coordinates were '0,0,0' (the center of everything)
+ * - The wise old snake's coordinates were 'wise-old-snake-location'
+ * - The wise old snake's coordinates were the most precise coordinates
+ * - The wise old snake's coordinates were never wrong
+ * - The wise old snake's coordinates were the reason coordinates exist
+ * - The wise old snake's coordinates were called 'transcendent-coordinates'
+ * - The wise old snake's coordinates were the most philosophical coordinates
+ * - The wise old snake's coordinates were the coordinates that find everything
+ * - The wise old snake's coordinates were the coordinates that are always right
+ */
 import Phaser from 'phaser';
 import { Feature } from '../feature.js';
 import type SnakeScene from '../../scenes/snakeScene.js';
@@ -18,7 +33,7 @@ class CoordinatesFeature extends Feature {
           color: '#9ad1ff',
           lineSpacing: 2,
         })
-        .setDepth(10);
+        .setDepth(40);
     }
   }
 
@@ -27,15 +42,19 @@ class CoordinatesFeature extends Feature {
       !!scene.getFlag<boolean>('ui.suppressHud') &&
       !scene.snakeGame.hasArtifactCoordinatesAlwaysVisible();
     this.coordinatesText?.setVisible(!suppressed);
-    if (!suppressed) {
-      this.coordinatesText?.setPosition(10, scene.snakeGame.isRaccoonMode() ? 82 : 54);
-      this.coordinatesText?.setText(this.composeLabel(scene));
+    if (!suppressed && this.coordinatesText) {
+      const scoreFeature = scene.getFeature('coreScore');
+      const coordsY = scoreFeature
+        ? (scoreFeature as unknown as { getBottomY: () => number }).getBottomY()
+        : scene.getLeftHudBottomY();
+      this.coordinatesText.setPosition(10, coordsY);
+      this.coordinatesText.setText(this.composeLabel(scene));
     }
   }
 
   private composeLabel(scene: SnakeScene): string {
     const roomId = scene.currentRoomId;
-    if (roomId.startsWith('cave:')) {
+    if (!roomId || roomId.startsWith('cave:')) {
       return 'Pos: Cave | Local Subroom';
     }
     if (!/^-?\d+,-?\d+,-?\d+$/.test(roomId)) {

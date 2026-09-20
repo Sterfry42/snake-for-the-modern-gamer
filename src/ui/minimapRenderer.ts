@@ -17,7 +17,7 @@ export interface MinimapSnapshot {
   snakeSegments: readonly Vector2Like[];
 }
 
-type MinimapTileKind = 'empty' | 'wall' | 'barrier' | 'water';
+type MinimapTileKind = 'empty' | 'wall' | 'masonry' | 'barrier' | 'water';
 
 const ROOM_OFFSETS: ReadonlyArray<{ dx: number; dy: number }> = [
   { dx: -1, dy: -1 },
@@ -36,6 +36,7 @@ const COLORS = {
   room: 0x0b1622,
   empty: 0x102033,
   wall: 0xe6f3ff,
+  masonry: 0xd4a06a,
   barrier: 0xcfa77a,
   water: 0x2c9bd8,
   snakeBody: 0xb6ff6a,
@@ -51,8 +52,8 @@ export class MinimapRenderer {
   private visible = false;
 
   constructor(
-    private readonly scene: Phaser.Scene,
     private readonly options: MinimapRendererOptions,
+    scene: Phaser.Scene,
   ) {
     this.graphics = scene.add.graphics().setDepth(29).setScrollFactor(0).setVisible(false);
     this.roomWidth = options.width / 3;
@@ -166,6 +167,8 @@ function getMinimapTileKind(tile: string): MinimapTileKind {
   switch (tile) {
     case '#':
       return 'wall';
+    case '%':
+      return 'masonry';
     case '~':
     case 'O':
       return 'water';
@@ -186,6 +189,13 @@ function getMinimapTileKind(tile: string): MinimapTileKind {
     case 'U':
     case 'Y':
     case 'W':
+    case 'd':
+    case 'h':
+    case 'j':
+    case 'o':
+    case 't':
+    case 'u':
+    case 'x':
       return 'barrier';
     default:
       return 'empty';

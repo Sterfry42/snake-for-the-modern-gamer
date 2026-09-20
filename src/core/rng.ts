@@ -1,3 +1,6 @@
+/**
+ * RNG
+ */
 export type RandomGenerator = () => number;
 
 function murmurHash3(str: string): number {

@@ -204,7 +204,6 @@ describe('Mob Manager', () => {
       manager.spawnMob('room1', 'creeper', 10, 10);
 
       let explosionTriggered = false;
-      let playerHit = false;
 
       // First tick - starts charging
       manager.tickMobs(
@@ -214,8 +213,10 @@ describe('Mob Manager', () => {
         'room1',
         () => 0,
         () => {},
-        () => { playerHit = true; },
-        () => { explosionTriggered = true; },
+        () => {},
+        () => {
+          explosionTriggered = true;
+        },
       );
 
       // Wait for fuse time (60 ticks)
@@ -226,8 +227,10 @@ describe('Mob Manager', () => {
         'room1',
         () => 0,
         () => {},
-        () => { playerHit = true; },
-        () => { explosionTriggered = true; },
+        () => {},
+        () => {
+          explosionTriggered = true;
+        },
       );
 
       expect(explosionTriggered).toBe(true);

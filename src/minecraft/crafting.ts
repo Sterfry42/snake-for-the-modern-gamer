@@ -1,4 +1,4 @@
-import type { CraftingRecipe, CraftResult } from './types.js';
+import type { CraftingRecipe } from './types.js';
 
 export const RECIPES: readonly CraftingRecipe[] = [
   // Tools

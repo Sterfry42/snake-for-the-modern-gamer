@@ -1,5 +1,5 @@
 import { Quest } from '../quest.js';
-import type { QuestRuntime, CatchJournalAccess } from '../quest.js';
+import type { QuestRuntime } from '../quest.js';
 
 /**
  * Quest: collect 3 different rare+ fish types.

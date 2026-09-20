@@ -6,12 +6,16 @@ import type { RoomSnapshot } from '../../types.js';
 import { tryPlaceVillage } from '../../village.js';
 import { tryPlaceGoblinCamp } from '../../goblinCamp.js';
 import { tryPlaceSnakeMcDonalds } from '../../snakeMcDonalds.js';
+import { tryPlaceSnakeCanes } from '../../snakeCanes.js';
 import {
   createTownDistrictRoom,
   createPhysicalHumanTown,
+  renderTownGateSide,
   stampTownBoundaryApproach,
   stampTownBoundaryCorner,
+  TOWN_GATE_WIDTH,
   type TownDistrictKind,
+  type TownResidentPresence,
 } from '../../town.js';
 import { tryPlaceShrine } from '../../shrine.js';
 import { tryPlaceRamenStand } from '../../ramenStand.js';
@@ -22,11 +26,20 @@ import { tryPlaceAllNiteDiner } from '../../allNiteDiner.js';
 import { tryPlaceFireworkStand } from '../../fireworkStand.js';
 import { tryPlaceJackalopeLodge } from '../../jackalopeLodge.js';
 import { tryPlaceMolemanDigSite } from '../../molemanDigSite.js';
-import { cellsForEdgeRunup, mergeProtectedCells, type EdgeSide } from '../edgeAccess.js';
+import { tryPlaceLavenderFarm } from '../../lavenderFarm.js';
+import { tryPlaceCheeseShop } from '../../cheeseShop.js';
+import { tryPlaceGarage } from '../../garage.js';
+import {
+  carveEdgeOpening,
+  cellsForEdgeRunup,
+  mergeProtectedCells,
+  type EdgeSide,
+} from '../edgeAccess.js';
 import {
   getHumanTownDistricts,
   getHumanTownEntranceRoomId,
   getHumanTownExitRoomIds,
+  getHumanTownFootprint,
   type MultiRoomStructureResolver,
 } from '../townStructureResolver.js';
 import { formatRoomId } from '../multiRoomStructures.js';
@@ -37,6 +50,7 @@ type SettlementKind =
   | 'goblin-camp'
   | 'quest-house'
   | 'snake-mcDonalds'
+  | 'snake-canies'
   | 'shrine'
   | 'ramen-stand'
   | 'tengu-camp'
@@ -44,15 +58,16 @@ type SettlementKind =
   | 'all-nite-diner'
   | 'firework-stand'
   | 'jackalope-lodge'
-  | 'moleman-dig-site';
+  | 'moleman-dig-site'
+  | 'lavender-farm'
+  | 'cheese-shop'
+  | 'garage';
 
 const SNAKE_MC_DONALDS_CHANCE = 0.01;
+const SNAKE_CANIES_CHANCE = 0.008;
 const VILLAGE_CHANCE = 0.09;
 const GOBLIN_CAMP_CHANCE = 0.06;
 const QUEST_HOUSE_CHANCE = 0.12;
-const SHRINE_CHANCE = 0.08;
-const RAMEN_STAND_CHANCE = 0.04;
-const TENGU_CAMP_CHANCE = 0.04;
 const SHRINE_JADE_PEAK_CHANCE = 0.12;
 const RAMEN_STAND_JADE_PEAK_CHANCE = 0.08;
 const TENGU_CAMP_JADE_PEAK_CHANCE = 0.1;
@@ -61,6 +76,9 @@ const ALL_NITE_DINER_CHANCE = 0.08;
 const FIREWORK_STAND_CHANCE = 0.08;
 const JACKALOPE_LODGE_CHANCE = 0.1;
 const MOLEMAN_DIG_SITE_CHANCE = 0.09;
+const GARAGE_CHANCE = MOLEMAN_DIG_SITE_CHANCE;
+const LAVENDER_FARM_CHANCE = 0.06;
+const CHEESE_SHOP_CHANCE = 0.05;
 const MOTEL_POOL_CHANCE = 0.1;
 const SETTLEMENT_ANCHOR_SPACING = 5;
 const GUARANTEED_SETTLEMENT_KINDS = [
@@ -75,6 +93,9 @@ const GUARANTEED_SETTLEMENT_KINDS = [
   'firework-stand',
   'jackalope-lodge',
   'moleman-dig-site',
+  'garage',
+  'lavender-farm',
+  'cheese-shop',
 ] as const;
 const OPEN_CLEARING_SETTLEMENT_KINDS = ['village', 'goblin-camp', 'quest-house', 'shrine'] as const;
 
@@ -119,10 +140,14 @@ export class StructureOperations {
       !context.town &&
       !context.questGiver &&
       !context.snakeMcDonalds &&
+      !context.snakeCanes &&
       !context.shrine &&
       !context.ramenStand &&
       !context.tenguCamp &&
       !context.molemanDigSite &&
+      !context.lavenderFarm &&
+      !context.cheeseShop &&
+      !context.garage &&
       !this.hasLibertyStructure(context)
     ) {
       this.placeSettlement(context, entranceRunups, shouldGuaranteeStructure);
@@ -135,10 +160,14 @@ export class StructureOperations {
       !context.town &&
       !context.questGiver &&
       !context.snakeMcDonalds &&
+      !context.snakeCanes &&
       !context.shrine &&
       !context.ramenStand &&
       !context.tenguCamp &&
       !context.molemanDigSite &&
+      !context.lavenderFarm &&
+      !context.cheeseShop &&
+      !context.garage &&
       !this.hasLibertyStructure(context) &&
       (shouldGuaranteeStructure || this.rng() < 0.1)
     ) {
@@ -154,10 +183,14 @@ export class StructureOperations {
       !context.town &&
       !context.questGiver &&
       !context.snakeMcDonalds &&
+      !context.snakeCanes &&
       !context.shrine &&
       !context.ramenStand &&
       !context.tenguCamp &&
       !context.molemanDigSite &&
+      !context.lavenderFarm &&
+      !context.cheeseShop &&
+      !context.garage &&
       !this.hasLibertyStructure(context)
     ) {
       const koiChance = context.isJadePeak
@@ -182,11 +215,15 @@ export class StructureOperations {
       !context.town &&
       !context.questGiver &&
       !context.snakeMcDonalds &&
+      !context.snakeCanes &&
       !context.shrine &&
       !context.ramenStand &&
       !context.koiPond &&
       !context.tenguCamp &&
       !context.molemanDigSite &&
+      !context.lavenderFarm &&
+      !context.cheeseShop &&
+      !context.garage &&
       !this.hasLibertyStructure(context)
     ) {
       context.temperatureReliefs = this.placeTemperatureReliefs(
@@ -233,9 +270,13 @@ export class StructureOperations {
   ): SettlementKind | null {
     const isJadePeak = context.palette.biomeId === 'jade-peak-province';
     const isLibertyBadlands = context.palette.biomeId === 'liberty-badlands';
+    const isProvenceValley = context.palette.biomeId === 'provence-valley';
 
     if (allowSpecial && this.rng() < SNAKE_MC_DONALDS_CHANCE) {
       return 'snake-mcDonalds';
+    }
+    if (allowSpecial && this.rng() < SNAKE_MC_DONALDS_CHANCE + SNAKE_CANIES_CHANCE) {
+      return 'snake-canies';
     }
 
     const roll = this.rng();
@@ -267,6 +308,21 @@ export class StructureOperations {
         }
         return 'quest-house';
       }
+      if (isProvenceValley) {
+        if (roll < 0.35) {
+          return 'village';
+        }
+        if (roll < 0.55) {
+          return 'shrine';
+        }
+        if (roll < 0.72) {
+          return 'lavender-farm';
+        }
+        if (roll < 0.87) {
+          return 'cheese-shop';
+        }
+        return 'quest-house';
+      }
       if (roll < 0.45) {
         return 'village';
       }
@@ -275,6 +331,9 @@ export class StructureOperations {
       }
       if (roll < 0.88) {
         return 'moleman-dig-site';
+      }
+      if (roll < 0.94) {
+        return 'garage';
       }
       return 'quest-house';
     }
@@ -325,6 +384,26 @@ export class StructureOperations {
       return null;
     }
 
+    if (isProvenceValley) {
+      let threshold = LAVENDER_FARM_CHANCE;
+      if (roll < threshold) {
+        return 'lavender-farm';
+      }
+      threshold += CHEESE_SHOP_CHANCE;
+      if (roll < threshold) {
+        return 'cheese-shop';
+      }
+      threshold += VILLAGE_CHANCE;
+      if (roll < threshold) {
+        return 'village';
+      }
+      threshold += QUEST_HOUSE_CHANCE;
+      if (roll < threshold) {
+        return 'quest-house';
+      }
+      return null;
+    }
+
     let threshold = VILLAGE_CHANCE;
     if (roll < threshold) {
       return 'village';
@@ -342,6 +421,10 @@ export class StructureOperations {
     threshold += MOLEMAN_DIG_SITE_CHANCE;
     if (roll < threshold) {
       return 'moleman-dig-site';
+    }
+    threshold += GARAGE_CHANCE;
+    if (roll < threshold) {
+      return 'garage';
     }
     return null;
   }
@@ -401,6 +484,17 @@ export class StructureOperations {
           return false;
         }
         context.snakeMcDonalds = mcDonalds;
+        return true;
+      }
+      case 'snake-canies': {
+        const canes = tryPlaceSnakeCanes(context.layout, context.grid, this.rng, {
+          forbiddenCells,
+          margin: 3,
+        });
+        if (!canes) {
+          return false;
+        }
+        context.snakeCanes = canes;
         return true;
       }
       case 'shrine': {
@@ -495,6 +589,41 @@ export class StructureOperations {
         context.molemanDigSite = digSite;
         return true;
       }
+      case 'lavender-farm': {
+        const farm = tryPlaceLavenderFarm(context.layout, context.grid, this.rng, {
+          forbiddenCells,
+          margin: 5,
+        });
+        if (!farm) {
+          return false;
+        }
+        context.lavenderFarm = farm;
+        context.questGiver = farm.farmer;
+        return true;
+      }
+      case 'cheese-shop': {
+        const shop = tryPlaceCheeseShop(context.layout, context.grid, this.rng, {
+          forbiddenCells,
+          margin: 5,
+        });
+        if (!shop) {
+          return false;
+        }
+        context.cheeseShop = shop;
+        context.questGiver = shop.shopkeeper;
+        return true;
+      }
+      case 'garage': {
+        const garage = tryPlaceGarage(context.layout, context.grid, this.rng, {
+          forbiddenCells,
+          margin: 5,
+        });
+        if (!garage) {
+          return false;
+        }
+        context.garage = garage;
+        return true;
+      }
     }
   }
 
@@ -505,7 +634,9 @@ export class StructureOperations {
       context.fireworkStand ||
       context.jackalopeLodge ||
       context.motelPool ||
-      context.molemanDigSite,
+      context.molemanDigSite ||
+      context.garage ||
+      context.snakeCanes,
     );
   }
 
@@ -529,10 +660,12 @@ export class StructureOperations {
     });
     this.replaceLayout(context, room.layout);
     context.town = room.town;
+    context.layerEntrances = room.layerEntrances;
     context.questGiver = undefined;
     context.village = undefined;
     context.goblinCamp = undefined;
     context.snakeMcDonalds = undefined;
+    context.snakeCanes = undefined;
     context.shrine = undefined;
     context.ramenStand = undefined;
     context.koiPond = undefined;
@@ -545,6 +678,9 @@ export class StructureOperations {
     context.billboardOracle = undefined;
     context.roadCrew = undefined;
     context.molemanDigSite = undefined;
+    context.lavenderFarm = undefined;
+    context.cheeseShop = undefined;
+    context.garage = undefined;
   }
 
   private renderTownPerimeter(context: RoomGenerationContext): void {
@@ -571,12 +707,50 @@ export class StructureOperations {
       adjacency.isEntranceApproach || adjacency.isExitApproach
         ? adjacency.adjacentSideFacingTown
         : undefined;
+    const town =
+      adjacency.isEntranceApproach || adjacency.isExitApproach
+        ? this.createTownForPlacement(context)
+        : undefined;
+    const gate = town?.gates.find((entry) => entry.approachRoomId === context.roomId);
     let rows = context.layout.map((row) => row.join(''));
     for (const side of sides) {
-      rows = stampTownBoundaryApproach(rows, side, side === openingSide);
+      rows = stampTownBoundaryApproach(rows, side, side === openingSide && !gate);
     }
     for (const corner of corners) {
       rows = stampTownBoundaryCorner(rows, corner);
+    }
+    if (gate && openingSide) {
+      const layout = rows.map((row) => row.split(''));
+      const plan = this.edgeAccessPlanForSide(
+        openingSide,
+        adjacency.isEntranceApproach ? 'townGate' : 'townExit',
+        context.grid,
+      );
+      carveEdgeOpening(layout, context.grid, plan);
+      const result = renderTownGateSide({
+        layout,
+        gate,
+        side: openingSide,
+        perspective: 'outside',
+        state: gate.state,
+        includeGuard: gate.kind === 'entrance' && Boolean(gate.outsideGuardResidentId),
+      });
+      const presences: TownResidentPresence[] = [];
+      if (gate.outsideGuardResidentId && result.guardPosition) {
+        presences.push({
+          residentId: gate.outsideGuardResidentId,
+          roomId: context.roomId,
+          x: result.guardPosition.x,
+          y: result.guardPosition.y,
+          source: 'gate',
+          role: 'guard',
+        });
+      }
+      if (town) {
+        town.residentPresences = presences;
+      }
+      context.town = town;
+      rows = layout.map((row) => row.join(''));
     }
     this.replaceLayout(context, rows);
     if (openingSide) {
@@ -616,6 +790,8 @@ export class StructureOperations {
       districtRoomIds,
       entranceRoomId: getHumanTownEntranceRoomId(placement),
       exitRoomIds: getHumanTownExitRoomIds(placement),
+      entranceGateSide: getHumanTownFootprint(placement).entranceSide,
+      exitGateSides: [getHumanTownFootprint(placement).exitSide],
     });
   }
 
@@ -625,7 +801,7 @@ export class StructureOperations {
       side,
       open: true,
       openingCenter: horizontal ? Math.floor(grid.cols / 2) : Math.floor(grid.rows / 2),
-      openingWidth: 5,
+      openingWidth: TOWN_GATE_WIDTH,
       runupDepth: 5,
       reason,
     };

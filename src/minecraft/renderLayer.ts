@@ -1,7 +1,6 @@
-import type { BlockData, ChunkKey } from './types.js';
 import type SnakeScene from '../scenes/snakeScene.js';
-import { CHUNK_SIZE, RENDER_DISTANCE } from './config.js';
-import { ChunkManager, chunkSeed } from './chunk.js';
+import { RENDER_DISTANCE } from './config.js';
+import { ChunkManager } from './chunk.js';
 import {
   isMinecraftBlockType,
   blockIdToColor,
@@ -15,11 +14,9 @@ export class MinecraftRenderLayer {
   private highlightGraphics: Phaser.GameObjects.Graphics | null = null;
   private hoveredBlockX: number = -1;
   private hoveredBlockY: number = -1;
-  private readonly textureCache: Map<string, string> = new Map();
-
   constructor(scene: SnakeScene, chunkManager: ChunkManager) {
     this.chunkManager = chunkManager;
-   this.graphics = scene.add.graphics().setDepth(3);
+    this.graphics = scene.add.graphics().setDepth(3);
     this.graphics.setBlendMode(Phaser.BlendModes.NORMAL);
     this.highlightGraphics = scene.add.graphics().setDepth(4).setBlendMode(Phaser.BlendModes.ADD);
   }

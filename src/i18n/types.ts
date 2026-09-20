@@ -8,6 +8,7 @@ export interface LanguageConfig {
 export const AVAILABLE_LANGUAGES: readonly LanguageConfig[] = [
   { id: 'en', code: 'en', nativeName: 'English', name: 'English' },
   { id: 'es', code: 'es', nativeName: 'Español', name: 'Spanish' },
+  { id: 'fr', code: 'fr', nativeName: 'Français', name: 'French' },
 ];
 
 export type LanguageId = (typeof AVAILABLE_LANGUAGES)[number]['id'];
@@ -36,7 +37,7 @@ export interface NpcTranslations {
 }
 
 export interface CommonTranslations {
-  [key: string]: unknown;
+  [key: string]: string | CommonTranslations;
 }
 
 export interface QuestStrings {
@@ -47,6 +48,7 @@ export interface QuestStrings {
 }
 
 export interface FeatureStrings {
+  [key: string]: string | undefined;
   questLabel: string;
   questsHeader: string;
   noCardsOwned: string;
@@ -55,6 +57,7 @@ export interface FeatureStrings {
   scoreLabel: string;
   lengthLabel: string;
   bonusAppleReady: string;
+  treatLabel: string;
   killstreakHeader: string;
   killstreakToNext: string;
   killstreakMaxStreak: string;
@@ -82,6 +85,14 @@ export interface FeatureStrings {
   snakeNuggets: string;
   flushToilet: string;
   mcCashierDialogue: string;
+  // Snake Cane's
+  canesCashierDialogue: string;
+  canesReward: string;
+  canesClosing: string;
+  canesBoxComboExtraToast: string;
+  canesBoxComboColeslaw: string;
+  canesThreeFingerCombo: string;
+  canesCaniacCombo: string;
   // Fishing
   fishingCast: string;
   fishingBite: string;
@@ -109,6 +120,12 @@ export interface FeatureStrings {
   fishingQuestFishTitle: string;
   fishingQuestFishDesc: string;
   fishingQuestCatchLabel: string;
+  // Child Catch Mini-Game
+  childCatchLabel: string;
+  childCatchHint: string;
+  childCatchNoChildren: string;
+  childCatchSuccess: string;
+  childCatchMiss: string;
   // Jason Statham Boss
   jason_statham_name?: string;
   jason_statham_intro?: string;
@@ -123,6 +140,8 @@ export interface FeatureStrings {
 
   // === SAVE SYSTEM ===
   saveButton: string;
+  saveLoadButton: string;
+  pauseButton: string;
   loadButton: string;
   clearButton: string;
   gameSaved: string;
@@ -130,6 +149,25 @@ export interface FeatureStrings {
   gameLoaded: string;
   loadFailed: string;
   saveCleared: string;
+  autosave: string;
+
+  // === SAVE LOAD MENU ===
+  loadGameMenuTitle: string;
+  regularSaves: string;
+  autosaves: string;
+  sessions: string;
+  sessionSavesTitle: string;
+  open: string;
+  load: string;
+  delete: string;
+  back: string;
+  confirmDelete: string;
+  confirmDeleteSession: string;
+  confirmDeleteSelectedSessions: string;
+  confirmDeleteSelectedSaves: string;
+  deleteSelected: string;
+  noSaves: string;
+  noAutosaves: string;
 
   // === CARD GAME NAMES & DESCRIPTIONS ===
   cardMossTwo: string;
@@ -209,7 +247,7 @@ export interface FeatureStrings {
   tabSpecial: string;
   tabSpells: string;
   tabInventory: string;
-  tabCustomize: string;
+  tabCosmetics: string;
   tabCards: string;
   tabDestiny: string;
   tabArtifacts: string;
@@ -230,7 +268,7 @@ export interface FeatureStrings {
 
   // === TAB PLACEHOLDER TEXT ===
   placeholderInventory: string;
-  placeholderCustomize: string;
+  placeholderCosmetics: string;
   placeholderMap: string;
   placeholderCheats: string;
 
@@ -280,6 +318,7 @@ export interface FeatureStrings {
   archaeologyTileYuzuApple: string;
   archaeologyTileGoldenApple: string;
   archaeologyTileWasabiApple: string;
+  archaeologyTileColdBeerApple: string;
   archaeologyTileArtifactCache: string;
   archaeologyForestDig: string;
   archaeologyOceanDig: string;
@@ -440,6 +479,14 @@ export interface FeatureStrings {
   hintCheats: string;
   detailSnakeStyle: string;
   detailCosmetics: string;
+
+  // Cosmetic Categories
+  cosmeticCategoryThemes: string;
+  cosmeticCategoryHats: string;
+  cosmeticCategoryCowbells: string;
+  cosmeticCategoryUtilities: string;
+  cosmeticCategoryLanguages: string;
+  cosmeticCategoryEmoticons: string;
   hintCustomization: string;
   detailStyle: string;
   detailHats: string;
@@ -467,6 +514,495 @@ export interface FeatureStrings {
 
   // === HUD MISC ===
   hudScore: string;
+
+  // === BULLET TRAIN ===
+  boardTrain: string;
+  departureAnnouncement: string;
+  arrivalAnnouncement: string;
+  stationSign: string;
+  ticketBooth: string;
+  platformLantern: string;
+
+  // === RADIO ===
+  radioLabel: string;
+  radioStationLabel: string;
+  radioNoStation: string;
+  radioTuning: string;
+  radioStationChanged: string;
+  radioStationStatic: string;
+  radioStationClassical: string;
+  radioStationJazz: string;
+  radioStationCountry: string;
+  radioStationRock: string;
+  radioStationElectronic: string;
+  radioStationLofi: string;
+  radioStationTalk: string;
+  radioEquipHint: string;
+
+  // === DREAM WORLD ===
+  dreamWorldTitle: string;
+  nightmareRealmTitle: string;
+  dreamShopTitle: string;
+  dreamLoreTitle: string;
+  dreamLucidityTitle: string;
+  dreamExit: string;
+  dreamShards: string;
+  dreamGravity: string;
+  dreamGravityUp: string;
+  dreamGravityDown: string;
+  dreamGravityLeft: string;
+  dreamGravityRight: string;
+  dreamCollectApple: string;
+  dreamOpenShop: string;
+  dreamOpenPuzzles: string;
+  dreamOpenLucid: string;
+  dreamGravityShifted: string;
+  dreamBuffApplied: string;
+  dreamLoreDiscovered: string;
+  dreamAppleCollected: string;
+  dreamNightmareSurvived: string;
+  dreamShopPurchase: string;
+  dreamShopNotEnough: string;
+  dreamShopRequiresLucidity: string;
+  dreamLucidNotUnlocked: string;
+  dreamLucidAbilityUsed: string;
+  dreamLucidAbilityCooldown: string;
+  dreamPuzzleSolved: string;
+  dreamPuzzleFailed: string;
+  dreamWelcome: string;
+  dreamNightmareWelcome: string;
+  dreamShopLabel: string;
+  dreamShopClose: string;
+  dreamPuzzleLabel: string;
+  dreamPuzzleClose: string;
+  dreamLucidLabel: string;
+  dreamLucidClose: string;
+  dreamReverseGravity: string;
+  dreamTimeStop: string;
+  dreamIslandTeleport: string;
+  dreamBuffSpeedBoost: string;
+  dreamBuffSizeShrink: string;
+  dreamBuffPhaseShift: string;
+  dreamBuffShield: string;
+  dreamBuffDoubleShards: string;
+  dreamBuffGravityReverse: string;
+  dreamBuffTimeSlow: string;
+  dreamBuffLucidityBoost: string;
+
+  // === ECOSYSTEM ===
+  ecosystemTitle: string;
+  ecosystemHealth: string;
+  ecosystemBalanced: string;
+  ecosystemHealthy: string;
+  ecosystemStressed: string;
+  ecosystemCritical: string;
+  ecosystemCollapsing: string;
+  ecosystemPredatorPrey: string;
+  ecosystemHerbivores: string;
+  ecosystemPlantBiomass: string;
+  ecosystemEventWarning: string;
+  ecosystemPredatorOutbreak: string;
+  ecosystemHerbivoreMigration: string;
+  ecosystemPlague: string;
+  ecosystemFamine: string;
+  ecosystemMatingSeason: string;
+  ecosystemRecovery: string;
+
+  // === SETTLEMENTS ===
+  settlementTitle: string;
+  settlementFounded: string;
+  settlementDissolved: string;
+  settlementBeaverDam: string;
+  settlementAntColony: string;
+  settlementBirdCity: string;
+  settlementBearCave: string;
+  settlementRabbitWarren: string;
+  settlementFishSchool: string;
+  settlementWolfPackLair: string;
+  settlementFoxDen: string;
+  settlementEagleEyrie: string;
+  settlementRaccoonKingdom: string;
+  settlementBisonHerd: string;
+  settlementFrogPond: string;
+
+  // === KINGDOMS ===
+  kingdomTitle: string;
+  kingdomFormed: string;
+  kingdomRuler: string;
+  kingdomCapital: string;
+  kingdomPower: string;
+  kingdomAllied: string;
+  kingdomNeutral: string;
+  kingdomHostile: string;
+  kingdomRoyalEvent: string;
+  kingdomCoronation: string;
+  kingdomRoyalFeast: string;
+  kingdomRoyalHunt: string;
+  kingdomDiplomaticSummit: string;
+  kingdomWarCouncil: string;
+
+  // === COMPANIONS ===
+  companionTitle: string;
+  companionBond: string;
+  companionTierWary: string;
+  companionTierTrusting: string;
+  companionTierLoyal: string;
+  companionTierSoulbound: string;
+  companionTraitSwift: string;
+  companionTraitStrong: string;
+  companionTraitClever: string;
+  companionTraitFierce: string;
+  companionTraitGentle: string;
+  companionTraitStealthy: string;
+  companionTraitLoyal: string;
+  companionTraitWild: string;
+  companionTraitAncient: string;
+  companionTraitRareBreed: string;
+  companionBred: string;
+  companionTraitGained: string;
+  companionLevelUp: string;
+
+  // === PHOTOGRAPHY ===
+  photographyTitle: string;
+  photoTaken: string;
+  photoCommon: string;
+  photoUncommon: string;
+  photoRare: string;
+  photoEpic: string;
+  photoLegendary: string;
+  photoJournalScore: string;
+  photoUniqueSpecies: string;
+  photoTotalPhotos: string;
+  photoCameraCharge: string;
+  photoMiniGameHint: string;
+  photoMiniGameSuccess: string;
+  photoMiniGameFail: string;
+
+  // === ANIMAL MARKETS ===
+  animalMarketTitle: string;
+  marketGoods: string;
+  marketHoney: string;
+  marketFur: string;
+  marketFeathers: string;
+  marketWoodPlanks: string;
+  marketPearls: string;
+  marketPelts: string;
+  marketPurchase: string;
+  marketSpecialDeal: string;
+  marketRestocked: string;
+
+  // === WILDLIFE JOURNAL ===
+  wildlifeJournalTitle: string;
+  wildlifeJournalComplete: string;
+  wildlifeSpeciesDiscovered: string;
+  wildlifeSpeciesTotal: string;
+  wildlifeCompletion: string;
+  wildlifeNoPhotos: string;
+  wildlifePhotoDetail: string;
+  wildlifeBestRarity: string;
+  wildlifeBestScore: string;
+
+  // === ALCHEMY & CRAFTING ===
+  alchemyTitle: string;
+  alchemyRecipes: string;
+  alchemyCrafting: string;
+  alchemyJournal: string;
+  alchemyLore: string;
+  alchemyWorkshops: string;
+  alchemyNoRecipes: string;
+  alchemyCraftSuccess: string;
+  alchemyCraftMythic: string;
+  alchemyCraftFailed: string;
+  alchemyInsufficientIngredients: string;
+  alchemyStationNotActive: string;
+  alchemyRecipeNotFound: string;
+  alchemyDiscoverProgress: string;
+  alchemyJournalEntries: string;
+  alchemyLoreDiscovered: string;
+  alchemyLoreLocked: string;
+  alchemyLoreRequires: string;
+  alchemyWorkshopBuilding: string;
+  alchemyTabRecipes: string;
+  alchemyTabCrafting: string;
+  alchemyTabJournal: string;
+  alchemyTabLore: string;
+  alchemyTabWorkshops: string;
+  alchemyPotionGrowth: string;
+  alchemyPotionPhase: string;
+  alchemyPotionMagnet: string;
+  alchemyPotionTimeSlow: string;
+  alchemyPotionShadowCloak: string;
+  alchemyPotionRainbowTrail: string;
+  alchemyPotionSpeedBoost: string;
+  alchemyPotionShield: string;
+  alchemyPotionSizeShrink: string;
+  alchemyPotionLucidity: string;
+  alchemyMythicTitansBane: string;
+  alchemyMythicVoidWalker: string;
+  alchemyMythicAppleStorm: string;
+  alchemyMythicGoldenSerpent: string;
+  alchemyIngredientCommon: string;
+  alchemyIngredientUncommon: string;
+  alchemyIngredientRare: string;
+  alchemyIngredientLegendary: string;
+  alchemyRarityCommon: string;
+  alchemyRarityUncommon: string;
+  alchemyRarityRare: string;
+  alchemyRarityLegendary: string;
+  alchemyWorkshopEnchantedLoom: string;
+  alchemyWorkshopCartographersDesk: string;
+  alchemyWorkshopMusicBox: string;
+  alchemyWorkshopPotionBrewery: string;
+  alchemyCosmeticSkins: string;
+  alchemyPatterns: string;
+  alchemyRecipeScroll: string;
+  alchemyFirstSteps: string;
+  alchemyApprentice: string;
+  alchemyMaster: string;
+
+  // === FACTION WARS & TERRITORY CONTROL ===
+  factionWarsTitle: string;
+  factionWarsHint: string;
+  territoryControl: string;
+  territoryMap: string;
+  territoryStable: string;
+  territoryContested: string;
+  territoryUnclaimed: string;
+  territoryStrategicValue: string;
+  territoryBonuses: string;
+  territoryAppleBonuses: string;
+  territoryResourceBonuses: string;
+  territorySpecialEffects: string;
+  territoryDefensible: string;
+  territoryControlPercentage: string;
+  territoryControllingFaction: string;
+  territoryNoController: string;
+  territoryClaim: string;
+  territoryContest: string;
+  territoryAssignRooms: string;
+  territoryVisualFlag: string;
+  territoryVisualBorder: string;
+  territoryVisualPatrol: string;
+  territoryVisualOverlay: string;
+  warSystemTitle: string;
+  warBattleLog: string;
+  warBattleResult: string;
+  warAttacker: string;
+  warDefender: string;
+  warWinner: string;
+  warDraw: string;
+  warCasualties: string;
+  warTurnCount: string;
+  warDeclareWar: string;
+  warDeclarePeace: string;
+  warMercenaryContract: string;
+  warSabotage: string;
+  warIssueContract: string;
+  warSabotageTarget: string;
+  diplomacyTitle: string;
+  diplomacyRelations: string;
+  diplomacyTreaties: string;
+  diplomacyFormAlliance: string;
+  diplomacyNonAggression: string;
+  diplomacyTradePact: string;
+  diplomacyMutualDefense: string;
+  diplomacyNegotiate: string;
+  diplomacyBreakTreaty: string;
+  diplomacySabotageTreaty: string;
+  diplomacySuccess: string;
+  diplomacyFailed: string;
+  diplomacyFailureReason: string;
+  relationAllied: string;
+  relationNonAggression: string;
+  relationTradePact: string;
+  relationNeutral: string;
+  relationTense: string;
+  relationSanctions: string;
+  relationEmbargo: string;
+  relationWar: string;
+  serpentFactionTitle: string;
+  serpentFactionEstablished: string;
+  serpentFactionNotEstablished: string;
+  serpentFactionInfluence: string;
+  serpentFactionLevel: string;
+  serpentFactionCanExpand: string;
+  serpentFactionControlledTerritories: string;
+  serpentFactionRecruit: string;
+  serpentFactionRole: string;
+  serpentFactionLoyalty: string;
+  serpentFactionCombatPower: string;
+  serpentFactionLevelUp: string;
+  serpentFactionXP: string;
+  serpentFactionIdle: string;
+  serpentFactionOnMission: string;
+  serpentFactionResting: string;
+  serpentFactionInjured: string;
+  serpentFactionCaptured: string;
+  serpentFactionEscaped: string;
+  serpentFactionMission: string;
+  serpentFactionCreateMission: string;
+  serpentFactionMissionType: string;
+  serpentFactionMissionScout: string;
+  serpentFactionMissionAttack: string;
+  serpentFactionMissionDefense: string;
+  serpentFactionMissionTrade: string;
+  serpentFactionMissionInfiltration: string;
+  serpentFactionMissionEscort: string;
+  serpentFactionMissionReconnaissance: string;
+  serpentFactionMissionObjectives: string;
+  serpentFactionMissionRewards: string;
+  serpentFactionMissionInfluence: string;
+  serpentFactionMissionXP: string;
+  serpentFactionMissionLoyalty: string;
+  serpentFactionMissionActive: string;
+  serpentFactionMissionCompleted: string;
+  serpentFactionMissionFailed: string;
+  serpentFactionMissionAbandoned: string;
+  serpentFactionAssignMission: string;
+  serpentFactionCancelMission: string;
+  serpentFactionUpgradeRole: string;
+  serpentFactionRest: string;
+  serpentFactionNoFollowers: string;
+  serpentFactionNoMissions: string;
+  serpentFactionAvailableMissions: string;
+  serpentFactionNotEnoughFollowers: string;
+  serpentFactionFollowerNotFound: string;
+  serpentFactionFollowerAlreadyRecruited: string;
+  serpentFactionCannotRestOnMission: string;
+  serpentFactionUpgradeFailed: string;
+  serpentFactionMissionTemplateNotFound: string;
+  serpentFactionNeedRole: string;
+  serpentFactionMissionReward: string;
+  serpentFactionTerritoryClaimed: string;
+  serpentFactionTerritoryContested: string;
+  serpentFactionNotEnoughInfluence: string;
+  serpentFactionUpgradeUnlocked: string;
+  warEventTerritoryAttack: string;
+  warEventTerritoryDefense: string;
+  warEventAllianceFormed: string;
+  warEventAllianceBroken: string;
+  warEventWarDeclared: string;
+  warEventPeaceTreaty: string;
+  warEventCeasefire: string;
+  warEventBetrayal: string;
+  warEventMercenaryContract: string;
+  warEventSabotage: string;
+  warEventDiplomaticSummit: string;
+  warEventResourceCrisis: string;
+  warEventPowerVacuum: string;
+  warPhaseBrewing: string;
+  warPhaseActive: string;
+  warPhaseAftermath: string;
+  warPhaseResolved: string;
+  warVictory: string;
+  warDefeat: string;
+  warSnakeInvolved: string;
+  warSnakeMercenary: string;
+  warSnakeMediator: string;
+  warSnakeObserver: string;
+  warBattleScore: string;
+  warAttackerScore: string;
+  warDefenderScore: string;
+  warControlDelta: string;
+  warDuration: string;
+  factionWarQuestTitle: string;
+  factionWarQuestDefend: string;
+  factionWarQuestInfiltrate: string;
+  factionWarQuestRetrieveArtifact: string;
+  factionWarQuestBrokerAlliance: string;
+  factionWarQuestSabotage: string;
+  factionWarQuestEstablishCoil: string;
+  factionWarQuestRecruitFollowers: string;
+  factionWarQuestClaimTerritory: string;
+  factionWarQuestExpandInfluence: string;
+  factionWarQuestWinBattle: string;
+  factionWarQuestDefeatEnemy: string;
+  factionWarAchievementTerritoryKing: string;
+  factionWarAchievementTerritoryKingDesc: string;
+  factionWarAchievementDiplomat: string;
+  factionWarAchievementDiplomatDesc: string;
+  factionWarAchievementWarLord: string;
+  factionWarAchievementWarLordDesc: string;
+  factionWarAchievementSerpentLair: string;
+  factionWarAchievementSerpentLairDesc: string;
+  factionWarAchievementPeacekeeper: string;
+  factionWarAchievementPeacekeeperDesc: string;
+  factionWarAchievementShadowAgent: string;
+  factionWarAchievementShadowAgentDesc: string;
+  factionWarAchievementMercenary: string;
+  factionWarAchievementMercenaryDesc: string;
+  factionWarAchievementAllianceBuilder: string;
+  factionWarAchievementAllianceBuilderDesc: string;
+  factionWarAchievementTerritoryExpansion: string;
+  factionWarAchievementTerritoryExpansionDesc: string;
+  factionWarAchievementWarVictory: string;
+  factionWarAchievementWarVictoryDesc: string;
+  factionWarAchievementPeaceBringer: string;
+  factionWarAchievementPeaceBringerDesc: string;
+  factionWarAchievementMasterTactician: string;
+  factionWarAchievementMasterTacticianDesc: string;
+  factionWarAchievementDiplomaticImmunity: string;
+  factionWarAchievementDiplomaticImmunityDesc: string;
+
+  // === MUSICAL APPLE SYSTEM ===
+  musicPlayerTitle: string;
+  musicTabTracks: string;
+  musicTabGenres: string;
+  musicTabFavorites: string;
+  musicTabCollection: string;
+  musicGenreNone: string;
+  musicGenreUnknown: string;
+  musicGenreCalm: string;
+  musicGenreEnergetic: string;
+  musicGenreMysterious: string;
+  musicGenreFestival: string;
+  musicMoodCalm: string;
+  musicMoodEnergetic: string;
+  musicMoodMysterious: string;
+  musicMoodFestival: string;
+  musicTrackCalm: string;
+  musicTrackEnergetic: string;
+  musicTrackMysterious: string;
+  musicTrackFestival: string;
+  musicCollectionProgress: string;
+  musicFragmentUnlocked: string;
+  musicTrackUnlocked: string;
+  musicRhythmChallenge: string;
+  musicRhythmHint: string;
+  musicRhythmPerfect: string;
+  musicRhythmGood: string;
+  musicRhythmOk: string;
+  musicRhythmMiss: string;
+  musicRhythmSuccess: string;
+  musicRhythmFailure: string;
+  musicMelodyCalmLavenderWaltz: string;
+  musicMelodyCalmDeepLullaby: string;
+  musicMelodyCalmGentleStream: string;
+  musicMelodyEnergeticDigitalDash: string;
+  musicMelodyEnergeticHeatWaveRush: string;
+  musicMelodyEnergeticNeonHighway: string;
+  musicMelodyMysteriousKoiDream: string;
+  musicMelodyMysteriousCrystalCaves: string;
+  musicMelodyMysteriousAncientEcho: string;
+  musicMelodyFestivalHarvestFiesta: string;
+  musicMelodyFestivalSerpentSamba: string;
+  musicMelodyFestivalGrandFinale: string;
+  musicInstrumentPercussion: string;
+  musicInstrumentSynth: string;
+  musicInstrumentPad: string;
+  musicInstrumentStrings: string;
+  musicInstrumentMarimba: string;
+  musicInstrumentBrass: string;
+  musicInstrumentChoir: string;
+  musicInstrumentWater: string;
+  musicInstrumentBass: string;
+  musicInstrumentErratic: string;
+  musicInstrumentMelody: string;
+  musicInstrumentHarmony: string;
+
+  // === EMOTICON SYSTEM ===
+  emoticonMenuTitle: string;
+  emoticonMenuHint: string;
 }
 
 export interface ActorVoiceTranslations {
@@ -474,4 +1010,16 @@ export interface ActorVoiceTranslations {
     line?: string;
     beat?: string;
   };
+}
+
+export interface HumanTranslations {
+  [key: string]: string;
+}
+
+export interface BulletTrainTranslations {
+  [key: string]: string;
+}
+
+export interface RollercoasterTranslations {
+  [key: string]: string;
 }

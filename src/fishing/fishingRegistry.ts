@@ -1,7 +1,7 @@
 import type {
   FishDefinition,
-  FishTypeId,
   FishCatchResult,
+  FishRarity,
   FishingState,
   FishingSessionResult,
 } from './types.js';
@@ -29,12 +29,10 @@ export interface FishingRegistryOptions {
 
 export class FishingRegistry {
   private readonly rng: () => number;
-  private readonly debug: boolean;
   private readonly getModifiers: () => FishingSpecialModifiers;
 
   constructor(options: FishingRegistryOptions) {
     this.rng = options.rng;
-    this.debug = options.debug ?? false;
     this.getModifiers =
       options.getModifiers ??
       (() => ({
@@ -228,13 +226,14 @@ export class FishingRegistry {
     rarity: string = 'common',
     fishingMod: number = 1.0,
   ): number {
-    return calculateFishSellPrice(baseScore, rarity as any, fishingMod);
+    return calculateFishSellPrice(baseScore, rarity as FishRarity, fishingMod);
   }
 
   /**
    * Abort a fishing session (player intentionally stops).
    */
   abortFishing(state: FishingState): FishingSessionResult {
+    void state;
     return {
       caught: false,
       reason: 'playerAbort',

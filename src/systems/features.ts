@@ -10,7 +10,7 @@ export class FeatureManager {
     this.call('onRegister', scene);
   }
 
-  call(hook: FeatureHook, scene: SnakeScene, ...args: any[]): void {
+  call(hook: FeatureHook, scene: SnakeScene, ...args: unknown[]): void {
     this.registry.invoke(hook, scene, ...args);
   }
 

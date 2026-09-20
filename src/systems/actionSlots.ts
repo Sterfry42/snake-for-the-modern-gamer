@@ -1,7 +1,8 @@
 import type { SkillTreeStats } from './skillTypes.js';
+import { getPrimaryBindingLabelForDisplay } from '../input/controlActions.js';
 
 export type ActionSlotId = 'q';
-export type ActionAbilityKind = 'spell' | 'command';
+export type ActionAbilityKind = 'spell' | 'command' | 'summon';
 
 export interface ActionAbilityView {
   id: string;
@@ -37,6 +38,10 @@ export interface ActionSlotRuntime {
   setFlag(key: string, value: unknown): void;
   tryCastArcanePulse(): boolean;
   getArcanePulseCost(): number;
+  tryActivateManualSurge(): { ok: boolean; message: string };
+  hasRatFamiliar(): boolean;
+  getSummonFamiliarCost(): number;
+  tryCastSummonFamiliar(): boolean;
   hasFollowers(): boolean;
   commandFollowers(): { ok: boolean; message: string };
   recallFollowers(): { ok: boolean; message: string };
@@ -73,6 +78,23 @@ export class ActionSlotController {
         },
       },
       {
+        id: 'manual-surge',
+        label: 'Manual Surge',
+        kind: 'command',
+        description: 'Spend 3 Momentum to start an Impact Surge.',
+        getDisabledReason: () =>
+          this.runtime.getFlag('momentum.config.overclock')
+            ? undefined
+            : 'Unlock Overclock in the skill tree.',
+        canBind: () => Boolean(this.runtime.getFlag('momentum.config.overclock')),
+        use: () => {
+          const result = this.runtime.tryActivateManualSurge();
+          return result.ok
+            ? { ok: true, label: 'Manual Surge' }
+            : { ok: false, reason: result.message };
+        },
+      },
+      {
         id: 'arcane-veil',
         label: 'Starlight Veil',
         kind: 'spell',
@@ -83,6 +105,35 @@ export class ActionSlotController {
             : 'Unlock Starlight Veil in the skill tree.',
         canBind: () => false,
         use: () => ({ ok: false, reason: 'Starlight Veil is passive and triggers on fatal hits.' }),
+      },
+      {
+        id: 'summon-rat-familiar',
+        label: 'Summon Rat Familiar',
+        kind: 'summon',
+        description: 'Call a rat familiar that hunts nearby enemies for a short time.',
+        getManaCost: () => this.runtime.getSummonFamiliarCost(),
+        getDisabledReason: () =>
+          this.familiarRiteUnlocked() ? undefined : 'Unlock Familiar Rite in the skill tree.',
+        canBind: () => this.familiarRiteUnlocked(),
+        use: (stats) => {
+          if (!this.familiarRiteUnlocked()) {
+            return { ok: false, reason: 'Unlock Familiar Rite in the skill tree to cast.' };
+          }
+          if (this.runtime.hasRatFamiliar()) {
+            return { ok: false, reason: 'Your rat familiar is already out there.' };
+          }
+          const cost = this.runtime.getSummonFamiliarCost();
+          if (stats.mana < cost) {
+            const missing = Math.max(1, Math.ceil(cost - stats.mana));
+            return {
+              ok: false,
+              reason: `Summon Rat Familiar needs ${cost} mana - missing ${missing}.`,
+            };
+          }
+          return this.runtime.tryCastSummonFamiliar()
+            ? { ok: true, label: 'Summon Rat Familiar' }
+            : { ok: false, reason: 'The familiar rite fizzled.' };
+        },
       },
       {
         id: 'command-follower',
@@ -115,6 +166,10 @@ export class ActionSlotController {
         },
       },
     ];
+  }
+
+  private familiarRiteUnlocked(): boolean {
+    return Boolean(this.runtime.getFlag<{ enabled?: boolean }>('arcane.familiarRite')?.enabled);
   }
 
   getBound(slot: ActionSlotId = 'q'): string | undefined {
@@ -171,11 +226,17 @@ export class ActionSlotController {
     this.ensureDefaultBinding();
     const abilityId = this.getBound(slot);
     if (!abilityId) {
-      return { ok: false, reason: 'No Q ability bound. Open Spells to bind one.' };
+      return {
+        ok: false,
+        reason: `No ${getPrimaryBindingLabelForDisplay('ability.primary')} ability bound. Open Spells to bind one.`,
+      };
     }
     const ability = this.abilities.find((candidate) => candidate.id === abilityId);
     if (!ability) {
-      return { ok: false, reason: 'Bound Q ability is missing.' };
+      return {
+        ok: false,
+        reason: `Bound ${getPrimaryBindingLabelForDisplay('ability.primary')} ability is missing.`,
+      };
     }
     return ability.use(this.runtime.getStats());
   }

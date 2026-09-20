@@ -87,5 +87,4 @@ describe('Archipelago Phase 2 manifest', () => {
     ).toBe(false);
     expect(AP_ACHIEVEMENT_GOAL_LOCATION.id).toBeGreaterThan(912001999);
   });
-
 });

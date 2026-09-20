@@ -1,4 +1,7 @@
-import type { Vector2Like } from '../core/math.js';
+/**
+ * Actor Brains
+ */
+import { CARDINAL_DIRECTIONS, manhattanDistance, shuffle, type Vector2Like } from '../core/math.js';
 import type { Actor, ActorMemory, ActorRole } from './actorTypes.js';
 import { isStationaryTownRole, isTownGuardRole } from '../world/townRoles.js';
 
@@ -22,6 +25,8 @@ export interface ActorBrainSocialTarget {
   actorId: string;
   position: Vector2Like;
   relationship: string;
+  strength?: number;
+  hasRumorOpportunity?: boolean;
   knownToPlayer?: boolean;
 }
 
@@ -43,12 +48,6 @@ export interface ActorBrainDecision {
 }
 
 const HOLD: Vector2Like = { x: 0, y: 0 };
-const CARDINAL_DIRECTIONS: Vector2Like[] = [
-  { x: 1, y: 0 },
-  { x: -1, y: 0 },
-  { x: 0, y: 1 },
-  { x: 0, y: -1 },
-];
 
 export function decideActorBrain(context: ActorBrainContext): ActorBrainDecision {
   const actor = context.actor;
@@ -60,8 +59,7 @@ export function decideActorBrain(context: ActorBrainContext): ActorBrainDecision
   const isHostile =
     actor?.hostility === 'hostile' ||
     actor?.hostility === 'fleeing' ||
-    actor?.hostility === 'surrendering' ||
-    actor?.hostility === 'downed';
+    actor?.hostility === 'surrendering';
   const shouldFlee =
     context.threats.length > 0 &&
     !isHostile &&
@@ -76,16 +74,11 @@ export function decideActorBrain(context: ActorBrainContext): ActorBrainDecision
     };
   }
 
-  if (isAnchored && !isHostile) {
-    return {
-      kind: 'hold',
-      preferredDirections: [HOLD],
-      moveCooldown: 6 + Math.floor(context.random() * 6),
-    };
-  }
-
   const shareableMemory = actor ? chooseShareableMemory(actor) : undefined;
-  const gossipTarget = chooseNearbySocialTarget(context);
+  const gossipTarget = chooseNearbySocialTarget(context, {
+    requireAdjacent: isAnchored,
+    preferRumorOpportunity: true,
+  });
   if (shareableMemory && gossipTarget && context.random() < 0.35) {
     return {
       kind: 'shareRumor',
@@ -96,19 +89,29 @@ export function decideActorBrain(context: ActorBrainContext): ActorBrainDecision
     };
   }
 
-  const socialTarget = chooseNearbySocialTarget(context);
+  const socialTarget = chooseNearbySocialTarget(context, { requireAdjacent: isAnchored });
   if (!context.roomDangerActive && socialTarget && context.random() < 0.25) {
     return {
       kind: 'approachSocialLink',
-      preferredDirections: directionsToward(context.body.position, socialTarget.position),
+      preferredDirections: isAnchored
+        ? [HOLD]
+        : directionsToward(context.body.position, socialTarget.position),
       moveCooldown: 4 + Math.floor(context.random() * 4),
       targetActorId: socialTarget.actorId,
     };
   }
 
+  if (isAnchored && !isHostile) {
+    return {
+      kind: 'hold',
+      preferredDirections: [HOLD],
+      moveCooldown: 6 + Math.floor(context.random() * 6),
+    };
+  }
+
   return {
     kind: 'wander',
-    preferredDirections: shuffleDirections([HOLD, ...CARDINAL_DIRECTIONS], context.random),
+    preferredDirections: shuffle(context.random, [HOLD, ...CARDINAL_DIRECTIONS]),
     moveCooldown: isHostile
       ? 2 + Math.floor(context.random() * 2)
       : 5 + Math.floor(context.random() * 7),
@@ -132,20 +135,42 @@ export function chooseShareableMemory(actor: Actor): ActorMemory | undefined {
     );
 }
 
-function chooseNearbySocialTarget(context: ActorBrainContext): ActorBrainSocialTarget | undefined {
+function chooseNearbySocialTarget(
+  context: ActorBrainContext,
+  options: { requireAdjacent?: boolean; preferRumorOpportunity?: boolean } = {},
+): ActorBrainSocialTarget | undefined {
   const actor = context.actor;
   if (!actor || context.socialTargets.length === 0) {
     return undefined;
   }
-  const linked = context.socialTargets
+  const scored = context.socialTargets
     .map((target) => ({
       target,
       link: actor.relationships.find((relationship) => relationship.actorId === target.actorId),
       distance: manhattanDistance(context.body.position, target.position),
     }))
-    .filter((entry) => entry.link && entry.distance <= 4)
-    .sort((a, b) => b.link!.strength - a.link!.strength || a.distance - b.distance);
-  return linked[0]?.target;
+    .filter((entry) => entry.distance <= (options.requireAdjacent ? 1 : 5))
+    .map((entry) => {
+      const strength = entry.link?.strength ?? entry.target.strength ?? 0;
+      const relationshipBonus =
+        entry.link?.relationship === 'family' || entry.link?.relationship === 'spouse'
+          ? 25
+          : entry.link?.relationship === 'friend' || entry.link?.relationship === 'lover'
+            ? 16
+            : entry.link?.relationship === 'factionAlly'
+              ? 8
+              : 0;
+      const rumorBonus =
+        options.preferRumorOpportunity && entry.target.hasRumorOpportunity ? 35 : 0;
+      const casualBonus = entry.link ? 0 : 4;
+      return {
+        ...entry,
+        score: strength + relationshipBonus + rumorBonus + casualBonus - entry.distance * 4,
+      };
+    })
+    .filter((entry) => entry.score > 0 || (!options.preferRumorOpportunity && entry.distance <= 2))
+    .sort((a, b) => b.score - a.score || a.distance - b.distance);
+  return scored[0]?.target;
 }
 
 function isCombatDutyRole(role: ActorRole | undefined): boolean {
@@ -179,18 +204,4 @@ function directionsToward(position: Vector2Like, target: Vector2Like): Vector2Li
       return aDistance - bDistance;
     })
     .concat(HOLD);
-}
-
-function shuffleDirections(
-  directions: readonly Vector2Like[],
-  random: () => number,
-): Vector2Like[] {
-  return directions
-    .map((direction) => ({ direction, roll: random() }))
-    .sort((a, b) => a.roll - b.roll)
-    .map((entry) => entry.direction);
-}
-
-function manhattanDistance(a: Vector2Like, b: Vector2Like): number {
-  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 }

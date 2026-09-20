@@ -25,11 +25,27 @@ describe('achievement AP mapping', () => {
   });
 
   it('appends restored achievements without shifting the existing AP range', () => {
-    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'skillTree.allBranches')).toBe(912001054);
-    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'caves.appleRushClear')).toBe(912001055);
-    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'cards.win.dennis-dare')).toBe(912001061);
-    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'equipment.cowbell200')).toBe(912001062);
-    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'equipment.wardTrinity')).toBe(912001063);
-    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'system.zoomFlurry')).toBe(912001064);
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'skillTree.allBranches')).toBe(912001055);
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'caves.appleRushClear')).toBe(912001056);
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'cards.win.dennis-dare')).toBe(912001062);
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'equipment.cowbell200')).toBe(912001063);
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'equipment.wardTrinity')).toBe(912001064);
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'system.zoomFlurry')).toBe(912001065);
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'arcade.snakeception')).toBe(912001066);
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'arcade.blueScreen')).toBe(912001067);
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'stats.special10')).toBe(912001068);
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'exploration.trainSixZones')).toBe(
+      912001069,
+    );
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'streaming.followers20')).toBe(912001070);
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'maneuvers.firstLearned')).toBe(
+      912001071,
+    );
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'maneuvers.allLearned')).toBe(912001072);
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'vehicles.runOverEnemy')).toBe(912001073);
+    expect(() => achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'archaeology.firstDig')).toThrow(
+      /not AP-enabled/,
+    );
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'divine.snakeOutOfHell')).toBe(912001074);
   });
 });

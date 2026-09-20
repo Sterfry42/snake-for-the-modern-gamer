@@ -2,10 +2,15 @@ import type { AnimalDefinition, AnimalInstance } from '../animals/types.js';
 import type { EnemyInstance } from '../systems/enemies.js';
 import type { TownResident, TownStructure } from '../world/town.js';
 import { isTownCriminalRole, isTownGuardRole, isTownShopRole } from '../world/townRoles.js';
+import { townBusinessPolicyForRole } from '../world/townBusinessPolicy.js';
 import type {
   RelationshipCandidateProfile,
+  RelationshipPersonality,
+  RelationshipSpecies,
   RelationshipState,
 } from '../relationships/relationshipTypes.js';
+import { stableStringHashPositive } from '../core/math.js';
+import { defaultShopProfileIdForRole } from '../shops/shopProfiles.js';
 import type {
   Actor,
   ActorBrainId,
@@ -15,6 +20,7 @@ import type {
   ActorNeeds,
   ActorPersonalityTag,
   ActorRole,
+  ActorSchedule,
   ActorSoulProfile,
   ActorLoreProfile,
   ActorSpecies,
@@ -25,6 +31,82 @@ import type {
   EnsureTownResidentActorArgs,
   EnsureWandererActorArgs,
 } from './actorTypes.js';
+
+const CIVILIAN_FIREARM = {
+  id: 'civilian-revolver',
+  kind: 'firearm' as const,
+  label: 'Revolver',
+  damage: 1,
+  range: 8,
+  cooldownRooms: 1,
+};
+
+const GUARD_FIREARM = {
+  id: 'guard-revolver',
+  kind: 'firearm' as const,
+  label: 'Guard Revolver',
+  damage: 1,
+  range: 8,
+  cooldownRooms: 1,
+};
+
+const BANDIT_FIREARM = {
+  id: 'bandit-revolver',
+  kind: 'firearm' as const,
+  label: 'Bandit Revolver',
+  damage: 1,
+  range: 8,
+  cooldownRooms: 1,
+};
+
+const STANDARD_SWORD = {
+  id: 'standard-sword',
+  kind: 'sword' as const,
+  label: 'Sword',
+  damage: 1,
+  range: 2,
+  cooldownRooms: 2,
+};
+
+const PREY_SCHEDULE: ActorSchedule = {
+  policyId: 'animal-prey',
+  routines: {
+    dawn: { behavior: 'emerge', goalKind: 'wander', priority: 8, roomTarget: 'current' },
+    day: { behavior: 'forage', goalKind: 'wander', priority: 8, roomTarget: 'current' },
+    dusk: { behavior: 'seekDen', goalKind: 'wander', priority: 12, roomTarget: 'current' },
+    night: { behavior: 'hide', goalKind: 'sleep', priority: 18, roomTarget: 'current' },
+  },
+};
+
+const PREDATOR_SCHEDULE: ActorSchedule = {
+  policyId: 'animal-predator',
+  routines: {
+    dawn: { behavior: 'hunt', goalKind: 'wander', priority: 10, roomTarget: 'current' },
+    day: { behavior: 'roam', goalKind: 'wander', priority: 8, roomTarget: 'current' },
+    dusk: { behavior: 'hunt', goalKind: 'wander', priority: 10, roomTarget: 'current' },
+    night: { behavior: 'hunt', goalKind: 'wander', priority: 12, roomTarget: 'current' },
+  },
+};
+
+const BANDIT_SCHEDULE: ActorSchedule = {
+  policyId: 'bandit',
+  routines: {
+    dawn: { behavior: 'camp', goalKind: 'sleep', priority: 14, roomTarget: 'current' },
+    day: { behavior: 'scout', goalKind: 'wander', priority: 9, roomTarget: 'current' },
+    dusk: { behavior: 'patrol', goalKind: 'defendArea', priority: 11, roomTarget: 'current' },
+    night: { behavior: 'ambush', goalKind: 'defendArea', priority: 13, roomTarget: 'current' },
+  },
+};
+
+const GOBLIN_SCHEDULE: ActorSchedule = {
+  policyId: 'goblin-merchant',
+  routines: {
+    dawn: { behavior: 'work', goalKind: 'work', priority: 10, roomTarget: 'current' },
+    day: { behavior: 'work', goalKind: 'work', priority: 12, roomTarget: 'current' },
+    dusk: { behavior: 'socialize', goalKind: 'socialize', priority: 8, roomTarget: 'current' },
+    night: { behavior: 'sleep', goalKind: 'sleep', priority: 16, roomTarget: 'current' },
+  },
+};
 
 export function createDefaultMood(tags: readonly ActorPersonalityTag[] = []): ActorMood {
   return {
@@ -72,7 +154,10 @@ export function createBaseActor(args: {
   health?: Actor['health'];
   combat?: ActorCombatProfile;
   hostility?: Actor['hostility'];
+  playerHostility?: Actor['playerHostility'];
+  schedule?: Actor['schedule'];
   brainId?: ActorBrainId;
+  shopProfileId?: string;
   flags?: Record<string, unknown>;
   createdAtRoomNumber?: number;
 }): Actor {
@@ -85,6 +170,7 @@ export function createBaseActor(args: {
     thickness: args.thickness,
     displayName: args.displayName,
     shortName: args.displayName.split(' ')[0] ?? args.displayName,
+    shopProfileId: args.shopProfileId ?? defaultShopProfileIdForRole(args.role),
     factionId: args.factionId,
     townId: args.townId,
     currentRoomId: args.currentRoomId,
@@ -100,8 +186,16 @@ export function createBaseActor(args: {
     health: args.health,
     combat: args.combat,
     hostility: args.hostility,
+    playerHostility: args.playerHostility,
+    goal: { kind: 'wander', priority: 1, roomId: args.currentRoomId, reason: 'created' },
+    activity: {
+      kind: args.hostility === 'dead' ? 'dead' : 'idle',
+      source: 'system',
+      startedAtRoomNumber: args.createdAtRoomNumber,
+    },
     soul: createSoulProfile(args.id, args.role, args.species, personality),
     lore: createLoreProfile(args.id, args.role, args.species, args.townId),
+    schedule: args.schedule,
     brainId: args.brainId,
     flags: args.flags ?? {},
     createdAtRoomNumber: args.createdAtRoomNumber,
@@ -117,7 +211,7 @@ function createSoulProfile(
   if (species === 'animal' || species === 'beast' || species === 'shark' || role === 'boss') {
     return undefined;
   }
-  const seed = hashString(id);
+  const seed = stableStringHashPositive(id);
   const wounds = [
     'They once abandoned a friend at a gate and still count every hinge.',
     'They survived a winter by lying to someone kinder than them.',
@@ -175,7 +269,7 @@ function createLoreProfile(
   if (species === 'animal' || species === 'beast' || species === 'shark') {
     return undefined;
   }
-  const seed = hashString(id);
+  const seed = stableStringHashPositive(id);
   const kingOpinionOptions: NonNullable<ActorLoreProfile['kingOpinion']>[] = [
     'loyal',
     'afraid',
@@ -224,32 +318,12 @@ function pick<T>(items: readonly T[], seed: number): T {
   return items[Math.abs(seed) % items.length]!;
 }
 
-function hashString(value: string): number {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 31 + value.charCodeAt(index)) | 0;
-  }
-  return Math.abs(hash);
-}
-
-export function actorIdForTownResident(townId: string, residentId: string, role: string): string {
-  const actorRole =
-    role === 'shopkeeper'
-      ? 'shopkeeper'
-      : role === 'equipmentMerchant'
-        ? 'equipmentMerchant'
-        : role === 'potionMaker'
-          ? 'potionMaker'
-          : role === 'butcher'
-            ? 'butcher'
-            : role === 'cardDealer'
-              ? 'cardDealer'
-              : role === 'guard'
-                ? 'guard'
-                : role === 'questGiver'
-                  ? 'questGiver'
-                  : 'resident';
-  return `town:${townId}:${actorRole}:${residentId}`;
+export function actorIdForTownResident(
+  townId: string,
+  residentId: string,
+  role: ActorRole,
+): string {
+  return `town:${townId}:${role}:${residentId}`;
 }
 
 export function actorIdForAnimal(roomId: string, animalId: string): string {
@@ -269,17 +343,22 @@ export function actorIdForWanderer(encounterId: string): string {
 }
 
 export function createActorFromTownResident(args: EnsureTownResidentActorArgs): Actor {
-  const role = mapTownResidentRole(args.role);
+  const role = args.role;
   const kind = mapTownResidentKind(role);
   const species: ActorSpecies = args.factionId === 'goblin-camps' ? 'goblin' : 'human';
   const personality = personalityForTownRole(role, species);
   const maxHealth = 3;
+  const weapons = isTownGuardRole(role)
+    ? [GUARD_FIREARM, STANDARD_SWORD]
+    : species === 'human'
+      ? [CIVILIAN_FIREARM]
+      : [CIVILIAN_FIREARM, STANDARD_SWORD];
   return createBaseActor({
     id: args.actorId ?? actorIdForTownResident(args.townId, args.residentId, args.role),
     kind,
     role,
     species,
-    thickness: role === 'resident' ? 'medium' : 'medium',
+    thickness: 'medium',
     displayName: args.name,
     personality,
     factionId: args.factionId,
@@ -291,17 +370,57 @@ export function createActorFromTownResident(args: EnsureTownResidentActorArgs): 
     health: { current: maxHealth, max: maxHealth, state: 'healthy' },
     combat: {
       armed: true,
-      ranged: true,
-      melee: true,
+      ranged: weapons.some((weapon) => weapon.kind === 'firearm'),
+      melee: weapons.some((weapon) => weapon.kind === 'sword'),
       canBeEatenWhenHostile: true,
+      weapons,
       slashCooldown: 0,
       surrenderChance: role === 'guard' ? 0.15 : role === 'resident' ? 0.45 : 0.3,
     },
     hostility: 'neutral',
     brainId: brainForRole(role),
+    schedule: scheduleForTownResidentRole(role, args),
     flags: { source: 'townResident', residentId: args.residentId },
     createdAtRoomNumber: args.createdAtRoomNumber,
   });
+}
+
+function scheduleForTownResidentRole(
+  role: ActorRole,
+  args: EnsureTownResidentActorArgs,
+): ActorSchedule {
+  if (role === 'gateGuard' || role === 'guard') {
+    return {
+      policyId: 'town-guard',
+      fixedPostRoomId: args.workRoomId ?? args.currentRoomId,
+      fixedPostPosition: args.postPosition ? { ...args.postPosition } : undefined,
+      workPosition: args.postPosition ? { ...args.postPosition } : undefined,
+      patrolRoomIds: args.workRoomId ? [args.workRoomId] : undefined,
+      permanentDuty: role === 'gateGuard',
+    };
+  }
+  const schedule: ActorSchedule = {
+    policyId: 'town-resident',
+    homeRoomId: args.homeRoomId ?? args.currentRoomId,
+    workRoomId: args.workRoomId ?? args.currentRoomId,
+    homePosition:
+      (args.homeRoomId ?? args.currentRoomId) === args.currentRoomId && args.postPosition
+        ? { ...args.postPosition }
+        : undefined,
+    workPosition:
+      (args.workRoomId ?? args.currentRoomId) === args.currentRoomId && args.postPosition
+        ? { ...args.postPosition }
+        : undefined,
+  };
+  const businessPolicy = townBusinessPolicyForRole(role);
+  if (businessPolicy?.routines) {
+    return {
+      ...schedule,
+      policyId: `town-business:${businessPolicy.id}`,
+      routines: businessPolicy.routines,
+    };
+  }
+  return schedule;
 }
 
 export function createActorFromTownResidentEntity(
@@ -352,6 +471,7 @@ export function createActorFromAnimal(
       : undefined,
     hostility: predator ? 'hostile' : 'afraid',
     brainId: predator ? 'animalPredator' : 'animalPrey',
+    schedule: predator ? PREDATOR_SCHEDULE : PREY_SCHEDULE,
     flags: { source: 'animal', animalId: args.animalId, animalType: args.animalType },
     createdAtRoomNumber: args.createdAtRoomNumber,
   });
@@ -382,6 +502,9 @@ export function createActorFromEnemy(args: EnsureEnemyActorArgs): Actor {
   const isGoblin = args.encounterKind === 'goblin';
   const isShark = args.encounterKind === 'shark';
   const isDuelist = args.encounterKind === 'duelist';
+  const humanoidWeapons = isGoblin
+    ? [CIVILIAN_FIREARM, STANDARD_SWORD]
+    : [BANDIT_FIREARM, STANDARD_SWORD];
   const maxHealth = Math.max(1, args.maxHearts ?? args.currentHearts ?? 1);
   const currentHealth = Math.max(0, args.currentHearts ?? maxHealth);
   const displayName = args.name ?? (isShark ? 'Shark' : isGoblin ? 'Goblin Gunner' : 'Bandit');
@@ -408,14 +531,16 @@ export function createActorFromEnemy(args: EnsureEnemyActorArgs): Actor {
     },
     combat: {
       armed: !isShark,
-      ranged: !isShark,
-      melee: true,
+      ranged: !isShark && humanoidWeapons.some((weapon) => weapon.kind === 'firearm'),
+      melee: isShark || humanoidWeapons.some((weapon) => weapon.kind === 'sword'),
       canBeEatenWhenHostile: !isShark,
+      weapons: isShark ? [] : humanoidWeapons,
       slashCooldown: 0,
       surrenderChance: isGoblin ? 0.2 : 0.1,
     },
     hostility: currentHealth <= 0 ? 'dead' : 'hostile',
     brainId: isShark ? 'animalPredator' : 'enemyRanged',
+    schedule: isGoblin ? GOBLIN_SCHEDULE : isShark ? PREDATOR_SCHEDULE : BANDIT_SCHEDULE,
     flags: { source: 'enemy', enemyId: args.enemyId, encounterKind: args.encounterKind },
     createdAtRoomNumber: args.createdAtRoomNumber,
   });
@@ -439,6 +564,7 @@ export function createActorFromEnemyEntity(
 
 export function createActorFromRelationship(args: EnsureRelationshipActorArgs): Actor {
   const species = mapRelationshipSpecies(args.species);
+  const personality = relationshipPersonalityTags(args.personality);
   return createBaseActor({
     id: args.actorId ?? actorIdForRelationship(args.relationshipId),
     kind:
@@ -451,12 +577,20 @@ export function createActorFromRelationship(args: EnsureRelationshipActorArgs): 
     species,
     thickness: args.stage === 'married' || args.stage === 'lover' ? 'thick' : 'medium',
     displayName: args.displayName,
-    personality: ['romantic', 'sentimental'],
+    personality,
     factionId: args.factionId,
     currentRoomId: args.homeRoomId,
     homeRoomId: args.homeRoomId,
     portraitId: args.portraitId,
     hostility: args.stage === 'hostile' || args.stage === 'murderous' ? 'hostile' : 'neutral',
+    playerHostility:
+      args.stage === 'hostile' || args.stage === 'murderous'
+        ? {
+            state: 'hostile',
+            reason: 'relationship-stage-hostile',
+            startedAtRoomNumber: args.createdAtRoomNumber,
+          }
+        : undefined,
     brainId: 'romance',
     flags: { source: 'relationship', relationshipId: args.relationshipId, stage: args.stage },
     createdAtRoomNumber: args.createdAtRoomNumber,
@@ -472,6 +606,7 @@ export function createActorFromRelationshipState(
     relationshipId: relationship.id,
     displayName: relationship.displayName,
     species: relationship.species,
+    personality: relationship.personality,
     factionId: relationship.factionId,
     homeRoomId: relationship.homeRoomId,
     portraitId: relationship.portraitId,
@@ -489,6 +624,7 @@ export function createActorFromRelationshipCandidate(
     relationshipId: profile.id,
     displayName: profile.displayName,
     species: profile.species,
+    personality: profile.personality,
     factionId: profile.factionId,
     homeRoomId: profile.homeRoomId,
     portraitId: profile.portraitId,
@@ -513,41 +649,12 @@ export function createActorFromWanderer(args: EnsureWandererActorArgs): Actor {
   });
 }
 
-function mapTownResidentRole(role: string): ActorRole {
-  switch (role) {
-    case 'shopkeeper':
-      return 'shopkeeper';
-    case 'equipmentMerchant':
-      return 'equipmentMerchant';
-    case 'potionMaker':
-      return 'potionMaker';
-    case 'butcher':
-      return 'butcher';
-    case 'cardDealer':
-      return 'cardDealer';
-    case 'bartender':
-      return 'bartender';
-    case 'guard':
-      return 'guard';
-    case 'questGiver':
-      return 'questGiver';
-    case 'thiefContact':
-      return 'thiefContact';
-    case 'thief':
-      return 'thief';
-    case 'scribe':
-      return 'resident';
-    default:
-      return 'resident';
-  }
-}
-
 function mapTownResidentKind(role: ActorRole): ActorKind {
   if (isTownShopRole(role)) {
     return 'shopkeeper';
   }
   if (isTownGuardRole(role)) return 'guard';
-  if (role === 'questGiver') return 'civilian';
+  if (role === 'questGiver' || role === 'civicOfficial') return 'civilian';
   if (isTownCriminalRole(role)) return 'criminal';
   return 'civilian';
 }
@@ -557,7 +664,7 @@ function brainForRole(role: ActorRole): ActorBrainId {
     return 'shopkeeper';
   }
   if (isTownGuardRole(role)) return 'guard';
-  if (role === 'questGiver') return 'resident';
+  if (role === 'questGiver' || role === 'civicOfficial') return 'resident';
   if (role === 'thief' || role === 'thiefContact') return 'thief';
   return 'resident';
 }
@@ -577,6 +684,16 @@ function personalityForTownRole(role: ActorRole, species: ActorSpecies): ActorPe
       return ['practical', 'hungry', 'deadpan'];
     case 'cardDealer':
       return ['greedy', 'sharp', 'nosy'];
+    case 'physicalTrainer':
+      return ['practical', 'brave', 'sharp'];
+    case 'mapper':
+      return ['nosy', 'sharp', 'practical'];
+    case 'wizard':
+      return ['nosy', 'sentimental', 'sharp'];
+    case 'innkeeper':
+      return ['practical', 'kind', 'deadpan'];
+    case 'civicOfficial':
+      return ['bureaucratic', 'lawful', 'statusHungry'];
     case 'bartender':
       return ['nosy', 'deadpan', 'practical'];
     case 'guard':
@@ -586,12 +703,14 @@ function personalityForTownRole(role: ActorRole, species: ActorSpecies): ActorPe
     case 'thief':
     case 'thiefContact':
       return ['criminal', 'sharp', 'paranoid'];
+    case 'scribe':
+      return ['nosy', 'sharp', 'practical'];
     default:
       return ['practical'];
   }
 }
 
-function mapRelationshipSpecies(species: string): ActorSpecies {
+function mapRelationshipSpecies(species: RelationshipSpecies): ActorSpecies {
   switch (species) {
     case 'goblin':
       return 'goblin';
@@ -599,9 +718,19 @@ function mapRelationshipSpecies(species: string): ActorSpecies {
       return 'angel';
     case 'goblin-angel':
       return 'goblinAngel';
+    case 'moleman':
+      return 'moleman';
     case 'human':
       return 'human';
-    default:
-      return 'unknown';
   }
+}
+
+function relationshipPersonalityTags(
+  personality: RelationshipPersonality | undefined,
+): ActorPersonalityTag[] {
+  const tags: ActorPersonalityTag[] = ['romantic', 'sentimental'];
+  if (personality && !tags.includes(personality)) {
+    tags.push(personality);
+  }
+  return tags;
 }

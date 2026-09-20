@@ -19,7 +19,9 @@ export type AchievementCategory =
   | 'bosses'
   | 'caves'
   | 'rivals'
-  | 'skillTree';
+  | 'skillTree'
+  | 'mutations'
+  | 'streaming';
 
 export type AchievementDifficulty =
   | 'tutorial'
@@ -68,7 +70,15 @@ export interface AchievementIconSpec {
     | 'drink'
     | 'fastFood'
     | 'water'
-    | 'skillTree';
+    | 'skillTree'
+    | 'arcadeCabinet'
+    | 'blueScreen'
+    | 'specialStat'
+    | 'car'
+    | 'streaming'
+    | 'maneuver'
+    | 'mutation'
+    | 'dream';
   variant?: string;
   fallbackGlyph: string;
 }
@@ -101,7 +111,10 @@ export type AchievementNumericSnapshotField =
   | 'heatResistance'
   | 'coldResistance'
   | 'cowbellTilesWalked'
-  | 'wardDamageTypesHeld';
+  | 'wardDamageTypesHeld'
+  | 'trainZonesTraveled'
+  | 'highlightFollowers'
+  | 'maxSpecialStat';
 
 export interface AchievementDefinition {
   id: AchievementId;
@@ -121,7 +134,11 @@ export interface AchievementDefinition {
 
 export type AchievementEvent =
   | { type: 'apple:eaten'; appleTypeId: string }
-  | { type: 'enemy:defeated'; enemyId: string; method: 'eaten' | 'gun' | 'other' }
+  | { type: 'mutation:discovered'; mutationId: string; mutationName: string }
+  | { type: 'mutation:traitGained'; traitId: string; traitName: string; stacks: number }
+  | { type: 'mutation:goldStabilize'; mutationId: string }
+  | { type: 'enemy:defeated'; enemyId: string; method: 'eaten' | 'gun' | 'car' | 'other' }
+  | { type: 'vehicle:enemyRunOver'; enemyId: string }
   | { type: 'town:gateOpened'; townId: string }
   | { type: 'town:entered'; townId: string; name: string }
   | { type: 'town:enteredBigIron'; townId: string }
@@ -139,10 +156,18 @@ export type AchievementEvent =
   | { type: 'relationship:married'; relationshipId: string }
   | { type: 'relationship:child'; relationshipId: string; childKind: string }
   | { type: 'relationship:divorced'; relationshipId: string }
+  | { type: 'relationship:motherLove'; relationshipId: string }
   | { type: 'fishing:caught'; fishTypeId: string; rarity: string; weight: number; biomeId: string }
   | { type: 'archaeology:artifactRecovered'; artifactId: string; rarity?: string }
   | { type: 'archaeology:depthReached'; depth: number }
   | { type: 'archaeology:chainReached'; chain: number }
+  | { type: 'archaeology:enteredDigSite' }
+  | { type: 'archaeology:fragmentFound'; fragmentType: string; condition: string }
+  | { type: 'archaeology:fossilAssembled'; fossilSetId: string; rarity: string }
+  | { type: 'archaeology:museumExhibitUnlocked'; fossilSetId: string }
+  | { type: 'archaeology:museumComplete' }
+  | { type: 'archaeology:researchUnlocked'; upgradeId: string }
+  | { type: 'archaeology:legendaryArtifact'; artifactId: string }
   | { type: 'cards:tableWon'; tableId: string }
   | { type: 'cave:appleRushCleared'; caveId: string; templateId: string }
   | { type: 'companion:acquired'; companionKind: string }
@@ -150,7 +175,22 @@ export type AchievementEvent =
   | { type: 'boss:defeated'; bossKind: string; bossName: string }
   | { type: 'boss:jasonVulnerableDamaged'; bossId: string }
   | { type: 'divine:angelEncountered'; angelKind: 'normal' | 'goblin' }
-  | { type: 'rivalSnake:lengthReached'; enemyId: string; length: number };
+  | { type: 'divine:escapedHell'; itemId: string }
+  | { type: 'arcade:played' }
+  | { type: 'arcade:blueScreen' }
+  | { type: 'rivalSnake:lengthReached'; enemyId: string; length: number }
+  | { type: 'maneuver:learned'; maneuverId: string; learnedCount: number; totalCount: number }
+  | { type: 'maneuver:allLearned'; learnedCount: number; totalCount: number }
+  | { type: 'streaming:followersReached'; followers: number }
+  // Dream World events
+  | { type: 'dream:entered' }
+  | { type: 'dream:nightmareEntered' }
+  | { type: 'dream:shardCollected'; amount: number }
+  | { type: 'dream:loreDiscovered'; fragmentId: string }
+  | { type: 'dream:puzzleSolved'; puzzleId: string }
+  | { type: 'dream:lucidityGained'; level: number }
+  | { type: 'dream:nightmareSurvived'; durationMs: number }
+  | { type: 'dream:shopPurchase'; offerId: string; price: number };
 
 export interface AchievementSnapshot {
   score: number;
@@ -174,6 +214,9 @@ export interface AchievementSnapshot {
   coldResistance: number;
   cowbellTilesWalked: number;
   wardDamageTypesHeld: number;
+  trainZonesTraveled: number;
+  highlightFollowers: number;
+  maxSpecialStat: number;
 }
 
 export interface AchievementProgressState {
@@ -187,7 +230,12 @@ export interface AchievementState {
   progress: Record<AchievementId, AchievementProgressState>;
   discoveredBiomes: string[];
   apSubmitted: Record<AchievementId, boolean>;
-  run: { consumedItemIds: string[]; waterTilesSwum: number };
+  run: {
+    consumedItemIds: string[];
+    waterTilesSwum: number;
+    mutationCount: number;
+    traitCount: number;
+  };
 }
 export type AchievementStatus = 'completed' | 'available' | 'locked';
 export interface AchievementUnlockResult {

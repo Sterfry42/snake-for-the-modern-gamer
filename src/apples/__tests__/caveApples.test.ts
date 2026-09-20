@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AppleService } from '../appleService.js';
 import { defaultGameConfig } from '../../config/gameConfig.js';
 import type { RoomSnapshot } from '../../world/types.js';
+import { createDefaultSpecialStats } from '../../stats/specialStats.js';
 
 function caveRoom(roomId = 'cave:3,0,0:0'): RoomSnapshot {
   const { rows, cols } = defaultGameConfig.grid;
@@ -83,6 +84,114 @@ describe('cave apples', () => {
     ]);
   });
 
+  it('moves road rash apples every step and pays a hot-catch bonus', () => {
+    const room = caveRoom();
+    const rooms = new Map([[room.id, room]]);
+    const world = {
+      getRoom: (roomId: string) => {
+        const found = rooms.get(roomId);
+        if (!found) {
+          throw new Error(`Unexpected room request: ${roomId}`);
+        }
+        return found;
+      },
+      setApple: (_roomId: string, position?: { x: number; y: number }) => {
+        room.apple = position;
+      },
+      hasTreasureAt: () => false,
+    };
+    const apples = new AppleService(
+      defaultGameConfig.apples,
+      defaultGameConfig.grid,
+      world as never,
+      () => 0,
+    );
+
+    apples.placeApple(room.id, { x: 5, y: 5 }, 'roadRash');
+    const affected = apples.moveApples([]);
+    const snapshot = apples.getSnapshot(room.id);
+
+    expect([...affected]).toEqual([room.id]);
+    expect(snapshot?.position).toEqual({ x: 6, y: 5 });
+    expect(snapshot?.metadata).toMatchObject({
+      velocity: { x: 1, y: 0 },
+      hotTicksRemaining: 23,
+      totalHotTicks: 24,
+      cooled: false,
+    });
+
+    const result = apples.handleConsumption(room.id, { x: 1, y: 0 }, false, { x: 6, y: 5 });
+
+    expect(result.rewards).toEqual({ growth: 3, bonusScore: 37 });
+  });
+
+  it('bounces road rash apples away from cave walls', () => {
+    const room = caveRoom();
+    const rooms = new Map([[room.id, room]]);
+    const world = {
+      getRoom: (roomId: string) => {
+        const found = rooms.get(roomId);
+        if (!found) {
+          throw new Error(`Unexpected room request: ${roomId}`);
+        }
+        return found;
+      },
+      setApple: (_roomId: string, position?: { x: number; y: number }) => {
+        room.apple = position;
+      },
+      hasTreasureAt: () => false,
+    };
+    const apples = new AppleService(
+      defaultGameConfig.apples,
+      defaultGameConfig.grid,
+      world as never,
+      () => 0,
+    );
+
+    apples.placeApple(room.id, { x: 30, y: 5 }, 'roadRash');
+    apples.moveApples([]);
+    const snapshot = apples.getSnapshot(room.id);
+
+    expect(snapshot?.position).toEqual({ x: 29, y: 5 });
+    expect(snapshot?.metadata).toMatchObject({ velocity: { x: -1, y: 0 } });
+  });
+
+  it('cools road rash apples into a small reward after the hot timer expires', () => {
+    const room = caveRoom();
+    const rooms = new Map([[room.id, room]]);
+    const world = {
+      getRoom: (roomId: string) => {
+        const found = rooms.get(roomId);
+        if (!found) {
+          throw new Error(`Unexpected room request: ${roomId}`);
+        }
+        return found;
+      },
+      setApple: (_roomId: string, position?: { x: number; y: number }) => {
+        room.apple = position;
+      },
+      hasTreasureAt: () => false,
+    };
+    const apples = new AppleService(
+      defaultGameConfig.apples,
+      defaultGameConfig.grid,
+      world as never,
+      () => 0,
+    );
+
+    apples.placeApple(room.id, { x: 5, y: 5 }, 'roadRash');
+    for (let i = 0; i < 24; i += 1) {
+      apples.moveApples([]);
+    }
+
+    const snapshot = apples.getSnapshot(room.id);
+    expect(snapshot?.metadata).toMatchObject({ hotTicksRemaining: 0, cooled: true });
+
+    const result = apples.handleConsumption(room.id, { x: 1, y: 0 }, false, snapshot?.position);
+
+    expect(result.rewards).toEqual({ growth: 1, bonusScore: 2 });
+  });
+
   it('moves skittish apples using cave-local coordinates', () => {
     const room = caveRoom();
     const rooms = new Map([[room.id, room]]);
@@ -161,5 +270,50 @@ describe('town perimeter apples', () => {
     expect(result.changed).toBe(true);
     expect(result.snapshot?.roomId).toBe(room.id);
     expect(room.apple).toBeDefined();
+  });
+});
+
+describe('SPECIAL apple weighting', () => {
+  it('uses SPECIAL-aware weights for runtime apple spawning', () => {
+    const room: RoomSnapshot = {
+      id: '8,8,0',
+      layout: Array.from({ length: defaultGameConfig.grid.rows }, () =>
+        '.'.repeat(defaultGameConfig.grid.cols),
+      ),
+      portals: [],
+      biomeId: 'verdigris-basin',
+      biomeTitle: 'Verdigris Basin',
+      backgroundColor: 0,
+      wallColor: 0,
+      wallOutlineColor: 0,
+    };
+    const world = {
+      getRoom: () => room,
+      setApple: (_roomId: string, position?: { x: number; y: number }) => {
+        room.apple = position;
+      },
+      hasTreasureAt: () => false,
+    };
+    const config = {
+      ...defaultGameConfig.apples,
+      types: defaultGameConfig.apples.types
+        .filter((type) => type.id === 'normal' || type.id === 'gold')
+        .map((type) => ({
+          ...type,
+          spawn: { ...type.spawn, base: type.id === 'normal' ? 100 : 10, scoreThreshold: 0 },
+        })),
+    };
+    const luckyStats = { ...createDefaultSpecialStats(), luck: 10 };
+    const apples = new AppleService(
+      config,
+      defaultGameConfig.grid,
+      world as never,
+      () => 0.88,
+      () => luckyStats,
+    );
+
+    const result = apples.ensureApple(room.id, [], 0);
+
+    expect(result.snapshot?.typeId).toBe('gold');
   });
 });

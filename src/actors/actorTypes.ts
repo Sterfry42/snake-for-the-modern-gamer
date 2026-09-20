@@ -1,6 +1,14 @@
+/**
+ * Actor Types
+ */
 import type { AnimalType } from '../animals/types.js';
 import type { FactionId } from '../factions/factions.js';
-import type { RelationshipStage } from '../relationships/relationshipTypes.js';
+import type {
+  RelationshipPersonality,
+  RelationshipSpecies,
+  RelationshipStage,
+} from '../relationships/relationshipTypes.js';
+import type { DayPhase } from '../world/atmosphereTypes.js';
 
 export type ActorKind =
   | 'civilian'
@@ -22,6 +30,11 @@ export type ActorRole =
   | 'potionMaker'
   | 'butcher'
   | 'cardDealer'
+  | 'physicalTrainer'
+  | 'mapper'
+  | 'wizard'
+  | 'innkeeper'
+  | 'civicOfficial'
   | 'guard'
   | 'gateGuard'
   | 'bartender'
@@ -33,6 +46,7 @@ export type ActorRole =
   | 'thiefContact'
   | 'guildContact'
   | 'blackMarketMerchant'
+  | 'scribe'
   | 'goblinMerchant'
   | 'goblinClerk'
   | 'goblinPriest'
@@ -54,6 +68,7 @@ export type ActorSpecies =
   | 'goblin'
   | 'angel'
   | 'goblinAngel'
+  | 'moleman'
   | 'animal'
   | 'beast'
   | 'snake'
@@ -173,8 +188,19 @@ export interface ActorCombatProfile {
   ranged: boolean;
   melee: boolean;
   canBeEatenWhenHostile: boolean;
+  weapons?: ActorWeaponEntry[];
+  activeWeaponId?: string;
   slashCooldown?: number;
   surrenderChance?: number;
+}
+
+export interface ActorWeaponEntry {
+  id: string;
+  kind: 'firearm' | 'sword';
+  label: string;
+  damage: number;
+  range: number;
+  cooldownRooms: number;
 }
 
 export type ActorHostilityState =
@@ -200,9 +226,139 @@ export type ActorBrainId =
   | 'romance'
   | 'none';
 
+export type ActorScheduledBehavior =
+  | 'idle'
+  | 'emerge'
+  | 'forage'
+  | 'graze'
+  | 'seekDen'
+  | 'sleep'
+  | 'hide'
+  | 'hunt'
+  | 'roam'
+  | 'scout'
+  | 'camp'
+  | 'patrol'
+  | 'raid'
+  | 'ambush'
+  | 'work'
+  | 'goHome'
+  | 'guardPost'
+  | 'socialize';
+
+export type ActorScheduleRoomTarget =
+  | 'current'
+  | 'home'
+  | 'work'
+  | 'sleep'
+  | 'fixedPost'
+  | 'firstPatrol';
+
+export interface ActorScheduleRoutine {
+  behavior: ActorScheduledBehavior;
+  goalKind: ActorGoalKind;
+  priority: number;
+  roomTarget?: ActorScheduleRoomTarget;
+}
+
 export interface ActorSchedule {
+  policyId?: string;
+  routines?: Partial<Record<DayPhase, ActorScheduleRoutine>>;
   homeRoomId?: string;
   workRoomId?: string;
+  sleepRoomId?: string;
+  homePosition?: { x: number; y: number };
+  workPosition?: { x: number; y: number };
+  sleepPosition?: { x: number; y: number };
+  patrolRoomIds?: string[];
+  fixedPostRoomId?: string;
+  fixedPostPosition?: { x: number; y: number };
+  permanentDuty?: boolean;
+}
+
+export type ActorActivityKind =
+  | 'idle'
+  | 'walking'
+  | 'merchant'
+  | 'drinking'
+  | 'dealing-cards'
+  | 'mapping'
+  | 'alchemy'
+  | 'cooking'
+  | 'training'
+  | 'repairing'
+  | 'talking'
+  | 'combat-melee'
+  | 'combat-ranged'
+  | 'guarding'
+  | 'fishing'
+  | 'observing-sky'
+  | 'fleeing'
+  | 'sheltering'
+  | 'sleeping'
+  | 'dead';
+
+export interface ActorActivity {
+  kind: ActorActivityKind;
+  source: 'brain' | 'schedule' | 'combat' | 'social' | 'system';
+  targetActorId?: string;
+  label?: string;
+  startedAtRoomNumber?: number;
+  endsAtRoomNumber?: number;
+}
+
+export type ActorGoalKind =
+  | 'idle'
+  | 'wander'
+  | 'seekPlayer'
+  | 'travelToRoom'
+  | 'work'
+  | 'goHome'
+  | 'socialize'
+  | 'attackActor'
+  | 'defendArea'
+  | 'flee'
+  | 'sleep';
+
+export interface ActorGoal {
+  kind: ActorGoalKind;
+  priority: number;
+  roomId?: string;
+  targetActorId?: string;
+  targetPosition?: { x: number; y: number };
+  reason?: string;
+}
+
+export interface ActorTargetThreat {
+  targetActorId: string;
+  source: 'faction' | 'personal' | 'crime' | 'script' | 'combat' | 'system';
+  reason: string;
+  startedAtRoomNumber?: number;
+}
+
+export interface ActorPlayerHostility {
+  state: Exclude<ActorHostilityState, 'dead'>;
+  reason: string;
+  startedAtRoomNumber?: number;
+}
+
+export interface ActorPresence {
+  roomId: string;
+  position: { x: number; y: number };
+  materialized: boolean;
+  anchor?: { x: number; y: number };
+  wanderRadius?: number;
+  stationary?: boolean;
+}
+
+export interface ActorSpeechBubble {
+  text: string;
+  category?: 'ambient' | 'reactive' | 'social';
+  targetActorId?: string;
+  createdAtRoomNumber?: number;
+  expiresAtRoomNumber?: number;
+  createdAtMs?: number;
+  expiresAtMs?: number;
 }
 
 export type ActorSoulRevealKey =
@@ -248,6 +404,7 @@ export interface Actor {
   displayName: string;
   shortName?: string;
   epithet?: string;
+  shopProfileId?: string;
   factionId?: FactionId | string;
   townId?: string;
   homeRoomId?: string;
@@ -264,6 +421,14 @@ export interface Actor {
   health?: ActorHealth;
   combat?: ActorCombatProfile;
   hostility?: ActorHostilityState;
+  playerHostility?: ActorPlayerHostility;
+  targetedThreat?: ActorTargetThreat;
+  presence?: ActorPresence;
+  scheduleGoal?: ActorGoal;
+  goal?: ActorGoal;
+  goalStack?: ActorGoal[];
+  activity?: ActorActivity;
+  speech?: ActorSpeechBubble;
   inventory?: Record<string, number>;
   soul?: ActorSoulProfile;
   lore?: ActorLoreProfile;
@@ -299,12 +464,13 @@ export interface EnsureTownResidentActorArgs {
   actorId?: string;
   residentId: string;
   name: string;
-  role: string;
+  role: ActorRole;
   factionId?: string;
   townId: string;
   currentRoomId?: string;
   homeRoomId?: string;
   workRoomId?: string;
+  postPosition?: { x: number; y: number };
   portraitId?: string;
   createdAtRoomNumber?: number;
 }
@@ -336,7 +502,8 @@ export interface EnsureRelationshipActorArgs {
   actorId?: string;
   relationshipId: string;
   displayName: string;
-  species: string;
+  species: RelationshipSpecies;
+  personality?: RelationshipPersonality;
   factionId?: string;
   homeRoomId?: string;
   portraitId?: string;

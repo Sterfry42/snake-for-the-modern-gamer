@@ -14,7 +14,7 @@ export function createDefaultAchievementState(): AchievementState {
     progress: {},
     discoveredBiomes: [],
     apSubmitted: {},
-    run: { consumedItemIds: [], waterTilesSwum: 0 },
+    run: { consumedItemIds: [], waterTilesSwum: 0, mutationCount: 0, traitCount: 0 },
   };
 }
 
@@ -41,6 +41,8 @@ export function normalizeAchievementState(raw: unknown): AchievementState {
           ]
         : [],
       waterTilesSwum: Math.max(0, Math.floor(Number(value.run?.waterTilesSwum) || 0)),
+      mutationCount: Math.max(0, Math.floor(Number(value.run?.mutationCount) || 0)),
+      traitCount: Math.max(0, Math.floor(Number(value.run?.traitCount) || 0)),
     },
   };
 }

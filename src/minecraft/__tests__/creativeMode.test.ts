@@ -1,8 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { MinecraftPlayer } from '../player.js';
 import { isWalkableWithCreativeOverride } from '../player.js';
-import { tryBreakBlockCreative, tryPlaceBlockCreative } from '../blockInteraction.js';
+import { tryBreakBlockCreative } from '../blockInteraction.js';
 import type { RoomSnapshot } from '../../world/types.js';
+import type { BiomeId } from '../../world/biomes.js';
+import type SnakeScene from '../../scenes/snakeScene.js';
 
 describe('Creative Mode - Palette', () => {
   it('should have 20 block types in creative palette', () => {
@@ -11,10 +13,26 @@ describe('Creative Mode - Palette', () => {
 
   it('should include all expected block types', () => {
     const expected = [
-      'dirt', 'grass', 'stone', 'cobblestone', 'sand',
-      'gravel', 'wood', 'planks', 'torch', 'glass',
-      'furnace', 'chest', 'bed', 'crafting_table', 'pumpkin',
-      'iron_block', 'gold_block', 'diamond_ore', 'iron_ore', 'coal_ore',
+      'dirt',
+      'grass',
+      'stone',
+      'cobblestone',
+      'sand',
+      'gravel',
+      'wood',
+      'planks',
+      'torch',
+      'glass',
+      'furnace',
+      'chest',
+      'bed',
+      'crafting_table',
+      'pumpkin',
+      'iron_block',
+      'gold_block',
+      'diamond_ore',
+      'iron_ore',
+      'coal_ore',
     ];
     for (const bt of expected) {
       expect(MinecraftPlayer.CREATIVE_BLOCK_TYPES).toContain(bt);
@@ -35,7 +53,11 @@ describe('Creative Mode - Block Breaking', () => {
     minecraftBlocks: {},
   } as unknown as RoomSnapshot;
 
-  function createMockScene(): any {
+  function createMockScene(): {
+    grid: { cell: number };
+    snakeGame: { getCurrentRoom: () => RoomSnapshot };
+    juice: { blockBreak: ReturnType<typeof vi.fn>; blockPlace: ReturnType<typeof vi.fn> };
+  } {
     return {
       grid: { cell: 24 },
       snakeGame: { getCurrentRoom: () => mockRoom },
@@ -47,11 +69,11 @@ describe('Creative Mode - Block Breaking', () => {
     const room: RoomSnapshot = {
       ...mockRoom,
       minecraftBlocks: { '5,0': 'stone' },
-    } as any;
+    } as unknown as RoomSnapshot;
     const scene = createMockScene();
-    (scene.snakeGame.getCurrentRoom as () => any) = () => room;
+    (scene as unknown as SnakeScene).snakeGame.getCurrentRoom = () => room;
 
-    const result = tryBreakBlockCreative(scene as any, 5, 0);
+    const result = tryBreakBlockCreative(scene as unknown as SnakeScene, 5, 0);
     expect(result.success).toBe(true);
     expect(result.droppedItem).toBeUndefined();
   });
@@ -60,13 +82,13 @@ describe('Creative Mode - Block Breaking', () => {
     const room: RoomSnapshot = {
       ...mockRoom,
       minecraftBlocks: { '5,0': 'cobblestone' },
-    } as any;
+    } as unknown as RoomSnapshot;
     const scene = createMockScene();
-    (scene.snakeGame.getCurrentRoom as () => any) = () => room;
+    (scene.snakeGame.getCurrentRoom as () => RoomSnapshot) = () => room;
 
     const player = new MinecraftPlayer();
 
-    tryBreakBlockCreative(scene as any, 5, 0);
+    tryBreakBlockCreative(scene as unknown as SnakeScene, 5, 0);
     expect(player.getItemCount('cobblestone')).toBe(0);
   });
 });
@@ -77,13 +99,13 @@ describe('Creative Mode - Walkability', () => {
       id: '0,0,0',
       layout: ['................'],
       portals: [],
-      biomeId: 'verdigris-basin' as any,
+      biomeId: 'verdigris-basin' as BiomeId,
       biomeTitle: 'Test',
       backgroundColor: 0xffffff,
       wallColor: 0x000000,
       wallOutlineColor: 0x333333,
       minecraftBlocks: { '5,0': 'stone', '6,0': 'cobblestone' },
-    } as any;
+    } as unknown as RoomSnapshot;
 
     expect(isWalkableWithCreativeOverride(room, 5, 0, true)).toBe(true);
     expect(isWalkableWithCreativeOverride(room, 6, 0, true)).toBe(true);
@@ -95,13 +117,13 @@ describe('Creative Mode - Walkability', () => {
       id: '0,0,0',
       layout: ['##############..'],
       portals: [],
-      biomeId: 'verdigris-basin' as any,
+      biomeId: 'verdigris-basin' as BiomeId,
       biomeTitle: 'Test',
       backgroundColor: 0xffffff,
       wallColor: 0x000000,
       wallOutlineColor: 0x333333,
       minecraftBlocks: {},
-    } as any;
+    } as unknown as RoomSnapshot;
 
     expect(isWalkableWithCreativeOverride(room, 5, 0, true)).toBe(false);
   });
@@ -111,13 +133,13 @@ describe('Creative Mode - Walkability', () => {
       id: '0,0,0',
       layout: ['................'],
       portals: [],
-      biomeId: 'verdigris-basin' as any,
+      biomeId: 'verdigris-basin' as BiomeId,
       biomeTitle: 'Test',
       backgroundColor: 0xffffff,
       wallColor: 0x000000,
       wallOutlineColor: 0x333333,
       minecraftBlocks: { '5,0': 'lava' },
-    } as any;
+    } as unknown as RoomSnapshot;
 
     expect(isWalkableWithCreativeOverride(room, 5, 0, true)).toBe(false);
   });

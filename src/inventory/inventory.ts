@@ -1,3 +1,6 @@
+/**
+ * Inventory System
+ */
 import type { EquipableItem, EquipmentSlot, Item } from './item.js';
 import { getItem } from './itemRegistry.js';
 

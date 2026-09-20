@@ -31,6 +31,7 @@ function baseContext(overrides: Partial<ActorConversationContext> = {}): ActorCo
     rumors: overrides.rumors ?? [],
     factionEvents: overrides.factionEvents ?? [],
     town: overrides.town,
+    civic: overrides.civic,
     relationship: overrides.relationship,
     socialTargetName: overrides.socialTargetName,
     socialLink: overrides.socialLink,
@@ -183,6 +184,148 @@ describe('selectActorConversation', () => {
     expect(result.line).toContain('Rook');
   });
 
+  it('can produce a Mayor-specific first introduction', () => {
+    const result = selectActorConversation(
+      baseContext({
+        actor: createBaseActor({
+          id: 'actor:test:mayor',
+          kind: 'civilian',
+          role: 'civicOfficial',
+          species: 'human',
+          thickness: 'medium',
+          displayName: 'Mayor Jenkins',
+          personality: ['bureaucratic'],
+          townId: 'eastmere',
+        }),
+        civic: {
+          townId: 'eastmere',
+          townName: 'Eastmere',
+          currentMayorName: 'Mayor Jenkins',
+          tags: ['actor-mayor'],
+        },
+      }),
+    );
+
+    expect(result.id).toBe('talk-civic-mayor-introduction');
+    expect(result.line).toContain('Mayor');
+  });
+
+  it('changes Mayor dialogue when the player declares against them', () => {
+    const result = selectActorConversation(
+      baseContext({
+        actor: createBaseActor({
+          id: 'actor:test:mayor',
+          kind: 'civilian',
+          role: 'civicOfficial',
+          species: 'human',
+          thickness: 'medium',
+          displayName: 'Mayor Jenkins',
+          personality: ['bureaucratic'],
+          townId: 'eastmere',
+        }),
+        flags: {
+          'actor.conversation.total.actor:test:mayor.talk': 1,
+        },
+        civic: {
+          townId: 'eastmere',
+          townName: 'Eastmere',
+          currentMayorName: 'Mayor Jenkins',
+          platformLabel: 'Law & Order',
+          tags: ['actor-mayor', 'active-election', 'running-against-actor'],
+        },
+      }),
+    );
+
+    expect(result.id).toBe('talk-civic-mayor-campaign-bureaucratic');
+    expect(result.tags).toContain('campaign');
+  });
+
+  it('varies Mayor campaign dialogue by personality', () => {
+    const petty = selectActorConversation(
+      baseContext({
+        actor: createBaseActor({
+          id: 'actor:test:petty-mayor',
+          kind: 'civilian',
+          role: 'civicOfficial',
+          species: 'human',
+          thickness: 'medium',
+          displayName: 'Mayor Slate',
+          personality: ['petty'],
+          townId: 'eastmere',
+        }),
+        civic: {
+          townId: 'eastmere',
+          townName: 'Eastmere',
+          currentMayorName: 'Mayor Slate',
+          tags: ['actor-mayor', 'active-election', 'running-against-actor'],
+        },
+      }),
+    );
+    const friendly = selectActorConversation(
+      baseContext({
+        actor: createBaseActor({
+          id: 'actor:test:friendly-mayor',
+          kind: 'civilian',
+          role: 'civicOfficial',
+          species: 'human',
+          thickness: 'medium',
+          displayName: 'Mayor Vale',
+          personality: ['kind'],
+          townId: 'eastmere',
+        }),
+        civic: {
+          townId: 'eastmere',
+          townName: 'Eastmere',
+          currentMayorName: 'Mayor Vale',
+          tags: ['actor-mayor', 'active-election', 'running-against-actor'],
+        },
+      }),
+    );
+
+    expect(petty.id).toBe('talk-civic-mayor-campaign-petty');
+    expect(friendly.id).toBe('talk-civic-mayor-campaign-friendly');
+  });
+
+  it('has Mayor win/loss and former-Mayor dialogue after results', () => {
+    const actor = createBaseActor({
+      id: 'actor:test:mayor',
+      kind: 'civilian',
+      role: 'civicOfficial',
+      species: 'human',
+      thickness: 'medium',
+      displayName: 'Mayor Jenkins',
+      personality: ['bureaucratic'],
+      townId: 'eastmere',
+    });
+    const former = selectActorConversation(
+      baseContext({
+        actor,
+        civic: {
+          townId: 'eastmere',
+          townName: 'Eastmere',
+          currentMayorName: 'Snake',
+          platformLabel: 'People First',
+          tags: ['player-mayor', 'player-beat-actor', 'former-mayor'],
+        },
+      }),
+    );
+    const winner = selectActorConversation(
+      baseContext({
+        actor,
+        civic: {
+          townId: 'eastmere',
+          townName: 'Eastmere',
+          currentMayorName: 'Mayor Jenkins',
+          platformLabel: 'People First',
+          tags: ['actor-mayor', 'player-lost-to-actor'],
+        },
+      }),
+    );
+
+    expect(former.id).toBe('talk-civic-former-mayor');
+    expect(winner.id).toBe('talk-civic-mayor-beat-player');
+  });
+
   it('uses the deep voice pack for less common personality talk after the introduction', () => {
     const actor = createBaseActor({
       id: 'actor:test:vel',
@@ -234,6 +377,32 @@ describe('selectActorConversation', () => {
 
     expect(result.id).toBe('deep-personal-social-factionAlly-statusHungry');
     expect(result.knownFact).toContain('factionAlly');
+  });
+
+  it('gives potion makers and wizards role-specific alchemy talk after introductions', () => {
+    for (const role of ['potionMaker', 'wizard'] as const) {
+      const actor = createBaseActor({
+        id: `actor:test:${role}`,
+        kind: 'shopkeeper',
+        role,
+        species: 'human',
+        thickness: 'medium',
+        displayName: role === 'wizard' ? 'Vey the Wizard' : 'Nessa the Potion Maker',
+        personality: ['practical', 'sharp'],
+      });
+      const result = selectActorConversation(
+        baseContext({
+          actor,
+          flags: {
+            [`actor.conversation.total.${actor.id}.talk`]: 1,
+            [`actor.conversation.count.${actor.id}.talk.talk-intro-fallback`]: 1,
+          },
+        }),
+      );
+
+      expect(result.tags).toContain('alchemy');
+      expect(result.line).toMatch(/Scrolls unlock|Alchemy is magic/);
+    }
   });
 
   it('rotates ask-around away from the last near-best rumor line', () => {

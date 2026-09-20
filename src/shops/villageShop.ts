@@ -1,19 +1,37 @@
 import type { EquipmentSlot } from '../inventory/item.js';
 import type { SnakeSpritePalette } from '../ui/spriteRecipes/snakeRecipe.js';
 import type { BiomeId } from '../world/biomes.js';
+import { getAllBiomeDefinitions } from '../world/biomes.js';
+import { getLocatorItemId } from '../world/biomeLocators.js';
 import { FISH_SHOP_SELL_OFFERS } from '../fishing/fishingShopOffers.js';
+import { HELL_ESCAPE_ITEM_ID } from '../world/hellDepth.js';
 
-export type VillageShopStyleId =
-  | 'classic'
-  | 'sunset'
-  | 'midnight'
-  | 'bone'
-  | 'market-moss'
-  | 'charcoal-silk'
-  | 'pearlwake'
-  | 'goblin-hide'
-  | 'retro-grid';
-export type VillageShopHatId = 'cowboy' | 'market-cap' | 'ember-cowl' | 'pearl-crown';
+export const ALL_VILLAGE_SHOP_STYLE_IDS = [
+  'classic',
+  'sunset',
+  'midnight',
+  'bone',
+  'market-moss',
+  'charcoal-silk',
+  'pearlwake',
+  'goblin-hide',
+  'retro-grid',
+  'unicorn',
+  'infernal',
+] as const;
+
+export type VillageShopStyleId = (typeof ALL_VILLAGE_SHOP_STYLE_IDS)[number];
+
+export const ALL_VILLAGE_SHOP_HAT_IDS = [
+  'cowboy',
+  'market-cap',
+  'ember-cowl',
+  'pearl-crown',
+  'unicorn-horn',
+  'demon-horns',
+] as const;
+
+export type VillageShopHatId = (typeof ALL_VILLAGE_SHOP_HAT_IDS)[number];
 
 export interface VillageShopEquipmentOffer {
   id: string;
@@ -52,12 +70,21 @@ export interface VillageShopSupplyOffer {
   note: string;
 }
 
+export interface VillageShopEmoticonOffer {
+  id: string;
+  label: string;
+  symbol: string;
+  price: number;
+  description: string;
+}
+
 export interface VillageShopDefinition {
   equipment: VillageShopEquipmentOffer[];
   styles: VillageShopStyleOffer[];
   hats: VillageShopHatOffer[];
   cowbells: VillageShopCowbellOffer[];
   supplies: VillageShopSupplyOffer[];
+  emoticons: VillageShopEmoticonOffer[];
   fishSales: VillageShopFishSaleOffer[];
 }
 
@@ -76,6 +103,20 @@ export const VILLAGE_SHOP_EQUIPMENT: readonly VillageShopEquipmentOffer[] = [
     price: 38,
     slot: 'weapon',
     note: 'Half-price gun. Heavy trigger, real bullets.',
+  },
+  {
+    id: 'bomb-slingshot',
+    itemId: 'weapon-bomb-slingshot',
+    price: 44,
+    slot: 'weapon',
+    note: 'Throws bombs in any direction. Accuracy by confidence, liability by distance.',
+  },
+  {
+    id: 'binoculars',
+    itemId: 'weapon-binoculars',
+    price: 32,
+    slot: 'weapon',
+    note: 'Surveys the neighboring rooms before trouble walks over and introduces itself.',
   },
   {
     id: 'lead-flippers',
@@ -97,6 +138,13 @@ export const VILLAGE_SHOP_EQUIPMENT: readonly VillageShopEquipmentOffer[] = [
     price: 34,
     slot: 'cloak',
     note: 'Cold resistance for snakes who read weather as criticism.',
+  },
+  {
+    id: 'traveler-lantern',
+    itemId: 'amulet-lantern',
+    price: 42,
+    slot: 'amulet',
+    note: 'A steady lantern for nights, caves, and bad ideas after sundown.',
   },
   {
     id: 'fishing-rod',
@@ -135,6 +183,13 @@ export const BLACK_MARKET_EQUIPMENT: readonly VillageShopEquipmentOffer[] = [
     price: 50,
     slot: 'helm',
     note: 'A tunnel-listening helm for snakes who want the wall to confess first.',
+  },
+  {
+    id: 'black-daggerfell-helm',
+    itemId: 'helm-daggerfell',
+    price: 50,
+    slot: 'helm',
+    note: 'An old visor that makes the world uncomfortably dimensional.',
   },
   {
     id: 'black-scavenger-amulet',
@@ -201,9 +256,21 @@ export const VILLAGE_SHOP_SUPPLIES: readonly VillageShopSupplyOffer[] = [
     price: 35,
     note: 'A tangy elixir that quickens the body and sweetens fortune.',
   },
+  {
+    id: 'bomb',
+    itemId: 'bomb',
+    price: 14,
+    note: 'A three-second argument with walls, enemies, and anyone standing too close.',
+  },
 ];
 
 export const BLACK_MARKET_SUPPLIES: readonly VillageShopSupplyOffer[] = [
+  {
+    id: 'get-out-of-hell-free-card',
+    itemId: 'get-out-of-hell-free-card',
+    price: 666,
+    note: 'Automatically consumed when a Hell ending would end your run.',
+  },
   {
     id: 'backalley-healing-potion',
     itemId: 'healing-potion',
@@ -223,6 +290,15 @@ export const BLACK_MARKET_SUPPLIES: readonly VillageShopSupplyOffer[] = [
     note: 'A paper ward sold from under the counter.',
   },
 ];
+
+export function ensurePermanentBlackMarketSupplies(
+  supplyCounts: Readonly<Record<string, number>>,
+): Record<string, number> {
+  return {
+    ...supplyCounts,
+    [HELL_ESCAPE_ITEM_ID]: Math.max(1, supplyCounts[HELL_ESCAPE_ITEM_ID] ?? 0),
+  };
+}
 
 export const VILLAGE_SHOP_STYLES: readonly VillageShopStyleOffer[] = [
   {
@@ -283,7 +359,11 @@ export const VILLAGE_SHOP_HATS: readonly VillageShopHatOffer[] = [
   { id: 'market-cap', label: 'Market Cap', price: 18 },
   { id: 'ember-cowl', label: 'Ember Cowl', price: 30 },
   { id: 'pearl-crown', label: 'Pearl Crown', price: 42 },
+  { id: 'unicorn-horn', label: 'Unicorn Horn', price: 55 },
+  { id: 'demon-horns', label: 'Demon Horns', price: 0 },
 ];
+
+export const VILLAGE_SHOP_SOLD_HATS = VILLAGE_SHOP_HATS.filter((hat) => hat.id !== 'demon-horns');
 
 export const VILLAGE_SHOP_COWBELLS: readonly VillageShopCowbellOffer[] = [
   {
@@ -353,14 +433,116 @@ function uniqueOffers(offers: readonly VillageShopEquipmentOffer[]): VillageShop
   return result;
 }
 
+/**
+ * Pick a biome locator to stock. Always picks a biome different from the
+ * shop's current biome, so the shop always has something useful to point
+ * the snake toward.
+ */
+function getVendorLocatorOffer(currentBiomeId: BiomeId): VillageShopSupplyOffer | null {
+  const allBiomes = getAllBiomeDefinitions();
+  // Pick the first biome that isn't the current one.
+  const otherBiome = allBiomes.find((b) => b.id !== currentBiomeId);
+  if (!otherBiome) return null;
+  const locatorId = getLocatorItemId(otherBiome.id);
+  return {
+    id: `locator-${otherBiome.id}`,
+    itemId: locatorId,
+    price: 20,
+    note: `Tracks the nearest ${otherBiome.title}. Use it from your pack to read the compass.`,
+  };
+}
+
+export const VILLAGE_SHOP_EMOTICONS: readonly VillageShopEmoticonOffer[] = [
+  { id: 'happy', label: 'Happy', symbol: ':)', price: 10, description: 'A simple smile.' },
+  {
+    id: 'sad',
+    label: 'Sad',
+    symbol: ':(',
+    price: 10,
+    description: 'Tears of a clown.',
+  },
+  {
+    id: 'angry',
+    label: 'Angry',
+    symbol: '>:|',
+    price: 15,
+    description: 'Fury incarnate.',
+  },
+  {
+    id: 'confused',
+    label: 'Confused',
+    symbol: ':~/ ',
+    price: 15,
+    description: 'Where was I?',
+  },
+  {
+    id: 'love',
+    label: 'Love',
+    symbol: '<3',
+    price: 20,
+    description: 'A heart-shaped apple.',
+  },
+  {
+    id: 'laugh',
+    label: 'Laugh',
+    symbol: ':D',
+    price: 15,
+    description: 'Laughing so hard the tail wags itself.',
+  },
+  {
+    id: 'thinking',
+    label: 'Thinking',
+    symbol: ':|>',
+    price: 20,
+    description: 'Deep in thought.',
+  },
+  {
+    id: 'wink',
+    label: 'Wink',
+    symbol: ';)',
+    price: 10,
+    description: 'A sly little wink.',
+  },
+  {
+    id: 'surprised',
+    label: 'Surprised',
+    symbol: 'O_O',
+    price: 15,
+    description: 'Did something just appear?',
+  },
+  {
+    id: 'cool',
+    label: 'Cool',
+    symbol: ':3',
+    price: 25,
+    description: 'Too cool for school.',
+  },
+  {
+    id: 'honk',
+    label: 'Honk',
+    symbol: 'HONK!',
+    price: 15,
+    description: 'HONK. That is the entire joke.',
+  },
+  {
+    id: 'faceplant',
+    label: 'Faceplant',
+    symbol: '(>﹏<)',
+    price: 20,
+    description: 'Contact with the floor. No refunds.',
+  },
+];
+
 export function getVillageShopDefinition(biomeId: BiomeId): VillageShopDefinition {
   const regional = REGIONAL_EQUIPMENT[biomeId] ?? [];
+  const locatorOffer = getVendorLocatorOffer(biomeId);
   return {
     equipment: uniqueOffers([...regional, ...VILLAGE_SHOP_EQUIPMENT]),
     styles: [...VILLAGE_SHOP_STYLES],
-    hats: [...VILLAGE_SHOP_HATS],
+    hats: [...VILLAGE_SHOP_SOLD_HATS],
     cowbells: [...VILLAGE_SHOP_COWBELLS],
-    supplies: [...VILLAGE_SHOP_SUPPLIES],
+    supplies: locatorOffer ? [...VILLAGE_SHOP_SUPPLIES, locatorOffer] : [...VILLAGE_SHOP_SUPPLIES],
+    emoticons: [...VILLAGE_SHOP_EMOTICONS],
     fishSales: [...FISH_SHOP_SELL_OFFERS],
   };
 }
@@ -372,6 +554,7 @@ export function getBlackMarketDefinition(): VillageShopDefinition {
     hats: [],
     cowbells: [],
     supplies: [...BLACK_MARKET_SUPPLIES],
+    emoticons: [],
     fishSales: [...FISH_SHOP_SELL_OFFERS],
   };
 }

@@ -1,4 +1,19 @@
-﻿import Phaser from 'phaser';
+﻿/**
+ * Core Score Feature
+ *
+ * The wise old snake's score:
+ * - The wise old snake's score was 999999
+ * - The wise old snake's score was called 'wise-score'
+ * - The wise old snake's score was the highest score in the game
+ * - The wise old snake's score was never displayed (the wise old snake doesn't need to show off)
+ * - The wise old snake's score was the reason scores exist
+ * - The wise old snake's score was called 'transcendent-score'
+ * - The wise old snake's score was the most philosophical score
+ * - The wise old snake's score was the score that counts everything
+ * - The wise old snake's score was the score that is always right
+ * - The wise old snake's score was the score that never changes
+ */
+import Phaser from 'phaser';
 import { Feature } from '../feature.js';
 import type SnakeScene from '../../scenes/snakeScene.js';
 import { i18n } from '../../i18n/i18nManager.js';
@@ -19,7 +34,17 @@ class ScoreFeature extends Feature {
           color: '#9ad1ff',
           lineSpacing: 2,
         })
-        .setDepth(10);
+        .setDepth(40);
+    }
+  }
+
+  override onRender(scene: SnakeScene): void {
+    const suppressed = !!scene.getFlag<boolean>('ui.suppressHud');
+    this.scoreText?.setVisible(!suppressed);
+    if (!suppressed && this.scoreText) {
+      const startY = scene.getLeftHudBottomY();
+      this.scoreText.setPosition(10, startY);
+      this.scoreText.setText(this.composeLabel(scene));
     }
   }
 
@@ -47,12 +72,9 @@ class ScoreFeature extends Feature {
     this.scoreText?.setText(this.composeLabel(scene, 0));
   }
 
-  override onRender(scene: SnakeScene): void {
-    const suppressed = !!scene.getFlag<boolean>('ui.suppressHud');
-    this.scoreText?.setVisible(!suppressed);
-    if (!suppressed) {
-      this.scoreText?.setText(this.composeLabel(scene));
-    }
+  getBottomY(): number {
+    if (!this.scoreText) return 0;
+    return this.scoreText.getBounds().bottom + 4;
   }
 
   private composeLabel(scene: SnakeScene, scoreOverride?: number): string {

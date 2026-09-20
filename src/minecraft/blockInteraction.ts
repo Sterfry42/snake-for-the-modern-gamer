@@ -118,7 +118,7 @@ export function tryBreakBlockCreative(
 
 export function tryPlaceBlock(
   scene: SnakeScene,
-  player: MinecraftPlayer,
+  _player: MinecraftPlayer,
   tileX: number,
   tileY: number,
   blockType: string,

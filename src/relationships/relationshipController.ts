@@ -9,6 +9,7 @@ import type {
   RelationshipChoice,
   RelationshipEncounter,
   RelationshipCutscene,
+  RelationshipEventOutcome,
   RelationshipEventResult,
   RelationshipMemory,
   RelationshipOutcomeTier,
@@ -21,6 +22,7 @@ import type {
   RelationshipTag,
   RelationshipTalkResult,
 } from './relationshipTypes.js';
+import { clamp } from '../core/math.js';
 
 interface RelationshipRuntime {
   getFlag<T = unknown>(key: string): T | undefined;
@@ -118,10 +120,6 @@ const TIER_DELTAS: Record<
   hated: { affection: -8, trust: -6, resentment: 8, jealousy: 2 },
 };
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
-
 function normalizePortrait(species: RelationshipSpecies, portraitId?: string): string {
   if (portraitId) return portraitId;
   if (species === 'goblin' || species === 'goblin-angel') return 'goblin-neutral';
@@ -145,6 +143,7 @@ export class RelationshipController {
     const states = this.getStateMap();
     const existing = states[profile.id];
     if (existing) {
+      const personality = profile.personality ?? existing.personality;
       const updated = {
         ...existing,
         actorId: profile.actorId ?? existing.actorId,
@@ -152,6 +151,7 @@ export class RelationshipController {
         portraitId: normalizePortrait(profile.species, profile.portraitId),
         homeRoomId: profile.homeRoomId ?? existing.homeRoomId,
         factionId: profile.factionId ?? existing.factionId,
+        personality,
         conflictStyle: profile.conflictStyle ?? existing.conflictStyle,
         exclusivityPreference: profile.exclusivityPreference ?? existing.exclusivityPreference,
       };
@@ -159,6 +159,7 @@ export class RelationshipController {
       return updated;
     }
 
+    const personality = this.resolveProfilePersonality(profile);
     const state: RelationshipState = {
       id: profile.id,
       actorId: profile.actorId,
@@ -179,9 +180,10 @@ export class RelationshipController {
       rejectedDates: 0,
       ignoredEncounters: 0,
       romanceOptIn: false,
-      conflictStyle: profile.conflictStyle ?? this.deriveConflictStyle(profile),
+      personality,
+      conflictStyle: profile.conflictStyle ?? this.deriveConflictStyle(profile, personality),
       exclusivityPreference:
-        profile.exclusivityPreference ?? this.deriveExclusivityPreference(profile),
+        profile.exclusivityPreference ?? this.deriveExclusivityPreference(profile, personality),
       memories: [],
       children: [],
       flags: {},
@@ -305,8 +307,21 @@ export class RelationshipController {
     const state = this.getState(id);
     if (!state || state.stage === 'dead') return ['talk'];
     if (state.stage === 'murderous' || state.stage === 'hostile') return ['plead', 'fight', 'run'];
-    if (state.stage === 'married')
-      return ['talk', 'gift', 'date', 'family', 'discuss-arrangement', 'divorce'];
+    if (state.stage === 'married') {
+      const hasChildren = state.children.length > 0;
+      const choices: Array<RelationshipChoice | 'gift'> = [
+        'talk',
+        'gift',
+        'date',
+        'family',
+        'discuss-arrangement',
+        'divorce',
+      ];
+      if (hasChildren) {
+        choices.push('child-hug', 'child-catch');
+      }
+      return choices;
+    }
     if (state.stage === 'lover')
       return ['talk', 'gift', 'date', 'propose', 'reassure', 'apologize', 'break-up'];
     if (state.stage === 'dating')
@@ -409,6 +424,7 @@ export class RelationshipController {
             title: state.displayName,
             message: 'They look at your flirtation like it is evidence.',
             color: '#ff6b6b',
+            outcome: { mood: 'angry' },
             state,
           };
         }
@@ -441,6 +457,7 @@ export class RelationshipController {
             title: state.displayName,
             message: 'They refuse the date with the clarity of a drawn blade.',
             color: '#ff6b6b',
+            outcome: { mood: 'angry' },
             state,
           };
         }
@@ -507,6 +524,10 @@ export class RelationshipController {
         return this.discussArrangement(next, roomsVisited);
       case 'divorce':
         return this.divorce(next, roomsVisited);
+      case 'child-hug':
+        return this.childHug(next, roomsVisited);
+      case 'child-catch':
+        return this.childCatch(next, roomsVisited);
       case 'reassure':
         next.trust += 6;
         next.jealousy -= 12;
@@ -559,6 +580,7 @@ export class RelationshipController {
       title: saved.displayName,
       message: this.describeChoice(saved, choice),
       color: this.colorFor(saved),
+      outcome: this.outcomeForChoice(saved, choice),
       state: saved,
       becameHostile: saved.stage === 'hostile' || saved.stage === 'murderous',
     };
@@ -618,6 +640,7 @@ export class RelationshipController {
       title: saved.displayName,
       message: `${this.labelForTier(tier)}: ${summary}`,
       color: this.colorFor(saved),
+      outcome: { ...this.outcomeForTier(tier), summary },
       state: saved,
       becameHostile: saved.stage === 'hostile' || saved.stage === 'murderous',
     };
@@ -676,6 +699,7 @@ export class RelationshipController {
       title: saved.displayName,
       message: `${this.labelForTier(tier)}: ${saved.displayName} says, "${line}"`,
       color: this.colorFor(saved),
+      outcome: { ...this.outcomeForTier(tier), summary: line },
       state: saved,
       becameHostile: saved.stage === 'hostile' || saved.stage === 'murderous',
     };
@@ -835,6 +859,7 @@ export class RelationshipController {
       title: saved.displayName,
       message: this.describeGift(saved, itemName, tone),
       color: this.colorFor(saved),
+      outcome: this.outcomeForTier(tone),
       state: saved,
       becameHostile: saved.stage === 'hostile' || saved.stage === 'murderous',
     };
@@ -1121,7 +1146,9 @@ export class RelationshipController {
       portraitId: state.portraitId,
       homeRoomId: state.homeRoomId,
       factionId: state.factionId,
+      personality: state.personality,
     };
+    const personality = this.resolveProfilePersonality(profile);
     return {
       ...state,
       stage: state.stage ?? 'stranger',
@@ -1133,9 +1160,10 @@ export class RelationshipController {
       rejectedDates: Math.max(0, Number(state.rejectedDates ?? 0)),
       ignoredEncounters: Math.max(0, Number(state.ignoredEncounters ?? 0)),
       romanceOptIn: Boolean(state.romanceOptIn),
-      conflictStyle: state.conflictStyle ?? this.deriveConflictStyle(profile),
+      personality,
+      conflictStyle: state.conflictStyle ?? this.deriveConflictStyle(profile, personality),
       exclusivityPreference:
-        state.exclusivityPreference ?? this.deriveExclusivityPreference(profile),
+        state.exclusivityPreference ?? this.deriveExclusivityPreference(profile, personality),
       memories: this.trimMemories(Array.isArray(state.memories) ? state.memories : []),
       children: Array.isArray(state.children) ? state.children : [],
       flags: state.flags ?? {},
@@ -1163,12 +1191,13 @@ export class RelationshipController {
     return 'stranger';
   }
 
-  private deriveConflictStyle(profile: RelationshipCandidateProfile): ConflictStyle {
+  private deriveConflictStyle(
+    profile: Pick<RelationshipCandidateProfile, 'id' | 'species' | 'personality'>,
+    resolvedPersonality = this.resolveProfilePersonality(profile),
+  ): ConflictStyle {
     if (profile.species === 'goblin-angel') return 'contractual';
     if (profile.species === 'angel') return 'formalDuel';
-    const personality =
-      profile.personality ??
-      this.getPersonality({ id: profile.id, species: profile.species } as RelationshipState);
+    const personality = resolvedPersonality;
     if (personality === 'poetic') return 'heartbroken';
     if (personality === 'deadpan') return 'withdrawn';
     if (personality === 'hungry') return 'forgiving';
@@ -1178,13 +1207,12 @@ export class RelationshipController {
   }
 
   private deriveExclusivityPreference(
-    profile: RelationshipCandidateProfile,
+    profile: Pick<RelationshipCandidateProfile, 'id' | 'species' | 'personality'>,
+    resolvedPersonality = this.resolveProfilePersonality(profile),
   ): ExclusivityPreference {
     if (profile.species === 'goblin-angel') return 'transactional';
     if (profile.species === 'angel') return 'monogamous';
-    const personality =
-      profile.personality ??
-      this.getPersonality({ id: profile.id, species: profile.species } as RelationshipState);
+    const personality = resolvedPersonality;
     if (personality === 'deadpan') return 'tolerant';
     if (personality === 'poetic') return 'devotional';
     if (personality === 'hungry') return 'jealous';
@@ -1305,12 +1333,56 @@ export class RelationshipController {
     return summary.replace(/^(Loved|Liked|Neutral|Disliked|Hated):\s*/i, '');
   }
 
-  private summaryVerbForTier(tier: RelationshipOutcomeTier): string {
-    if (tier === 'loved') return 'loved';
-    if (tier === 'liked') return 'liked';
-    if (tier === 'disliked') return 'disliked';
-    if (tier === 'hated') return 'hated';
-    return 'considered';
+  private outcomeForChoice(
+    state: RelationshipState,
+    choice: RelationshipChoice,
+  ): RelationshipEventOutcome | undefined {
+    switch (choice) {
+      case 'flirt':
+      case 'apologize':
+      case 'reassure':
+      case 'talk':
+        return this.outcomeForTier('liked');
+      case 'ask-out':
+        return state.flags.firstDateAccepted
+          ? { mood: 'happy', summary: `${state.displayName} accepts.` }
+          : { mood: 'sad', summary: `${state.displayName} refuses.` };
+      case 'date':
+        return state.flags.firstDateAccepted
+          ? this.outcomeForTier('loved')
+          : this.outcomeForTier('disliked');
+      case 'boundary':
+      case 'explain':
+      case 'plead':
+      case 'run':
+        return this.outcomeForTier('neutral');
+      case 'mean':
+        return this.outcomeForTier('disliked');
+      case 'break-up':
+      case 'fight':
+        return this.outcomeForTier('hated');
+      case 'propose':
+      case 'family':
+      case 'discuss-arrangement':
+      case 'divorce':
+      case 'child-hug':
+      case 'child-catch':
+        return undefined;
+    }
+  }
+
+  private outcomeForTier(tier: RelationshipOutcomeTier): RelationshipEventOutcome {
+    return {
+      tier,
+      mood:
+        tier === 'loved' || tier === 'liked'
+          ? 'happy'
+          : tier === 'neutral'
+            ? 'neutral'
+            : tier === 'disliked'
+              ? 'sad'
+              : 'angry',
+    };
   }
 
   private createBranchOutcomeSummary(
@@ -1652,6 +1724,176 @@ export class RelationshipController {
         next.children.length === 1 ? 'family' : 'spouseVisit',
       ),
     };
+  }
+
+  private childHug(state: RelationshipState, roomsVisited: number): RelationshipEventResult {
+    if (state.children.length === 0) {
+      return {
+        ok: false,
+        title: state.displayName,
+        message: 'You do not have children to share this moment with.',
+        color: '#ff6b6b',
+        state,
+      };
+    }
+    const child = state.children[0];
+    const next = {
+      ...state,
+      flags: { ...state.flags },
+      memories: [...state.memories],
+    };
+    next.affection += 3;
+    next.trust += 2;
+    next.fascination += 1;
+    this.recordMemory(next, {
+      roomsVisited,
+      kind: 'childHug',
+      tags: ['family', 'comfort', 'privateAffection'],
+      intensity: 10,
+      tone: 'positive',
+      summary: `You hugged ${child.name}. Small arms, big feelings.`,
+    });
+    this.enqueueMajorCutscene(next, roomsVisited, 'afterRelationshipGraphEvent', 70, [
+      `${child.name} throws their arms around you.`,
+      this.childHugLine(next),
+    ]);
+    const saved = this.finalize(next, roomsVisited);
+    return {
+      ok: true,
+      title: saved.displayName,
+      message: this.childHugLine(saved),
+      color: '#ffbdfd',
+      state: saved,
+    };
+  }
+
+  private childHugLine(state: RelationshipState): string {
+    const personality = this.getPersonality(state);
+    const child = state.children[0];
+    const lines: Record<RelationshipPersonality, string> = {
+      poetic: `You wrap around ${child.name}. They melt into you. It is the smallest embrace you have ever known, and the most binding.`,
+      deadpan: `${child.name} throws their arms around you. You do not pull away. Neither does ${child.name}. This is a standoff you are fine losing.`,
+      hungry: `${child.name} launches themselves at you with a sticky hug. They are checking whether you are warm enough to eat. You are.`,
+      regal: `${child.name} wraps their arms around you with the gravity of a coronation. You have never felt more crowned.`,
+      sharp: `${child.name} wraps their arms around you in a perfect embrace. No clauses, no escape. A perfect deal.`,
+    };
+    return lines[personality];
+  }
+
+  private childCatch(state: RelationshipState, roomsVisited: number): RelationshipEventResult {
+    if (state.children.length === 0) {
+      return {
+        ok: false,
+        title: state.displayName,
+        message: 'You do not have children to play with.',
+        color: '#ff6b6b',
+        state,
+      };
+    }
+    const child = state.children[0];
+    const next = {
+      ...state,
+      flags: { ...state.flags },
+      memories: [...state.memories],
+    };
+
+    // Determine difficulty based on child age (older = harder but more rewarding)
+    const childAge = roomsVisited - child.createdRoom;
+    const difficulty = Math.min(8, Math.floor(childAge / 50));
+    const maxScore = 10 + difficulty * 3;
+    const score = Math.floor(Math.random() * (maxScore + 1));
+
+    if (score >= 5) {
+      // Successful catch
+      const affectionGain = Math.min(8, 3 + Math.floor(score / 2));
+      const trustGain = Math.min(6, 2 + Math.floor(score / 3));
+      next.affection += affectionGain;
+      next.trust += trustGain;
+      next.fascination += 1;
+
+      this.recordMemory(next, {
+        roomsVisited,
+        kind: 'childCatch',
+        tags: ['family', 'play', 'joy'],
+        intensity: 8 + score,
+        tone: 'positive',
+        summary: `You played catch with ${child.name}. Score: ${score}/${maxScore}.`,
+      });
+
+      this.enqueueMajorCutscene(next, roomsVisited, 'afterRelationshipGraphEvent', 60, [
+        `${child.name} throws the ball with surprising force.`,
+        this.childCatchLine(next, true, score, maxScore),
+      ]);
+
+      const saved = this.finalize(next, roomsVisited);
+      return {
+        ok: true,
+        title: saved.displayName,
+        message: this.childCatchLine(saved, true, score, maxScore),
+        color: '#aaffaa',
+        state: saved,
+        reward: { kind: 'score', amount: score * 10 },
+      };
+    } else {
+      // Missed catch
+      next.affection += 1;
+      next.fascination += 1;
+
+      this.recordMemory(next, {
+        roomsVisited,
+        kind: 'childCatch',
+        tags: ['family', 'play'],
+        intensity: 4,
+        tone: 'neutral',
+        summary: `You played catch with ${child.name}. Score: ${score}/${maxScore}.`,
+      });
+
+      this.enqueueMajorCutscene(next, roomsVisited, 'afterRelationshipGraphEvent', 40, [
+        `${child.name} throws the ball. You miss. They laugh anyway.`,
+        this.childCatchLine(next, false, score, maxScore),
+      ]);
+
+      const saved = this.finalize(next, roomsVisited);
+      return {
+        ok: true,
+        title: saved.displayName,
+        message: this.childCatchLine(saved, false, score, maxScore),
+        color: '#ffffaa',
+        state: saved,
+      };
+    }
+  }
+
+  private childCatchLine(
+    state: RelationshipState,
+    caught: boolean,
+    score: number,
+    maxScore: number,
+  ): string {
+    void score;
+    void maxScore;
+    const personality = this.getPersonality(state);
+    const child = state.children[0];
+
+    if (caught) {
+      const lines: Record<RelationshipPersonality, string> = {
+        poetic: `${child.name} beams as you catch the ball. The arc of it through the air is a tiny sun, and you are its orbit.`,
+        deadpan: `${child.name} throws the ball. You catch it. Neither of you says anything about how good that was. You both know it was good.`,
+        hungry: `${child.name} throws the ball and you catch it. They immediately ask if you are hungry now. You are.`,
+        regal: `${child.name} throws the ball and you catch it with the grace of a monarch receiving tribute. ${child.name} curtsies.`,
+        sharp: `${child.name} throws the ball. You catch it. Perfect execution. No wasted motion. A deal struck and fulfilled.`,
+      };
+      return lines[personality];
+    } else {
+      const lines: Record<RelationshipPersonality, string> = {
+        poetic: `The ball slips through your coils. ${child.name} laughs, and the sound is a bell you would gladly break for.`,
+        deadpan: `You miss the ball. ${child.name} laughs. You pretend not to notice. You noticed.`,
+        hungry: `You miss the ball. ${child.name} giggles and picks it up. "Again?" they ask. You consider this a negotiation.`,
+        regal: `The ball eludes your grasp. ${child.name} claps with genuine delight. You will have a coronation of catching yet.`,
+        sharp: `You miss. ${child.name} laughs. The data is clear: practice is required. You accept the terms.`,
+      };
+      return lines[personality];
+    }
   }
 
   private discussArrangement(
@@ -2360,14 +2602,22 @@ export class RelationshipController {
   }
 
   private getPersonality(
-    state: Pick<RelationshipState, 'id' | 'species'>,
+    state: Pick<RelationshipState, 'id' | 'species'> & { personality?: RelationshipPersonality },
   ): RelationshipPersonality {
-    if (state.species === 'goblin' || state.species === 'goblin-angel') return 'sharp';
-    if (state.species === 'angel') return 'regal';
+    if (state.personality) return state.personality;
+    return this.resolveProfilePersonality(state);
+  }
+
+  private resolveProfilePersonality(
+    profile: Pick<RelationshipCandidateProfile, 'id' | 'species' | 'personality'>,
+  ): RelationshipPersonality {
+    if (profile.personality) return profile.personality;
+    if (profile.species === 'goblin' || profile.species === 'goblin-angel') return 'sharp';
+    if (profile.species === 'angel') return 'regal';
     const options = ['poetic', 'deadpan', 'hungry', 'regal', 'sharp'] as const;
     let total = 0;
-    for (let i = 0; i < state.id.length; i += 1)
-      total = (total * 31 + state.id.charCodeAt(i)) >>> 0;
+    for (let i = 0; i < profile.id.length; i += 1)
+      total = (total * 31 + profile.id.charCodeAt(i)) >>> 0;
     return options[total % options.length] ?? 'poetic';
   }
 

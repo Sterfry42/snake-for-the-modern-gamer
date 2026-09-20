@@ -48,6 +48,11 @@ import {
   getRareArtifactChanceBonus,
 } from './archaeologySpecial.js';
 import { getSocialSpecialModifiers, type SocialSpecialModifiers } from './socialSpecial.js';
+import type { LevelProgressionView } from './levelProgression.js';
+import {
+  getSpecialGameplayModifiers,
+  type SpecialGameplayModifiers,
+} from './specialGameplayModifiers.js';
 
 export interface SpecialChanceContext {
   score: number;
@@ -62,6 +67,15 @@ function formatPercent(value: number): string {
 
 function formatSignedPercent(value: number): string {
   const rounded = Math.round(value * 100);
+  return `${rounded >= 0 ? '+' : ''}${rounded}%`;
+}
+
+function formatScalarPercent(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
+function formatScalarBonusPercent(value: number): string {
+  const rounded = Math.round((value - 1) * 100);
   return `${rounded >= 0 ? '+' : ''}${rounded}%`;
 }
 
@@ -142,6 +156,17 @@ export class SpecialStatsService {
     this.resetPreview();
   }
 
+  applyPermanentModifiers(modifiers: Readonly<Partial<Record<SpecialStatId, number>>>): void {
+    const next = cloneSpecialStats(this.committed.stats);
+    for (const id of SPECIAL_STAT_IDS) {
+      const modifier = Number(modifiers[id] ?? 0);
+      if (!Number.isFinite(modifier) || modifier === 0) continue;
+      next[id] = Math.max(SPECIAL_MIN, Math.min(SPECIAL_MAX, next[id] + Math.trunc(modifier)));
+    }
+    this.committed = { ...this.committed, stats: next };
+    this.resetPreview();
+  }
+
   setAllStats(value: number): void {
     const next = { ...this.committed.stats };
     for (const id of SPECIAL_STAT_IDS) {
@@ -155,7 +180,10 @@ export class SpecialStatsService {
     this.resetPreview();
   }
 
-  getSpecialStatsView(context: SpecialChanceContext): SpecialStatsView {
+  getSpecialStatsView(
+    context: SpecialChanceContext,
+    progression: LevelProgressionView,
+  ): SpecialStatsView {
     const stats = this.previewStats;
     return {
       stats: SPECIAL_STAT_IDS.map((id) => ({
@@ -173,6 +201,7 @@ export class SpecialStatsService {
         this.previewUnspentPoints !== this.committed.unspentPoints ||
         !areSpecialStatsEqual(this.previewStats, this.committed.stats),
       sections: this.buildChanceSections(context, stats),
+      progression,
     };
   }
 
@@ -192,6 +221,10 @@ export class SpecialStatsService {
     return getSocialSpecialModifiers(this.committed.stats);
   }
 
+  getGameplayModifiers(): SpecialGameplayModifiers {
+    return getSpecialGameplayModifiers(this.committed.stats);
+  }
+
   private buildChanceSections(
     context: SpecialChanceContext,
     stats: SpecialStats,
@@ -201,11 +234,127 @@ export class SpecialStatsService {
       waterOnly: context.isWaterTile,
     });
     const fishing = getFishingSpecialModifiers(stats);
+    const gameplay = getSpecialGameplayModifiers(stats);
     const rareFishTableChance = context.fish
       ? getRareFishTableChance(context.fish, fishing.rareFishChance)
       : null;
 
     return [
+      {
+        section: 'Core',
+        lines: [
+          {
+            id: 'movement-speed',
+            label: 'Movement Speed',
+            value: formatScalarBonusPercent(1 / gameplay.movementTickDelayScalar),
+            detail: 'Affected by Agility',
+            affectedBy: ['agility'],
+          },
+          {
+            id: 'turn-forgiveness',
+            label: 'Turn Forgiveness',
+            value:
+              gameplay.turnBufferTicks > 0
+                ? `+${gameplay.turnBufferTicks}`
+                : `${gameplay.turnBufferTicks}`,
+            detail: 'Buffered turns unlock at AGI 8 and improve at AGI 10',
+            affectedBy: ['agility'],
+          },
+          {
+            id: 'hazard-stability',
+            label: 'Hazard Stability',
+            value: formatScalarPercent(gameplay.hazardTimerScalar),
+            detail: 'Affected by Endurance',
+            affectedBy: ['endurance'],
+          },
+        ],
+      },
+      {
+        section: 'Combat',
+        lines: [
+          {
+            id: 'melee-damage',
+            label: 'Melee Damage',
+            value: gameplay.meleeDamageBonus > 0 ? `+${gameplay.meleeDamageBonus}` : '0',
+            detail: 'Side-mounted and close-range weapons use this hook',
+            affectedBy: ['strength'],
+          },
+          {
+            id: 'melee-crit',
+            label: 'Melee Crit Chance',
+            value: formatPercent(gameplay.meleeCritChance),
+            affectedBy: ['strength', 'luck'],
+          },
+          {
+            id: 'invulnerability-window',
+            label: 'Invulnerability Window',
+            value:
+              gameplay.invulnerabilityTickBonus > 0 ? `+${gameplay.invulnerabilityTickBonus}` : '0',
+            affectedBy: ['endurance'],
+          },
+        ],
+      },
+      {
+        section: 'Weapons',
+        lines: [
+          {
+            id: 'weapon-cooldown',
+            label: 'Weapon Cooldown',
+            value: formatScalarPercent(gameplay.weaponCooldownScalar),
+            detail: 'Lower is faster',
+            affectedBy: ['agility', 'intelligence'],
+          },
+          {
+            id: 'lock-on-range',
+            label: 'Lock-On Range',
+            value:
+              gameplay.lockOnRangeBonus >= 0
+                ? `+${gameplay.lockOnRangeBonus}`
+                : `${gameplay.lockOnRangeBonus}`,
+            affectedBy: ['perception'],
+          },
+          {
+            id: 'lock-on-speed',
+            label: 'Lock-On Speed',
+            value: formatScalarPercent(gameplay.lockOnTimeScalar),
+            detail: 'Lower locks faster',
+            affectedBy: ['intelligence'],
+          },
+          {
+            id: 'projectile-crit',
+            label: 'Projectile Crit Chance',
+            value: formatPercent(gameplay.projectileCritChance),
+            affectedBy: ['luck'],
+          },
+        ],
+      },
+      {
+        section: 'Survival',
+        lines: [
+          {
+            id: 'max-hearts',
+            label: 'Max Hearts',
+            value:
+              gameplay.maxHeartBonus > 0
+                ? `+${gameplay.maxHeartBonus}`
+                : `${gameplay.maxHeartBonus}`,
+            affectedBy: ['endurance'],
+          },
+          {
+            id: 'environmental-resistance',
+            label: 'Environmental Resistance',
+            value: formatScalarPercent(gameplay.hazardDamageScalar),
+            detail: 'Lower pressure is better',
+            affectedBy: ['endurance'],
+          },
+          {
+            id: 'rare-outcomes',
+            label: 'Rare Outcome Scalar',
+            value: formatScalarPercent(gameplay.rareLootScalar),
+            affectedBy: ['luck'],
+          },
+        ],
+      },
       {
         section: 'Exploration',
         lines: [

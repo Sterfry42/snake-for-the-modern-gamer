@@ -63,7 +63,9 @@ export function generateCave(args: {
   };
 
   if (templateId === 'lakeTreasure') {
-    stampLakeTreasure(room, layout, save);
+    stampLakeTreasure(room, layout, rng, save);
+  } else if (templateId === 'pitchBlackTreasure') {
+    stampPitchBlackTreasure(room, layout, grid, save);
   } else if (templateId === 'simpleTreasure') {
     room.treasure = save?.rewardClaimed ? undefined : { x: Math.floor(grid.cols / 2), y: 8 };
   } else if (templateId === 'caveDweller') {
@@ -75,10 +77,22 @@ export function generateCave(args: {
     stampPillars(layout, grid);
   } else if (templateId === 'randomStructureRoom') {
     stampRandomStructureRoom(room, layout, rng);
+  } else if (templateId === 'targetingGallery') {
+    stampTargetingGallery(room, layout, grid, save);
+  } else if (templateId === 'echoMaze') {
+    stampEchoMaze(room, layout, grid, rng, save);
+  } else if (templateId === 'floodedTreasury') {
+    stampFloodedTreasury(room, layout, rng, save);
+  } else if (templateId === 'shrineOfBadProbability') {
+    stampShrineOfBadProbability(room, layout, grid, rng, save);
+  } else if (templateId === 'fossilDigSite') {
+    stampFossilDigSite(room, layout, grid, save);
   } else {
     stampAppleRush(layout, grid, rng);
   }
 
+  clearAround(layout, exit, 1);
+  setTile(layout, exit.x, exit.y, CAVE_EXIT_TILE);
   room.layout = rows(layout);
   const instance: CaveInstance = {
     id: caveId,
@@ -104,7 +118,8 @@ export function isCaveRoomId(roomId: string): boolean {
   return roomId.startsWith('cave:');
 }
 
-export function getCaveRoomOrigin(_roomId: string): Vector2Like {
+export function getCaveRoomOrigin(roomId: string): Vector2Like {
+  void roomId;
   return { x: 0, y: 0 };
 }
 
@@ -148,6 +163,7 @@ function stampAppleRush(layout: string[][], grid: GridConfig, rng: () => number)
 function stampLakeTreasure(
   room: RoomSnapshot,
   layout: string[][],
+  rng: () => number,
   save?: CaveInstanceSaveData,
 ): void {
   const collected = new Set(save?.collectedItemIds ?? []);
@@ -158,12 +174,12 @@ function stampLakeTreasure(
       setTile(layout, x, y, '~');
     }
   }
-  const items = [
-    { id: 'lake-0', x: centerX - 4, y: 8 },
-    { id: 'lake-1', x: centerX + 4, y: 8 },
-    { id: 'lake-2', x: centerX - 4, y: 11 },
-    { id: 'lake-3', x: centerX + 4, y: 11 },
-  ].filter((item) => !collected.has(item.id));
+  const water = collectTiles(layout, '~');
+  shuffle(water, rng);
+  const items = water
+    .slice(0, 4)
+    .map((position, index) => ({ id: `lake-${index}`, ...position }))
+    .filter((item) => !collected.has(item.id));
   room.cave!.lakeRewards = items;
 }
 
@@ -178,10 +194,6 @@ function stampCaveDweller(
   room.questGiver = {
     id: `cave-dweller:${room.id}`,
     name: 'Cave Dweller',
-    role: 'wanderer',
-    encounterType: 'flavor',
-    stats: { str: 2, dex: 3, con: 4, int: 8, wis: 9, cha: 5 },
-    maxHearts: 4,
     x,
     y,
   };
@@ -217,6 +229,193 @@ function stampPillars(layout: string[][], grid: GridConfig): void {
   for (const point of points) {
     setTile(layout, point.x, point.y, '#');
   }
+}
+
+function stampPitchBlackTreasure(
+  room: RoomSnapshot,
+  layout: string[][],
+  grid: GridConfig,
+  save?: CaveInstanceSaveData,
+): void {
+  const centerX = Math.floor(grid.cols / 2);
+  for (let y = 4; y <= grid.rows - 7; y += 3) {
+    for (let x = 3; x < grid.cols - 3; x += 1) {
+      const gap = y % 2 === 0 ? centerX - 5 : centerX + 5;
+      if (Math.abs(x - gap) <= 1) continue;
+      setTile(layout, x, y, '#');
+    }
+  }
+  for (let x = 6; x <= grid.cols - 7; x += 6) {
+    for (let y = 5; y < grid.rows - 8; y += 1) {
+      if (Math.abs(y - (grid.rows - 5)) <= 2 || y % 7 === 0) continue;
+      setTile(layout, x, y, '#');
+    }
+  }
+  clearAround(layout, { x: centerX, y: grid.rows - 3 }, 3);
+  clearAround(layout, { x: centerX, y: 5 }, 2);
+  room.treasure = save?.rewardClaimed ? undefined : { x: centerX, y: 5 };
+}
+
+function stampTargetingGallery(
+  room: RoomSnapshot,
+  layout: string[][],
+  grid: GridConfig,
+  save?: CaveInstanceSaveData,
+): void {
+  const centerX = Math.floor(grid.cols / 2);
+  for (let y = 4; y <= grid.rows - 7; y += 3) {
+    for (const x of [centerX - 8, centerX - 4, centerX + 4, centerX + 8]) {
+      setTile(layout, x, y, '#');
+    }
+  }
+  for (let y = 3; y <= grid.rows - 8; y += 4) {
+    setTile(layout, centerX - 1, y, '#');
+    setTile(layout, centerX + 1, y, '#');
+  }
+  room.treasure = save?.rewardClaimed ? undefined : { x: centerX, y: 5 };
+}
+
+function stampEchoMaze(
+  room: RoomSnapshot,
+  layout: string[][],
+  grid: GridConfig,
+  rng: () => number,
+  save?: CaveInstanceSaveData,
+): void {
+  const minX = 3;
+  const minY = 3;
+  const maxX = grid.cols - 4 - ((grid.cols - 4 - minX) % 2);
+  const maxY = grid.rows - 6 - ((grid.rows - 6 - minY) % 2);
+  for (let y = minY - 1; y <= maxY + 1; y += 1) {
+    for (let x = minX - 1; x <= maxX + 1; x += 1) setTile(layout, x, y, '#');
+  }
+
+  const cells: Vector2Like[] = [];
+  for (let y = minY; y <= maxY; y += 2) {
+    for (let x = minX; x <= maxX; x += 2) cells.push({ x, y });
+  }
+  const start = cells.reduce((best, cell) =>
+    Math.abs(cell.x - Math.floor(grid.cols / 2)) + Math.abs(cell.y - maxY) <
+    Math.abs(best.x - Math.floor(grid.cols / 2)) + Math.abs(best.y - maxY)
+      ? cell
+      : best,
+  );
+  const visited = new Set<string>([`${start.x},${start.y}`]);
+  const stack = [start];
+  setTile(layout, start.x, start.y, '.');
+  while (stack.length > 0) {
+    const current = stack[stack.length - 1]!;
+    const neighbors = [
+      { x: current.x + 2, y: current.y },
+      { x: current.x - 2, y: current.y },
+      { x: current.x, y: current.y + 2 },
+      { x: current.x, y: current.y - 2 },
+    ].filter(
+      (cell) =>
+        cell.x >= minX &&
+        cell.x <= maxX &&
+        cell.y >= minY &&
+        cell.y <= maxY &&
+        !visited.has(`${cell.x},${cell.y}`),
+    );
+    if (neighbors.length === 0) {
+      stack.pop();
+      continue;
+    }
+    const next = neighbors[Math.floor(rng() * neighbors.length)]!;
+    setTile(layout, (current.x + next.x) / 2, (current.y + next.y) / 2, '.');
+    setTile(layout, next.x, next.y, '.');
+    visited.add(`${next.x},${next.y}`);
+    stack.push(next);
+  }
+
+  for (let y = start.y; y < grid.rows - 3; y += 1) setTile(layout, start.x, y, '.');
+  const treasure = cells.reduce((best, cell) =>
+    Math.abs(cell.x - grid.cols / 2) + Math.abs(cell.y - grid.rows / 2) <
+    Math.abs(best.x - grid.cols / 2) + Math.abs(best.y - grid.rows / 2)
+      ? cell
+      : best,
+  );
+  room.treasure = save?.rewardClaimed ? undefined : { ...treasure };
+}
+
+function stampFloodedTreasury(
+  room: RoomSnapshot,
+  layout: string[][],
+  rng: () => number,
+  save?: CaveInstanceSaveData,
+): void {
+  const collected = new Set(save?.collectedItemIds ?? []);
+  const centerX = Math.floor(layout[0]!.length / 2);
+  for (let y = 4; y <= 14; y += 1) {
+    for (let x = centerX - 9; x <= centerX + 9; x += 1) {
+      if (x === centerX || (y >= 9 && y <= 11 && Math.abs(x - centerX) <= 3)) {
+        continue;
+      }
+      if ((x + y) % 3 !== 0) {
+        setTile(layout, x, y, '~');
+      }
+    }
+  }
+  const water = collectTiles(layout, '~');
+  shuffle(water, rng);
+  room.cave!.lakeRewards = water
+    .slice(0, 4)
+    .map((position, index) => ({ id: `flood-${index}`, ...position }))
+    .filter((item) => !collected.has(item.id));
+  room.treasure = save?.rewardClaimed ? undefined : { x: centerX, y: 9 };
+}
+
+function stampShrineOfBadProbability(
+  room: RoomSnapshot,
+  layout: string[][],
+  grid: GridConfig,
+  rng: () => number,
+  save?: CaveInstanceSaveData,
+): void {
+  const centerX = Math.floor(grid.cols / 2);
+  const centerY = 7;
+  const placed = tryStampCaveStructure(
+    room,
+    layout,
+    'shrine',
+    rng,
+    createCaveStructureForbiddenCells(room),
+  );
+  if (placed) {
+    room.cave!.forcedStructureId = 'shrine';
+  } else {
+    setTile(layout, centerX, centerY, 'S');
+  }
+  for (const point of [
+    { x: centerX - 6, y: centerY + 4 },
+    { x: centerX + 6, y: centerY + 4 },
+    { x: centerX - 8, y: centerY - 2 },
+    { x: centerX + 8, y: centerY - 2 },
+  ]) {
+    setTile(layout, point.x, point.y, '#');
+  }
+  room.treasure = save?.rewardClaimed ? undefined : { x: centerX, y: 4 };
+}
+
+function stampFossilDigSite(
+  room: RoomSnapshot,
+  layout: string[][],
+  grid: GridConfig,
+  save?: CaveInstanceSaveData,
+): void {
+  const centerX = Math.floor(grid.cols / 2);
+  for (let y = 5; y <= 14; y += 1) {
+    const left = centerX - 10 + (y % 3);
+    const right = centerX + 10 - (y % 3);
+    setTile(layout, left, y, '#');
+    setTile(layout, right, y, '#');
+    if (y % 2 === 0) {
+      setTile(layout, centerX - 2, y, '#');
+      setTile(layout, centerX + 2, y, '#');
+    }
+  }
+  room.treasure = save?.rewardClaimed ? undefined : { x: centerX, y: 6 };
 }
 
 function pickStructure(rng: () => number): string {
@@ -327,6 +526,23 @@ function setTile(layout: string[][], x: number, y: number, tile: string): void {
     return;
   }
   layout[y]![x] = tile;
+}
+
+function collectTiles(layout: readonly string[][], tile: string): Vector2Like[] {
+  const positions: Vector2Like[] = [];
+  for (let y = 0; y < layout.length; y += 1) {
+    for (let x = 0; x < (layout[y]?.length ?? 0); x += 1) {
+      if (layout[y]?.[x] === tile) positions.push({ x, y });
+    }
+  }
+  return positions;
+}
+
+function shuffle<T>(items: T[], rng: () => number): void {
+  for (let index = items.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(rng() * (index + 1));
+    [items[index], items[swapIndex]] = [items[swapIndex]!, items[index]!];
+  }
 }
 
 function hash(value: string): number {

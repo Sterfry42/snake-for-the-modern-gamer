@@ -15,9 +15,7 @@ export interface ArchipelagoItemApplyResult {
 
 export type ArchipelagoDurableReward = NonNullable<ArchipelagoItemApplyResult['durableReward']>;
 
-export function getArchipelagoDurableReward(
-  itemId: number,
-): ArchipelagoDurableReward | undefined {
+export function getArchipelagoDurableReward(itemId: number): ArchipelagoDurableReward | undefined {
   const definition = AP_ITEM_BY_ID[itemId];
   if (!definition) {
     return undefined;

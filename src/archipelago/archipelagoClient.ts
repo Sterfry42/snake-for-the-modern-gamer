@@ -8,7 +8,6 @@ import type {
   ArchipelagoConnectionConfig,
   ArchipelagoConnectionDetails,
   ArchipelagoConnectionStatus,
-  ArchipelagoDeathLink,
   ArchipelagoPrintMessage,
   ArchipelagoReceivedItem,
 } from './archipelagoConnectionTypes.js';
@@ -92,7 +91,7 @@ export class ArchipelagoClient {
   private socket: WebSocket | null = null;
   private status: ArchipelagoConnectionStatus = 'disconnected';
   private config: ArchipelagoConnectionConfig | null = null;
-  private reconnectTimer: number | null = null;
+  private reconnectTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
   private manualDisconnect = false;
   private itemNamesById = new Map<number, string>(
     AP_PHASE_1_ITEM_LIST.map((item) => [item.id, item.name]),
@@ -208,7 +207,9 @@ export class ArchipelagoClient {
 
   sendDeathLink(source: string, cause: string): void {
     if (!this.isConnected()) return;
-    this.send([{ cmd: 'Bounce', tags: ['DeathLink'], data: { time: Date.now() / 1000, source, cause } }]);
+    this.send([
+      { cmd: 'Bounce', tags: ['DeathLink'], data: { time: Date.now() / 1000, source, cause } },
+    ]);
   }
 
   private handleSocketMessage(data: unknown): void {
@@ -436,13 +437,11 @@ export class ArchipelagoClient {
     try {
       const existing = globalThis.localStorage?.getItem(key);
       if (existing) return existing;
-      const generated =
-        globalThis.crypto?.randomUUID?.() ??
-        `snake-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const generated = globalThis.crypto?.randomUUID?.() ?? `snake-${Date.now()}`;
       globalThis.localStorage?.setItem(key, generated);
       return generated;
     } catch {
-      return `snake-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      return `snake-${Date.now()}`;
     }
   }
 }

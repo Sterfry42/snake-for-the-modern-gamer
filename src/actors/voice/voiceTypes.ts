@@ -25,6 +25,7 @@ export type ActorVoiceTopic =
   | 'talk.introduction'
   | 'talk.local.biome'
   | 'talk.local.town'
+  | 'talk.local.civic'
   | 'talk.generic'
   | 'around.rumor'
   | 'around.currentEvent'
@@ -82,6 +83,23 @@ export interface ActorFactionConversationState {
   summary: string;
 }
 
+export type ActorCivicContextTag =
+  | 'actor-mayor'
+  | 'player-mayor'
+  | 'active-election'
+  | 'running-against-actor'
+  | 'player-beat-actor'
+  | 'player-lost-to-actor'
+  | 'former-mayor';
+
+export interface ActorCivicConversationContext {
+  townId: string;
+  townName: string;
+  currentMayorName: string;
+  platformLabel?: string;
+  tags: ActorCivicContextTag[];
+}
+
 export interface ActorConversationContext {
   actor: Actor;
   bucket: ActorConversationBucket;
@@ -102,6 +120,7 @@ export interface ActorConversationContext {
     suspicion?: number;
     reputation?: number;
   };
+  civic?: ActorCivicConversationContext;
   relationship?: {
     stage: RelationshipStage;
     affection: number;
@@ -139,6 +158,7 @@ export interface ActorVoiceEntry {
   worldEventTypes?: WorldEventType[];
   factionStates?: FactionRelationState[];
   townMoodTags?: string[];
+  civicTags?: ActorCivicContextTag[];
   minFocus?: number;
   maxFocus?: number;
   requiresSoul?: ActorSoulRevealKey | 'any';

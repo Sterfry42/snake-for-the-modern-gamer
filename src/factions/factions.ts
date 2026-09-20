@@ -1,3 +1,6 @@
+/**
+ * Factions
+ */
 export type FactionId = 'hearthbound-remnant' | 'goblin-camps';
 
 export type FactionStanding = 'friendly' | 'neutral' | 'wary' | 'angry' | 'violent';

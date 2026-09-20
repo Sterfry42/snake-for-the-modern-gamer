@@ -1,16 +1,18 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import type { Vector2Like } from '../core/math.js';
-import { manhattanDistance, vectorKey } from '../core/math.js';
+import { manhattanDistance, pickRandom, shuffle, vectorKey } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 import type { RoomSnapshot } from '../world/types.js';
+import { isSolidTile } from '../world/tiles.js';
 import {
   getBiomeDefinition,
   getBiomeAnimalSpawnBias,
   getBiomeAnimalSpawnChance,
-  type BiomeId,
 } from '../world/biomes.js';
-import type { AnimalDefinition, AnimalInstance } from './types.js';
+import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
+import type { AnimalDefinition, AnimalInstance, AnimalType } from './types.js';
 import { AnimalRegistry } from './animalRegistry.js';
+import { canTameAnimal } from './taming.js';
 
 interface AnimalStepParams {
   getRoom(roomId: string): RoomSnapshot;
@@ -41,27 +43,12 @@ export interface HuntedAnimalResult {
 
 export interface SnakeAnimalResult {
   tamed: boolean;
+  tamableAnimal?: AnimalInstance;
   damaged: boolean;
+  damagingAnimal?: AnimalInstance;
   hunted: boolean;
   huntedAnimal?: HuntedAnimalResult;
   startleCount: number;
-}
-
-function createAnimalId(): string {
-  return `animal-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function pickRandom<T>(rng: RandomGenerator, arr: T[]): T {
-  return arr[Math.floor(rng() * arr.length)];
-}
-
-function shuffle<T>(rng: RandomGenerator, arr: T[]): T[] {
-  const shuffled = [...arr];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
 }
 
 export class AnimalManager {
@@ -73,7 +60,12 @@ export class AnimalManager {
     private readonly rng: RandomGenerator,
   ) {}
 
-  ensureAnimals(roomId: string, room: RoomSnapshot, occupied: readonly Vector2Like[]): void {
+  ensureAnimals(
+    roomId: string,
+    room: RoomSnapshot,
+    occupied: readonly Vector2Like[],
+    atmosphere?: ResolvedAtmosphereView,
+  ): void {
     if (roomId === '0,-1,0') {
       return;
     }
@@ -85,7 +77,8 @@ export class AnimalManager {
     }
 
     const biome = getBiomeDefinition(room.biomeId);
-    const spawnChance = getBiomeAnimalSpawnChance(biome);
+    const spawnChance =
+      getBiomeAnimalSpawnChance(biome) * (atmosphere?.gameplay.animalSpawnChanceScalar ?? 1);
     if (spawnChance <= 0) {
       return;
     }
@@ -98,7 +91,7 @@ export class AnimalManager {
       return;
     }
 
-    const weighted = this.buildSpawnTable(biomeAnimals, biome);
+    const weighted = this.buildSpawnTable(biomeAnimals, biome, atmosphere);
     if (weighted.length === 0) {
       return;
     }
@@ -117,13 +110,17 @@ export class AnimalManager {
     }
 
     for (const entry of weighted) {
-      if (roomAnimals.length >= entry.maxPerRoom) {
-        continue;
-      }
-      const animal = this.trySpawnAnimal(roomId, room, entry, usedPositions);
-      if (animal) {
+      let spawnedOfType = roomAnimals.filter(
+        (animal) => animal.type === entry.definition.type,
+      ).length;
+      while (spawnedOfType < entry.maxPerRoom) {
+        const animal = this.trySpawnAnimal(roomId, room, entry, usedPositions);
+        if (!animal) {
+          break;
+        }
         roomAnimals.push(animal);
         usedPositions.add(vectorKey(animal.position));
+        spawnedOfType++;
       }
     }
 
@@ -135,14 +132,20 @@ export class AnimalManager {
   private buildSpawnTable(
     biomeAnimals: readonly AnimalDefinition[],
     biome: ReturnType<typeof getBiomeDefinition>,
-  ): Array<{ definition: AnimalDefinition; maxPerRoom: number }> {
-    const weighted: Array<{ definition: AnimalDefinition; maxPerRoom: number }> = [];
+    atmosphere?: ResolvedAtmosphereView,
+  ): Array<{ definition: AnimalDefinition; maxPerRoom: number; weight: number }> {
+    const weighted: Array<{ definition: AnimalDefinition; maxPerRoom: number; weight: number }> =
+      [];
 
     for (const def of biomeAnimals) {
       let weight = def.spawnWeight;
       const biomeBias = getBiomeAnimalSpawnBias(biome, def.type);
       if (biomeBias > 0) {
         weight *= biomeBias;
+      }
+      const atmosphereBias = atmosphere?.gameplay.animalSpawnBiasAdd[def.type] ?? 0;
+      if (atmosphereBias !== 0) {
+        weight *= Math.max(0, 1 + atmosphereBias * 0.35);
       }
       if (def.snakeEncounter === 'dangerous') {
         weight = Math.max(1, weight * (biome.dangerLevel / 5));
@@ -155,11 +158,12 @@ export class AnimalManager {
       }
       weighted.push({
         definition: def,
-        maxPerRoom: Math.min(def.maxPerRoom, Math.ceil(def.spawnWeight / 10)),
+        maxPerRoom: Math.min(def.maxPerRoom, Math.max(1, Math.ceil(weight / 10))),
+        weight,
       });
     }
 
-    return weighted;
+    return weighted.sort((left, right) => right.weight - left.weight);
   }
 
   private trySpawnAnimal(
@@ -217,20 +221,20 @@ export class AnimalManager {
     y: number,
   ): boolean {
     const tile = room.layout[y]?.[x];
-    if (!tile || tile === '#') {
+    if (!tile || isSolidTile(tile) || tile === '%') {
       return false;
     }
     if (def.behavior === 'school') {
       return tile === '~';
     }
     if (def.behavior === 'perch') {
-      return tile === '#' || tile === '.';
+      return isSolidTile(tile) || tile === '%' || tile === '.';
     }
     return tile === '.' || tile === 'O';
   }
 
   step(params: AnimalStepParams): AnimalStepResult {
-    const { getRoom, snake, currentRoomId, snakeDirection, tameCallback } = params;
+    const { getRoom, snake, currentRoomId, snakeDirection } = params;
 
     const result: AnimalStepResult = {
       tames: 0,
@@ -300,6 +304,10 @@ export class AnimalManager {
     snakeDirection: Vector2Like,
     roomAnimals: AnimalInstance[],
   ): AnimalInstance {
+    if (animal.isTamed) {
+      const next = this.tryMoveToward(animal, room, headLocal, this.isWalkableAnimalTile);
+      return next ? { ...animal, position: next } : animal;
+    }
     switch (def.behavior) {
       case 'wander':
         return this.moveWander(animal, def, room, headLocal);
@@ -320,7 +328,7 @@ export class AnimalManager {
 
   private moveWander(
     animal: AnimalInstance,
-    def: AnimalDefinition,
+    _def: AnimalDefinition,
     room: RoomSnapshot,
     headLocal: Vector2Like,
   ): AnimalInstance {
@@ -330,7 +338,7 @@ export class AnimalManager {
 
   private moveFlee(
     animal: AnimalInstance,
-    def: AnimalDefinition,
+    _def: AnimalDefinition,
     room: RoomSnapshot,
     headLocal: Vector2Like,
   ): AnimalInstance {
@@ -343,11 +351,11 @@ export class AnimalManager {
     def: AnimalDefinition,
     room: RoomSnapshot,
     headLocal: Vector2Like,
-    snakeDirection: Vector2Like,
+    _snakeDirection: Vector2Like,
   ): AnimalInstance {
     if (
       def.snakeEncounter === 'dangerous' &&
-      this.isSnakeCharging(animal.position, headLocal, snakeDirection)
+      this.isSnakeCharging(animal.position, headLocal, _snakeDirection)
     ) {
       const next = this.tryMoveAway(animal, room, headLocal, this.isWalkableAnimalTile);
       return next ? { ...animal, position: next } : animal;
@@ -358,7 +366,7 @@ export class AnimalManager {
 
   private moveGraze(
     animal: AnimalInstance,
-    def: AnimalDefinition,
+    _def: AnimalDefinition,
     room: RoomSnapshot,
     headLocal: Vector2Like,
   ): AnimalInstance {
@@ -368,7 +376,7 @@ export class AnimalManager {
 
   private moveSchool(
     animal: AnimalInstance,
-    def: AnimalDefinition,
+    _def: AnimalDefinition,
     room: RoomSnapshot,
     headLocal: Vector2Like,
     roomAnimals: AnimalInstance[],
@@ -386,7 +394,7 @@ export class AnimalManager {
 
   private movePerch(
     animal: AnimalInstance,
-    def: AnimalDefinition,
+    _def: AnimalDefinition,
     room: RoomSnapshot,
     headLocal: Vector2Like,
     snakeDirection: Vector2Like,
@@ -575,6 +583,10 @@ export class AnimalManager {
       const def = AnimalRegistry.getDefinition(animal.type);
 
       if (animal.position.x === headLocal.x && animal.position.y === headLocal.y) {
+        if (animal.isTamed) {
+          newAnimals.push({ ...animal, flashTicks: Math.max(animal.flashTicks, 1) });
+          continue;
+        }
         switch (def.snakeEncounter) {
           case 'harmless':
             if (canHuntHarmless) {
@@ -618,8 +630,9 @@ export class AnimalManager {
   handleSnakeOverlap(
     roomId: string,
     head: Vector2Like,
-    snakeDirection: Vector2Like,
+    _snakeDirection: Vector2Like,
     canHuntHarmless = false,
+    canAttemptTame?: (animalType: AnimalType) => boolean,
   ): SnakeAnimalResult {
     const local = this.worldToLocal(roomId, head);
     const roomAnimals = this.animals.get(roomId) ?? [];
@@ -630,6 +643,9 @@ export class AnimalManager {
     const target = roomAnimals.find((a) => a.position.x === local.x && a.position.y === local.y);
 
     if (!target) {
+      return { tamed: false, damaged: false, hunted: false, startleCount: 0 };
+    }
+    if (target.isTamed) {
       return { tamed: false, damaged: false, hunted: false, startleCount: 0 };
     }
 
@@ -644,6 +660,13 @@ export class AnimalManager {
     const remaining = roomAnimals.filter((a) => a.id !== target.id);
     const updated = remaining.map((a) => ({ ...a, flashTicks: 3 }));
 
+    if (canAttemptTame?.(target.type)) {
+      result.tamed = true;
+      result.tamableAnimal = { ...target };
+      this.animals.set(roomId, [...remaining, { ...target, flashTicks: 4 }]);
+      return result;
+    }
+
     switch (def.snakeEncounter) {
       case 'harmless':
         if (canHuntHarmless) {
@@ -657,6 +680,7 @@ export class AnimalManager {
         break;
       case 'dangerous':
         result.damaged = true;
+        result.damagingAnimal = { ...target };
         this.animals.set(roomId, updated);
         break;
       case 'hunt':
@@ -666,7 +690,8 @@ export class AnimalManager {
         break;
       case 'tamable':
         result.tamed = true;
-        this.animals.set(roomId, updated);
+        result.tamableAnimal = { ...target };
+        this.animals.set(roomId, [...remaining, { ...target, flashTicks: 4 }]);
         break;
     }
 
@@ -730,6 +755,61 @@ export class AnimalManager {
     return this.animals.get(roomId) ?? [];
   }
 
+  transferTamedAnimals(fromRoomId: string, toRoomId: string, destination: Vector2Like): void {
+    if (fromRoomId === toRoomId) return;
+    const source = this.animals.get(fromRoomId) ?? [];
+    const followers = source.filter((animal) => animal.isTamed);
+    if (followers.length === 0) return;
+
+    const remaining = source.filter((animal) => !animal.isTamed);
+    if (remaining.length > 0) this.animals.set(fromRoomId, remaining);
+    else this.animals.delete(fromRoomId);
+
+    const destinationAnimals = this.animals.get(toRoomId) ?? [];
+    const transferred = followers.map((animal, index) => ({
+      ...animal,
+      roomId: toRoomId,
+      position: {
+        x: Math.max(1, Math.min(this.grid.cols - 2, destination.x - 1 - (index % 2))),
+        y: Math.max(1, Math.min(this.grid.rows - 2, destination.y + Math.floor(index / 2))),
+      },
+      moveCooldown: 0,
+      flashTicks: 4,
+    }));
+    this.animals.set(toRoomId, [...destinationAnimals, ...transferred]);
+  }
+
+  restoreTamedAnimals(
+    roomId: string,
+    companions: readonly { id: string; type: AnimalType }[],
+    destination: Vector2Like,
+  ): void {
+    if (companions.length === 0) return;
+    const existing = this.animals.get(roomId) ?? [];
+    const existingIds = new Set(existing.map((animal) => animal.id));
+    const restored = companions
+      .filter((companion) => !existingIds.has(companion.id))
+      .map((companion, index): AnimalInstance => {
+        const definition = AnimalRegistry.getDefinition(companion.type);
+        return {
+          id: companion.id,
+          type: companion.type,
+          roomId,
+          position: {
+            x: Math.max(1, Math.min(this.grid.cols - 2, destination.x - 1 - (index % 2))),
+            y: Math.max(1, Math.min(this.grid.rows - 2, destination.y + Math.floor(index / 2))),
+          },
+          direction: { x: 1, y: 0 },
+          moveCooldown: 0,
+          isTamed: true,
+          tameOwner: 'player',
+          flashTicks: 4,
+          currentHearts: definition.maxHearts ?? 1,
+        };
+      });
+    if (restored.length > 0) this.animals.set(roomId, [...existing, ...restored]);
+  }
+
   tameAnimal(
     roomId: string,
     animalId: string,
@@ -742,8 +822,7 @@ export class AnimalManager {
       return { success: false, animal: null };
     }
 
-    const def = AnimalRegistry.getDefinition(target.type);
-    if (def.snakeEncounter !== 'tamable') {
+    if (!canTameAnimal(target.type)) {
       return { success: false, animal: null };
     }
 
@@ -758,6 +837,20 @@ export class AnimalManager {
     this.animals.set(roomId, remaining);
 
     return { success: true, animal: updated };
+  }
+
+  releaseTamedAnimal(roomId: string, animalId: string): boolean {
+    const roomAnimals = this.animals.get(roomId) ?? [];
+    let released = false;
+    const next = roomAnimals.map((animal) => {
+      if (animal.id !== animalId || !animal.isTamed) return animal;
+      released = true;
+      const { tameOwner: _tameOwner, ...wild } = animal;
+      void _tameOwner;
+      return { ...wild, isTamed: false, flashTicks: 4 };
+    });
+    if (released) this.animals.set(roomId, next);
+    return released;
   }
 
   private worldToLocal(roomId: string, worldPos: Vector2Like): Vector2Like {

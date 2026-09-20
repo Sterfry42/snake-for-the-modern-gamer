@@ -1,7 +1,7 @@
 import type { WorldConfig } from '../../../config/gameConfig.js';
 import { vectorKey } from '../../../core/math.js';
 import type { RandomGenerator } from '../../../core/rng.js';
-import { buildHouseNpcProfile } from '../../../npcs/profiles.js';
+import { createHumanoidIdentity } from '../../humanoidSpawn.js';
 import type { RoomArchetype, RoomArchetypeId, RoomGenerationContext } from '../types.js';
 
 interface WeightedArchetype {
@@ -126,6 +126,20 @@ export class RoomArchetypeOperations {
       case 'classic':
       case 'ocean':
       case 'dense-forest':
+      case 'mosaic-arrival':
+      case 'sun-plaza':
+      case 'awning-alley':
+      case 'orange-grove-courtyard':
+      case 'white-village-switchback':
+      case 'beach-promenade':
+      case 'siesta-market':
+      case 'festival-plaza':
+      case 'mosaic-park':
+      case 'tapas-crawl-room':
+      case 'souvenir-trapwalk':
+      case 'cathedral-of-shade':
+      case 'el-drac-approach':
+      case 'el-drac-arena':
         break;
     }
   }
@@ -143,8 +157,12 @@ export class RoomArchetypeOperations {
     if (context.roomId === this.config.originRoomId) {
       return { id: 'classic' };
     }
+    if (this.isStartingNeighborhood(context.roomId)) {
+      return { id: 'classic' };
+    }
     if (context.isJadePeak) {
       const [x = 0, y = 0] = context.roomId.split(',').map(Number);
+      void x;
       let pool: WeightedArchetype[];
       if (y === -5 || y === -6) {
         pool = JADE_PEAK_UPPER_POOL;
@@ -228,21 +246,38 @@ export class RoomArchetypeOperations {
     const safe = this.createEntranceRunupCells(context, 4);
     const roomWidth = context.grid.cols;
     const roomHeight = context.grid.rows;
-    const petalCount = Math.floor(roomWidth * roomHeight * 0.08);
+
+    // Place cherry blossom trees (3-5 depending on room size)
+    const treeCount = 3 + this.randomInt(Math.min(3, Math.floor((roomWidth * roomHeight) / 500)));
+    let treesPlaced = 0;
+    let treeAttempts = 0;
+    while (treesPlaced < treeCount && treeAttempts < treeCount * 20) {
+      const x = 4 + this.randomInt(Math.max(1, roomWidth - 8));
+      const y = 4 + this.randomInt(Math.max(1, roomHeight - 8));
+      const key = vectorKey({ x, y });
+      if (context.layout[y]?.[x] === '.' && !safe.has(key)) {
+        context.canvas.set(x, y, 'C');
+        treesPlaced++;
+      }
+      treeAttempts++;
+    }
+
+    // Scatter cherry blossom petals on the ground
+    const petalCount = Math.floor(roomWidth * roomHeight * 0.06);
     let placed = 0;
     let attempts = 0;
     while (placed < petalCount && attempts < petalCount * 5) {
       const x = 2 + this.randomInt(Math.max(1, roomWidth - 4));
       const y = 2 + this.randomInt(Math.max(1, roomHeight - 4));
       const key = vectorKey({ x, y });
-      if (!context.layout[y]?.[x] || context.layout[y][x] === '.') {
-        if (!safe.has(key)) {
-          context.canvas.set(x, y, 'P');
-          placed++;
-        }
+      if (context.layout[y]?.[x] === '.' && !safe.has(key)) {
+        context.canvas.set(x, y, 'P');
+        placed++;
       }
       attempts++;
     }
+
+    // Place paper lanterns
     const lanternCount = 1 + this.randomInt(2);
     let lanternsPlaced = 0;
     let lanternAttempts = 0;
@@ -265,7 +300,6 @@ export class RoomArchetypeOperations {
     const wallCount = 2 + this.randomInt(3);
     for (let w = 0; w < wallCount; w++) {
       const startX = 3 + this.randomInt(Math.max(1, roomWidth - 8));
-      const height = Math.floor(roomHeight * 0.4) + this.randomInt(Math.floor(roomHeight * 0.3));
       const wallLength = 3 + this.randomInt(3);
       for (let i = 0; i < wallLength && startX + i < roomWidth - 2; i++) {
         const y = 3 + this.randomInt(Math.max(1, roomHeight - 8));
@@ -289,7 +323,7 @@ export class RoomArchetypeOperations {
     const safe = this.createEntranceRunupCells(context, 4);
     const roomWidth = context.grid.cols;
     const roomHeight = context.grid.rows;
-    const midY = Math.floor(roomHeight / 2);
+    Math.floor(roomHeight / 2);
     const shrineWidth = 6 + this.randomInt(3);
     const shrineHeight = 4 + this.randomInt(2);
     const shrineLeft = Math.floor((roomWidth - shrineWidth) / 2);
@@ -410,10 +444,6 @@ export class RoomArchetypeOperations {
         const dy = Math.abs(y - centerY);
         const halfW = Math.floor(roomWidth / 2) - 3;
         const halfH = Math.floor(roomHeight / 2) - 3;
-        const isLeftWall = dx >= halfW && dx <= halfW + wallThickness;
-        const isRightWall = dx >= halfW && dx <= halfW + wallThickness;
-        const isTopWall = dy >= halfH && dy <= halfH + wallThickness;
-        const isBottomWall = dy >= halfH && dy <= halfH + wallThickness;
         const onLeftEdge = x === centerX - halfW - wallThickness || x === centerX - halfW - 1;
         const onRightEdge = x === centerX + halfW || x === centerX + halfW + wallThickness;
         const onTopEdge = y === centerY - halfH - wallThickness || y === centerY - halfH - 1;
@@ -516,7 +546,7 @@ export class RoomArchetypeOperations {
       context.canvas.set(painter.x, painter.y, 'G');
       context.billboardOracle = {
         signPainter: {
-          ...buildHouseNpcProfile(
+          ...createHumanoidIdentity(
             this.pick(['Sign-Paint Marlene', 'Billboard Dale', 'Ad-Man Walt']),
             'sage-1',
           ),
@@ -596,7 +626,7 @@ export class RoomArchetypeOperations {
     }
     context.motelPool = {
       clerk: {
-        ...buildHouseNpcProfile(
+        ...createHumanoidIdentity(
           this.pick(['Vacancy Vera', 'Clerk Connie', 'Pool Key Dale']),
           'sage-1',
         ),
@@ -604,7 +634,7 @@ export class RoomArchetypeOperations {
         y: clerk.y,
       },
       maintenance: {
-        ...buildHouseNpcProfile(
+        ...createHumanoidIdentity(
           this.pick(['Skimmer Hank', 'Chlorine Tammy', 'Net Earl']),
           'sage-2',
         ),
@@ -636,7 +666,7 @@ export class RoomArchetypeOperations {
         context.canvas.set(ranger.x, ranger.y, 'G');
         context.roadCrew = {
           ranger: {
-            ...buildHouseNpcProfile(
+            ...createHumanoidIdentity(
               this.pick(['Cone Ranger Buck', 'Shoulder Sue', 'Detour Dale']),
               'sage-1',
             ),
@@ -660,7 +690,7 @@ export class RoomArchetypeOperations {
         context.canvas.set(ranger.x, ranger.y, 'G');
         context.roadCrew = {
           ranger: {
-            ...buildHouseNpcProfile(
+            ...createHumanoidIdentity(
               this.pick(['Cone Ranger Buck', 'Shoulder Sue', 'Detour Dale']),
               'sage-1',
             ),
@@ -703,12 +733,12 @@ export class RoomArchetypeOperations {
     playerSpots.forEach((spot) => context.canvas.set(spot.x, spot.y, 'G'));
     context.gridironYard = {
       coach: {
-        ...buildHouseNpcProfile('Coach Hank', 'sage-2'),
+        ...createHumanoidIdentity('Coach Hank', 'sage-2'),
         x: coach.x,
         y: coach.y,
       },
       players: playerSpots.map((spot, index) => ({
-        ...buildHouseNpcProfile(
+        ...createHumanoidIdentity(
           ['Left Tackle Tammy', 'Wide Earl', 'Safety Sue', 'Bobby-Joe Blitz'][index] ??
             'Yard Player',
           'sage-1',
@@ -860,5 +890,10 @@ export class RoomArchetypeOperations {
 
   private randomIntInRange(minInclusive: number, maxExclusive: number): number {
     return minInclusive + this.randomInt(Math.max(1, maxExclusive - minInclusive));
+  }
+
+  private isStartingNeighborhood(roomId: string): boolean {
+    const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
+    return z === 0 && Math.max(Math.abs(x), Math.abs(y)) <= 1;
   }
 }

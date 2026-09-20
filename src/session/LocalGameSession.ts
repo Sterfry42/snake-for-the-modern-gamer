@@ -1,6 +1,8 @@
-import { saveManager, type GameSaveData } from '../game/saveManager.js';
+import { setSavedGameData } from '../game/saveManager.js';
+import type { ChoiceWithMods, GameSaveData } from '../game/saveTypes.js';
 import type { SnakeGame, StepResult } from '../game/snakeGame.js';
 import type { PlayerId } from '../players/playerTypes.js';
+import type { Boss } from '../systems/boss.js';
 import type { SaveStore } from '../storage/SaveStore.js';
 import type { ClientCommand, CommandResult } from './ClientCommand.js';
 import type { GameEvent } from './GameEvent.js';
@@ -21,12 +23,16 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
   private readonly eventHandlers = new Set<EventHandler>();
   private lastSnapshot: GameSnapshot;
 
+  get rng(): import('../core/rng.js').RandomGenerator {
+    return this.game.rng;
+  }
+
   constructor(args: LocalGameSessionArgs) {
     this.game = args.game;
     this.localPlayerId = args.localPlayerId ?? this.game.getLocalPlayerId();
     this.saveStore = args.saveStore;
     this.saveSlotId = args.saveSlotId ?? 'default';
-    this.lastSnapshot = this.game.getSnapshot(this.localPlayerId);
+    this.lastSnapshot = this.buildSnapshot();
   }
 
   handleCommand(command: ClientCommand): CommandResult {
@@ -42,9 +48,9 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
 
     if (command.type === 'loadGame') {
       const loaded = this.loadGame(
-        () => command.religionChoice ?? null,
-        () => command.classChoice ?? null,
-        () => command.backgroundChoice ?? null,
+        () => command.religionChoice,
+        () => command.classChoice,
+        () => command.backgroundChoice,
       );
       return { ok: loaded, loaded };
     }
@@ -92,8 +98,8 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
     this.emitSnapshot();
   }
 
-  async actorClockStep(): Promise<StepResult | null> {
-    return this.runAsyncClockStep(() => this.game.actorClockStep());
+  async actorClockStep(stepMs?: number): Promise<StepResult | null> {
+    return this.runAsyncClockStep(() => this.game.actorClockStep(stepMs));
   }
 
   hazardClockStep(): StepResult | null {
@@ -105,7 +111,12 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
   }
 
   getSnapshot(): GameSnapshot {
-    this.lastSnapshot = this.game.getSnapshot(this.localPlayerId);
+    this.lastSnapshot = this.buildSnapshot();
+    return this.lastSnapshot;
+  }
+
+  refreshSnapshot(): GameSnapshot {
+    this.emitSnapshot();
     return this.lastSnapshot;
   }
 
@@ -132,22 +143,34 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
     await this.saveStore.save(this.saveSlotId, this.game.getSaveData());
   }
 
-  saveGame(religionChoice?: unknown, classChoice?: unknown, backgroundChoice?: unknown): void {
-    saveManager.save(this.game, religionChoice, classChoice, backgroundChoice);
+  saveGame(
+    religionChoice?: ChoiceWithMods,
+    classChoice?: ChoiceWithMods,
+    backgroundChoice?: ChoiceWithMods,
+  ): void {
+    const data = this.game.getSaveData();
+    if (religionChoice) {
+      data.religionId = religionChoice.id;
+      data.religionMods = religionChoice.mods;
+    }
+    if (classChoice) {
+      data.classId = classChoice.id;
+      data.classMods = classChoice.mods;
+    }
+    if (backgroundChoice) {
+      data.backgroundId = backgroundChoice.id;
+      data.backgroundMods = backgroundChoice.mods;
+    }
+    setSavedGameData(JSON.stringify(data));
     this.emitSnapshot();
   }
 
   loadGame(
-    getReligionChoice?: () => unknown,
-    getClassChoice?: () => unknown,
-    getBackgroundChoice?: () => unknown,
+    getReligionChoice?: () => ChoiceWithMods | undefined,
+    getClassChoice?: () => ChoiceWithMods | undefined,
+    getBackgroundChoice?: () => ChoiceWithMods | undefined,
   ): boolean {
-    const loaded = saveManager.load(
-      this.game,
-      getReligionChoice,
-      getClassChoice,
-      getBackgroundChoice,
-    );
+    const loaded = this.game.loadGame(getReligionChoice, getClassChoice, getBackgroundChoice);
     if (loaded) {
       this.emitSnapshot();
     }
@@ -155,11 +178,11 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
   }
 
   hasSaveSync(): boolean {
-    return saveManager.hasSave();
+    return this.game.hasSaveFile();
   }
 
   clearSaveSync(): void {
-    saveManager.clear();
+    this.game.clearSaveFile();
   }
 
   async hasSave(): Promise<boolean> {
@@ -175,6 +198,14 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
       return;
     }
     await this.saveStore.clear(this.saveSlotId);
+  }
+
+  private buildSnapshot(): GameSnapshot {
+    const snapshot = this.game.getSnapshot(this.localPlayerId);
+    for (const room of Object.values(snapshot.viewport.rooms)) {
+      room.bosses = this.game.getBosses(room.id).map(cloneBossForSnapshot);
+    }
+    return snapshot;
   }
 
   private emitSnapshot(): void {
@@ -266,4 +297,20 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
       });
     }
   }
+}
+
+type SnapshotBossSource = ReturnType<SnakeGame['getBosses']>[number];
+
+function cloneBossForSnapshot(boss: SnapshotBossSource): Boss {
+  const pull =
+    'pull' in boss && boss.pull
+      ? { radius: boss.pull.radius, strength: boss.pull.strength }
+      : undefined;
+  return {
+    ...boss,
+    body: boss.body.map((segment) => ({ ...segment })),
+    direction: boss.direction ? { ...boss.direction } : { x: 0, y: 1 },
+    headCenter: boss.headCenter ? { ...boss.headCenter } : undefined,
+    pull,
+  };
 }

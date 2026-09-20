@@ -1,3 +1,6 @@
+/**
+ * Quest Dialogue Translations
+ */
 import type { QuestTranslations } from '../../types.js';
 export const QUEST_DIALOGUE_EN: QuestTranslations = {
   'explore-6-rooms': {

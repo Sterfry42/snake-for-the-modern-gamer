@@ -116,9 +116,21 @@ export function applyWeatherEffects(
 export class WeatherManager {
   private state: WeatherState;
   private listeners: Array<(event: WeatherChangeEvent) => void> = [];
+  private _rng: (() => number) | null = null;
 
   constructor(initialState: WeatherState = { ...DEFAULT_WEATHER }) {
     this.state = initialState;
+  }
+
+  private get rng(): () => number {
+    if (!this._rng) {
+      this._rng = () => this.rng();
+    }
+    return this._rng;
+  }
+
+  setRng(rng: () => number): void {
+    this._rng = rng;
   }
 
   public tick(): void {
@@ -171,7 +183,7 @@ export class WeatherManager {
 
   private getRandomNextWeather(): WeatherType {
     const totalWeight = Object.values(WEATHER_WEIGHTS).reduce((sum, w) => sum + w, 0);
-    let roll = Math.random() * totalWeight;
+    let roll = this.rng() * totalWeight;
 
     for (const [type, weight] of Object.entries(WEATHER_WEIGHTS)) {
       roll -= weight;
@@ -183,7 +195,7 @@ export class WeatherManager {
 
   private getRandomDuration(): number {
     const baseDuration = 24000;
-    const variation = Math.random() * 24000;
+    const variation = this.rng() * 24000;
     return Math.floor(baseDuration + variation);
   }
 
@@ -243,17 +255,17 @@ export class WeatherManager {
   public getWeatherColor(): number {
     switch (this.state.current) {
       case 'clear':
-        return 0xFFFFFF;
+        return 0xffffff;
       case 'rain':
         return 0x888888;
       case 'thunderstorm':
         return 0x333333;
       case 'snow':
-        return 0xDDDDFF;
+        return 0xddddff;
       case 'sandstorm':
-        return 0xCCAA66;
+        return 0xccaa66;
       default:
-        return 0xFFFFFF;
+        return 0xffffff;
     }
   }
 

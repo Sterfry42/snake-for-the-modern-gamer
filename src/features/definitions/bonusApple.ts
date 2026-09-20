@@ -1,3 +1,6 @@
+/**
+ * Bonus Apple Feature
+ */
 import Phaser from 'phaser';
 import { Feature } from '../feature.js';
 import type SnakeScene from '../../scenes/snakeScene.js';
@@ -22,7 +25,7 @@ class BonusAppleFeature extends Feature {
           stroke: '#06140b',
           strokeThickness: 3,
         })
-        .setDepth(10)
+        .setDepth(40)
         .setVisible(false);
     }
   }
@@ -44,7 +47,7 @@ class BonusAppleFeature extends Feature {
     const visible = Boolean(
       scene.getFlag<boolean>('bonusActive') &&
       !scene.getFlag<boolean>('ui.suppressHud') &&
-      !(scene as any).paused,
+      !(scene as SnakeScene).paused,
     );
     this.statusText?.setPosition(10, scene.snakeGame.isRaccoonMode() ? 106 : 78);
     this.statusText?.setVisible(visible);

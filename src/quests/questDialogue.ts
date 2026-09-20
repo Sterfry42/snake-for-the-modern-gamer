@@ -1,3 +1,6 @@
+/**
+ * Quest Dialogue
+ */
 import type { Quest } from './quest.js';
 import { i18n } from '../i18n/i18nManager.js';
 

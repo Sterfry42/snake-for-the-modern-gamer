@@ -44,6 +44,7 @@ export const uiTabIconKeys = {
   cheats: 'ui.icon.tab.cheats',
   info: 'ui.icon.tab.info',
   people: 'ui.icon.tab.people',
+  companions: 'ui.icon.tab.companions',
   destiny: 'ui.icon.tab.destiny',
 } as const;
 

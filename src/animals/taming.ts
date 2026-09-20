@@ -43,6 +43,7 @@ export const TAMABLE_ANIMALS: Record<AnimalType, TamableAnimal | null> = {
   bass: null,
   possum: null,
   armadillo: null,
+  frog: null,
 };
 
 export function canTameAnimal(animalType: AnimalType): boolean {

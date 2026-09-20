@@ -209,7 +209,13 @@ export class PortalManager {
   ): { success: boolean; newX: number; newY: number; newRoomId: string; message?: string } {
     const pair = this.portalPairs.get(portalId);
     if (!pair) {
-      return { success: false, newX: playerX, newY: playerY, newRoomId: playerRoomId, message: 'No destination portal.' };
+      return {
+        success: false,
+        newX: playerX,
+        newY: playerY,
+        newRoomId: playerRoomId,
+        message: 'No destination portal.',
+      };
     }
 
     const dest = pair.nether;
@@ -269,28 +275,14 @@ export function tryActivatePortal(
   }
 
   // Check for obsidian frame
-  const frameBlocks = [
-    'obsidian',
-    'obsidian',
-    'obsidian',
-    'obsidian',
-    'obsidian',
-    'obsidian',
-    'obsidian',
-    'obsidian',
-    'obsidian',
-    'obsidian',
-    'obsidian',
-    'obsidian',
-  ];
-
   // Light the portal interior
   const portalId = portalManager.getPortal(x, y, roomId)?.portalId;
   if (portalId) {
     portalManager.activatePortal(portalId);
 
     // Set portal interior blocks
-    for (const block of interiorBlocks) {
+    for (const _block of interiorBlocks) {
+      void _block;
       // Mark interior as portal blocks
     }
 
@@ -313,20 +305,17 @@ export function tryActivatePortal(
 // ─── Portal Room Generation ─────────────────────────────────────────────────
 
 export function generatePortalRoom(
-  roomId: string,
+  _roomId: string,
   width: number,
   height: number,
   room: RoomSnapshot,
 ): void {
   // Create an obsidian platform
-  const platformSize = Math.max(width, height) + 4;
+  room.minecraftBlocks ??= {};
 
   for (let dx = -2; dx <= 2; dx++) {
     for (let dy = -2; dy <= 2; dy++) {
       const key = `${dx + width / 2},${dy + height / 2}`;
-      if (!room.minecraftBlocks) {
-        room.minecraftBlocks = {};
-      }
       room.minecraftBlocks[key] = 'obsidian';
     }
   }
@@ -355,7 +344,7 @@ export function getPortalRenderInfo(portal: NetherPortalState): PortalRenderInfo
     y: portal.y,
     width: 3,
     height: 5,
-    color: portal.isActive ? 0x6A0DAD : 0x333355,
+    color: portal.isActive ? 0x6a0dad : 0x333355,
     isActive: portal.isActive,
   };
 }
@@ -377,27 +366,26 @@ export function generatePortalParticles(
   width: number,
   height: number,
   count: number,
+  rng: () => number = Math.random,
 ): PortalParticle[] {
   const particles: PortalParticle[] = [];
 
   for (let i = 0; i < count; i++) {
     particles.push({
-      x: portal.x + Math.random() * width,
-      y: portal.y + Math.random() * height,
-      vx: (Math.random() - 0.5) * 0.5,
-      vy: -Math.random() * 1.5,
+      x: portal.x + rng() * width,
+      y: portal.y + rng() * height,
+      vx: (rng() - 0.5) * 0.5,
+      vy: -rng() * 1.5,
       life: 0,
-      maxLife: 20 + Math.random() * 30,
-      color: Math.random() < 0.5 ? 0x6A0DAD : 0x9400D3,
+      maxLife: 20 + rng() * 30,
+      color: rng() < 0.5 ? 0x6a0dad : 0x9400d3,
     });
   }
 
   return particles;
 }
 
-export function updatePortalParticles(
-  particles: PortalParticle[],
-): PortalParticle[] {
+export function updatePortalParticles(particles: PortalParticle[]): PortalParticle[] {
   return particles
     .map((p) => ({
       ...p,

@@ -1,5 +1,4 @@
 import type { RoomSnapshot } from '../world/types.js';
-import { chunkSeed } from './chunk.js';
 
 // ─── Structure Types ────────────────────────────────────────────────────────
 
@@ -321,16 +320,146 @@ export const VILLAGE_WELL_PATTERN: BlockPattern = {
 export const VILLAGE_FARM_PATTERN: BlockPattern = {
   type: 'village_farm',
   pattern: [
-    ['dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt'],
-    ['dirt', 'farmland', 'farmland', 'farmland', 'dirt', 'dirt', 'dirt', 'farmland', 'farmland', 'farmland', 'farmland', 'dirt'],
-    ['dirt', 'farmland', 'farmland', 'farmland', 'dirt', 'dirt', 'dirt', 'farmland', 'farmland', 'farmland', 'farmland', 'dirt'],
-    ['dirt', 'farmland', 'farmland', 'farmland', 'dirt', 'dirt', 'dirt', 'farmland', 'farmland', 'farmland', 'farmland', 'dirt'],
-    ['dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt'],
-    ['dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt'],
-    ['dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt'],
-    ['dirt', 'farmland', 'farmland', 'farmland', 'farmland', 'dirt', 'dirt', 'dirt', 'farmland', 'farmland', 'farmland', 'dirt'],
-    ['dirt', 'farmland', 'farmland', 'farmland', 'farmland', 'dirt', 'dirt', 'dirt', 'farmland', 'farmland', 'farmland', 'dirt'],
-    ['dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt', 'dirt'],
+    [
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+    ],
+    [
+      'dirt',
+      'farmland',
+      'farmland',
+      'farmland',
+      'dirt',
+      'dirt',
+      'dirt',
+      'farmland',
+      'farmland',
+      'farmland',
+      'farmland',
+      'dirt',
+    ],
+    [
+      'dirt',
+      'farmland',
+      'farmland',
+      'farmland',
+      'dirt',
+      'dirt',
+      'dirt',
+      'farmland',
+      'farmland',
+      'farmland',
+      'farmland',
+      'dirt',
+    ],
+    [
+      'dirt',
+      'farmland',
+      'farmland',
+      'farmland',
+      'dirt',
+      'dirt',
+      'dirt',
+      'farmland',
+      'farmland',
+      'farmland',
+      'farmland',
+      'dirt',
+    ],
+    [
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+    ],
+    [
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+    ],
+    [
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+    ],
+    [
+      'dirt',
+      'farmland',
+      'farmland',
+      'farmland',
+      'farmland',
+      'dirt',
+      'dirt',
+      'dirt',
+      'farmland',
+      'farmland',
+      'farmland',
+      'dirt',
+    ],
+    [
+      'dirt',
+      'farmland',
+      'farmland',
+      'farmland',
+      'farmland',
+      'dirt',
+      'dirt',
+      'dirt',
+      'farmland',
+      'farmland',
+      'farmland',
+      'dirt',
+    ],
+    [
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+      'dirt',
+    ],
   ],
 };
 
@@ -348,11 +477,27 @@ export const STRONGHOLD_CORRIDOR_PATTERN: BlockPattern = {
 export const STRONGHOLD_ROOM_PATTERN: BlockPattern = {
   type: 'stronghold_room',
   pattern: [
-    ['cobblestone', 'cobblestone', 'cobblestone', 'cobblestone', 'cobblestone', 'cobblestone', 'cobblestone'],
+    [
+      'cobblestone',
+      'cobblestone',
+      'cobblestone',
+      'cobblestone',
+      'cobblestone',
+      'cobblestone',
+      'cobblestone',
+    ],
     ['cobblestone', 'floor', 'floor', 'floor', 'floor', 'floor', 'cobblestone'],
     ['cobblestone', 'floor', 'chest', 'floor', 'chest', 'floor', 'cobblestone'],
     ['cobblestone', 'floor', 'floor', 'floor', 'floor', 'floor', 'cobblestone'],
-    ['cobblestone', 'cobblestone', 'cobblestone', 'cobblestone', 'cobblestone', 'cobblestone', 'cobblestone'],
+    [
+      'cobblestone',
+      'cobblestone',
+      'cobblestone',
+      'cobblestone',
+      'cobblestone',
+      'cobblestone',
+      'cobblestone',
+    ],
   ],
 };
 
@@ -372,7 +517,6 @@ export class StructureManager {
     roomId: string,
     rotation: number,
   ): void {
-    const def = STRUCTURE_DEFS[structureType];
     const placement: StructurePlacement = {
       type: structureType,
       x,
@@ -430,10 +574,7 @@ export function generateStructureForRoom(
 
   // Calculate how many structures can fit based on room size and day
   const maxStructures = Math.min(5, Math.floor((roomWidth * roomHeight) / 50));
-  const numStructures = Math.min(
-    maxStructures,
-    Math.floor(rng() * 3) + 1,
-  );
+  const numStructures = Math.min(maxStructures, Math.floor(rng() * 3) + 1);
 
   // Filter structures by day
   const eligibleTypes = Object.values(STRUCTURE_DEFS).filter(
@@ -463,10 +604,7 @@ export function generateStructureForRoom(
 
 // ─── Structure Block Filler ─────────────────────────────────────────────────
 
-export function fillStructureBlocks(
-  room: RoomSnapshot,
-  structure: StructurePlacement,
-): void {
+export function fillStructureBlocks(room: RoomSnapshot, structure: StructurePlacement): void {
   const def = STRUCTURE_DEFS[structure.type];
   if (!def) return;
 

@@ -6,15 +6,27 @@ const SPECIAL_APPLES = new Set([
   'shielded',
   'gold',
   'skittish',
+  'roadRash',
   'mochi',
   'wasabi',
   'yuzu',
   'caffeinated',
   'amacha',
   'koi',
+  'love',
 ]);
 
-const RARE_APPLES = new Set(['gold', 'mochi', 'wasabi', 'yuzu', 'caffeinated', 'amacha', 'koi']);
+const RARE_APPLES = new Set([
+  'gold',
+  'roadRash',
+  'mochi',
+  'wasabi',
+  'yuzu',
+  'caffeinated',
+  'amacha',
+  'koi',
+  'love',
+]);
 
 export interface AppleChanceContext {
   score: number;

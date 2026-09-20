@@ -7,20 +7,45 @@ import type {
   SkillPerkState,
 } from '../systems/skillTree.js';
 import { getItem } from '../inventory/itemRegistry.js';
-import type { EquipableItem, EquipmentSlot } from '../inventory/item.js';
+import { isLocatorItemId } from '../world/biomeLocators.js';
+import type { EquipableItem, EquipmentSlot, Item } from '../inventory/item.js';
 import type { Quest } from '../../quests.js';
-import { saveManager } from '../game/saveManager.js';
 import { i18n } from '../i18n/i18nManager.js';
 import type { VillageShopHatId, VillageShopStyleId } from '../shops/villageShop.js';
+import {
+  COSMETIC_CATEGORIES,
+  getAllThemeDefinitions,
+  getAllHatDefinitions,
+  getAllCowbellDefinitions,
+  getAllUtilityDefinitions,
+  getAllLanguageDefinitions,
+  getAllEmoticonDefinitions,
+} from '../cosmetics/index.js';
+import type { CosmeticCategoryId } from '../cosmetics/cosmeticTypes.js';
 import { CARD_DEFINITIONS, type CardCollection } from '../cards/cardGame.js';
-import type { FactionCardView } from '../factions/factions.js';
-import type { WardDeathSource } from '../shops/goblinShop.js';
+import { getCheatsByCategory, getCategoryLabel } from '../cheats/cheatRegistry.js';
+import {
+  BIRTHDAYS,
+  MONTH_NAMES,
+  formatBirthdayCellNames,
+  formatBirthdayMessage,
+  formatBirthdayNames,
+  formatDateLabel,
+  getBirthdaysForDate,
+} from '../features/birthdays.js';
+
 import type { ActionAbilityView } from '../systems/actionSlots.js';
 import type { DatingCandidateView } from '../relationships/relationshipTypes.js';
-import type { ActorJournalEntry, QuestObjectiveSummary } from '../game/snakeGame.js';
+import type {
+  ActorJournalEntry,
+  CivicOfficeSummary,
+  QuestObjectiveSummary,
+} from '../game/snakeGame.js';
 import type { ArtifactView } from '../artifacts/artifacts.js';
+import type { AnimalCompanionView } from '../animals/companions.js';
 import type { SpecialStatsView } from '../stats/chanceBreakdowns.js';
 import type { SpecialStatId } from '../stats/specialTypes.js';
+import type { DerivedStatId } from '../stats/derivedStats.js';
 import { ensurePauseMenuGeneratedAssets } from './assets/pauseMenuGeneratedAssets.js';
 import { uiTabIconKeys } from './assets/uiAtlasKeys.js';
 import {
@@ -38,11 +63,40 @@ import {
   TREE_PADDING,
   type PauseMenuLayout,
 } from './core/PauseMenuLayout.js';
-import { uiColors, uiMotion, uiSpacing, uiTypography } from './theme/uiTokens.js';
+import { uiColors, uiMotion } from './theme/uiTokens.js';
 import type { AchievementManager } from '../achievements/achievementManager.js';
 import type { AchievementUnlockResult } from '../achievements/achievementTypes.js';
 import { AchievementTreeOverlay } from './achievementTreeOverlay.js';
 import type { AchievementZoomExtreme } from '../achievements/achievementZoomTracker.js';
+import {
+  CONTROL_CATEGORIES,
+  INPUT_MODES,
+  formatBindingsForDisplay,
+  getBindingsForMode,
+  getControlActionsByCategory,
+  getKeyboardEventBindingLabel,
+  getPrimaryBindingLabelForDisplay,
+  resetAllBindingsForMode,
+  resetBindingsForMode,
+  setExclusiveControllerBinding,
+  setBindingsForMode,
+  type ControlCategoryId,
+  type ControlActionId,
+  type InputModeId,
+} from '../input/controlActions.js';
+import type { ControllerNavCommand } from '../input/controllerNavigation.js';
+import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
+import { DAY_PHASE_DURATIONS_MS } from '../world/atmosphereTypes.js';
+import { TreeViewportController, type TreePoint } from './core/TreeViewportController.js';
+import { buildSkillTreeWorldLayout, getSkillTreeFoundationPoint } from './skillTreeWorldLayout.js';
+import {
+  MANEUVER_DEFINITIONS,
+  MANEUVER_SHARED_COOLDOWN_STEPS,
+  getManeuverDefinition,
+} from '../maneuvers/maneuverCatalog.js';
+import type { ManeuverId, ManeuverSaveState } from '../maneuvers/maneuverTypes.js';
+import { SpotifyPanel } from './spotify/spotifyPanel.js';
+import { YouTubePanel } from './youtube/youtubePanel.js';
 
 interface SkillTreeOverlayOptions {
   width?: number;
@@ -67,12 +121,19 @@ interface OverlayHandlers {
   onBindSpellSlot?: (abilityId: string) => void;
   getDatingView?: () => readonly DatingCandidateView[];
   getPeopleView?: () => readonly ActorJournalEntry[];
+  getCivicOfficeSummaries?: () => readonly CivicOfficeSummary[];
+  getAnimalCompanionView?: () => readonly AnimalCompanionView[];
+  onFeedAnimalCompanion?: (companionId: string) => boolean;
+  onReleaseAnimalCompanion?: (companionId: string) => boolean;
   getDestinyView?: () => readonly string[];
+  getAtmosphereView?: () => ResolvedAtmosphereView;
   getArtifactView?: () => readonly ArtifactView[];
   getSpecialView?: () => SpecialStatsView;
   onPreviewSpecialChange?: (statId: SpecialStatId, delta: number) => boolean;
   onApplySpecialChanges?: () => void;
   onResetSpecialPreview?: () => void;
+  getManeuverState?: () => ManeuverSaveState;
+  onEquipManeuver?: (id: ManeuverId) => { ok: boolean; message: string; color: string };
   getAchievementManager?: () => AchievementManager;
   onAchievementZoomExtreme?: (extreme: AchievementZoomExtreme) => void;
 }
@@ -106,9 +167,9 @@ interface EquipmentModifierView {
 }
 
 const DEFAULT_OPTIONS: Required<SkillTreeOverlayOptions> = {
-  width: 640,
-  height: 520,
-  depth: 30,
+  width: 720,
+  height: 580,
+  depth: 200,
 };
 
 const DETAIL_PANEL_PADDING = 12;
@@ -127,23 +188,29 @@ type TabId =
   | 'skills'
   | 'special'
   | 'spells'
+  | 'maneuvers'
   | 'equipment'
   | 'items'
   | 'inventory'
-  | 'customize'
+  | 'cosmetics'
   | 'cards'
   | 'destiny'
   | 'artifacts'
   | 'map'
+  | 'atmosphere'
   | 'people'
+  | 'companions'
   | 'dating'
   | 'quests'
   | 'factions'
   | 'graph'
   | 'achievements'
+  | 'controls'
+  | 'calendar'
   | 'cheats'
+  | 'spotify'
+  | 'youtube'
   | 'info';
-type SnakeThemeId = VillageShopStyleId;
 
 interface TabDefinition {
   id: TabId;
@@ -157,6 +224,7 @@ const TAB_DEFINITIONS: readonly TabDefinition[] = [
   { id: 'skills', i18nKey: 'tabSkills', group: 'growth' },
   { id: 'special', i18nKey: 'tabSpecial', group: 'growth' },
   { id: 'spells', i18nKey: 'tabSpells', group: 'growth' },
+  { id: 'maneuvers', i18nKey: 'tabInfo', label: 'Maneuvers', group: 'growth' },
   { id: 'equipment', i18nKey: 'tabInventory', label: 'Equipment', group: 'gear' },
   { id: 'items', i18nKey: 'tabInventory', label: 'Items', group: 'gear' },
   {
@@ -166,26 +234,32 @@ const TAB_DEFINITIONS: readonly TabDefinition[] = [
     group: 'gear',
   },
   {
-    id: 'customize',
-    i18nKey: 'tabCustomize',
-    i18nPlaceholderKey: 'placeholderCustomize',
+    id: 'cosmetics',
+    i18nKey: 'tabCosmetics',
+    i18nPlaceholderKey: 'placeholderCosmetics',
     group: 'gear',
   },
   { id: 'cards', i18nKey: 'tabCards', group: 'gear' },
   { id: 'destiny', i18nKey: 'tabDestiny', group: 'gear' },
   { id: 'artifacts', i18nKey: 'tabArtifacts', group: 'gear' },
   { id: 'map', i18nKey: 'tabMap', i18nPlaceholderKey: 'placeholderMap', group: 'world' },
+  { id: 'atmosphere', i18nKey: 'tabInfo', label: 'Atmosphere', group: 'world' },
+  { id: 'companions', i18nKey: 'tabPeople', label: 'Herd', group: 'world' },
   { id: 'dating', i18nKey: 'tabDating', group: 'world' },
   { id: 'quests', i18nKey: 'tabQuests', group: 'world' },
   { id: 'factions', i18nKey: 'tabFactions', group: 'world' },
   { id: 'graph', i18nKey: 'tabGraph', group: 'system' },
   { id: 'achievements', i18nKey: 'tabInfo', label: 'Progress', group: 'system' },
+  { id: 'controls', i18nKey: 'tabInfo', label: 'Controls', group: 'system' },
+  { id: 'calendar', i18nKey: 'tabInfo', label: 'Calendar', group: 'system' },
   {
     id: 'cheats',
     i18nKey: 'tabCheats',
     i18nPlaceholderKey: 'placeholderCheats',
     group: 'system',
   },
+  { id: 'spotify', i18nKey: 'tabInfo', label: 'Spotify', group: 'system' },
+  { id: 'youtube', i18nKey: 'tabInfo', label: 'YouTube', group: 'system' },
   { id: 'info', i18nKey: 'tabInfo', group: 'system' },
 ];
 
@@ -207,21 +281,28 @@ const TAB_ICON_KEYS: Record<TabId, string> = {
   skills: uiTabIconKeys.skills,
   special: uiTabIconKeys.special,
   spells: uiTabIconKeys.spells,
+  maneuvers: uiTabIconKeys.info,
   equipment: uiTabIconKeys.equipment,
   items: uiTabIconKeys.items,
   inventory: uiTabIconKeys.inventory,
-  customize: uiTabIconKeys.customize,
+  cosmetics: uiTabIconKeys.customize,
   cards: uiTabIconKeys.cards,
   artifacts: uiTabIconKeys.artifacts,
   map: uiTabIconKeys.map,
+  atmosphere: uiTabIconKeys.info,
   dating: uiTabIconKeys.dating,
   quests: uiTabIconKeys.quests,
   factions: uiTabIconKeys.factions,
   graph: uiTabIconKeys.graph,
   achievements: uiTabIconKeys.info,
+  controls: uiTabIconKeys.info,
+  calendar: uiTabIconKeys.info,
   cheats: uiTabIconKeys.cheats,
+  spotify: uiTabIconKeys.info,
+  youtube: uiTabIconKeys.info,
   info: uiTabIconKeys.info,
   people: uiTabIconKeys.people,
+  companions: uiTabIconKeys.companions,
   destiny: uiTabIconKeys.destiny,
 };
 
@@ -271,6 +352,13 @@ export class SkillTreeOverlay {
   private readonly factionGraphics: Phaser.GameObjects.Graphics;
   private readonly structuredContainer: Phaser.GameObjects.Container;
   private readonly structuredGraphics: Phaser.GameObjects.Graphics;
+  private readonly controllerFocusGraphics: Phaser.GameObjects.Graphics;
+  private controllerActions: Array<{ rect: UiRect; onClick: () => void }> = [];
+  private calendarMonthOffset = 0;
+  private calendarSelectedDay: number | null = null;
+  private controllerActionIndex = 0;
+  private controllerSkillIndex = 0;
+  private currentInputMode: InputModeId = 'keyboardMouse';
   private readonly background: Phaser.GameObjects.Rectangle;
   private readonly title: Phaser.GameObjects.Text;
   private readonly scoreText: Phaser.GameObjects.Text;
@@ -278,6 +366,11 @@ export class SkillTreeOverlay {
   private readonly hintText: Phaser.GameObjects.Text;
   private readonly connectionGraphics: Phaser.GameObjects.Graphics;
   private readonly connectionHighlight: Phaser.GameObjects.Graphics;
+  private readonly skillViewportBackground: Phaser.GameObjects.Rectangle;
+  private readonly skillTreeWorld: Phaser.GameObjects.Container;
+  private readonly skillViewport: TreeViewportController;
+  private readonly skillWorldPositions = new Map<string, TreePoint>();
+  private skillViewportInitialized = false;
   private readonly mapGraphics: Phaser.GameObjects.Graphics;
   private readonly mapBackground: Phaser.GameObjects.Rectangle;
   private readonly mapTitle: Phaser.GameObjects.Text;
@@ -305,6 +398,7 @@ export class SkillTreeOverlay {
   private readonly detailSubtitle: Phaser.GameObjects.Text;
   private readonly detailRankText: Phaser.GameObjects.Text;
   private readonly detailBody: Phaser.GameObjects.Text;
+  private detailButtonObjects: Phaser.GameObjects.GameObject[] = [];
   private readonly inventoryItemsText: Phaser.GameObjects.Text;
   private inventoryIndex: string[] = [];
   private selectedInventoryItemId: string | null = null;
@@ -339,18 +433,12 @@ export class SkillTreeOverlay {
   private readonly equipmentListMask: Phaser.Display.Masks.GeometryMask;
   private readonly overlayX: number;
   private readonly overlayY: number;
-  private contentMask?: Phaser.Display.Masks.GeometryMask;
   private readonly specialChanceMaskGraphics: Phaser.GameObjects.Graphics;
   private readonly scrollHintText: Phaser.GameObjects.Text;
   private readonly achievementTree: AchievementTreeOverlay | null;
   private readonly scrollOffsets: Partial<Record<TabId, number>> = {};
   private structuredContentHeight = 0;
   private specialChanceScrollOffset = 0;
-  private skillTreePanX = 0;
-  private skillTreePanY = 0;
-  private skillTreeContentWidth = 0;
-  private skillTreeContentHeight = 0;
-  private customizationIndex: string[] = [];
   private customizationRowMap: Array<{ row: number; actionId: string }> = [];
 
   private hoveredPerkId: string | null = null;
@@ -360,9 +448,16 @@ export class SkillTreeOverlay {
   private visible = false;
   private activePrimaryTab: PrimaryTabId = 'growth';
   private activeTab: TabId = 'skills';
+  private activeControlsMode: InputModeId = 'keyboardMouse';
+  private rebindingControlActionId: ControlActionId | null = null;
   private hintSticky = false;
   private hintTimer?: Phaser.Time.TimerEvent;
   private glintTimer?: Phaser.Time.TimerEvent;
+  private shimmerAngle = 0;
+  private vignettePhase = 0;
+  private scanlinePhase = 0;
+  private tabSwitchFlash = 0;
+  private tabSwitchFlashColor = 0;
   private hoverTip?: {
     container: Phaser.GameObjects.Container;
     bg: Phaser.GameObjects.Rectangle;
@@ -371,6 +466,8 @@ export class SkillTreeOverlay {
     targetY: number;
     ticker?: Phaser.Time.TimerEvent;
   };
+  private readonly spotifyPanel: SpotifyPanel | null;
+  private readonly youtubePanel: YouTubePanel | null;
 
   constructor(
     private readonly scene: SnakeScene,
@@ -389,12 +486,40 @@ export class SkillTreeOverlay {
       height: options.height ?? responsiveHeight,
       depth: options.depth ?? DEFAULT_OPTIONS.depth,
     };
+    const initialTreeBounds = this.getSkillTreeBounds();
+    const initialTreeContent = insetRect(initialTreeBounds, 16);
+    this.skillViewport = new TreeViewportController({
+      width: initialTreeContent.width,
+      height: initialTreeContent.height,
+      minZoom: 0.42,
+      maxZoom: 1.65,
+      initialZoom: 0.95,
+      padding: 80,
+    });
     ensurePauseMenuGeneratedAssets(this.scene);
 
     const x = (this.scene.scale.width - this.options.width) / 2;
     const y = (this.scene.scale.height - this.options.height) / 2;
     this.overlayX = x;
     this.overlayY = y;
+    this.spotifyPanel =
+      typeof document !== 'undefined'
+        ? new SpotifyPanel({
+            document,
+            canvas: this.scene.game.canvas,
+          })
+        : null;
+    this.youtubePanel =
+      typeof document !== 'undefined'
+        ? new YouTubePanel({
+            document,
+            canvas: this.scene.game.canvas,
+          })
+        : null;
+    this.scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.spotifyPanel?.destroy();
+      this.youtubePanel?.destroy();
+    });
 
     this.background = this.scene.add
       .rectangle(0, 0, this.options.width, this.options.height, 0x071019, 0.94)
@@ -417,6 +542,7 @@ export class SkillTreeOverlay {
       .container(0, 0, [this.factionGraphics])
       .setVisible(false);
     this.structuredGraphics = this.scene.add.graphics();
+    this.controllerFocusGraphics = this.scene.add.graphics();
     this.structuredContainer = this.scene.add
       .container(0, 0, [this.structuredGraphics])
       .setVisible(false);
@@ -424,6 +550,21 @@ export class SkillTreeOverlay {
 
     this.connectionGraphics = this.scene.add.graphics();
     this.connectionHighlight = this.scene.add.graphics();
+    this.skillViewportBackground = this.scene.add
+      .rectangle(
+        initialTreeBounds.x,
+        initialTreeBounds.y,
+        initialTreeBounds.width,
+        initialTreeBounds.height,
+        uiColors.panelBgSecondary,
+        0.86,
+      )
+      .setOrigin(0)
+      .setStrokeStyle(1, uiColors.accentGrowth, 0.62);
+    this.skillTreeWorld = this.scene.add.container(0, 0, [
+      this.connectionGraphics,
+      this.connectionHighlight,
+    ]);
     // Map container and elements
     const mapX = TREE_PADDING.horizontal;
     const mapY = TREE_PADDING.top - 8;
@@ -766,15 +907,13 @@ export class SkillTreeOverlay {
       scrollMaskRect.height,
     );
     const scrollMask = this.scrollMaskGraphics.createGeometryMask();
-    this.contentMask = scrollMask;
     this.questListText.setMask(scrollMask);
     this.spellsText.setMask(scrollMask);
     this.customizationText.setMask(scrollMask);
     this.inventoryItemsText.setMask(scrollMask);
     this.specialStatsText.setMask(scrollMask);
     this.structuredContainer.setMask(scrollMask);
-    this.connectionGraphics.setMask(scrollMask);
-    this.connectionHighlight.setMask(scrollMask);
+    this.skillTreeWorld.setMask(scrollMask);
     this.equipmentListMaskGraphics = this.scene.add.graphics().setVisible(false);
     this.equipmentListMask = this.equipmentListMaskGraphics.createGeometryMask();
     this.specialChanceMaskGraphics = this.scene.add.graphics().setVisible(false);
@@ -823,7 +962,7 @@ export class SkillTreeOverlay {
         return;
       }
       this.selectedInventoryItemId = itemId;
-      const item = getItem(itemId) as any;
+      const item = getItem(itemId) as Item | undefined;
       if (item && item.kind === 'equipment') {
         const currentlyEquipped = this.scene.inventory.getEquipped(item.slot as EquipmentSlot);
         if (currentlyEquipped === itemId) {
@@ -853,12 +992,12 @@ export class SkillTreeOverlay {
       }
     });
     this.customizationText.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (!this.visible || this.activeTab !== 'customize') return;
+      if (!this.visible || this.activeTab !== 'cosmetics') return;
       const actionId = this.getCustomizationActionId(pointer);
       if (!actionId) return;
 
       if (actionId.startsWith('theme:')) {
-        const themeId = actionId.split(':')[1] as SnakeThemeId;
+        const themeId = actionId.split(':')[1] as VillageShopStyleId;
         const result = this.scene.equipOwnedSnakeTheme(themeId);
         this.announce(result.message, result.color, 1800);
         this.refresh();
@@ -905,7 +1044,7 @@ export class SkillTreeOverlay {
       }
     });
     this.customizationText.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      if (!this.visible || this.activeTab !== 'customize') return;
+      if (!this.visible || this.activeTab !== 'cosmetics') return;
       const hovered = this.getCustomizationHoveredRow(pointer);
       if (!hovered) {
         this.clearCustomizationHover();
@@ -936,7 +1075,9 @@ export class SkillTreeOverlay {
         (candidate) => row >= candidate.startRow && row <= candidate.endRow,
       );
       if (!entry) return;
-      const setter = (this.scene as any).setActiveQuestMarkerQuestId;
+      const setter = (
+        this.scene as unknown as Record<string, (...args: unknown[]) => unknown | undefined>
+      ).setActiveQuestMarkerQuestId;
       if (typeof setter !== 'function') return;
       const ok = setter.call(this.scene, entry.questId);
       this.announce(
@@ -971,9 +1112,16 @@ export class SkillTreeOverlay {
     });
     this.scene.input.on(
       'wheel',
-      (_pointer: Phaser.Input.Pointer, _objects: unknown[], dx: number, dy: number) => {
+      (_pointer: Phaser.Input.Pointer, _objects: unknown[], _dx: number, dy: number) => {
         if (this.visible && this.activeTab === 'skills') {
-          this.panSkillTree(dy, dx);
+          if (this.isPointerInSkillViewport(_pointer)) {
+            const bounds = insetRect(this.getSkillTreeBounds(), 16);
+            const anchor = {
+              x: _pointer.x - this.overlayX - bounds.x,
+              y: _pointer.y - this.overlayY - bounds.y,
+            };
+            this.zoomSkillTree(this.skillViewport.zoom + (dy < 0 ? 0.12 : -0.12), anchor);
+          }
           return;
         }
         if (
@@ -986,6 +1134,18 @@ export class SkillTreeOverlay {
         this.scrollActiveText(dy);
       },
     );
+    this.scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.visible && this.activeTab === 'skills' && this.isPointerInSkillViewport(pointer)) {
+        this.skillViewport.beginDrag({ x: pointer.x, y: pointer.y });
+      }
+    });
+    this.scene.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (!this.visible || this.activeTab !== 'skills' || !pointer.isDown) return;
+      if (this.skillViewport.moveDrag({ x: pointer.x, y: pointer.y })) {
+        this.applySkillViewportTransform();
+      }
+    });
+    this.scene.input.on('pointerup', () => this.skillViewport.endDrag());
 
     const children: Phaser.GameObjects.GameObject[] = [
       this.background,
@@ -994,11 +1154,12 @@ export class SkillTreeOverlay {
       this.detailPanel,
       this.specialMainContainer,
       this.specialDerivedContainer,
+      this.controllerFocusGraphics,
       this.styleContainer,
       this.factionContainer,
       this.structuredContainer,
-      this.connectionGraphics,
-      this.connectionHighlight,
+      this.skillViewportBackground,
+      this.skillTreeWorld,
       this.mapContainer,
       this.graphContainer,
       this.cheatContainer,
@@ -1052,29 +1213,176 @@ export class SkillTreeOverlay {
     const h = this.options.height;
     const layout = this.getPauseMenuLayout();
 
-    g.fillStyle(uiColors.panelBgPrimary, 0.96).fillRoundedRect(0, 0, w, h, 10);
-    g.lineStyle(3, uiColors.panelBorder, 0.9).strokeRoundedRect(1.5, 1.5, w - 3, h - 3, 10);
-    g.lineStyle(1, uiColors.panelGlow, uiMotion.glowMedium).strokeRoundedRect(
-      7,
-      7,
-      w - 14,
-      h - 14,
-      6,
+    // Outer glow pulse — breathes between low and high
+    const pulsePhase = Math.sin(this.scene.time.now / 600) * 0.5 + 0.5;
+    const outerGlowAlpha = uiMotion.glowLow + pulsePhase * (uiMotion.glowHigh - uiMotion.glowLow);
+    g.lineStyle(4, uiColors.panelBorder, outerGlowAlpha * 0.35).strokeRoundedRect(
+      -2,
+      -2,
+      w + 4,
+      h + 4,
+      12,
     );
 
+    // Main border
+    g.fillStyle(uiColors.panelBgPrimary, 0.96).fillRoundedRect(0, 0, w, h, 10);
+    g.lineStyle(3, uiColors.panelBorder, 0.9).strokeRoundedRect(1.5, 1.5, w - 3, h - 3, 10);
+
+    // Inner glow — double layer for depth
+    g.lineStyle(2, uiColors.panelGlow, uiMotion.glowMedium * 0.7).strokeRoundedRect(
+      6,
+      6,
+      w - 12,
+      h - 12,
+      8,
+    );
+    g.lineStyle(1, uiColors.panelGlow, uiMotion.glowLow).strokeRoundedRect(
+      10,
+      10,
+      w - 20,
+      h - 20,
+      5,
+    );
+
+    // Vignette — soft darkening at the four corners with inner glow
+    this.vignettePhase += 0.008;
+    const vignetteAlpha = 0.06 + Math.sin(this.vignettePhase) * 0.02;
+    const vignetteSpread = 40;
+    // Top-left corner
+    g.fillStyle(0x000000, vignetteAlpha).fillRect(0, 0, vignetteSpread, vignetteSpread);
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(0, 0, vignetteSpread * 2, 4);
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(0, 0, 4, vignetteSpread * 2);
+    // Top-right corner
+    g.fillStyle(0x000000, vignetteAlpha).fillRect(
+      w - vignetteSpread,
+      0,
+      vignetteSpread,
+      vignetteSpread,
+    );
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(
+      w - vignetteSpread * 2,
+      0,
+      vignetteSpread * 2,
+      4,
+    );
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(w - 4, 0, 4, vignetteSpread * 2);
+    // Bottom-left corner
+    g.fillStyle(0x000000, vignetteAlpha).fillRect(
+      0,
+      h - vignetteSpread,
+      vignetteSpread,
+      vignetteSpread,
+    );
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(
+      0,
+      h - vignetteSpread * 2,
+      vignetteSpread * 2,
+      4,
+    );
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(
+      0,
+      h - vignetteSpread * 2,
+      4,
+      vignetteSpread * 2,
+    );
+    // Bottom-right corner
+    g.fillStyle(0x000000, vignetteAlpha).fillRect(
+      w - vignetteSpread,
+      h - vignetteSpread,
+      vignetteSpread,
+      vignetteSpread,
+    );
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(
+      w - vignetteSpread * 2,
+      h - vignetteSpread * 2,
+      vignetteSpread * 2,
+      4,
+    );
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(
+      w - 4,
+      h - vignetteSpread * 2,
+      4,
+      vignetteSpread * 2,
+    );
+
+    // Top accent shimmer — a sweeping highlight on the top divider
+    this.shimmerAngle += 0.015;
+    const shimmerX = (Math.sin(this.shimmerAngle) * 0.5 + 0.5) * w;
+    g.fillStyle(uiColors.panelGlow, 0.12).fillRect(shimmerX - 30, 42, 60, 1);
+    g.fillStyle(uiColors.panelGlow, 0.06).fillRect(shimmerX - 50, 42, 100, 1);
+
+    // Bottom shimmer — second sweep on the footer divider for symmetry
+    const bottomShimmerX = (Math.sin(this.shimmerAngle * 0.7 + 2) * 0.5 + 0.5) * w;
+    g.fillStyle(uiColors.panelGlow, 0.06).fillRect(bottomShimmerX - 20, layout.footer.y - 2, 40, 1);
+    g.fillStyle(uiColors.panelGlow, 0.03).fillRect(bottomShimmerX - 35, layout.footer.y - 2, 70, 1);
+
+    // Divider lines
     g.fillStyle(0x03070c, 0.38).fillRect(12, 42, w - 24, 1);
     g.fillStyle(uiColors.panelBorderMuted, 0.58).fillRect(18, 58, w - 36, 1);
     g.fillStyle(uiColors.panelBorderMuted, 0.5).fillRect(18, 90, w - 36, 1);
+
+    // Subtle row grid
     for (let lineY = layout.content.y + 10; lineY < layout.footer.y - 8; lineY += 18) {
-      g.fillStyle(uiColors.panelGlow, 0.04).fillRect(20, lineY, w - 40, 1);
+      g.fillStyle(uiColors.panelGlow, 0.03).fillRect(20, lineY, w - 40, 1);
     }
-    g.fillStyle(TAB_ACCENTS[this.activePrimaryTab], 0.2).fillRect(
+
+    // Breathing scanline overlay — very faint horizontal sweep
+    this.scanlinePhase += 0.02;
+    const scanlineY = ((this.scanlinePhase % (Math.PI * 2)) / (Math.PI * 2)) * h;
+    const scanlineAlpha = 0.025 * (1 - Math.abs(scanlineY / h - 0.5) * 2);
+    g.fillStyle(uiColors.panelGlow, scanlineAlpha).fillRect(20, scanlineY, w - 40, 1);
+
+    // Content area breathing accent borders — left, right, bottom edges pulse
+    const contentAccent = TAB_ACCENTS[this.activePrimaryTab];
+    const contentBreath = Math.sin(this.scene.time.now / 800) * 0.5 + 0.5;
+    const contentAlpha = 0.12 + contentBreath * 0.18;
+    // Top accent line (breathing)
+    g.fillStyle(contentAccent, contentAlpha).fillRect(
       layout.content.x,
       layout.content.y - 2,
+      layout.content.width,
+      2,
+    );
+    g.fillStyle(contentAccent, contentAlpha * 0.4).fillRect(
+      layout.content.x,
+      layout.content.y - 5,
+      layout.content.width,
+      3,
+    );
+    // Left accent border
+    g.fillStyle(contentAccent, contentAlpha * 0.5).fillRect(
+      layout.content.x - 1,
+      layout.content.y,
+      1,
+      layout.content.height,
+    );
+    // Right accent border
+    g.fillStyle(contentAccent, contentAlpha * 0.5).fillRect(
+      layout.content.x + layout.content.width,
+      layout.content.y,
+      1,
+      layout.content.height,
+    );
+    // Bottom accent border
+    g.fillStyle(contentAccent, contentAlpha * 0.4).fillRect(
+      layout.content.x,
+      layout.content.y + layout.content.height,
       layout.content.width,
       1,
     );
 
+    // Tab switch flash — brief overlay when switching tabs
+    if (this.tabSwitchFlash > 0) {
+      this.tabSwitchFlash -= 0.04;
+      g.fillStyle(this.tabSwitchFlashColor, this.tabSwitchFlash * 0.12).fillRect(
+        layout.topTabs.x,
+        layout.topTabs.y,
+        layout.topTabs.width,
+        layout.topTabs.height + layout.subTabs.height - layout.topTabs.y,
+      );
+    }
+
+    // Footer backplate
     g.fillStyle(uiColors.panelBgSecondary, 0.82).fillRoundedRect(
       layout.footer.x,
       layout.footer.y,
@@ -1093,10 +1401,34 @@ export class SkillTreeOverlay {
     this.drawTabPlates(g, layout);
     this.drawFooterHintBackplates(g, layout, this.currentFooterHints);
 
+    // Pixel corners + corner glints
     this.drawPixelCorner(g, 8, 8, 1);
     this.drawPixelCorner(g, w - 8, 8, -1);
     this.drawPixelCorner(g, 8, h - 8, 1, -1);
     this.drawPixelCorner(g, w - 8, h - 8, -1, -1);
+
+    // Corner glint sprites for that extra sparkle
+    const glintAlpha = 0.5 + pulsePhase * 0.35;
+    this.addCornerGlint(g, 10, 10, 1, 1, glintAlpha);
+    this.addCornerGlint(g, w - 10, 10, -1, 1, glintAlpha);
+    this.addCornerGlint(g, 10, h - 10, 1, -1, glintAlpha);
+    this.addCornerGlint(g, w - 10, h - 10, -1, -1, glintAlpha);
+  }
+
+  private addCornerGlint(
+    g: Phaser.GameObjects.Graphics,
+    x: number,
+    y: number,
+    dirX: 1 | -1,
+    dirY: 1 | -1,
+    alpha: number,
+  ): void {
+    const glintX = dirX > 0 ? x - 14 : x - 4;
+    const glintY = dirY > 0 ? y - 14 : y - 4;
+    g.fillStyle(uiColors.panelGlow, alpha * 0.6).fillRect(glintX, glintY, 18, 2);
+    g.fillStyle(uiColors.panelGlow, alpha * 0.6).fillRect(glintX, glintY, 2, 18);
+    g.fillStyle(0xfff3a8, alpha * 0.5).fillRect(glintX + (dirX > 0 ? 14 : 2), glintY, 3, 2);
+    g.fillStyle(0xfff3a8, alpha * 0.5).fillRect(glintX, glintY + (dirY > 0 ? 14 : 2), 2, 3);
   }
 
   private drawPixelCorner(
@@ -1152,6 +1484,12 @@ export class SkillTreeOverlay {
         2,
         24,
       );
+      // Active primary tab — sweeping accent highlight across the top
+      if (active) {
+        const sweepX = (Math.sin(this.scene.time.now / 500) * 0.5 + 0.5) * primaryWidth;
+        g.fillStyle(accent, 0.35).fillRect(x + sweepX - 12, layout.topTabs.y + 1, 24, 2);
+        g.fillStyle(accent, 0.15).fillRect(x + sweepX - 20, layout.topTabs.y + 1, 40, 2);
+      }
       x += primaryWidth + primaryGap;
     }
 
@@ -1182,7 +1520,20 @@ export class SkillTreeOverlay {
         active ? 0.9 : 0.58,
       ).strokeRoundedRect(x + 0.5, layout.subTabs.y + 0.5, tabWidth - 1, 27, 5);
       if (active) {
-        g.fillStyle(accent, 0.92).fillRect(x + 8, layout.subTabs.y + 24, tabWidth - 16, 2);
+        // Pulsing bottom indicator bar
+        const pulse = Math.sin(this.scene.time.now / 350) * 0.5 + 0.5;
+        g.fillStyle(accent, 0.92 + pulse * 0.08).fillRect(
+          x + 8,
+          layout.subTabs.y + 24,
+          tabWidth - 16,
+          2,
+        );
+        g.fillStyle(accent, 0.3 + pulse * 0.2).fillRect(
+          x + 12,
+          layout.subTabs.y + 27,
+          tabWidth - 24,
+          1,
+        );
       }
       x += tabWidth + gap;
     }
@@ -1210,7 +1561,10 @@ export class SkillTreeOverlay {
   ): void {
     let x = layout.footer.x + 12;
     const y = layout.footer.y + 10;
-    for (const hint of hints.slice(0, 5)) {
+    const hintPulse = Math.sin(this.scene.time.now / 450) * 0.5 + 0.5;
+    const footerAccent = TAB_ACCENTS[this.activePrimaryTab];
+    for (let i = 0; i < hints.slice(0, 5).length; i++) {
+      const hint = hints[i];
       const key = hint.key ?? hint.icon ?? '';
       const label = hint.label;
       const width = Phaser.Math.Clamp(36 + key.length * 7 + label.length * 6, 92, 172);
@@ -1218,7 +1572,17 @@ export class SkillTreeOverlay {
         .fillRoundedRect(x, y, width, 22, 5)
         .lineStyle(1, uiColors.panelBorderMuted, 0.72)
         .strokeRoundedRect(x + 0.5, y + 0.5, width - 1, 21, 5);
-      g.fillStyle(TAB_ACCENTS[this.activePrimaryTab], 0.82).fillRoundedRect(
+      // Pulsing key backplate with accent glow
+      const keyPulse = 0.72 + hintPulse * 0.16;
+      const keyGlow = hintPulse * 0.12;
+      g.fillStyle(footerAccent, keyGlow).fillRoundedRect(
+        x + 4,
+        y + 4,
+        Math.max(24, key.length * 7 + 12),
+        14,
+        4,
+      );
+      g.fillStyle(footerAccent, keyPulse).fillRoundedRect(
         x + 5,
         y + 5,
         Math.max(24, key.length * 7 + 10),
@@ -1233,6 +1597,7 @@ export class SkillTreeOverlay {
   }
 
   private drawSpecialUi(view: SpecialStatsView): void {
+    void view;
     const g = this.specialUiGraphics;
     g.clear();
     const mainX = MAIN_PANEL_X - 12;
@@ -1281,57 +1646,10 @@ export class SkillTreeOverlay {
       8,
     );
     g.lineStyle(1, accent, 0.54).strokeRoundedRect(x + 4.5, y + 4.5, w - 9, h - 9, 5);
-    g.fillStyle(accent, 0.78).fillRect(x + 12, y + 9, 48, 2);
-  }
-
-  private drawSmallButton(
-    g: Phaser.GameObjects.Graphics,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    enabled: boolean,
-    accent: number,
-  ): void {
-    g.fillStyle(enabled ? accent : uiColors.disabled, enabled ? 0.32 : 0.74).fillRoundedRect(
-      x,
-      y,
-      w,
-      h,
-      4,
-    );
-    g.lineStyle(1, enabled ? accent : uiColors.locked, enabled ? 0.92 : 0.72).strokeRoundedRect(
-      x + 0.5,
-      y + 0.5,
-      w - 1,
-      h - 1,
-      4,
-    );
-  }
-
-  private drawActionButton(
-    g: Phaser.GameObjects.Graphics,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    enabled: boolean,
-    accent: number,
-  ): void {
-    g.fillStyle(enabled ? accent : uiColors.disabled, enabled ? 0.25 : 0.68).fillRoundedRect(
-      x,
-      y,
-      w,
-      h,
-      6,
-    );
-    g.lineStyle(2, enabled ? accent : uiColors.locked, enabled ? 0.82 : 0.65).strokeRoundedRect(
-      x + 1,
-      y + 1,
-      w - 2,
-      h - 2,
-      6,
-    );
+    // Accent header bar with subtle pulse
+    const headerPulse = Math.sin(this.scene.time.now / 600) * 0.5 + 0.5;
+    g.fillStyle(accent, 0.78 + headerPulse * 0.1).fillRect(x + 12, y + 9, 48, 2);
+    g.fillStyle(accent, 0.25 + headerPulse * 0.1).fillRect(x + 12, y + 12, 48, 1);
   }
 
   private drawScrollRail(
@@ -1350,6 +1668,15 @@ export class SkillTreeOverlay {
     const thumbH = Math.max(24, (viewportH / Math.max(viewportH, contentH)) * h);
     const maxOffset = Math.max(1, contentH - viewportH);
     const thumbY = y + (offset / maxOffset) * (h - thumbH);
+    // Thumb glow — breathes subtly
+    const thumbPulse = Math.sin(this.scene.time.now / 500) * 0.5 + 0.5;
+    g.fillStyle(uiColors.panelGlow, 0.15 + thumbPulse * 0.1).fillRoundedRect(
+      x - 1,
+      thumbY - 1,
+      6,
+      thumbH + 2,
+      3,
+    );
     g.fillStyle(uiColors.panelGlow, 0.9).fillRoundedRect(x, thumbY, 4, thumbH, 2);
   }
 
@@ -1375,6 +1702,7 @@ export class SkillTreeOverlay {
 
   private buildSpecialMainContent(view: SpecialStatsView): void {
     this.clearSpecialMainContent();
+    this.controllerActions = [];
     const g = this.specialMainGraphics;
     const mainX = MAIN_PANEL_X - 12;
     const mainY = MAIN_PANEL_Y - 12;
@@ -1387,11 +1715,70 @@ export class SkillTreeOverlay {
     const content = insetRect({ x: mainX, y: mainY, width: mainW, height: 330 }, 14);
     const headline = this.buildSpecialHeadlineRows(view);
 
-    addUiText(this.scene, this.specialMainContainer, content.x, content.y, 'SPECIAL COMMAND', {
+    addUiText(this.scene, this.specialMainContainer, content.x, content.y, 'SPECIAL', {
       color: uiColors.textPrimary,
       fontSize: '14px',
       fontStyle: 'bold',
     });
+    const levelLabelX = content.x + 66;
+    addUiText(
+      this.scene,
+      this.specialMainContainer,
+      levelLabelX,
+      content.y + 2,
+      `LV ${view.progression.level}`,
+      {
+        color: uiColors.valuePrimary,
+        fontSize: '11px',
+        fontStyle: 'bold',
+      },
+    );
+    const progressRect: UiRect = {
+      x: content.x + 108,
+      y: content.y + 1,
+      width: Math.max(96, content.width - 108),
+      height: 16,
+    };
+    g.fillStyle(uiColors.panelBgInset, 0.92).fillRoundedRect(
+      progressRect.x,
+      progressRect.y,
+      progressRect.width,
+      progressRect.height,
+      4,
+    );
+    const progressFillWidth = Math.max(
+      0,
+      Math.floor((progressRect.width - 2) * view.progression.progress),
+    );
+    if (progressFillWidth > 0) {
+      g.fillStyle(uiColors.success, 0.82).fillRoundedRect(
+        progressRect.x + 1,
+        progressRect.y + 1,
+        progressFillWidth,
+        progressRect.height - 2,
+        3,
+      );
+    }
+    g.lineStyle(1, uiColors.success, 0.72).strokeRoundedRect(
+      progressRect.x + 0.5,
+      progressRect.y + 0.5,
+      progressRect.width - 1,
+      progressRect.height - 1,
+      4,
+    );
+    addUiText(
+      this.scene,
+      this.specialMainContainer,
+      progressRect.x + progressRect.width / 2,
+      progressRect.y + 3,
+      `${Math.floor(view.progression.lifetimeScore)} / ${view.progression.nextLevelScore}`,
+      {
+        align: 'center',
+        color: uiColors.textPrimary,
+        fontSize: '9px',
+        fontStyle: 'bold',
+      },
+    ).setOrigin(0.5, 0);
 
     const summaryRect: UiRect = {
       x: content.x,
@@ -1489,65 +1876,90 @@ export class SkillTreeOverlay {
         { align: 'right', color: uiColors.valuePrimary, fontSize: '13px', fontStyle: 'bold' },
       );
 
+      const decreaseRect = {
+        x: rect.x + rect.width - 78,
+        y: rect.y + 4,
+        width: 30,
+        height: 18,
+      };
+      const decrease = () => {
+        this.handlers.onPreviewSpecialChange?.(stat.id, -1);
+        this.refresh();
+      };
       addUiButton(this.scene, this.specialMainContainer, g, {
         id: `${stat.id}:decrease`,
-        rect: { x: rect.x + rect.width - 78, y: rect.y + 4, width: 30, height: 18 },
+        rect: decreaseRect,
         label: '-',
         enabled: stat.canDecrease,
         fill: uiColors.danger,
         stroke: uiColors.danger,
         disabledFill: uiColors.disabled,
         disabledStroke: uiColors.locked,
-        onClick: () => {
-          this.handlers.onPreviewSpecialChange?.(stat.id, -1);
-          this.refresh();
-        },
+        onClick: decrease,
       });
+      if (stat.canDecrease) this.addControllerAction(decreaseRect, decrease);
+
+      const increaseRect = {
+        x: rect.x + rect.width - 38,
+        y: rect.y + 4,
+        width: 30,
+        height: 18,
+      };
+      const increase = () => {
+        this.handlers.onPreviewSpecialChange?.(stat.id, 1);
+        this.refresh();
+      };
       addUiButton(this.scene, this.specialMainContainer, g, {
         id: `${stat.id}:increase`,
-        rect: { x: rect.x + rect.width - 38, y: rect.y + 4, width: 30, height: 18 },
+        rect: increaseRect,
         label: '+',
         enabled: stat.canIncrease,
         fill: uiColors.success,
         stroke: uiColors.success,
         disabledFill: uiColors.disabled,
         disabledStroke: uiColors.locked,
-        onClick: () => {
-          this.handlers.onPreviewSpecialChange?.(stat.id, 1);
-          this.refresh();
-        },
+        onClick: increase,
       });
+      if (stat.canIncrease) this.addControllerAction(increaseRect, increase);
     }
 
     const actionY = rowTop + view.stats.length * (rowH + rowGap) + 12;
+    const applyRect = { x: content.x, y: actionY, width: 126, height: 26 };
+    const apply = () => {
+      this.handlers.onApplySpecialChanges?.();
+      this.refresh();
+    };
     addUiButton(this.scene, this.specialMainContainer, g, {
       id: 'special:apply',
-      rect: { x: content.x, y: actionY, width: 126, height: 26 },
+      rect: applyRect,
       label: '> Apply Points',
       enabled: view.hasPreviewChanges,
       fill: uiColors.success,
       stroke: uiColors.success,
       disabledFill: uiColors.disabled,
       disabledStroke: uiColors.locked,
-      onClick: () => {
-        this.handlers.onApplySpecialChanges?.();
-        this.refresh();
-      },
+      onClick: apply,
     });
+    if (view.hasPreviewChanges) this.addControllerAction(applyRect, apply);
+
+    const resetRect = { x: content.x + 138, y: actionY, width: 132, height: 26 };
+    const reset = () => {
+      this.handlers.onResetSpecialPreview?.();
+      this.refresh();
+    };
     addUiButton(this.scene, this.specialMainContainer, g, {
       id: 'special:reset',
-      rect: { x: content.x + 138, y: actionY, width: 132, height: 26 },
+      rect: resetRect,
       label: 'x Reset Preview',
       enabled: view.hasPreviewChanges,
       fill: uiColors.warning,
       stroke: uiColors.warning,
       disabledFill: uiColors.disabled,
       disabledStroke: uiColors.locked,
-      onClick: () => {
-        this.handlers.onResetSpecialPreview?.();
-        this.refresh();
-      },
+      onClick: reset,
     });
+    if (view.hasPreviewChanges) this.addControllerAction(resetRect, reset);
+    this.drawControllerFocus();
   }
 
   private getSpecialStatAccent(statId: string): number {
@@ -1639,14 +2051,13 @@ export class SkillTreeOverlay {
     }
     this.styleGraphics.clear();
     this.customizationRowMap = [];
-    this.customizationIndex = [];
   }
 
-  private buildStyleContent(): void {
+  private buildCosmeticsContent(): void {
     this.clearStyleContent();
-    const g = this.styleGraphics;
+    const g = this.structuredGraphics;
     const state = this.scene.getSnakeCustomizationState();
-    const mainRect: UiRect = {
+    const rect: UiRect = {
       x: TREE_PADDING.horizontal - 12,
       y: TREE_PADDING.top - 12,
       width:
@@ -1657,9 +2068,9 @@ export class SkillTreeOverlay {
         24,
       height: this.getScrollableViewportHeight() + 18,
     };
-    const content = insetRect(mainRect, 14);
+    const content = insetRect(rect, 14);
     drawUiCard(g, {
-      rect: mainRect,
+      rect,
       fill: uiColors.panelBgSecondary,
       stroke: uiColors.accentGear,
       alpha: 0.88,
@@ -1667,367 +2078,573 @@ export class SkillTreeOverlay {
       radius: 8,
     });
 
-    addUiText(this.scene, this.styleContainer, content.x, content.y, 'SNAKE STYLE', {
+    // Title + badge row
+    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'COSMETICS', {
       color: uiColors.textPrimary,
       fontSize: '14px',
       fontStyle: 'bold',
     });
-
-    const previewRect: UiRect = {
-      x: this.detailPanel.x,
-      y: this.detailPanel.y,
-      width: this.detailPanel.width,
-      height: this.detailPanel.height,
+    const badgeRect: UiRect = {
+      x: content.x + content.width - 98,
+      y: content.y - 2,
+      width: 86,
+      height: 20,
     };
-    drawUiCard(g, {
-      rect: previewRect,
-      fill: uiColors.panelBgSecondary,
-      stroke: uiColors.accentGear,
-      alpha: 0.88,
-      strokeAlpha: 0.7,
-      radius: 8,
-    });
-    addUiText(
+    const totalOwned =
+      state.unlockedThemes.length +
+        state.unlockedHats.length +
+        (state.cowbellUnlocked || state.cowbellEquipped ? 1 : 0) +
+        state.ownedEmoticons?.length || 0;
+    addUiBadge(
       this.scene,
-      this.styleContainer,
-      previewRect.x + previewRect.width / 2,
-      previewRect.y + 22,
-      i18n.getFeatureString('detailSnakeStyle'),
-      {
-        align: 'center',
-        color: uiColors.textPrimary,
-        fontSize: '18px',
-        fontStyle: 'bold',
-      },
-    );
-    addUiText(
-      this.scene,
-      this.styleContainer,
-      previewRect.x + previewRect.width / 2,
-      previewRect.y + 48,
-      i18n.getFeatureString('detailCosmetics'),
-      {
-        align: 'center',
-        color: uiColors.valuePositive,
-        fontSize: '13px',
-      },
+      this.structuredContainer,
+      g,
+      badgeRect,
+      `${totalOwned} ITEMS`,
+      uiColors.accentGear,
+      uiColors.accentGear,
     );
 
-    const snakePreviewRect: UiRect = {
-      x: previewRect.x + 24,
-      y: previewRect.y + 84,
-      width: previewRect.width - 48,
-      height: 132,
-    };
-    this.drawSnakePreview(g, snakePreviewRect.x, snakePreviewRect.y, snakePreviewRect.width, state);
+    let y = content.y + 30 - this.getStructuredScrollOffset();
 
-    const themes = this.scene
-      .getSnakeThemeDefinitions()
-      .filter((theme) => state.unlockedThemes.includes(theme.id) || state.activeTheme === theme.id);
-    const hats = this.scene
-      .getSnakeHatDefinitions()
-      .filter((hat) => state.unlockedHats.includes(hat.id) || state.activeHat === hat.id);
+    // Themes section
+    y += this.renderCategoryHeader(content.x, y, 'themes');
+    const ownedThemes = getAllThemeDefinitions().filter(
+      (t) =>
+        state.unlockedThemes.includes(t.id as VillageShopStyleId) || state.activeTheme === t.id,
+    );
+    y = this.renderThemeCards(g, content, ownedThemes, state, y);
 
-    const paletteY = content.y + 30;
-    addUiText(this.scene, this.styleContainer, content.x, paletteY, 'PALETTES', {
-      color: '#9ad1ff',
-      fontSize: '12px',
-      fontStyle: 'bold',
-    });
-    themes.slice(0, 6).forEach((theme, index) => {
-      const col = index % 2;
-      const row = Math.floor(index / 2);
-      const rect: UiRect = {
-        x: content.x + col * 168,
-        y: paletteY + 22 + row * 48,
-        width: 154,
-        height: 38,
-      };
-      const active = state.activeTheme === theme.id;
-      drawUiCard(g, {
-        rect,
-        fill: active ? uiColors.accentGear : uiColors.panelBgInset,
-        stroke: active ? uiColors.accentCore : uiColors.panelBorderMuted,
-        alpha: active ? 0.18 : 0.62,
-        strokeAlpha: active ? 0.9 : 0.58,
-      });
-      g.fillStyle(active ? uiColors.accentCore : uiColors.accentGear, 0.95).fillRoundedRect(
-        rect.x + 8,
-        rect.y + 9,
-        22,
-        20,
-        4,
-      );
-      addUiText(this.scene, this.styleContainer, rect.x + 38, rect.y + 7, theme.label, {
-        color: uiColors.textPrimary,
-        fontSize: '12px',
-      });
-      addUiBadge(
-        this.scene,
-        this.styleContainer,
-        g,
-        { x: rect.x + 88, y: rect.y + 20, width: 56, height: 15 },
-        active ? 'EQUIP' : 'OWNED',
-        active ? uiColors.accentCore : uiColors.accentGear,
-        active ? uiColors.accentCore : uiColors.accentGear,
-        active ? '#101824' : '#ffffff',
-      );
-      this.addStyleClickZone(rect, () => {
-        const result = this.scene.equipOwnedSnakeTheme(theme.id as SnakeThemeId);
-        this.announce(result.message, result.color, 1800);
-        this.refresh();
-      });
-    });
-
-    const hatsY = paletteY + 178;
-    addUiText(this.scene, this.styleContainer, content.x, hatsY, 'HATS', {
-      color: '#9ad1ff',
-      fontSize: '12px',
-      fontStyle: 'bold',
-    });
-    if (hats.length === 0) {
+    // Hats section
+    y += this.renderCategoryHeader(content.x, y, 'hats');
+    const ownedHats = getAllHatDefinitions().filter(
+      (h) => state.unlockedHats.includes(h.id as VillageShopHatId) || state.activeHat === h.id,
+    );
+    if (ownedHats.length === 0) {
       addUiText(
         this.scene,
-        this.styleContainer,
+        this.structuredContainer,
         content.x,
-        hatsY + 24,
+        y + 8,
         i18n.getFeatureString('noHatsOwned'),
         {
           color: uiColors.textMuted,
           fontSize: '12px',
         },
       );
+      y += 24;
+    } else {
+      y = this.renderHatCards(g, content, ownedHats, state, y);
     }
-    hats.slice(0, 4).forEach((hat, index) => {
-      const rect: UiRect = {
-        x: content.x + index * 82,
-        y: hatsY + 24,
-        width: 70,
-        height: 48,
-      };
+
+    // Cowbells section
+    y += this.renderCategoryHeader(content.x, y, 'cowbells');
+    const ownedCowbells = getAllCowbellDefinitions().filter(
+      () => state.cowbellUnlocked || state.cowbellEquipped,
+    );
+    y = this.renderCowbellCards(g, content, ownedCowbells, state, y);
+
+    // Utilities section
+    y += this.renderCategoryHeader(content.x, y, 'utilities');
+    const ownedUtilities = getAllUtilityDefinitions().map((u) => {
+      const unlocked =
+        u.id === 'quiet-steps'
+          ? state.loudWalkingNoiseUnlocked
+          : u.id === 'minimap'
+            ? this.scene.isMinimapUnlocked()
+            : false;
+      const enabled =
+        u.id === 'quiet-steps'
+          ? state.loudWalkingNoiseEnabled
+          : u.id === 'minimap'
+            ? this.scene.isMinimapEnabled()
+            : false;
+      return { ...u, unlocked, enabled };
+    });
+    y = this.renderUtilityCards(g, content, ownedUtilities, y);
+
+    // Languages section
+    y += this.renderCategoryHeader(content.x, y, 'languages');
+    const ownedLanguages = getAllLanguageDefinitions().filter(
+      (l) => state.languageSelected || l.id === 'en',
+    );
+    y = this.renderLanguageCards(g, content, ownedLanguages, state, y);
+
+    // Emoticons section
+    y += this.renderCategoryHeader(content.x, y, 'emoticons');
+    const ownedEmoticonsList = getAllEmoticonDefinitions().filter(
+      (e) => state.ownedEmoticons?.includes(e.id) || false,
+    );
+    if (ownedEmoticonsList.length === 0) {
+      addUiText(this.scene, this.structuredContainer, content.x, y + 8, 'No emoticons owned yet.', {
+        color: uiColors.textMuted,
+        fontSize: '12px',
+      });
+      y += 24;
+    } else {
+      y = this.renderEmoticonCards(g, content, ownedEmoticonsList, state, y);
+    }
+
+    // Summary counters as badges
+    const counterY = y + 16;
+    const badgeGap = 10;
+    const badgeW = 78;
+    const badgeH = 20;
+    const badges = [
+      { label: `${ownedThemes.length} themes`, color: uiColors.accentGear },
+      { label: `${ownedHats.length} hats`, color: 0x5dd6a2 },
+      { label: `${ownedCowbells.length} cowbells`, color: 0xffd700 },
+      { label: `${ownedEmoticonsList.length} emoticons`, color: 0xff6b9d },
+    ];
+    let bx = content.x;
+    badges.forEach((badge) => {
+      addUiBadge(
+        this.scene,
+        this.structuredContainer,
+        g,
+        { x: bx, y: counterY, width: badgeW, height: badgeH },
+        badge.label,
+        badge.color,
+        badge.color,
+      );
+      bx += badgeW + badgeGap;
+    });
+
+    this.setStructuredContentHeight(content, counterY + 40);
+
+    this.detailTitle.setText('Cosmetics').setVisible(true);
+    this.detailSubtitle.setText('Click items to equip or toggle.').setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    this.detailBody
+      .setText('Scroll to browse all cosmetic categories.')
+      .setVisible(true)
+      .setColor(uiColors.textPrimary);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Cosmetics rendering helpers (scrollable structured view)
+  // ---------------------------------------------------------------------------
+
+  private renderCategoryHeader(x: number, y: number, categoryId: CosmeticCategoryId): number {
+    const cat = COSMETIC_CATEGORIES.find((c) => c.id === categoryId);
+    if (!cat) return 24;
+    const accentHex = '#' + cat.accentColor.toString(16).padStart(6, '0');
+    addUiText(this.scene, this.structuredContainer, x, y, cat.label.toUpperCase(), {
+      color: accentHex,
+      fontSize: '11px',
+      fontStyle: 'bold',
+    });
+    // Accent bar under header
+    this.structuredGraphics.fillStyle(cat.accentColor, 0.9).fillRect(x, y + 14, 40, 2);
+    return 28;
+  }
+
+  private renderThemeCards(
+    g: Phaser.GameObjects.Graphics,
+    content: UiRect,
+    themes: readonly {
+      id: string;
+      label: string;
+      cost: number;
+      palette: { baseColor: string; bellyColor: string; patternColor: string };
+    }[],
+    state: ReturnType<SnakeScene['getSnakeCustomizationState']>,
+    startY: number,
+  ): number {
+    let y = startY + 28;
+    themes.forEach((theme) => {
+      const card: UiRect = { x: content.x, y, width: content.width, height: 38 };
+      const active = state.activeTheme === theme.id;
+      drawUiCard(g, {
+        rect: card,
+        fill: active ? uiColors.accentGear : uiColors.panelBgInset,
+        stroke: active ? uiColors.accentCore : uiColors.panelBorderMuted,
+        alpha: active ? 0.18 : 0.62,
+        strokeAlpha: active ? 0.9 : 0.58,
+        radius: 5,
+      });
+      // Two-tone color swatch
+      const swatchX = card.x + 8;
+      const swatchY = card.y + 9;
+      const swatchW = 16;
+      const swatchH = 20;
+      g.fillStyle(parseInt(theme.palette.baseColor.slice(1), 16), 1).fillRoundedRect(
+        swatchX,
+        swatchY,
+        swatchW,
+        swatchH,
+        3,
+      );
+      g.fillStyle(parseInt(theme.palette.patternColor.slice(1), 16), 1).fillRoundedRect(
+        swatchX + swatchW + 2,
+        swatchY + 4,
+        12,
+        swatchH - 8,
+        2,
+      );
+      addUiText(this.scene, this.structuredContainer, card.x + 50, card.y + 11, theme.label, {
+        color: uiColors.textPrimary,
+        fontSize: '12px',
+      });
+      const btnX = card.x + card.width - 68;
+      const btnRect: UiRect = { x: btnX, y: card.y + 5, width: 60, height: 28 };
+      addUiButton(this.scene, this.structuredContainer, g, {
+        id: `theme-${theme.id}`,
+        rect: btnRect,
+        label: active ? 'EQUIP' : 'OWNED',
+        enabled: true,
+        fill: active ? uiColors.accentCore : uiColors.accentGear,
+        stroke: active ? uiColors.accentCore : uiColors.accentGear,
+        disabledFill: uiColors.disabled,
+        disabledStroke: uiColors.locked,
+        textColor: active ? '#101824' : '#ffffff',
+        onClick: () => {
+          const result = this.scene.equipOwnedSnakeTheme(theme.id as VillageShopStyleId);
+          this.announce(result.message, result.color, 1800);
+          this.refresh();
+        },
+      });
+      y += 44;
+    });
+    return y;
+  }
+
+  private renderHatCards(
+    g: Phaser.GameObjects.Graphics,
+    content: UiRect,
+    hats: readonly { id: string; label: string; cost: number }[],
+    state: ReturnType<SnakeScene['getSnakeCustomizationState']>,
+    startY: number,
+  ): number {
+    let y = startY + 28;
+    hats.forEach((hat) => {
+      const card: UiRect = { x: content.x, y, width: content.width, height: 38 };
       const equipped = state.activeHat === hat.id;
       drawUiCard(g, {
-        rect,
+        rect: card,
         fill: equipped ? uiColors.accentGear : uiColors.panelBgInset,
         stroke: equipped ? uiColors.accentCore : uiColors.panelBorderMuted,
         alpha: equipped ? 0.18 : 0.62,
         strokeAlpha: equipped ? 0.9 : 0.58,
+        radius: 5,
       });
-      addUiText(this.scene, this.styleContainer, rect.x + rect.width / 2, rect.y + 8, hat.label, {
-        align: 'center',
+      // Hat icon: a small circle (crown) with a flat top
+      const iconX = card.x + 8;
+      const iconY = card.y + 9;
+      g.fillStyle(equipped ? uiColors.accentCore : uiColors.accentGear, 0.95)
+        .fillRoundedRect(iconX + 2, iconY, 14, 12, 4)
+        .fillRect(iconX, iconY + 12, 18, 4)
+        .fillRoundedRect(iconX, iconY + 12, 18, 4, 2);
+      addUiText(this.scene, this.structuredContainer, card.x + 32, card.y + 11, hat.label, {
         color: uiColors.textPrimary,
-        fontSize: '11px',
-        wordWrapWidth: rect.width - 8,
+        fontSize: '12px',
+      });
+      const btnX = card.x + card.width - 68;
+      const btnRect: UiRect = { x: btnX, y: card.y + 5, width: 60, height: 28 };
+      addUiButton(this.scene, this.structuredContainer, g, {
+        id: `hat-${hat.id}`,
+        rect: btnRect,
+        label: equipped ? 'ON' : 'OWNED',
+        enabled: true,
+        fill: equipped ? uiColors.accentCore : uiColors.accentGear,
+        stroke: equipped ? uiColors.accentCore : uiColors.accentGear,
+        disabledFill: uiColors.disabled,
+        disabledStroke: uiColors.locked,
+        textColor: equipped ? '#101824' : '#ffffff',
+        onClick: () => {
+          const result = this.scene.toggleOwnedSnakeHat(hat.id as VillageShopHatId);
+          this.announce(result.message, result.color, 1800);
+          this.refresh();
+        },
+      });
+      y += 44;
+    });
+    return y;
+  }
+
+  private renderCowbellCards(
+    g: Phaser.GameObjects.Graphics,
+    content: UiRect,
+    cowbells: readonly { id: string; label: string; cost: number; description: string }[],
+    state: ReturnType<SnakeScene['getSnakeCustomizationState']>,
+    startY: number,
+  ): number {
+    let y = startY + 28;
+    cowbells.forEach((cowbell) => {
+      const card: UiRect = { x: content.x, y, width: content.width, height: 52 };
+      const equipped = state.cowbellEquipped;
+      drawUiCard(g, {
+        rect: card,
+        fill: equipped ? uiColors.accentGear : uiColors.panelBgInset,
+        stroke: equipped ? uiColors.accentCore : uiColors.panelBorderMuted,
+        alpha: equipped ? 0.18 : 0.62,
+        strokeAlpha: equipped ? 0.9 : 0.58,
+        radius: 5,
+      });
+      // Bell icon
+      const iconX = card.x + 8;
+      const iconY = card.y + 8;
+      g.fillStyle(equipped ? uiColors.accentCore : 0xffd700, 0.95)
+        .fillEllipse(iconX + 10, iconY + 10, 8, 10)
+        .fillRect(iconX + 6, iconY + 20, 8, 4)
+        .fillRoundedRect(iconX + 6, iconY + 20, 8, 4, 2);
+      addUiText(this.scene, this.structuredContainer, card.x + 32, card.y + 8, cowbell.label, {
+        color: uiColors.textPrimary,
+        fontSize: '12px',
+        fontStyle: 'bold',
       });
       addUiText(
         this.scene,
-        this.styleContainer,
-        rect.x + rect.width / 2,
-        rect.y + 32,
-        equipped ? 'ON' : 'OWNED',
+        this.structuredContainer,
+        card.x + 32,
+        card.y + 24,
+        cowbell.description,
         {
-          align: 'center',
-          color: equipped ? uiColors.valuePrimary : uiColors.textMuted,
+          color: uiColors.textSecondary,
           fontSize: '10px',
+          wordWrapWidth: content.width - 100,
         },
       );
-      this.addStyleClickZone(rect, () => {
-        const result = this.scene.toggleOwnedSnakeHat(hat.id);
-        this.announce(result.message, result.color, 1800);
-        this.refresh();
+      const btnX = card.x + card.width - 68;
+      const btnRect: UiRect = { x: btnX, y: card.y + 14, width: 60, height: 28 };
+      addUiButton(this.scene, this.structuredContainer, g, {
+        id: 'cowbell',
+        rect: btnRect,
+        label: equipped ? 'ON' : state.cowbellUnlocked ? 'OWNED' : '45',
+        enabled: true,
+        fill: equipped ? uiColors.accentCore : uiColors.accentGear,
+        stroke: equipped ? uiColors.accentCore : uiColors.accentGear,
+        disabledFill: uiColors.disabled,
+        disabledStroke: uiColors.locked,
+        textColor: equipped ? '#101824' : '#ffffff',
+        onClick: () => {
+          const result = this.scene.toggleCowbell();
+          this.announce(result.message, result.color, 1800);
+          this.refresh();
+        },
       });
+      y += 56;
     });
-
-    const utilY = hatsY + 88;
-    addUiText(this.scene, this.styleContainer, content.x, utilY, 'UTILITIES', {
-      color: '#9ad1ff',
-      fontSize: '12px',
-      fontStyle: 'bold',
-    });
-    const utilities = [
-      {
-        label: 'Quiet Steps',
-        status: !state.loudWalkingNoiseUnlocked
-          ? '100'
-          : state.loudWalkingNoiseEnabled
-            ? 'ON'
-            : 'OWNED',
-        action: () => this.scene.toggleDisableWalkingNoise(),
-      },
-      {
-        label: 'Cowbell',
-        status: !state.cowbellUnlocked ? '45' : state.cowbellEquipped ? 'ON' : 'OWNED',
-        action: () => this.scene.toggleCowbell(),
-      },
-      {
-        label: 'Minimap',
-        status: !this.scene.isMinimapUnlocked()
-          ? '50'
-          : this.scene.isMinimapEnabled()
-            ? 'ON'
-            : 'OFF',
-        action: () => this.scene.purchaseOrToggleMinimap(),
-      },
-      {
-        label: 'Spanish',
-        status: !state.languageSelected ? '200' : i18n.getCurrentLanguage() === 'es' ? 'ON' : 'OFF',
-        action: () => this.scene.toggleLanguage(),
-      },
-    ];
-    utilities.forEach((utility, index) => {
-      const rect: UiRect = {
-        x: content.x + (index % 2) * 168,
-        y: utilY + 24 + Math.floor(index / 2) * 38,
-        width: 154,
-        height: 30,
-      };
-      drawUiCard(g, {
-        rect,
-        fill: uiColors.panelBgInset,
-        stroke: uiColors.panelBorderMuted,
-        alpha: 0.62,
-        strokeAlpha: 0.58,
-      });
-      addUiText(this.scene, this.styleContainer, rect.x + 8, rect.y + 8, utility.label, {
-        color: uiColors.textPrimary,
-        fontSize: '11px',
-      });
-      addUiBadge(
-        this.scene,
-        this.styleContainer,
-        g,
-        { x: rect.x + rect.width - 52, y: rect.y + 7, width: 42, height: 16 },
-        utility.status,
-        uiColors.accentGear,
-        uiColors.accentGear,
-      );
-      this.addStyleClickZone(rect, () => {
-        const result = utility.action();
-        this.announce(result.message, result.color, 1800);
-        this.refresh();
-      });
-    });
-
-    const counterY = snakePreviewRect.y + snakePreviewRect.height + 22;
-    addUiText(
-      this.scene,
-      this.styleContainer,
-      previewRect.x + 28,
-      counterY,
-      `${themes.length} palette${themes.length === 1 ? '' : 's'} owned`,
-      { color: uiColors.textSecondary, fontSize: '13px' },
-    );
-    addUiText(
-      this.scene,
-      this.styleContainer,
-      previewRect.x + 28,
-      counterY + 22,
-      `${hats.length} hat${hats.length === 1 ? '' : 's'} owned`,
-      { color: uiColors.textSecondary, fontSize: '13px' },
-    );
-    addUiText(
-      this.scene,
-      this.styleContainer,
-      previewRect.x + 28,
-      counterY + 64,
-      'Equip owned cosmetics, unlock utilities, and preview your run look.',
-      {
-        color: uiColors.textSecondary,
-        fontSize: '12px',
-        wordWrapWidth: previewRect.width - 56,
-      },
-    );
-    this.detailTitle.setVisible(false);
-    this.detailSubtitle.setVisible(false);
-    this.detailRankText.setVisible(false);
-    this.detailBody.setVisible(false);
+    return y;
   }
 
-  private drawSnakePreview(
+  private renderUtilityCards(
     g: Phaser.GameObjects.Graphics,
-    x: number,
-    y: number,
-    width: number,
-    state: ReturnType<SnakeScene['getSnakeCustomizationState']>,
-  ): void {
-    const height = 132;
-    g.fillStyle(uiColors.panelBgInset, 0.74).fillRoundedRect(x, y, width, height, 8);
-    g.lineStyle(1, uiColors.panelBorderMuted, 0.7).strokeRoundedRect(
-      x + 0.5,
-      y + 0.5,
-      width - 1,
-      height - 1,
-      8,
-    );
-    for (let gridX = x + 12; gridX < x + width - 8; gridX += 18) {
-      g.lineStyle(1, uiColors.panelBorderMuted, 0.24).lineBetween(
-        gridX,
-        y + 10,
-        gridX,
-        y + height - 10,
+    content: UiRect,
+    utilities: Array<{
+      id: string;
+      label: string;
+      cost: number;
+      description: string;
+      unlocked: boolean;
+      enabled: boolean;
+    }>,
+    startY: number,
+  ): number {
+    let y = startY + 28;
+    utilities.forEach((utility) => {
+      const card: UiRect = { x: content.x, y, width: content.width, height: 52 };
+      const status = !utility.unlocked ? `${utility.cost}` : utility.enabled ? 'ON' : 'OWNED';
+      drawUiCard(g, {
+        rect: card,
+        fill: utility.enabled ? 0x5dd6a2 : uiColors.panelBgInset,
+        stroke: utility.enabled ? 0x5dd6a2 : uiColors.panelBorderMuted,
+        alpha: utility.enabled ? 0.12 : 0.62,
+        strokeAlpha: utility.enabled ? 0.7 : 0.58,
+        radius: 5,
+      });
+      // Gear icon
+      const iconX = card.x + 8;
+      const iconY = card.y + 8;
+      const gearColor = utility.enabled ? 0x5dd6a2 : uiColors.accentUtility;
+      g.fillStyle(gearColor, 0.9).fillCircle(iconX + 8, iconY + 8, 6);
+      g.fillStyle(gearColor, 0.9)
+        .fillRect(iconX + 6, iconY, 4, 4)
+        .fillRect(iconX + 6, iconY + 16, 4, 4);
+      g.fillStyle(gearColor, 0.9)
+        .fillRect(iconX, iconY + 6, 4, 4)
+        .fillRect(iconX + 16, iconY + 6, 4, 4);
+      g.fillStyle(gearColor, 0.9)
+        .fillRect(iconX + 2, iconY + 2, 4, 4)
+        .fillRect(iconX + 16, iconY + 2, 4, 4);
+      g.fillStyle(gearColor, 0.9)
+        .fillRect(iconX + 2, iconY + 16, 4, 4)
+        .fillRect(iconX + 16, iconY + 16, 4, 4);
+      // Inner circle (hole)
+      g.fillStyle(uiColors.panelBgInset, 1).fillCircle(iconX + 8, iconY + 8, 3);
+      addUiText(this.scene, this.structuredContainer, card.x + 32, card.y + 8, utility.label, {
+        color: uiColors.textPrimary,
+        fontSize: '12px',
+        fontStyle: 'bold',
+      });
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        card.x + 32,
+        card.y + 24,
+        utility.description,
+        {
+          color: uiColors.textSecondary,
+          fontSize: '10px',
+          wordWrapWidth: content.width - 100,
+        },
       );
-    }
-    for (let gridY = y + 12; gridY < y + height - 8; gridY += 18) {
-      g.lineStyle(1, uiColors.panelBorderMuted, 0.24).lineBetween(
-        x + 10,
-        gridY,
-        x + width - 10,
-        gridY,
-      );
-    }
-    const activeColor = state.activeTheme === 'retro-grid' ? 0x5dd6a2 : uiColors.accentGear;
-    const points = [
-      { x: x + width * 0.26, y: y + height * 0.62 },
-      { x: x + width * 0.38, y: y + height * 0.48 },
-      { x: x + width * 0.52, y: y + height * 0.48 },
-      { x: x + width * 0.64, y: y + height * 0.62 },
-      { x: x + width * 0.62, y: y + height * 0.78 },
-      { x: x + width * 0.48, y: y + height * 0.78 },
-    ];
-    points.forEach((point, index) => {
-      const size = index === 0 ? 24 : 22;
-      g.fillStyle(index === 0 ? uiColors.accentCore : activeColor, 0.96).fillRoundedRect(
-        point.x - size / 2,
-        point.y - size / 2,
-        size,
-        size,
-        6,
-      );
-      g.lineStyle(1, 0xffffff, 0.4).strokeRoundedRect(
-        point.x - size / 2 + 0.5,
-        point.y - size / 2 + 0.5,
-        size - 1,
-        size - 1,
-        6,
-      );
+      const btnX = card.x + card.width - 68;
+      const btnRect: UiRect = { x: btnX, y: card.y + 32, width: 60, height: 28 };
+      addUiButton(this.scene, this.structuredContainer, g, {
+        id: `utility-${utility.id}`,
+        rect: btnRect,
+        label: status,
+        enabled: true,
+        fill: utility.enabled ? 0x5dd6a2 : uiColors.accentGear,
+        stroke: utility.enabled ? 0x5dd6a2 : uiColors.accentGear,
+        disabledFill: uiColors.disabled,
+        disabledStroke: uiColors.locked,
+        textColor: '#ffffff',
+        onClick: () => {
+          if (utility.id === 'quiet-steps') {
+            const result = this.scene.toggleDisableWalkingNoise();
+            this.announce(result.message, result.color, 1800);
+          } else if (utility.id === 'minimap') {
+            const result = this.scene.purchaseOrToggleMinimap();
+            this.announce(result.message, result.color, 1800);
+          }
+          this.refresh();
+        },
+      });
+      y += 56;
     });
-    g.fillStyle(0xff6b6b, 0.95).fillTriangle(
-      points[0].x + 8,
-      points[0].y - 2,
-      points[0].x + 18,
-      points[0].y + 2,
-      points[0].x + 8,
-      points[0].y + 6,
-    );
-    if (state.activeHat) {
-      g.fillStyle(uiColors.accentCore, 0.92).fillTriangle(
-        points[0].x - 6,
-        points[0].y - 18,
-        points[0].x + 6,
-        points[0].y - 18,
-        points[0].x,
-        points[0].y - 32,
-      );
-    }
+    return y;
   }
 
-  private addStyleClickZone(rect: UiRect, onClick: () => void): void {
-    const zone = this.scene.add
-      .zone(rect.x, rect.y, rect.width, rect.height)
-      .setOrigin(0, 0)
-      .setInteractive({ useHandCursor: true });
-    zone.on('pointerdown', onClick);
-    this.styleContainer.add(zone);
+  private renderLanguageCards(
+    g: Phaser.GameObjects.Graphics,
+    content: UiRect,
+    languages: readonly {
+      id: string;
+      label: string;
+      cost: number;
+      code: string;
+      nativeName: string;
+    }[],
+    state: ReturnType<SnakeScene['getSnakeCustomizationState']>,
+    startY: number,
+  ): number {
+    let y = startY + 28;
+    languages.forEach((lang) => {
+      const card: UiRect = { x: content.x, y, width: content.width, height: 38 };
+      const active = i18n.getCurrentLanguage() === lang.id;
+      const unlocked = state.languageSelected || lang.id === 'en';
+      drawUiCard(g, {
+        rect: card,
+        fill: active ? uiColors.accentGear : uiColors.panelBgInset,
+        stroke: active ? uiColors.accentCore : uiColors.panelBorderMuted,
+        alpha: active ? 0.18 : 0.62,
+        strokeAlpha: active ? 0.9 : 0.58,
+        radius: 5,
+      });
+      // Globe icon
+      const iconX = card.x + 8;
+      const iconY = card.y + 9;
+      g.fillStyle(active ? uiColors.accentCore : uiColors.accentWorld, 0.85)
+        .fillCircle(iconX + 8, iconY + 8, 8)
+        .fillStyle(0xffffff, 0.3)
+        .fillEllipse(iconX + 8, iconY + 8, 2, 16)
+        .fillEllipse(iconX + 8, iconY + 8, 16, 2);
+      addUiText(this.scene, this.structuredContainer, card.x + 32, card.y + 6, lang.nativeName, {
+        color: uiColors.textPrimary,
+        fontSize: '12px',
+        fontStyle: 'bold',
+      });
+      addUiText(this.scene, this.structuredContainer, card.x + 32, card.y + 22, lang.label, {
+        color: uiColors.textSecondary,
+        fontSize: '10px',
+      });
+      const btnX = card.x + card.width - 68;
+      const btnRect: UiRect = { x: btnX, y: card.y + 5, width: 60, height: 28 };
+      addUiButton(this.scene, this.structuredContainer, g, {
+        id: `language-${lang.id}`,
+        rect: btnRect,
+        label: active ? 'ACTIVE' : unlocked ? 'OWNED' : `${lang.cost}`,
+        enabled: true,
+        fill: active ? uiColors.accentCore : uiColors.accentGear,
+        stroke: active ? uiColors.accentCore : uiColors.accentGear,
+        disabledFill: uiColors.disabled,
+        disabledStroke: uiColors.locked,
+        textColor: active ? '#101824' : '#ffffff',
+        onClick: () => {
+          const result = this.scene.toggleLanguage(lang.id);
+          this.announce(result.message, result.color, 1800);
+          this.refresh();
+        },
+      });
+      y += 44;
+    });
+    return y;
+  }
+
+  private renderEmoticonCards(
+    g: Phaser.GameObjects.Graphics,
+    content: UiRect,
+    emoticons: readonly {
+      id: string;
+      label: string;
+      cost: number;
+      symbol: string;
+      description: string;
+    }[],
+    state: ReturnType<SnakeScene['getSnakeCustomizationState']>,
+    startY: number,
+  ): number {
+    let y = startY + 28;
+    emoticons.forEach((emoticon) => {
+      const card: UiRect = { x: content.x, y, width: content.width, height: 38 };
+      const active = state.activeEmoticon === emoticon.id;
+      drawUiCard(g, {
+        rect: card,
+        fill: active ? uiColors.accentGear : uiColors.panelBgInset,
+        stroke: active ? uiColors.accentCore : uiColors.panelBorderMuted,
+        alpha: active ? 0.18 : 0.62,
+        strokeAlpha: active ? 0.9 : 0.58,
+        radius: 5,
+      });
+      // Emoticon symbol in a circular badge
+      const badgeX = card.x + 8;
+      const badgeY = card.y + 5;
+      const badgeR = 14;
+      g.fillStyle(active ? uiColors.accentCore : 0xff6b9d, active ? 0.35 : 0.15)
+        .fillCircle(badgeX + badgeR, badgeY + badgeR, badgeR)
+        .fillStyle(uiColors.panelBgInset, 1)
+        .fillCircle(badgeX + badgeR, badgeY + badgeR, badgeR - 2);
+      addUiText(this.scene, this.structuredContainer, card.x + 6, card.y + 4, emoticon.symbol, {
+        color: active ? '#' + uiColors.accentCore.toString(16).padStart(6, '0') : '#ff6b9d',
+        fontSize: '18px',
+      });
+      addUiText(this.scene, this.structuredContainer, card.x + 36, card.y + 11, emoticon.label, {
+        color: uiColors.textPrimary,
+        fontSize: '12px',
+      });
+      const btnX = card.x + card.width - 68;
+      const btnRect: UiRect = { x: btnX, y: card.y + 5, width: 60, height: 28 };
+      addUiButton(this.scene, this.structuredContainer, g, {
+        id: `emoticon-${emoticon.id}`,
+        rect: btnRect,
+        label: active ? 'ACTIVE' : 'OWNED',
+        enabled: true,
+        fill: active ? uiColors.accentCore : uiColors.accentGear,
+        stroke: active ? uiColors.accentCore : uiColors.accentGear,
+        disabledFill: uiColors.disabled,
+        disabledStroke: uiColors.locked,
+        textColor: active ? '#101824' : '#ffffff',
+        onClick: () => {
+          const result = this.scene.setActiveEmoticon(emoticon.id);
+          this.announce(result.message, result.color, 1800);
+          this.refresh();
+        },
+      });
+      y += 44;
+    });
+    return y;
   }
 
   private clearFactionContent(): void {
@@ -2044,6 +2661,7 @@ export class SkillTreeOverlay {
     const g = this.factionGraphics;
     const factions = this.scene.getFactionCards().filter((faction) => faction.discovered);
     const wards = this.scene.getWardContractsForMenu();
+    const karma = this.scene.getKarmaView();
     const mainRect: UiRect = {
       x: TREE_PADDING.horizontal - 12,
       y: TREE_PADDING.top - 12,
@@ -2069,6 +2687,11 @@ export class SkillTreeOverlay {
       fontSize: '14px',
       fontStyle: 'bold',
     });
+    this.detailTitle.setVisible(false);
+    this.detailSubtitle.setVisible(false);
+    this.detailRankText.setVisible(false);
+    this.detailBody.setVisible(false);
+    this.drawKarmaCard(g, karma);
 
     if (factions.length === 0) {
       addUiText(
@@ -2169,12 +2792,98 @@ export class SkillTreeOverlay {
       });
     }
 
-    this.detailTitle.setText('Factions').setVisible(true);
-    this.detailSubtitle.setText(i18n.getFeatureString('detailStanding')).setVisible(true);
-    this.detailRankText.setText('').setVisible(false);
-    this.detailBody
-      .setText('Standing changes shop access, prices, hostility, and ward availability.')
-      .setVisible(true);
+    this.detailTitle.setVisible(false);
+    this.detailSubtitle.setVisible(false);
+    this.detailRankText.setVisible(false);
+    this.detailBody.setVisible(false);
+  }
+
+  private drawKarmaCard(
+    g: Phaser.GameObjects.Graphics,
+    karma: { value: number; disposition: 'bad' | 'neutral' | 'good' },
+  ): void {
+    const rect: UiRect = {
+      x: this.detailPanel.x + 12,
+      y: this.detailPanel.y + 12,
+      width: this.detailPanel.displayWidth - 24,
+      height: Math.min(210, this.detailPanel.displayHeight - 24),
+    };
+    const accent =
+      karma.disposition === 'good'
+        ? uiColors.success
+        : karma.disposition === 'bad'
+          ? uiColors.danger
+          : uiColors.accentWorld;
+    drawUiCard(g, {
+      rect,
+      fill: uiColors.panelBgInset,
+      stroke: accent,
+      alpha: 0.72,
+      strokeAlpha: 0.78,
+      radius: 8,
+    });
+    addUiText(this.scene, this.factionContainer, rect.x + 12, rect.y + 10, 'KARMA', {
+      color: uiColors.textPrimary,
+      fontSize: '14px',
+      fontStyle: 'bold',
+    });
+    const sign = karma.value > 0 ? '+' : '';
+    addUiText(
+      this.scene,
+      this.factionContainer,
+      rect.x + rect.width - 12,
+      rect.y + 10,
+      `${karma.disposition.toUpperCase()} ${sign}${karma.value}`,
+      { color: `#${accent.toString(16).padStart(6, '0')}`, fontSize: '12px' },
+    ).setOrigin(1, 0);
+
+    const snakeX = rect.x + rect.width / 2;
+    const snakeY = rect.y + 86;
+    const snakeColor = 0x5dd6a2;
+    for (let index = 0; index < 4; index += 1) {
+      g.fillStyle(snakeColor, 0.72 + index * 0.06).fillCircle(snakeX - 38 + index * 17, snakeY, 9);
+    }
+    g.fillStyle(snakeColor, 1).fillCircle(snakeX + 24, snakeY - 2, 13);
+    g.fillStyle(0x071019, 1).fillCircle(snakeX + 29, snakeY - 6, 2);
+    if (karma.disposition === 'good') {
+      g.lineStyle(3, 0xfff3a8, 0.95).strokeEllipse(snakeX + 24, snakeY - 24, 30, 9);
+    } else if (karma.disposition === 'bad') {
+      g.fillStyle(0xff4d5f, 0.98);
+      g.fillTriangle(snakeX + 14, snakeY - 13, snakeX + 17, snakeY - 29, snakeX + 23, snakeY - 14);
+      g.fillTriangle(snakeX + 27, snakeY - 14, snakeX + 35, snakeY - 29, snakeX + 36, snakeY - 10);
+    }
+
+    const barX = rect.x + 16;
+    const barY = rect.y + 142;
+    const barWidth = rect.width - 32;
+    const half = barWidth / 2;
+    g.fillStyle(0x8f2638, 0.9).fillRoundedRect(barX, barY, half, 14, 7);
+    g.fillStyle(0x26784b, 0.9).fillRoundedRect(barX + half, barY, half, 14, 7);
+    g.lineStyle(1, uiColors.panelBorder, 0.9).strokeRoundedRect(
+      barX + 0.5,
+      barY + 0.5,
+      barWidth - 1,
+      13,
+      7,
+    );
+    g.lineStyle(2, 0xffffff, 0.55).lineBetween(barX + half, barY - 2, barX + half, barY + 16);
+    const markerX = barX + ((Phaser.Math.Clamp(karma.value, -100, 100) + 100) / 200) * barWidth;
+    g.fillStyle(0xffffff, 1).fillTriangle(
+      markerX - 5,
+      barY - 6,
+      markerX + 5,
+      barY - 6,
+      markerX,
+      barY + 1,
+    );
+    addUiText(this.scene, this.factionContainer, barX, barY + 22, 'BAD', {
+      color: '#ff7a88',
+      fontSize: '10px',
+    });
+    addUiText(this.scene, this.factionContainer, barX + barWidth, barY + 22, 'GOOD', {
+      color: '#7dff9b',
+      fontSize: '10px',
+    }).setOrigin(1, 0);
   }
 
   private drawStandingBar(
@@ -2209,11 +2918,13 @@ export class SkillTreeOverlay {
 
   private clearStructuredContent(): void {
     for (const child of [...this.structuredContainer.list]) {
-      if (child !== this.structuredGraphics) {
+      if (child !== this.structuredGraphics && child !== this.controllerFocusGraphics) {
         child.destroy();
       }
     }
     this.structuredGraphics.clear();
+    this.controllerFocusGraphics.clear();
+    this.controllerActions = [];
     this.inventoryIndex = [];
     this.questRowMap = [];
     this.spellRowMap = [];
@@ -2259,6 +2970,9 @@ export class SkillTreeOverlay {
       case 'spells':
         this.buildSpellCards(renderRect);
         break;
+      case 'maneuvers':
+        this.buildManeuverCards(renderRect);
+        break;
       case 'cards':
         this.buildCardCollectionCards(renderRect);
         break;
@@ -2271,11 +2985,47 @@ export class SkillTreeOverlay {
       case 'people':
         this.buildPeopleCards(renderRect);
         break;
+      case 'companions':
+        this.buildCompanionCards(renderRect);
+        break;
       case 'destiny':
         this.buildLineCards(renderRect, 'DESTINY', this.handlers.getDestinyView?.() ?? []);
         break;
+      case 'atmosphere':
+        this.buildAtmospherePanel(renderRect, this.handlers.getAtmosphereView?.());
+        break;
       case 'artifacts':
         this.buildArtifactCards(renderRect);
+        break;
+      case 'controls':
+        this.buildControlsCards(renderRect);
+        break;
+      case 'calendar':
+        this.buildCalendarPanel(renderRect);
+        break;
+      case 'cheats':
+        this.buildCheatsCards(renderRect);
+        break;
+      case 'cosmetics':
+        this.buildCosmeticsContent();
+        break;
+      case 'spotify':
+        this.detailTitle.setText('Spotify').setVisible(true);
+        this.detailSubtitle.setText('Embedded Player').setVisible(true);
+        this.detailRankText.setText('').setVisible(false);
+        this.detailBody
+          .setText(
+            'The player is parked off-screen when gameplay resumes so the same iframe survives.',
+          )
+          .setVisible(true);
+        break;
+      case 'youtube':
+        this.detailTitle.setText('YouTube').setVisible(true);
+        this.detailSubtitle.setText('Top-Right Video').setVisible(true);
+        this.detailRankText.setText('').setVisible(false);
+        this.detailBody
+          .setText('Load a YouTube URL here, then resume to keep the video above the game UI.')
+          .setVisible(true);
         break;
       case 'info':
         this.buildLineCards(renderRect, 'SYSTEM INFO', [
@@ -2303,6 +3053,8 @@ export class SkillTreeOverlay {
         );
         break;
     }
+    this.normalizeControllerActionIndex();
+    this.drawControllerFocus();
   }
 
   private addStructuredZone(rect: UiRect, onClick: () => void): void {
@@ -2312,14 +3064,35 @@ export class SkillTreeOverlay {
       .setInteractive({ useHandCursor: true });
     zone.on('pointerdown', onClick);
     this.structuredContainer.add(zone);
+    this.addControllerAction(rect, onClick);
+  }
+
+  private addControllerAction(rect: UiRect, onClick: () => void): void {
+    this.controllerActions.push({ rect: { ...rect }, onClick });
+  }
+
+  private normalizeControllerActionIndex(): void {
+    this.controllerActionIndex = Phaser.Math.Clamp(
+      this.controllerActionIndex,
+      0,
+      Math.max(0, this.controllerActions.length - 1),
+    );
+  }
+
+  setInputMode(mode: InputModeId): void {
+    this.currentInputMode = mode;
+    this.achievementTree?.setControllerMode(mode === 'controller');
+    if (mode === 'controller') {
+      this.activeControlsMode = 'controller';
+    }
+    this.drawControllerFocus();
+    if (this.visible) {
+      this.refresh();
+    }
   }
 
   private getStructuredScrollOffset(): number {
     return this.scrollOffsets[this.activeTab] ?? 0;
-  }
-
-  private toStructuredY(y: number): number {
-    return y - this.getStructuredScrollOffset();
   }
 
   private isStructuredRectVisible(rect: UiRect, viewport: UiRect): boolean {
@@ -2509,6 +3282,22 @@ export class SkillTreeOverlay {
     }
     if (modifiers.gunEnabled) {
       push('Sidearm', 'ON', 'Enables the weapon action for ranged shots.', uiColors.danger);
+    }
+    if (modifiers.activeTool === 'gopro') {
+      push(
+        'Active tool',
+        'GoPro',
+        'Records a timed gameplay clip for optional posting.',
+        uiColors.accentWorld,
+      );
+    }
+    if (modifiers.activeTool === 'bomb-slingshot') {
+      push(
+        'Active tool',
+        'Bombs',
+        'Throws inventory bombs in any direction before they detonate.',
+        uiColors.danger,
+      );
     }
     if (typeof modifiers.heatResistance === 'number') {
       push(
@@ -2931,7 +3720,7 @@ export class SkillTreeOverlay {
     });
     const items = this.scene.inventory
       .getAllItems()
-      .filter(([itemId]) => (getItem(itemId) as any)?.kind !== 'equipment');
+      .filter(([itemId]) => (getItem(itemId) as Item | undefined)?.kind !== 'equipment');
     addUiBadge(
       this.scene,
       this.structuredContainer,
@@ -2954,7 +3743,7 @@ export class SkillTreeOverlay {
       );
     }
     for (const [itemId, count] of items.slice(0, 12)) {
-      const item = getItem(itemId) as any;
+      const item = getItem(itemId) as Item | undefined;
       const card: UiRect = { x: content.x, y, width: content.width, height: 48 };
       const visible = this.isStructuredRectVisible(card, rect);
       if (visible) {
@@ -3011,147 +3800,6 @@ export class SkillTreeOverlay {
     this.setStructuredContentHeight(content, unscrolledBottom);
   }
 
-  private buildInventoryCards(rect: UiRect): void {
-    const content = insetRect(rect, 14);
-    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'INVENTORY', {
-      color: uiColors.textPrimary,
-      fontSize: '14px',
-      fontStyle: 'bold',
-    });
-    const items = this.scene.inventory.getAllItems();
-    const slots: EquipmentSlot[] = [
-      'weapon',
-      'boots',
-      'helm',
-      'ring',
-      'gloves',
-      'cloak',
-      'belt',
-      'amulet',
-    ] as unknown as EquipmentSlot[];
-    let y = content.y + 30;
-    for (const slot of slots) {
-      const current = this.scene.inventory.getEquipped(slot);
-      if (!current) continue;
-      const card: UiRect = { x: content.x, y, width: content.width, height: 30 };
-      drawUiCard(this.structuredGraphics, {
-        rect: card,
-        fill: uiColors.panelBgInset,
-        stroke: uiColors.accentGear,
-        alpha: 0.62,
-        strokeAlpha: 0.6,
-      });
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        card.x + 10,
-        card.y + 8,
-        `Unequip ${(slot as string).toUpperCase()}`,
-        { color: uiColors.textPrimary, fontSize: '12px' },
-      );
-      addUiBadge(
-        this.scene,
-        this.structuredContainer,
-        this.structuredGraphics,
-        { x: card.x + card.width - 82, y: card.y + 6, width: 70, height: 18 },
-        'EQUIPPED',
-        uiColors.accentGear,
-        uiColors.accentGear,
-      );
-      this.addStructuredZone(card, () => {
-        const ok = this.scene.unequipSlot(slot);
-        this.announce(
-          ok ? `Unequipped ${slot}.` : `Could not unequip ${slot}.`,
-          ok ? '#9ad1ff' : '#ff6b6b',
-          1600,
-        );
-        this.refresh();
-      });
-      y += 36;
-    }
-    if (items.length === 0) {
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        content.x,
-        y,
-        i18n.getFeatureString('noItemsInInventory'),
-        {
-          color: uiColors.textMuted,
-          fontSize: '13px',
-        },
-      );
-    }
-    for (const [itemId, count] of items.slice(0, 10)) {
-      const item = getItem(itemId) as any;
-      const card: UiRect = { x: content.x, y, width: content.width, height: 42 };
-      const equipped =
-        item?.kind === 'equipment' &&
-        this.scene.inventory.getEquipped(item.slot as EquipmentSlot) === itemId;
-      drawUiCard(this.structuredGraphics, {
-        rect: card,
-        fill: equipped ? uiColors.accentGear : uiColors.panelBgInset,
-        stroke: equipped ? uiColors.accentCore : uiColors.panelBorderMuted,
-        alpha: equipped ? 0.16 : 0.62,
-        strokeAlpha: equipped ? 0.9 : 0.58,
-      });
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        card.x + 10,
-        card.y + 7,
-        item?.name ?? itemId,
-        {
-          color: uiColors.textPrimary,
-          fontSize: '12px',
-        },
-      );
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        card.x + 10,
-        card.y + 24,
-        `${item?.category ?? item?.kind ?? 'item'} // x${count}`,
-        { color: uiColors.textMuted, fontSize: '10px' },
-      );
-      addUiBadge(
-        this.scene,
-        this.structuredContainer,
-        this.structuredGraphics,
-        { x: card.x + card.width - 78, y: card.y + 11, width: 66, height: 18 },
-        equipped ? 'ON' : item?.kind === 'equipment' ? 'EQUIP' : 'VIEW',
-        equipped ? uiColors.accentCore : uiColors.accentGear,
-        equipped ? uiColors.accentCore : uiColors.accentGear,
-        equipped ? '#101824' : '#ffffff',
-      );
-      this.addStructuredZone(card, () => {
-        this.selectedInventoryItemId = itemId;
-        if (item?.kind === 'equipment') {
-          const ok = equipped
-            ? this.scene.unequipSlot(item.slot as EquipmentSlot)
-            : this.scene.equipItem(itemId);
-          this.announce(
-            ok
-              ? `${item.name} ${equipped ? 'unequipped' : 'equipped'}.`
-              : `Cannot equip ${item.name}.`,
-            ok ? '#5dd6a2' : '#ff6b6b',
-            1600,
-          );
-          this.refresh();
-        } else {
-          this.showInventoryItemDetails();
-        }
-      });
-      y += 48;
-    }
-    this.detailTitle.setText('Inventory').setVisible(true);
-    this.detailSubtitle.setText('Gear and Consumables').setVisible(true);
-    this.detailRankText.setText('').setVisible(false);
-    this.detailBody
-      .setText('Click equipment to equip or unequip. Select consumables for details.')
-      .setVisible(true);
-  }
-
   private buildSpellCards(rect: UiRect): void {
     const views = this.handlers.getSpellSlotView?.() ?? [];
     const content = insetRect(rect, 14);
@@ -3166,7 +3814,7 @@ export class SkillTreeOverlay {
       this.structuredContainer,
       this.structuredGraphics,
       { x: content.x + content.width - 138, y: content.y - 2, width: 126, height: 20 },
-      `Q: ${bound?.label ?? 'Empty'}`,
+      `${this.primaryAbilityKeyLabel()}: ${bound?.label ?? 'Empty'}`,
       uiColors.accentArcana,
       uiColors.accentArcana,
     );
@@ -3229,7 +3877,216 @@ export class SkillTreeOverlay {
     this.detailTitle.setText(i18n.getFeatureString('detailQSlot')).setVisible(true);
     this.detailSubtitle.setText(i18n.getFeatureString('detailSpellsTitle')).setVisible(true);
     this.detailRankText.setText('').setVisible(false);
-    this.detailBody.setText('Click an available ability to bind it to Q.').setVisible(true);
+    this.detailBody
+      .setText(`Click an available ability to bind it to ${this.primaryAbilityKeyLabel()}.`)
+      .setVisible(true);
+  }
+
+  private buildManeuverCards(rect: UiRect): void {
+    const state = this.handlers.getManeuverState?.();
+    const learnedIds = new Set<ManeuverId>(state?.learnedIds ?? []);
+    const equippedId = state?.equippedId ?? null;
+    const cooldownRemaining = Math.max(0, Number(state?.cooldownRemaining ?? 0));
+    const activeGhostSteps = Math.max(
+      0,
+      Number(this.scene.getFlag<number>('maneuvers.activeGhostSteps') ?? 0),
+    );
+    const control = getPrimaryBindingLabelForDisplay('maneuver.activate', this.currentInputMode);
+    const content = insetRect(rect, 14);
+
+    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'MANEUVERS', {
+      color: uiColors.textPrimary,
+      fontSize: '14px',
+      fontStyle: 'bold',
+    });
+    addUiBadge(
+      this.scene,
+      this.structuredContainer,
+      this.structuredGraphics,
+      { x: content.x + content.width - 170, y: content.y - 2, width: 158, height: 20 },
+      `${control}: ${equippedId ? getManeuverDefinition(equippedId).shortLabel : 'NONE'}`,
+      uiColors.accentFlow,
+      uiColors.accentFlow,
+    );
+
+    const statusLine =
+      activeGhostSteps > 0
+        ? `Ghost active: ${activeGhostSteps} steps`
+        : cooldownRemaining > 0
+          ? `Shared cooldown: ${cooldownRemaining}/${MANEUVER_SHARED_COOLDOWN_STEPS} steps`
+          : equippedId
+            ? 'Ready'
+            : 'No maneuver equipped';
+    addUiText(this.scene, this.structuredContainer, content.x, content.y + 24, statusLine, {
+      color: cooldownRemaining > 0 ? '#fff3a8' : '#9ad1ff',
+      fontSize: '11px',
+    });
+
+    let y = content.y + 48;
+    for (const definition of MANEUVER_DEFINITIONS) {
+      const learned = learnedIds.has(definition.id);
+      const equipped = equippedId === definition.id;
+      const card: UiRect = { x: content.x, y, width: content.width, height: 70 };
+      const accent = equipped
+        ? uiColors.accentCore
+        : learned
+          ? uiColors.accentFlow
+          : uiColors.panelBorderMuted;
+      drawUiCard(this.structuredGraphics, {
+        rect: card,
+        fill: equipped ? uiColors.accentFlow : uiColors.panelBgInset,
+        stroke: accent,
+        alpha: equipped ? 0.16 : 0.62,
+        strokeAlpha: learned ? 0.82 : 0.42,
+        radius: 7,
+      });
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        card.x + 10,
+        card.y + 8,
+        `${definition.name} ${equipped ? '(equipped)' : learned ? '(learned)' : '(locked)'}`,
+        {
+          color: uiColors.textPrimary,
+          fontSize: '12px',
+          fontStyle: 'bold',
+        },
+      );
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        card.x + 10,
+        card.y + 27,
+        definition.description,
+        {
+          color: learned ? uiColors.textSecondary : uiColors.textMuted,
+          fontSize: '10px',
+          wordWrapWidth: card.width - 116,
+        },
+      );
+      const actionRect: UiRect = {
+        x: card.x + card.width - 86,
+        y: card.y + 13,
+        width: 74,
+        height: 20,
+      };
+      addUiBadge(
+        this.scene,
+        this.structuredContainer,
+        this.structuredGraphics,
+        actionRect,
+        equipped ? 'ACTIVE' : learned ? 'EQUIP' : 'TRAIN',
+        learned ? uiColors.accentFlow : uiColors.locked,
+        learned ? uiColors.accentFlow : uiColors.locked,
+      );
+      addUiBadge(
+        this.scene,
+        this.structuredContainer,
+        this.structuredGraphics,
+        { x: card.x + card.width - 86, y: card.y + 39, width: 74, height: 18 },
+        `${definition.cooldownSteps} STEP`,
+        uiColors.panelBorderMuted,
+        uiColors.panelBorderMuted,
+        uiColors.textSecondary,
+      );
+      this.addStructuredZone(
+        { x: card.x, y: card.y, width: card.width - 96, height: card.height },
+        () => {
+          this.populateManeuverDetails(definition.id, learned, equipped, control);
+        },
+      );
+      this.addStructuredZone(actionRect, () => {
+        if (!learned) {
+          this.populateManeuverDetails(definition.id, learned, equipped, control);
+          this.announce(
+            'Find a Physical Trainer in a human town to learn this maneuver.',
+            '#ffd166',
+          );
+          return;
+        }
+        const result = this.handlers.onEquipManeuver?.(definition.id) ?? {
+          ok: false,
+          message: 'Maneuver equipment is unavailable.',
+          color: '#ff6b6b',
+        };
+        this.announce(result.message, result.color, 1800);
+        this.refresh();
+      });
+      y += 78;
+    }
+
+    this.setStructuredContentHeight(content, y);
+    this.detailTitle
+      .setText(equippedId ? getManeuverDefinition(equippedId).name : 'Maneuvers')
+      .setVisible(true);
+    this.detailSubtitle
+      .setText(equippedId ? 'Equipped movement technique' : 'No maneuver equipped')
+      .setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    this.detailBody
+      .setText(
+        [
+          'Learn maneuvers from Physical Trainers in human towns.',
+          'Click a maneuver for detailed controls and rules.',
+          `Only one can be equipped. Use ${control} to activate the equipped maneuver.`,
+          `All maneuvers share a ${MANEUVER_SHARED_COOLDOWN_STEPS}-ordinary-step cooldown that survives equipment swaps.`,
+        ].join('\n\n'),
+      )
+      .setVisible(true);
+  }
+
+  private populateManeuverDetails(
+    id: ManeuverId,
+    learned: boolean,
+    equipped: boolean,
+    control: string,
+  ): void {
+    const definition = getManeuverDefinition(id);
+    this.detailTitle.setText(definition.name).setVisible(true);
+    this.detailSubtitle
+      .setText(equipped ? 'Equipped maneuver' : learned ? 'Learned maneuver' : 'Locked maneuver')
+      .setVisible(true);
+    this.detailRankText
+      .setText(
+        `${definition.priceScore} SCORE TRAINING / ${definition.cooldownSteps} STEP COOLDOWN`,
+      )
+      .setVisible(true);
+    this.detailBody.setText(this.buildManeuverDetailText(id, control)).setVisible(true);
+  }
+
+  private buildManeuverDetailText(id: ManeuverId, control: string): string {
+    const shared = `All maneuvers share a ${MANEUVER_SHARED_COOLDOWN_STEPS}-ordinary-step cooldown.`;
+    switch (id) {
+      case 'dash':
+        return [
+          'Burst straight ahead seven tiles.',
+          'Dash ignores water, enemies, bullets, and your own body while checking the lane.',
+          'It only fails if the lane crosses a room boundary or a barrier tile.',
+          `${control} activates Dash immediately.`,
+          shared,
+        ].join('\n\n');
+      case 'ghost':
+        return [
+          'Phase for eight normal movement steps with the same transparent snake look as revival.',
+          'Ghost uses phase-style protection while active, then starts the shared cooldown when it ends.',
+          `${control} activates Ghost immediately.`,
+          shared,
+        ].join('\n\n');
+      case 'sidewinder':
+        return [
+          'Shift three tiles to your relative left or right while keeping your current facing.',
+          `Press ${control} first to prime Sidewinder, then press a left or right direction relative to your current travel direction.`,
+          'Example: while moving up, left shifts west and right shifts east.',
+          'The side lane ignores water, enemies, bullets, and your own body, but not barrier tiles.',
+          shared,
+        ].join('\n\n');
+      case 'rewind':
+        return [
+          'Restore your body, facing, room, and hearts from the stable same-length snapshot ten movement steps back.',
+          `${control} activates Rewind immediately when enough history exists.`,
+          shared,
+        ].join('\n\n');
+    }
   }
 
   private buildCardCollectionCards(rect: UiRect): void {
@@ -3299,6 +4156,7 @@ export class SkillTreeOverlay {
 
   private buildQuestCards(rect: UiRect): void {
     const quests = this.scene.getAcceptedQuestList();
+    const civicOffices = this.handlers.getCivicOfficeSummaries?.() ?? [];
     const content = insetRect(rect, 14);
     addUiText(this.scene, this.structuredContainer, content.x, content.y, 'QUESTS', {
       color: uiColors.textPrimary,
@@ -3350,7 +4208,9 @@ export class SkillTreeOverlay {
         },
       );
       this.addStructuredZone(card, () => {
-        const setter = (this.scene as any).setActiveQuestMarkerQuestId;
+        const setter = (
+          this.scene as unknown as Record<string, (...args: unknown[]) => unknown | undefined>
+        ).setActiveQuestMarkerQuestId;
         const ok = typeof setter === 'function' ? setter.call(this.scene, quest.id) : false;
         this.announce(
           ok ? 'Tracking quest marker.' : 'Quest marker unavailable.',
@@ -3360,6 +4220,38 @@ export class SkillTreeOverlay {
         this.refresh();
       });
       y += 70;
+    }
+    if (civicOffices.length > 0) {
+      y += 8;
+      addUiText(this.scene, this.structuredContainer, content.x, y, 'CIVIC OFFICES', {
+        color: uiColors.textPrimary,
+        fontSize: '13px',
+        fontStyle: 'bold',
+      });
+      y += 26;
+      for (const office of civicOffices.slice(0, 4)) {
+        const card: UiRect = { x: content.x, y, width: content.width, height: 42 };
+        drawUiCard(this.structuredGraphics, {
+          rect: card,
+          fill: uiColors.panelBgInset,
+          stroke: uiColors.accentWorld,
+          alpha: 0.58,
+          strokeAlpha: 0.5,
+        });
+        addUiText(
+          this.scene,
+          this.structuredContainer,
+          card.x + 10,
+          card.y + 10,
+          `Mayor of ${office.townName} - ${office.platformLabel}`,
+          {
+            color: uiColors.textSecondary,
+            fontSize: '11px',
+            wordWrapWidth: card.width - 20,
+          },
+        );
+        y += 48;
+      }
     }
     this.setStructuredContentHeight(content, y);
     this.detailTitle.setText('Quests').setVisible(true);
@@ -3440,8 +4332,14 @@ export class SkillTreeOverlay {
         fontSize: '13px',
       });
     }
-    for (const view of views.slice(0, 6)) {
-      const card: UiRect = { x: content.x, y, width: content.width, height: 48 };
+    for (const view of views.slice(0, 30)) {
+      const details = [
+        view.faction ? `Faction: ${view.faction}` : '',
+        view.memories[0] ? `Remembers: ${view.memories[0]}` : '',
+        view.knownFacts[0] ? `Knows: ${view.knownFacts[0]}` : '',
+      ].filter(Boolean);
+      const cardHeight = details.length > 0 ? 64 : 48;
+      const card: UiRect = { x: content.x, y, width: content.width, height: cardHeight };
       drawUiCard(this.structuredGraphics, {
         rect: card,
         fill: uiColors.panelBgInset,
@@ -3464,7 +4362,21 @@ export class SkillTreeOverlay {
           fontSize: '10px',
         },
       );
-      y += 54;
+      if (details.length > 0) {
+        addUiText(
+          this.scene,
+          this.structuredContainer,
+          card.x + 10,
+          card.y + 42,
+          details.join(' // '),
+          {
+            color: '#7895b4',
+            fontSize: '9px',
+            wordWrapWidth: card.width - 20,
+          },
+        );
+      }
+      y += cardHeight + 6;
     }
     this.setStructuredContentHeight(content, y);
     this.detailTitle.setText(i18n.getFeatureString('peopleTitle')).setVisible(true);
@@ -3472,6 +4384,108 @@ export class SkillTreeOverlay {
     this.detailRankText.setText('').setVisible(false);
     this.detailBody
       .setText('NPC memories, social ties, reveals, and mood summaries.')
+      .setVisible(true);
+  }
+
+  private buildCompanionCards(rect: UiRect): void {
+    const companions = this.handlers.getAnimalCompanionView?.() ?? [];
+    const content = insetRect(rect, 14);
+    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'COMPANION HERD', {
+      color: uiColors.textPrimary,
+      fontSize: '14px',
+      fontStyle: 'bold',
+    });
+    addUiText(
+      this.scene,
+      this.structuredContainer,
+      content.x + content.width,
+      content.y + 2,
+      `${companions.length}/5`,
+      { color: '#ffbdfd', fontSize: '10px', align: 'right' },
+    );
+    let y = content.y + 30;
+    if (companions.length === 0) {
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        content.x,
+        y,
+        'No companions yet.\nApproach foxes, deer, jackalopes, wolves, or coyotes with the required rope or lead.',
+        {
+          color: uiColors.textMuted,
+          fontSize: '12px',
+          wordWrapWidth: content.width,
+        },
+      );
+      y += 70;
+    }
+
+    for (const companion of companions) {
+      const card: UiRect = { x: content.x, y, width: content.width, height: 82 };
+      drawUiCard(this.structuredGraphics, {
+        rect: card,
+        fill: uiColors.panelBgInset,
+        stroke: companion.bond >= 20 ? uiColors.accentArcana : uiColors.accentSocial,
+        alpha: 0.68,
+        strokeAlpha: 0.75,
+      });
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        card.x + 10,
+        card.y + 8,
+        `${companion.name.toUpperCase()} // ${companion.bondTier}`,
+        { color: uiColors.textPrimary, fontSize: '11px', fontStyle: 'bold' },
+      );
+      const progress = companion.nextBondAt
+        ? `Bond ${companion.bond}/${companion.nextBondAt}`
+        : `Bond ${companion.bond} MAX`;
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        card.x + 10,
+        card.y + 30,
+        `${progress} // Fed ${companion.timesFed} // Hunting +${companion.huntingBonusPercent}%`,
+        { color: uiColors.textMuted, fontSize: '9px' },
+      );
+      addUiButton(this.scene, this.structuredContainer, this.structuredGraphics, {
+        id: `feed-companion:${companion.id}`,
+        rect: { x: card.x + 10, y: card.y + 52, width: 112, height: 22 },
+        label: 'Feed',
+        enabled: true,
+        fill: uiColors.accentSocial,
+        stroke: uiColors.accentSocial,
+        disabledFill: uiColors.panelBgSecondary,
+        disabledStroke: uiColors.panelBorderMuted,
+        onClick: () => {
+          this.handlers.onFeedAnimalCompanion?.(companion.id);
+          this.buildStructuredTabContent('companions');
+        },
+      });
+      addUiButton(this.scene, this.structuredContainer, this.structuredGraphics, {
+        id: `release-companion:${companion.id}`,
+        rect: { x: card.x + 130, y: card.y + 52, width: 112, height: 22 },
+        label: 'Release',
+        enabled: true,
+        fill: uiColors.warning,
+        stroke: uiColors.warning,
+        disabledFill: uiColors.panelBgSecondary,
+        disabledStroke: uiColors.panelBorderMuted,
+        onClick: () => {
+          this.handlers.onReleaseAnimalCompanion?.(companion.id);
+          this.buildStructuredTabContent('companions');
+        },
+      });
+      y += 88;
+    }
+    this.setStructuredContentHeight(content, y);
+    this.detailTitle.setText('Companion Herd').setVisible(true);
+    this.detailSubtitle.setText('Tame, feed, bond, and hunt together').setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    this.detailBody
+      .setText(
+        'Tamed animals follow between rooms. Feeding raises bond tiers; stronger bonds increase animal-drop chances for the entire herd.',
+      )
       .setVisible(true);
   }
 
@@ -3568,25 +4582,859 @@ export class SkillTreeOverlay {
     this.setStructuredContentHeight(content, y);
   }
 
+  private buildAtmospherePanel(rect: UiRect, view: ResolvedAtmosphereView | undefined): void {
+    const content = insetRect(rect, 14);
+    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'ATMOSPHERE', {
+      color: uiColors.textPrimary,
+      fontSize: '14px',
+      fontStyle: 'bold',
+    });
+    if (!view) {
+      this.buildLineCards(rect, 'ATMOSPHERE', ['Atmosphere data is unavailable.']);
+      return;
+    }
+
+    const clockTop = content.y + 30;
+    const clockCardHeight = 132;
+    const gap = 10;
+    const clockWidth = Math.floor((content.width - gap) / 2);
+    const dayRect: UiRect = {
+      x: content.x,
+      y: clockTop,
+      width: clockWidth,
+      height: clockCardHeight,
+    };
+    const seasonRect: UiRect = {
+      x: content.x + clockWidth + gap,
+      y: clockTop,
+      width: content.width - clockWidth - gap,
+      height: clockCardHeight,
+    };
+    this.drawAtmosphereClockCard(dayRect, 'DAY CLOCK', this.getDayClockProgress(view), [
+      { angle: -90, label: 'Dawn', color: 0xffc9a0 },
+      { angle: 0, label: 'Day', color: 0xfff3a8 },
+      { angle: 90, label: 'Dusk', color: 0xff9f6e },
+      { angle: 180, label: 'Night', color: 0x9ad1ff },
+    ]);
+    this.drawAtmosphereClockCard(seasonRect, 'SEASON CLOCK', this.getSeasonClockProgress(view), [
+      { angle: -90, label: 'Spring', color: 0x8ff0a4 },
+      { angle: 0, label: 'Summer', color: 0xffd166 },
+      { angle: 90, label: 'Autumn', color: 0xff9f6e },
+      { angle: 180, label: 'Winter', color: 0x9ad1ff },
+    ]);
+
+    const state = view.state;
+    addUiText(
+      this.scene,
+      this.structuredContainer,
+      dayRect.x + 12,
+      dayRect.y + dayRect.height - 24,
+      view.playerSummary.timeLabel,
+      { color: uiColors.textPrimary, fontSize: '12px', fontStyle: 'bold' },
+    );
+    addUiText(
+      this.scene,
+      this.structuredContainer,
+      seasonRect.x + 12,
+      seasonRect.y + seasonRect.height - 24,
+      `Day ${state.worldDay + 1} / ${view.playerSummary.seasonLabel}`,
+      { color: uiColors.textPrimary, fontSize: '12px', fontStyle: 'bold' },
+    );
+
+    const weatherRect: UiRect = {
+      x: content.x,
+      y: clockTop + clockCardHeight + 10,
+      width: content.width,
+      height: 78,
+    };
+    this.drawAtmosphereWeatherCard(weatherRect, view);
+
+    let y = weatherRect.y + weatherRect.height + 14;
+    for (const line of this.formatAtmosphereInfo(view)) {
+      const card: UiRect = { x: content.x, y, width: content.width, height: 34 };
+      drawUiCard(this.structuredGraphics, {
+        rect: card,
+        fill: uiColors.panelBgInset,
+        stroke: TAB_ACCENTS[this.activePrimaryTab],
+        alpha: 0.56,
+        strokeAlpha: 0.5,
+      });
+      addUiText(this.scene, this.structuredContainer, card.x + 10, card.y + 9, line, {
+        color: uiColors.textSecondary,
+        fontSize: '11px',
+        wordWrapWidth: card.width - 20,
+      });
+      y += 40;
+    }
+    this.setStructuredContentHeight(content, y);
+    this.detailTitle.setText('Atmosphere').setVisible(true);
+    this.detailSubtitle
+      .setText(view.sheltered ? 'Sheltered room' : 'Live world weather')
+      .setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    this.detailBody
+      .setText(
+        view.sheltered
+          ? 'This room is an interior or cave instance, so direct sky weather does not render here.'
+          : 'Global weather rolls through the world, then the current biome translates it into a local visual.',
+      )
+      .setVisible(true);
+  }
+
+  private drawAtmosphereClockCard(
+    rect: UiRect,
+    title: string,
+    progress: number,
+    markers: readonly { angle: number; label: string; color: number }[],
+  ): void {
+    drawUiCard(this.structuredGraphics, {
+      rect,
+      fill: uiColors.panelBgInset,
+      stroke: TAB_ACCENTS[this.activePrimaryTab],
+      alpha: 0.66,
+      strokeAlpha: 0.55,
+    });
+    addUiText(this.scene, this.structuredContainer, rect.x + 10, rect.y + 8, title, {
+      color: uiColors.textPrimary,
+      fontSize: '11px',
+      fontStyle: 'bold',
+    });
+    const cx = rect.x + rect.width / 2;
+    const cy = rect.y + 66;
+    const radius = 36;
+    this.structuredGraphics.fillStyle(0x071022, 0.9).fillCircle(cx, cy, radius + 6);
+    this.structuredGraphics
+      .lineStyle(2, TAB_ACCENTS[this.activePrimaryTab], 0.75)
+      .strokeCircle(cx, cy, radius + 6);
+    for (const marker of markers) {
+      const radians = Phaser.Math.DegToRad(marker.angle);
+      const mx = cx + Math.cos(radians) * radius;
+      const my = cy + Math.sin(radians) * radius;
+      this.structuredGraphics.fillStyle(marker.color, 0.9).fillCircle(mx, my, 4);
+    }
+    const handAngle = progress * Math.PI * 2 - Math.PI / 2;
+    const hx = cx + Math.cos(handAngle) * (radius - 4);
+    const hy = cy + Math.sin(handAngle) * (radius - 4);
+    this.structuredGraphics.lineStyle(3, 0xfff3a8, 0.95).lineBetween(cx, cy, hx, hy);
+    this.structuredGraphics.fillStyle(0xfff3a8, 1).fillCircle(cx, cy, 4);
+  }
+
+  private drawAtmosphereWeatherCard(rect: UiRect, view: ResolvedAtmosphereView): void {
+    drawUiCard(this.structuredGraphics, {
+      rect,
+      fill: uiColors.panelBgInset,
+      stroke: TAB_ACCENTS[this.activePrimaryTab],
+      alpha: 0.66,
+      strokeAlpha: 0.55,
+    });
+    addUiText(this.scene, this.structuredContainer, rect.x + 10, rect.y + 8, 'SKY', {
+      color: uiColors.textPrimary,
+      fontSize: '11px',
+      fontStyle: 'bold',
+    });
+    const iconRect = { x: rect.x + 12, y: rect.y + 24, width: 44, height: 42 };
+    this.drawWeatherIcon(view.weatherIcon, iconRect);
+    addUiText(
+      this.scene,
+      this.structuredContainer,
+      rect.x + 66,
+      rect.y + 26,
+      view.playerSummary.skyLabel,
+      { color: uiColors.textPrimary, fontSize: '13px', fontStyle: 'bold' },
+    );
+    addUiText(
+      this.scene,
+      this.structuredContainer,
+      rect.x + 66,
+      rect.y + 45,
+      `${view.playerSummary.localLabel} · ${view.playerSummary.lightLabel}`,
+      { color: uiColors.textSecondary, fontSize: '11px', wordWrapWidth: rect.width - 80 },
+    );
+  }
+
+  private drawWeatherIcon(
+    icon: ResolvedAtmosphereView['weatherIcon'],
+    rect: { x: number; y: number; width: number; height: number },
+  ): void {
+    const g = this.structuredGraphics;
+    const cx = rect.x + rect.width / 2;
+    const cy = rect.y + rect.height / 2;
+    const cloud = (color = 0xbfd8e8) => {
+      g.fillStyle(color, 0.95).fillCircle(cx - 9, cy, 9);
+      g.fillStyle(color, 0.95).fillCircle(cx, cy - 5, 11);
+      g.fillStyle(color, 0.95).fillCircle(cx + 11, cy, 8);
+      g.fillStyle(color, 0.95).fillRoundedRect(cx - 18, cy, 36, 10, 3);
+    };
+    const rain = (color = 0x7ed6ff) => {
+      g.lineStyle(2, color, 0.9);
+      for (let i = 0; i < 4; i++) {
+        const x = rect.x + 10 + i * 8;
+        g.lineBetween(x, rect.y + 30, x - 4, rect.y + 40);
+      }
+    };
+    if (icon === 'sunny') {
+      g.fillStyle(0xffd166, 1).fillCircle(cx, cy, 11);
+      g.lineStyle(2, 0xfff3a8, 0.9);
+      for (let i = 0; i < 8; i++) {
+        const a = (Math.PI * 2 * i) / 8;
+        g.lineBetween(
+          cx + Math.cos(a) * 15,
+          cy + Math.sin(a) * 15,
+          cx + Math.cos(a) * 20,
+          cy + Math.sin(a) * 20,
+        );
+      }
+      return;
+    }
+    if (icon === 'clear-night') {
+      g.fillStyle(0xdde8ff, 0.95).fillCircle(cx - 2, cy, 12);
+      g.fillStyle(0x071022, 1).fillCircle(cx + 4, cy - 2, 12);
+      g.fillStyle(0xfff3a8, 1).fillCircle(rect.x + 34, rect.y + 10, 2);
+      return;
+    }
+    if (icon === 'storm' || icon === 'rain' || icon === 'neon-rain' || icon === 'oil-rain') {
+      cloud(icon === 'oil-rain' ? 0x313031 : 0xbfd8e8);
+      rain(icon === 'neon-rain' ? 0xff4fd8 : icon === 'oil-rain' ? 0xd28b45 : 0x7ed6ff);
+      if (icon === 'storm') {
+        g.fillStyle(0xfff3a8, 1);
+        g.fillTriangle(cx + 2, cy + 10, cx - 4, cy + 27, cx + 8, cy + 18);
+      }
+      return;
+    }
+    if (icon === 'fog') {
+      g.lineStyle(3, 0xcfe1ec, 0.85);
+      for (let i = 0; i < 4; i++)
+        g.lineBetween(
+          rect.x + 5,
+          rect.y + 12 + i * 8,
+          rect.x + rect.width - 5,
+          rect.y + 12 + i * 8,
+        );
+      return;
+    }
+    if (icon === 'heatwave' || icon === 'steam') {
+      g.lineStyle(2, icon === 'steam' ? 0xffd4b8 : 0xff9f6e, 0.9);
+      for (let i = 0; i < 4; i++) {
+        const x = rect.x + 10 + i * 8;
+        g.beginPath();
+        g.moveTo(x, rect.y + 34);
+        g.lineTo(x + 4, rect.y + 24);
+        g.lineTo(x, rect.y + 14);
+        g.stroke();
+      }
+      return;
+    }
+    if (icon === 'snow' || icon === 'whiteout' || icon === 'coldfront') {
+      cloud(0xe8f7ff);
+      g.fillStyle(0xf4fbff, 1);
+      for (let i = 0; i < 5; i++) g.fillCircle(rect.x + 8 + i * 7, rect.y + 34 + (i % 2) * 4, 2);
+      return;
+    }
+    if (icon === 'dry-lightning' || icon === 'eclipse' || icon === 'blood-moon') {
+      g.fillStyle(
+        icon === 'blood-moon' ? 0xa3152b : icon === 'eclipse' ? 0x11131a : 0xfff3a8,
+        1,
+      ).fillCircle(cx, cy, 14);
+      if (icon === 'dry-lightning') g.fillTriangle(cx + 2, cy - 14, cx - 6, cy + 8, cx + 8, cy + 2);
+      return;
+    }
+    if (icon === 'aurora' || icon === 'meteor-shower') {
+      g.lineStyle(3, icon === 'aurora' ? 0x8ffff2 : 0xfff3a8, 0.9);
+      for (let i = 0; i < 3; i++)
+        g.lineBetween(rect.x + 6, rect.y + 14 + i * 9, rect.x + rect.width - 8, rect.y + 8 + i * 8);
+      return;
+    }
+    cloud();
+  }
+
+  private buildCheatsCards(rect: UiRect): void {
+    const content = insetRect(rect, 14);
+    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'CHEATS', {
+      color: uiColors.textPrimary,
+      fontSize: '14px',
+      fontStyle: 'bold',
+    });
+
+    const cardWidth = content.width - 80; // Reserve space for enable button
+    let y = content.y + 30 - this.getStructuredScrollOffset();
+
+    const grouped = getCheatsByCategory();
+    for (const category of grouped.keys()) {
+      const cheats = grouped.get(category)!;
+      if (cheats.length === 0) continue;
+
+      // Category section header
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        content.x + 6,
+        y,
+        getCategoryLabel(category),
+        {
+          color: uiColors.textPrimary,
+          fontSize: '11px',
+          fontStyle: 'bold',
+        },
+      );
+      y += 18;
+
+      for (const cheat of cheats) {
+        const card: UiRect = { x: content.x, y, width: content.width, height: 30 };
+        drawUiCard(this.structuredGraphics, {
+          rect: card,
+          fill: uiColors.panelBgInset,
+          stroke: TAB_ACCENTS[this.activePrimaryTab],
+          alpha: 0.56,
+          strokeAlpha: 0.5,
+        });
+        addUiText(this.scene, this.structuredContainer, card.x + 10, card.y + 7, cheat.name, {
+          color: uiColors.textPrimary,
+          fontSize: '12px',
+          fontStyle: 'bold',
+        });
+        addUiText(
+          this.scene,
+          this.structuredContainer,
+          card.x + 10,
+          card.y + 20,
+          cheat.description,
+          {
+            color: uiColors.textSecondary,
+            fontSize: '10px',
+            wordWrapWidth: cardWidth - 20,
+          },
+        );
+
+        // Card click zone (only the left portion, button area excluded)
+        const zoneWidth = card.width - 72;
+        const zone = this.scene.add
+          .zone(card.x, card.y, zoneWidth, card.height)
+          .setOrigin(0, 0)
+          .setInteractive({ useHandCursor: true });
+        zone.on('pointerdown', () => {
+          this.announce(`Cheat: ${cheat.name}`, '#9ad1ff', 1600);
+          this.detailTitle.setText(cheat.name).setVisible(true);
+          this.detailSubtitle.setText('Cheat Code').setVisible(true);
+          this.detailRankText.setText(cheat.code).setVisible(true);
+          this.detailBody.setText(cheat.description).setVisible(true);
+          this.detailBody.setColor(uiColors.textPrimary);
+        });
+        this.structuredContainer.add(zone);
+
+        // Enable button on the right side of each card
+        const btnX = card.x + zoneWidth;
+        const btnRect: UiRect = { x: btnX, y: card.y + 2, width: 64, height: 26 };
+        addUiButton(this.scene, this.structuredContainer, this.structuredGraphics, {
+          id: `cheat-${cheat.primaryCode}`,
+          rect: btnRect,
+          label: 'Enable',
+          enabled: true,
+          fill: uiColors.success,
+          stroke: uiColors.success,
+          disabledFill: uiColors.disabled,
+          disabledStroke: uiColors.locked,
+          textColor: '#ffffff',
+          disabledTextColor: uiColors.textMuted,
+          onClick: () => {
+            const result = this.scene.applyCheatCode(cheat.primaryCode);
+            this.announce(result.message, result.color, 2000);
+            this.detailTitle.setText(cheat.name).setVisible(true);
+            this.detailSubtitle.setText('Cheat Code').setVisible(true);
+            this.detailRankText.setText(cheat.code).setVisible(true);
+            this.detailBody.setText(result.message).setVisible(true);
+            this.detailBody.setColor(result.color);
+          },
+        });
+        y += 36;
+      }
+
+      y += 6; // Extra gap between categories
+    }
+
+    this.setStructuredContentHeight(content, y + 10);
+
+    this.detailTitle.setText('Cheats').setVisible(true);
+    this.detailSubtitle.setText('Click a cheat to view details.').setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    this.detailBody
+      .setText('Press the Enable button to activate a cheat. Press Back to close.')
+      .setVisible(true);
+    this.detailBody.setColor(uiColors.textPrimary);
+  }
+
+  private buildControlsCards(rect: UiRect): void {
+    const content = insetRect(rect, 14);
+    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'CONTROLS', {
+      color: uiColors.textPrimary,
+      fontSize: '14px',
+      fontStyle: 'bold',
+    });
+    this.buildControlsModeButtons(content);
+
+    const mode =
+      INPUT_MODES.find((entry) => entry.id === this.activeControlsMode) ?? INPUT_MODES[0];
+    addUiText(this.scene, this.structuredContainer, content.x, content.y + 46, mode.description, {
+      color: uiColors.textSecondary,
+      fontSize: '10px',
+      wordWrapWidth: content.width - 8,
+    });
+
+    const categories: readonly ControlCategoryId[] = ['movement', 'actions', 'system'];
+    let y = content.y + 72 - this.getStructuredScrollOffset();
+    for (const category of categories) {
+      y = this.buildControlsCategoryRows(content, y, this.activeControlsMode, category);
+    }
+    this.setStructuredContentHeight(content, y + this.getStructuredScrollOffset());
+
+    this.detailTitle.setText('Controls').setVisible(true);
+    this.detailSubtitle
+      .setText(
+        this.rebindingControlActionId
+          ? this.activeControlsMode === 'controller'
+            ? 'Press a controller button to bind'
+            : 'Press a key to bind'
+          : 'Custom bindings',
+      )
+      .setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    this.detailBody
+      .setText(
+        [
+          'Move actions also cover arcade, fishing, and manual room movement.',
+          'Confirm handles interaction and UI selection. Back closes screens and cancels minigames.',
+          'Controller: A selects, B backs out, LB/RB move primary tabs, LT/RT move subtabs, Start opens menu.',
+          'Inspect is intentionally contextual through hover, focus, or touch-hold.',
+        ].join('\n\n'),
+      )
+      .setVisible(true);
+  }
+
+  private buildCalendarPanel(rect: UiRect): void {
+    const content = insetRect(rect, 14);
+    const now = new Date();
+    const baseMonthIndex = now.getFullYear() * 12 + now.getMonth();
+    const monthIndex = baseMonthIndex + this.calendarMonthOffset;
+    const year = Math.floor(monthIndex / 12);
+    const month = ((monthIndex % 12) + 12) % 12;
+    const monthNumber = month + 1;
+    const monthLabel = MONTH_NAMES[month];
+    const isCurrentMonth = this.calendarMonthOffset === 0;
+    const firstWeekday = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'BIRTHDAY CALENDAR', {
+      color: uiColors.textPrimary,
+      fontSize: '14px',
+      fontStyle: 'bold',
+    });
+
+    const navY = content.y + 24;
+    const navWidth = 48;
+    const prevRect: UiRect = { x: content.x, y: navY, width: navWidth, height: 24 };
+    const nextRect: UiRect = {
+      x: content.x + content.width - navWidth,
+      y: navY,
+      width: navWidth,
+      height: 24,
+    };
+    drawUiCard(this.structuredGraphics, {
+      rect: prevRect,
+      fill: uiColors.panelBgInset,
+      stroke: uiColors.accentSocial,
+      alpha: 0.48,
+      strokeAlpha: 0.5,
+      radius: 6,
+    });
+    drawUiCard(this.structuredGraphics, {
+      rect: nextRect,
+      fill: uiColors.panelBgInset,
+      stroke: uiColors.accentSocial,
+      alpha: 0.48,
+      strokeAlpha: 0.5,
+      radius: 6,
+    });
+    addUiText(this.scene, this.structuredContainer, prevRect.x + navWidth / 2, navY + 6, '\u25c0', {
+      align: 'center',
+      color: uiColors.textSecondary,
+      fontSize: '12px',
+    }).setOrigin(0.5, 0);
+    addUiText(this.scene, this.structuredContainer, nextRect.x + navWidth / 2, navY + 6, '\u25b6', {
+      align: 'center',
+      color: uiColors.textSecondary,
+      fontSize: '12px',
+    }).setOrigin(0.5, 0);
+    addUiText(
+      this.scene,
+      this.structuredContainer,
+      content.x + content.width / 2,
+      navY + 6,
+      `${monthLabel.toUpperCase()} ${year}`,
+      { align: 'center', color: uiColors.textPrimary, fontSize: '12px', fontStyle: 'bold' },
+    ).setOrigin(0.5, 0);
+    this.addStructuredZone(prevRect, () => {
+      this.calendarMonthOffset -= 1;
+      this.calendarSelectedDay = null;
+      this.refresh();
+    });
+    this.addStructuredZone(nextRect, () => {
+      this.calendarMonthOffset += 1;
+      this.calendarSelectedDay = null;
+      this.refresh();
+    });
+
+    const gridTop = navY + 36;
+    const gridGap = 3;
+    const cellWidth = Math.floor((content.width - gridGap * 6) / 7);
+    const cellHeight = 36;
+    const weekdayLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    for (let col = 0; col < 7; col += 1) {
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        content.x + col * (cellWidth + gridGap) + cellWidth / 2,
+        gridTop,
+        weekdayLetters[col],
+        { align: 'center', color: uiColors.textMuted, fontSize: '10px', fontStyle: 'bold' },
+      ).setOrigin(0.5, 0);
+    }
+
+    const rows = Math.ceil((firstWeekday + daysInMonth) / 7);
+    let bottomY = gridTop + 16;
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < 7; col += 1) {
+        const day = row * 7 + col - firstWeekday + 1;
+        if (day < 1 || day > daysInMonth) {
+          continue;
+        }
+        const x = content.x + col * (cellWidth + gridGap);
+        const y = bottomY;
+        const cellRect: UiRect = { x, y, width: cellWidth, height: cellHeight };
+        const birthdays = getBirthdaysForDate(monthNumber, day);
+        const isToday = isCurrentMonth && day === now.getDate();
+        const isSelected = this.calendarSelectedDay === day;
+
+        if (birthdays.length > 0) {
+          drawUiCard(this.structuredGraphics, {
+            rect: cellRect,
+            fill: uiColors.accentSocial,
+            stroke: isSelected ? uiColors.accentCore : uiColors.accentSocial,
+            alpha: 0.3,
+            strokeAlpha: isSelected ? 1 : 0.6,
+            radius: 5,
+          });
+        } else if (isToday || isSelected) {
+          drawUiCard(this.structuredGraphics, {
+            rect: cellRect,
+            fill: uiColors.panelBgInset,
+            stroke: isToday ? uiColors.accentApples : uiColors.accentCore,
+            alpha: 0.42,
+            strokeAlpha: 0.9,
+            radius: 5,
+          });
+        }
+
+        addUiText(this.scene, this.structuredContainer, x + 5, y + 4, String(day), {
+          color: isToday ? uiColors.valuePositive : uiColors.textSecondary,
+          fontSize: '10px',
+        });
+        if (birthdays.length > 0) {
+          addUiText(
+            this.scene,
+            this.structuredContainer,
+            x + cellWidth / 2,
+            y + 20,
+            formatBirthdayCellNames(birthdays),
+            { align: 'center', color: '#ffb3e6', fontSize: '8px', wordWrapWidth: cellWidth - 6 },
+          ).setOrigin(0.5, 0);
+        }
+
+        this.addStructuredZone(cellRect, () => {
+          this.calendarSelectedDay = isSelected ? null : day;
+          this.refresh();
+        });
+      }
+      bottomY += cellHeight + gridGap;
+    }
+
+    bottomY += 12;
+    addUiText(
+      this.scene,
+      this.structuredContainer,
+      content.x,
+      bottomY,
+      `BIRTHDAYS IN ${monthLabel.toUpperCase()}`,
+      { color: uiColors.textPrimary, fontSize: '12px', fontStyle: 'bold' },
+    );
+    bottomY += 20;
+
+    const monthBirthdays = BIRTHDAYS.filter((entry) => entry.month === monthNumber).sort(
+      (a, b) => a.day - b.day,
+    );
+    if (monthBirthdays.length === 0) {
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        content.x,
+        bottomY,
+        'Nobody celebrates this month.',
+        { color: uiColors.textMuted, fontSize: '10px' },
+      );
+      bottomY += 18;
+    }
+    for (const entry of monthBirthdays) {
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        content.x,
+        bottomY,
+        `${formatDateLabel(entry.month, entry.day)} \u2014 ${formatBirthdayNames(
+          getBirthdaysForDate(entry.month, entry.day),
+        )}`,
+        { color: '#ffb3e6', fontSize: '10px' },
+      );
+      bottomY += 16;
+    }
+
+    bottomY += 8;
+    addUiText(
+      this.scene,
+      this.structuredContainer,
+      content.x,
+      bottomY,
+      `Today (${formatDateLabel(now.getMonth() + 1, now.getDate())}): ${formatBirthdayMessage(
+        now.getMonth() + 1,
+        now.getDate(),
+      )}`,
+      { color: uiColors.valueWarning, fontSize: '10px', wordWrapWidth: content.width - 8 },
+    );
+    bottomY += 26;
+
+    this.setStructuredContentHeight(content, bottomY);
+
+    this.detailTitle.setText('Calendar').setVisible(true);
+    this.detailSubtitle.setText(`${monthLabel} ${year}`).setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    const selectedDay = this.calendarSelectedDay;
+    let body: string;
+    if (selectedDay !== null) {
+      const selectedBirthdays = getBirthdaysForDate(monthNumber, selectedDay);
+      body =
+        selectedBirthdays.length > 0
+          ? `${formatDateLabel(monthNumber, selectedDay)}: ${formatBirthdayNames(selectedBirthdays)}`
+          : `${formatDateLabel(monthNumber, selectedDay)}: no birthdays, but the wise old snake still makes a wish.`;
+    } else {
+      body = `${formatBirthdayMessage(now.getMonth() + 1, now.getDate())}\n\nTap a day to inspect its birthdays. Pink cells celebrate the month; the green-outlined cell is today.`;
+    }
+    this.detailBody.setText(body).setVisible(true);
+  }
+
+  private buildControlsModeButtons(content: UiRect): void {
+    const gap = 8;
+    const resetWidth = 56;
+    const modeWidth = Math.floor((content.width - resetWidth - gap * INPUT_MODES.length) / 3);
+    let x = content.x;
+    const y = content.y + 21;
+    for (const mode of INPUT_MODES) {
+      const active = mode.id === this.activeControlsMode;
+      const rect: UiRect = { x, y, width: modeWidth, height: 26 };
+      drawUiCard(this.structuredGraphics, {
+        rect,
+        fill: active ? TAB_ACCENTS.system : uiColors.panelBgInset,
+        stroke: TAB_ACCENTS.system,
+        alpha: active ? 0.76 : 0.52,
+        strokeAlpha: active ? 0.88 : 0.42,
+        radius: 6,
+      });
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        rect.x + rect.width / 2,
+        rect.y + 7,
+        mode.label,
+        {
+          align: 'center',
+          color: active ? uiColors.textPrimary : uiColors.textSecondary,
+          fontSize: '10px',
+          fontStyle: active ? 'bold' : 'normal',
+        },
+      ).setOrigin(0.5, 0);
+      this.addStructuredZone(rect, () => {
+        this.activeControlsMode = mode.id;
+        this.rebindingControlActionId = null;
+        this.scrollOffsets.controls = 0;
+        this.refresh();
+      });
+      x += modeWidth + gap;
+    }
+
+    const resetRect: UiRect = { x, y, width: resetWidth, height: 26 };
+    drawUiCard(this.structuredGraphics, {
+      rect: resetRect,
+      fill: uiColors.panelBgInset,
+      stroke: uiColors.warning,
+      alpha: 0.48,
+      strokeAlpha: 0.5,
+      radius: 6,
+    });
+    addUiText(
+      this.scene,
+      this.structuredContainer,
+      resetRect.x + resetRect.width / 2,
+      resetRect.y + 7,
+      'Reset',
+      {
+        align: 'center',
+        color: uiColors.textSecondary,
+        fontSize: '10px',
+      },
+    ).setOrigin(0.5, 0);
+    this.addStructuredZone(resetRect, () => {
+      resetAllBindingsForMode(this.activeControlsMode);
+      this.rebindingControlActionId = null;
+      this.refresh();
+    });
+  }
+
+  private buildControlsCategoryRows(
+    content: UiRect,
+    y: number,
+    mode: InputModeId,
+    category: ControlCategoryId,
+  ): number {
+    addUiText(
+      this.scene,
+      this.structuredContainer,
+      content.x + 2,
+      y,
+      CONTROL_CATEGORIES[category].toUpperCase(),
+      {
+        color: uiColors.textMuted,
+        fontSize: '10px',
+        fontStyle: 'bold',
+      },
+    );
+    let nextY = y + 18;
+    for (const action of getControlActionsByCategory(category)) {
+      const card: UiRect = { x: content.x, y: nextY, width: content.width, height: 42 };
+      drawUiCard(this.structuredGraphics, {
+        rect: card,
+        fill: uiColors.panelBgPrimary,
+        stroke: TAB_ACCENTS.system,
+        alpha: 0.5,
+        strokeAlpha: 0.38,
+        radius: 6,
+      });
+      addUiText(this.scene, this.structuredContainer, card.x + 10, card.y + 7, action.label, {
+        color: uiColors.textPrimary,
+        fontSize: '11px',
+        fontStyle: 'bold',
+      });
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        card.x + 10,
+        card.y + 22,
+        action.description,
+        {
+          color: uiColors.textMuted,
+          fontSize: '9px',
+          wordWrapWidth: Math.floor(card.width * 0.42),
+        },
+      );
+      const bindingLabel =
+        this.rebindingControlActionId === action.id && mode === this.activeControlsMode
+          ? mode === 'controller'
+            ? 'Press any button...'
+            : 'Press any key...'
+          : formatBindingsForDisplay(getBindingsForMode(action.id, mode));
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        card.x + Math.floor(card.width * 0.47),
+        card.y + 13,
+        bindingLabel,
+        {
+          color: this.rebindingControlActionId === action.id ? '#fff3a8' : uiColors.textSecondary,
+          fontSize: '10px',
+          wordWrapWidth: Math.floor(card.width * 0.28),
+        },
+      );
+      const canCapture = mode === 'keyboardMouse' || mode === 'controller';
+      const bindRect: UiRect = {
+        x: card.x + card.width - 92,
+        y: card.y + 8,
+        width: 46,
+        height: 24,
+      };
+      const resetRect: UiRect = {
+        x: card.x + card.width - 42,
+        y: card.y + 8,
+        width: 34,
+        height: 24,
+      };
+      this.drawControlsActionButton(bindRect, canCapture ? 'Bind' : 'View', canCapture);
+      this.drawControlsActionButton(resetRect, 'X', true);
+      this.addStructuredZone(bindRect, () => {
+        if (!canCapture) {
+          this.announce(
+            'Live capture for this mode is coming in a later input pass.',
+            '#fff3a8',
+            2200,
+          );
+          return;
+        }
+        this.rebindingControlActionId = action.id;
+        this.refresh();
+      });
+      this.addStructuredZone(resetRect, () => {
+        resetBindingsForMode(action.id, mode);
+        if (this.rebindingControlActionId === action.id) {
+          this.rebindingControlActionId = null;
+        }
+        this.refresh();
+      });
+      nextY += 48;
+    }
+    return nextY + 8;
+  }
+
+  private drawControlsActionButton(rect: UiRect, label: string, enabled: boolean): void {
+    drawUiCard(this.structuredGraphics, {
+      rect,
+      fill: enabled ? uiColors.panelBgInset : uiColors.panelBgPrimary,
+      stroke: enabled ? TAB_ACCENTS.system : uiColors.panelBorderMuted,
+      alpha: enabled ? 0.72 : 0.42,
+      strokeAlpha: enabled ? 0.58 : 0.28,
+      radius: 5,
+    });
+    addUiText(this.scene, this.structuredContainer, rect.x + rect.width / 2, rect.y + 6, label, {
+      align: 'center',
+      color: enabled ? uiColors.textSecondary : uiColors.textMuted,
+      fontSize: '9px',
+    }).setOrigin(0.5, 0);
+  }
+
   show(): void {
     if (this.visible) {
       return;
     }
     this.visible = true;
     this.container.setVisible(true);
-    // Pop-in animation
-    this.container.setAlpha(0).setScale(0.96);
+    // Pop-in animation — starts slightly smaller and fades in
+    this.container.setAlpha(0).setScale(0.94);
     this.scene.tweens.add({
       targets: this.container,
       alpha: 1,
       scale: 1,
-      duration: 180,
+      duration: 220,
       ease: 'Cubic.easeOut',
     });
     this.scene.time.delayedCall(0, () => this.container.setDepth(this.options.depth));
     this.clearPerkDetails(true);
     this.hoveredPerkId = null;
     this.refresh();
+    this.updateSpotifyPanelVisibility();
+    this.updateYouTubePanelVisibility();
     // Start background glints
     this.glintTimer?.remove(false);
     this.glintTimer = this.scene.time.addEvent({
@@ -3595,9 +5443,17 @@ export class SkillTreeOverlay {
       callback: () => {
         const x = this.container.x + Phaser.Math.Between(40, this.options.width - 40);
         const y = this.container.y + Phaser.Math.Between(120, this.options.height - 80);
-        (this.scene as any).juice?.uiSparkle?.(x, y);
+        (
+          this.scene as unknown as Record<
+            string,
+            Record<string, (...args: unknown[]) => void> | undefined
+          >
+        ).juice?.uiSparkle?.(x, y);
       },
     });
+
+    // Per-frame shell redraw for glow/shimmer animations
+    this.scene.events.on('update', this.onShellUpdate, this);
 
     // Pointer-follow tick for hover tooltip
     if (this.hoverTip && !this.hoverTip.ticker) {
@@ -3609,17 +5465,63 @@ export class SkillTreeOverlay {
     }
   }
 
+  private onShellUpdate(): void {
+    this.drawShellFrame();
+  }
+
+  private updateSpotifyPanelVisibility(): void {
+    if (!this.spotifyPanel) {
+      return;
+    }
+    if (!this.visible || this.activeTab !== 'spotify') {
+      this.spotifyPanel.hide();
+      return;
+    }
+    const layout = this.getPauseMenuLayout();
+    this.spotifyPanel.show({
+      overlayX: this.overlayX,
+      overlayY: this.overlayY,
+      x: layout.main.x + 10,
+      y: layout.main.y + 10,
+      width: layout.main.width - 20,
+      height: layout.main.height - 20,
+    });
+  }
+
+  private updateYouTubePanelVisibility(): void {
+    if (!this.youtubePanel) {
+      return;
+    }
+    if (!this.visible) {
+      this.youtubePanel.showForGameplay();
+      return;
+    }
+    if (this.activeTab !== 'youtube') {
+      this.youtubePanel.hideForPauseMenu();
+      return;
+    }
+    const layout = this.getPauseMenuLayout();
+    this.youtubePanel.show({
+      overlayX: this.overlayX,
+      overlayY: this.overlayY,
+      x: layout.main.x + 10,
+      y: layout.main.y + 10,
+      width: layout.main.width - 20,
+      height: layout.main.height - 20,
+    });
+  }
+
   hide(): void {
     if (!this.visible) {
       return;
     }
     this.visible = false;
-    // Fade-out then hide
+    // Fade-out then hide — shrinks slightly as it fades
     this.scene.tweens.add({
       targets: this.container,
       alpha: 0,
-      scale: 0.98,
-      duration: 140,
+      scale: 0.96,
+      duration: 160,
       ease: 'Cubic.easeIn',
       onComplete: () => {
         this.container.setVisible(false).setAlpha(1).setScale(1);
@@ -3627,10 +5529,14 @@ export class SkillTreeOverlay {
     });
     this.hoveredPerkId = null;
     this.clearPerkDetails(true);
+    this.clearDetailButton();
     this.glintTimer?.remove(false);
     this.glintTimer = undefined;
+    this.scene.events.off('update', this.onShellUpdate, this);
     this.hideHoverTip();
     this.clearCustomizationHover();
+    this.updateSpotifyPanelVisibility();
+    this.updateYouTubePanelVisibility();
   }
 
   toggle(force?: boolean): void {
@@ -3722,11 +5628,14 @@ export class SkillTreeOverlay {
       this.detailBody
         .setText(this.buildEquipmentDetailBody(item, equipped, actionHints))
         .setVisible(true);
+      this.clearDetailButton();
       return true;
     }
     const title = item.name ?? this.selectedInventoryItemId;
     const subtitle =
-      (item as any).kind === 'equipment' ? `Equipment · Slot: ${(item as any).slot}` : 'Item';
+      (item as unknown as EquipableItem | undefined)?.kind === 'equipment'
+        ? `Equipment · Slot: ${(item as unknown as EquipableItem).slot}`
+        : 'Item';
     const actionHints = this.getInventoryActionHints(this.selectedInventoryItemId);
     const body = [item.description ?? '', actionHints].filter(Boolean).join('\n\n');
 
@@ -3734,7 +5643,76 @@ export class SkillTreeOverlay {
     this.detailSubtitle.setText(subtitle).setVisible(true);
     this.detailRankText.setText('').setVisible(false);
     this.detailBody.setText(body).setVisible(true);
+
+    // Add a "Use" button for locator items.
+    this.renderDetailUseButton();
     return true;
+  }
+
+  /** Render a clickable "Use" button at the bottom of the detail panel. */
+  private renderDetailUseButton(): void {
+    this.clearDetailButton();
+    if (!this.selectedInventoryItemId) return;
+    const item = getItem(this.selectedInventoryItemId);
+    if (!item || item.kind === 'equipment') return;
+    // Only show the Use button for locator items.
+    if (!isLocatorItemId(item.id)) return;
+
+    const detailPanelX = this.detailPanel.x;
+    const detailPanelY = this.detailPanel.y;
+    const detailPanelWidth = this.detailPanel.width;
+    const buttonY = detailPanelY + this.detailPanel.height - 36;
+    const buttonX = detailPanelX + (detailPanelWidth - 160) / 2;
+    const buttonWidth = 160;
+    const buttonHeight = 28;
+
+    // Draw button background.
+    this.structuredGraphics
+      .fillStyle(uiColors.accentCore, 0.88)
+      .fillRoundedRect(buttonX, buttonY, buttonWidth, buttonHeight, 6);
+    this.structuredGraphics
+      .lineStyle(2, uiColors.accentCore, 0.92)
+      .strokeRoundedRect(buttonX + 1, buttonY + 1, buttonWidth - 2, buttonHeight - 2, 5);
+
+    // Draw button label.
+    const useLabel = this.scene.add
+      .text(buttonX + buttonWidth / 2, buttonY + buttonHeight / 2, 'USE', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        fontStyle: 'bold',
+        color: '#101824',
+        align: 'center',
+      })
+      .setOrigin(0.5, 0.5)
+      .setDepth(35);
+    this.structuredContainer.add(useLabel);
+
+    // Add clickable zone — must be in structuredContainer so it shares the
+    // display list with the button background drawn on structuredGraphics.
+    const zone = this.scene.add
+      .zone(buttonX, buttonY, buttonWidth, buttonHeight)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(36);
+    this.structuredContainer.add(zone);
+    zone.on('pointerdown', () => {
+      if (!this.selectedInventoryItemId) return;
+      const result = this.scene.useInventoryItem(this.selectedInventoryItemId);
+      if (!(result.ok && this.selectedInventoryItemId === 'bomb')) {
+        this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
+      }
+      this.refresh();
+      this.showInventoryItemDetails();
+    });
+    this.detailButtonObjects = [useLabel, zone];
+  }
+
+  /** Remove the detail panel use button and its label. */
+  private clearDetailButton(): void {
+    for (const obj of this.detailButtonObjects) {
+      obj.destroy();
+    }
+    this.detailButtonObjects = [];
   }
 
   private buildEquipmentDetailBody(
@@ -3817,7 +5795,9 @@ export class SkillTreeOverlay {
       return false;
     }
     const result = this.scene.useInventoryItem(this.selectedInventoryItemId);
-    this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
+    if (!(result.ok && this.selectedInventoryItemId === 'bomb')) {
+      this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
+    }
     this.refresh();
     this.showInventoryItemDetails();
     return true;
@@ -3849,9 +5829,9 @@ export class SkillTreeOverlay {
   }
 
   private getInventoryActionHints(itemId: string): string {
-    const item = getItem(itemId) as any;
+    const item = getItem(itemId) as Item | undefined;
     if (!item || item.kind === 'equipment') {
-      return 'Click rows to inspect. Press E or use the action button to equip or unequip.';
+      return `Click rows to inspect. Press ${this.confirmKeyLabel()} or use the action button to equip or unequip.`;
     }
     const hints = [i18n.getFeatureString('hintPressInspect')];
     if (item.category === 'food' || item.kind === 'consumable') {
@@ -3863,7 +5843,23 @@ export class SkillTreeOverlay {
     return hints.join(' ');
   }
 
+  private confirmKeyLabel(): string {
+    return getPrimaryBindingLabelForDisplay('interact.confirm', this.currentInputMode);
+  }
+
+  private cancelKeyLabel(): string {
+    return getPrimaryBindingLabelForDisplay('back.cancel', this.currentInputMode);
+  }
+
+  private primaryAbilityKeyLabel(): string {
+    return getPrimaryBindingLabelForDisplay('ability.primary', this.currentInputMode);
+  }
+
   handleCheatKeyDown(event: KeyboardEvent): boolean {
+    if (this.visible && this.activeTab === 'controls') {
+      return this.handleControlRebindKeyDown(event);
+    }
+
     if (!this.visible || this.activeTab !== 'cheats') {
       return false;
     }
@@ -3890,6 +5886,154 @@ export class SkillTreeOverlay {
       return true;
     }
     return key === ' ' || key === 'Tab';
+  }
+
+  private handleControlRebindKeyDown(event: KeyboardEvent): boolean {
+    if (!this.rebindingControlActionId) {
+      return false;
+    }
+    if (event.key === 'Escape') {
+      this.rebindingControlActionId = null;
+      this.refresh();
+      return true;
+    }
+    if (event.key === 'Tab' || event.ctrlKey || event.metaKey || event.altKey) {
+      return true;
+    }
+
+    const label = getKeyboardEventBindingLabel(event);
+    setBindingsForMode(this.rebindingControlActionId, 'keyboardMouse', [{ label }]);
+    this.announce(`Bound ${label}.`, '#9ad1ff', 1600);
+    this.rebindingControlActionId = null;
+    this.refresh();
+    return true;
+  }
+
+  captureControllerBinding(label: string): boolean {
+    if (
+      !this.visible ||
+      this.activeTab !== 'controls' ||
+      this.activeControlsMode !== 'controller' ||
+      !this.rebindingControlActionId
+    ) {
+      return false;
+    }
+    setExclusiveControllerBinding(this.rebindingControlActionId, { label });
+    this.announce(`Bound ${label}.`, '#9ad1ff', 1600);
+    this.rebindingControlActionId = null;
+    this.refresh();
+    return true;
+  }
+
+  handleControllerCommand(command: ControllerNavCommand): boolean {
+    if (!this.visible) {
+      return false;
+    }
+    switch (command) {
+      case 'cancel':
+      case 'menu':
+        return false;
+      case 'primaryTabPrevious':
+        this.cyclePrimaryTab(-1);
+        return true;
+      case 'primaryTabNext':
+        this.cyclePrimaryTab(1);
+        return true;
+      case 'subTabPrevious':
+        this.cycleSecondaryTab(-1);
+        return true;
+      case 'subTabNext':
+        this.cycleSecondaryTab(1);
+        return true;
+      case 'up':
+        if (this.activeTab === 'achievements') {
+          return this.achievementTree?.handleControllerSelect(0, -1) ?? false;
+        }
+        if (this.activeTab === 'skills') {
+          this.moveControllerSkillSpatial(0, -1);
+        } else {
+          this.moveControllerActionSpatial(0, -1);
+        }
+        return true;
+      case 'down':
+        if (this.activeTab === 'achievements') {
+          return this.achievementTree?.handleControllerSelect(0, 1) ?? false;
+        }
+        if (this.activeTab === 'skills') {
+          this.moveControllerSkillSpatial(0, 1);
+        } else {
+          this.moveControllerActionSpatial(0, 1);
+        }
+        return true;
+      case 'left':
+        if (this.activeTab === 'achievements') {
+          return this.achievementTree?.handleControllerSelect(-1, 0) ?? false;
+        }
+        if (this.activeTab === 'skills') {
+          this.moveControllerSkillSpatial(-1, 0);
+        } else {
+          this.moveControllerActionSpatial(-1, 0);
+        }
+        return true;
+      case 'right':
+        if (this.activeTab === 'achievements') {
+          return this.achievementTree?.handleControllerSelect(1, 0) ?? false;
+        }
+        if (this.activeTab === 'skills') {
+          this.moveControllerSkillSpatial(1, 0);
+        } else {
+          this.moveControllerActionSpatial(1, 0);
+        }
+        return true;
+      case 'scrollUp':
+        if (this.activeTab === 'achievements') {
+          return this.achievementTree?.handleControllerPan(0, 48) ?? false;
+        }
+        if (this.activeTab === 'skills') {
+          this.panSkillTree(-64, 0);
+          return true;
+        }
+        this.scrollActiveText(-48);
+        return true;
+      case 'scrollDown':
+        if (this.activeTab === 'achievements') {
+          return this.achievementTree?.handleControllerPan(0, -48) ?? false;
+        }
+        if (this.activeTab === 'skills') {
+          this.panSkillTree(64, 0);
+          return true;
+        }
+        this.scrollActiveText(48);
+        return true;
+      case 'scrollLeft':
+        if (this.activeTab === 'achievements') {
+          return this.achievementTree?.handleControllerPan(48, 0) ?? false;
+        }
+        if (this.activeTab === 'skills') this.panSkillTree(0, -64);
+        return true;
+      case 'scrollRight':
+        if (this.activeTab === 'achievements') {
+          return this.achievementTree?.handleControllerPan(-48, 0) ?? false;
+        }
+        if (this.activeTab === 'skills') this.panSkillTree(0, 64);
+        return true;
+      case 'confirm': {
+        if (this.activeTab === 'achievements') {
+          return this.achievementTree?.handleControllerConfirm() ?? false;
+        }
+        if (this.activeTab === 'skills') {
+          return this.activateControllerSkill();
+        }
+        const action = this.controllerActions[this.controllerActionIndex];
+        if (action) {
+          action.onClick();
+          return true;
+        }
+        return false;
+      }
+      default:
+        return false;
+    }
   }
 
   private applyCheatCode(): void {
@@ -3992,21 +6136,7 @@ export class SkillTreeOverlay {
   }
 
   private scrollActiveText(deltaY: number): void {
-    if (
-      !this.visible ||
-      (this.activeTab !== 'spells' &&
-        this.activeTab !== 'special' &&
-        this.activeTab !== 'quests' &&
-        this.activeTab !== 'people' &&
-        this.activeTab !== 'dating' &&
-        this.activeTab !== 'destiny' &&
-        this.activeTab !== 'customize' &&
-        this.activeTab !== 'equipment' &&
-        this.activeTab !== 'items' &&
-        this.activeTab !== 'cards' &&
-        this.activeTab !== 'artifacts' &&
-        this.activeTab !== 'inventory')
-    ) {
+    if (!this.visible) {
       return;
     }
     if (this.activeTab === 'special') {
@@ -4024,11 +6154,152 @@ export class SkillTreeOverlay {
           ? this.questListText
           : this.activeTab === 'spells'
             ? this.spellsText
-            : this.activeTab === 'customize'
+            : this.activeTab === 'cosmetics'
               ? this.customizationText
-              : this.questListText;
+              : this.activeTab === 'cheats'
+                ? this.questListText
+                : this.questListText;
     const next = (this.scrollOffsets[this.activeTab] ?? 0) + deltaY;
     this.applyScrollableTextOffset(this.activeTab, text, next);
+  }
+
+  private moveControllerActionSpatial(directionX: number, directionY: number): void {
+    if (this.controllerActions.length === 0) {
+      if (this.activeTab === 'skills') {
+        this.panSkillTree(directionY * 48, directionX * 48);
+      } else if (directionY !== 0) {
+        this.scrollActiveText(directionY * 42);
+      }
+      return;
+    }
+    const current = this.controllerActions[this.controllerActionIndex];
+    if (!current) {
+      this.controllerActionIndex = 0;
+      this.drawControllerFocus();
+      return;
+    }
+    const currentX = current.rect.x + current.rect.width / 2;
+    const currentY = current.rect.y + current.rect.height / 2;
+    let bestIndex = -1;
+    let bestScore = Number.POSITIVE_INFINITY;
+    this.controllerActions.forEach((action, index) => {
+      if (index === this.controllerActionIndex) return;
+      const dx = action.rect.x + action.rect.width / 2 - currentX;
+      const dy = action.rect.y + action.rect.height / 2 - currentY;
+      const forward = dx * directionX + dy * directionY;
+      if (forward <= 0) return;
+      const cross = Math.abs(dx * directionY - dy * directionX);
+      const score = forward + cross * 2.4;
+      if (score < bestScore) {
+        bestScore = score;
+        bestIndex = index;
+      }
+    });
+    if (bestIndex >= 0) {
+      this.controllerActionIndex = bestIndex;
+      this.drawControllerFocus();
+    }
+  }
+
+  private drawControllerFocus(): void {
+    this.controllerFocusGraphics.clear();
+    if (
+      this.currentInputMode !== 'controller' ||
+      !this.visible ||
+      this.controllerActions.length === 0
+    ) {
+      return;
+    }
+    this.normalizeControllerActionIndex();
+    const action = this.controllerActions[this.controllerActionIndex];
+    if (!action) return;
+    this.controllerFocusGraphics
+      .lineStyle(2, uiColors.accentCore, 1)
+      .strokeRoundedRect(
+        action.rect.x - 2,
+        action.rect.y - 2,
+        action.rect.width + 4,
+        action.rect.height + 4,
+        6,
+      );
+  }
+
+  private getControllerSkillVisuals(): NodeVisual[] {
+    return [...this.nodeVisuals.values()].sort(
+      (a, b) => a.position.y - b.position.y || a.position.x - b.position.x,
+    );
+  }
+
+  private moveControllerSkillSpatial(directionX: number, directionY: number): void {
+    const visuals = this.getControllerSkillVisuals();
+    const current = visuals[this.controllerSkillIndex];
+    if (!current) {
+      this.controllerSkillIndex = 0;
+      this.focusControllerSkill();
+      return;
+    }
+    const currentX = current.position.x;
+    const currentY = current.position.y;
+    let bestIndex = -1;
+    let bestScore = Number.POSITIVE_INFINITY;
+    visuals.forEach((visual, index) => {
+      if (index === this.controllerSkillIndex) return;
+      const dx = visual.position.x - currentX;
+      const dy = visual.position.y - currentY;
+      const forward = dx * directionX + dy * directionY;
+      if (forward <= 0) return;
+      const cross = Math.abs(dx * directionY - dy * directionX);
+      const score = forward + cross * 2;
+      if (score < bestScore) {
+        bestScore = score;
+        bestIndex = index;
+      }
+    });
+    if (bestIndex >= 0) {
+      this.controllerSkillIndex = bestIndex;
+      this.focusControllerSkill();
+    }
+  }
+
+  private focusControllerSkill(): void {
+    const visuals = this.getControllerSkillVisuals();
+    visuals.forEach((visual, index) => {
+      const selected =
+        this.currentInputMode === 'controller' && index === this.controllerSkillIndex;
+      visual.container.setScale(selected ? 1.12 : 1);
+      visual.button.setStrokeStyle(
+        selected ? 3 : 2,
+        selected ? uiColors.accentCore : uiColors.panelBorderMuted,
+      );
+    });
+    const selected = visuals[this.controllerSkillIndex];
+    if (selected) {
+      this.hoveredPerkId = selected.definition.id;
+      this.populatePerkDetails(selected.definition.id);
+      const content = insetRect(this.getSkillTreeBounds(), 16);
+      const screen = this.skillViewport.worldToViewport(selected.position);
+      const margin = 72;
+      if (
+        screen.x < margin ||
+        screen.x > content.width - margin ||
+        screen.y < margin ||
+        screen.y > content.height - margin
+      ) {
+        this.skillViewport.centerOn(selected.position);
+        this.applySkillViewportTransform();
+      }
+    }
+  }
+
+  private activateControllerSkill(): boolean {
+    const visual = this.getControllerSkillVisuals()[this.controllerSkillIndex];
+    if (!visual) return false;
+    this.handlers.onRequestPurchase(
+      visual.definition.id,
+      this.system.getPurchaseState(visual.definition.id),
+    );
+    this.focusControllerSkill();
+    return true;
   }
 
   private isStructuredTab(tab: TabId): boolean {
@@ -4036,20 +6307,39 @@ export class SkillTreeOverlay {
       tab === 'equipment' ||
       tab === 'items' ||
       tab === 'spells' ||
+      tab === 'maneuvers' ||
       tab === 'cards' ||
       tab === 'quests' ||
       tab === 'dating' ||
       tab === 'people' ||
+      tab === 'companions' ||
       tab === 'destiny' ||
       tab === 'artifacts' ||
-      tab === 'info'
+      tab === 'controls' ||
+      tab === 'calendar' ||
+      tab === 'spotify' ||
+      tab === 'youtube' ||
+      tab === 'info' ||
+      tab === 'cheats' ||
+      tab === 'cosmetics'
     );
   }
 
   private applyStructuredScrollOffset(rawOffset: number): void {
     const viewport = this.getStructuredViewport();
     const maxScroll = Math.max(0, this.structuredContentHeight - viewport.height);
-    this.scrollOffsets[this.activeTab] = Phaser.Math.Clamp(rawOffset, 0, maxScroll);
+    const offset = Phaser.Math.Clamp(rawOffset, 0, maxScroll);
+    this.scrollOffsets[this.activeTab] = offset;
+    if (this.activeTab === 'cheats' && maxScroll > 0) {
+      this.scrollHintText
+        .setText(
+          i18n
+            .getFeatureString('skillTreeScrollProgress')
+            .replace('{current}', String(Math.ceil(offset)))
+            .replace('{max}', String(Math.ceil(maxScroll))),
+        )
+        .setVisible(true);
+    }
     this.buildStructuredTabContent(this.activeTab);
   }
 
@@ -4076,7 +6366,7 @@ export class SkillTreeOverlay {
           tab === 'quests' ||
           tab === 'people' ||
           tab === 'dating' ||
-          tab === 'customize' ||
+          tab === 'cosmetics' ||
           tab === 'equipment' ||
           tab === 'items' ||
           tab === 'inventory') &&
@@ -4113,7 +6403,7 @@ export class SkillTreeOverlay {
   }
 
   private highlightCustomizationRow(row: number): void {
-    if (!this.visible || this.activeTab !== 'customize') return;
+    if (!this.visible || this.activeTab !== 'cosmetics') return;
     const lineHeight = this.getTextLineHeight(this.customizationText);
     const x = TREE_PADDING.horizontal - 4;
     const y = this.customizationText.y + row * lineHeight - 2;
@@ -4160,10 +6450,6 @@ export class SkillTreeOverlay {
 
   private getCustomizationActionId(pointer: Phaser.Input.Pointer): string | null {
     return this.getCustomizationHoveredRow(pointer)?.actionId ?? null;
-  }
-
-  private countRenderedLines(value: string): number {
-    return this.countRenderedLinesFor(this.customizationText, value);
   }
 
   private countRenderedLinesFor(text: Phaser.GameObjects.Text, value: string): number {
@@ -4273,25 +6559,42 @@ export class SkillTreeOverlay {
     view: SpecialStatsView,
   ): Array<{ label: string; value: string }> {
     const core = this.buildSpecialCoreDerivedRows(view);
+    const findLine = (id: string) =>
+      view.sections.flatMap((section) => section.lines).find((line) => line.id === id);
+    const movementSpeed = findLine('movement-speed');
+    const maxHearts = findLine('max-hearts');
+    const invulnerability = findLine('invulnerability-window');
+    const hazardStability = findLine('hazard-stability');
     return [
-      core.find((row) => row.id === 'speed') ?? { id: 'speed', label: 'Speed', value: '+0%' },
-      core.find((row) => row.id === 'max-hearts') ?? {
-        id: 'max-hearts',
-        label: 'Hearts',
-        value: '3',
-      },
-      core.find((row) => row.id === 'apple-invulnerability') ?? {
-        id: 'apple-invulnerability',
-        label: 'Apple Invuln.',
-        value: '0.0s',
-      },
-      core.find((row) => row.id === 'frost-resistance') ?? {
-        id: 'frost-resistance',
-        label: 'Frost Resist',
-        value: '0%',
-      },
+      movementSpeed ??
+        core.find((row) => row.id === 'speed') ?? {
+          id: 'speed',
+          label: 'Speed',
+          value: '+0%',
+        },
+      core.find((row) => row.id === 'max-hearts') ??
+        maxHearts ?? {
+          id: 'max-hearts',
+          label: 'Hearts',
+          value: '3',
+        },
+      invulnerability ??
+        core.find((row) => row.id === 'apple-invulnerability') ?? {
+          id: 'apple-invulnerability',
+          label: 'Invuln.',
+          value: '0.0s',
+        },
+      hazardStability ??
+        core.find((row) => row.id === 'frost-resistance') ?? {
+          id: 'hazard-stability',
+          label: 'Hazard Timer',
+          value: '100%',
+        },
     ].map((row) => {
+      if (row.id === 'movement-speed') return { ...row, label: 'Speed' };
       if (row.id === 'max-hearts') return { ...row, label: 'Hearts' };
+      if (row.id === 'invulnerability-window') return { ...row, label: 'Invuln.' };
+      if (row.id === 'hazard-stability') return { ...row, label: 'Hazard Timer' };
       if (row.id === 'apple-invulnerability') return { ...row, label: 'Apple Invuln.' };
       if (row.id === 'frost-resistance') return { ...row, label: 'Frost Resist' };
       return row;
@@ -4334,6 +6637,13 @@ export class SkillTreeOverlay {
     const fishing = findLine('fishing-control');
     const animalDrop = findLine('animal-bonus-drop');
     const suspicion = findLine('suspicionReduction');
+    const derivedDetail = (stat: DerivedStatId): string => {
+      const breakdown = this.system.getDerivedStatBreakdown(stat);
+      const sourceCount = breakdown.additions.length + breakdown.multipliers.length;
+      return sourceCount === 0
+        ? `Base ${breakdown.base}`
+        : `Base ${breakdown.base}; ${sourceCount} active modifier${sourceCount === 1 ? '' : 's'}`;
+    };
 
     return [
       {
@@ -4360,6 +6670,42 @@ export class SkillTreeOverlay {
         value: `${(readFlagNumber('damage.postHitInvulnerabilityMs') / 1000).toFixed(1)}s`,
       },
       {
+        id: 'mana-max',
+        label: 'Maximum Mana',
+        value: `${Math.round(this.system.getDerivedStat('manaMax'))}`,
+        detail: derivedDetail('manaMax'),
+      },
+      {
+        id: 'mana-regen',
+        label: 'Mana Regen',
+        value: `${this.system.getDerivedStat('manaRegen').toFixed(2)}/tick`,
+        detail: derivedDetail('manaRegen'),
+      },
+      {
+        id: 'spell-slots',
+        label: 'Prepared Spell Slots',
+        value: `${Math.floor(this.system.getDerivedStat('spellSlotCapacity'))}`,
+        detail: derivedDetail('spellSlotCapacity'),
+      },
+      {
+        id: 'stored-nutrition',
+        label: 'Stored Nutrition',
+        value: `${Math.floor(this.system.getDerivedStat('nutritionCapacity'))} charges`,
+        detail: derivedDetail('nutritionCapacity'),
+      },
+      {
+        id: 'pickup-radius',
+        label: 'Pickup Radius',
+        value: `${this.system.getDerivedStat('pickupRadius').toFixed(2)} tiles`,
+        detail: derivedDetail('pickupRadius'),
+      },
+      {
+        id: 'companion-capacity',
+        label: 'Companion Capacity',
+        value: `${Math.floor(this.system.getDerivedStat('companionCapacity'))}`,
+        detail: derivedDetail('companionCapacity'),
+      },
+      {
         id: 'frost-resistance',
         label: 'Frost Resistance',
         value: formatPercent(readFlagNumber('equipment.coldResistance')),
@@ -4367,12 +6713,22 @@ export class SkillTreeOverlay {
       {
         id: 'heat-resistance',
         label: 'Heat Resistance',
-        value: formatPercent(readFlagNumber('equipment.heatResistance')),
+        value: formatPercent(
+          Math.max(
+            readFlagNumber('equipment.heatResistance'),
+            readFlagNumber('hellEscape.heatResistance'),
+          ),
+        ),
       },
       {
         id: 'buoyancy',
         label: 'Buoyancy',
-        value: readFlagBool('equipment.swimmingEnabled') ? '100%' : '0%',
+        value: readFlagBool('equipment.swimmingEnabled')
+          ? 'Unlimited'
+          : `${Math.max(1, readFlagNumber('traversal.buoyancyCapacity') || 3)} tiles`,
+        detail: readFlagBool('equipment.swimmingEnabled')
+          ? 'Swimming gear prevents drowning.'
+          : 'Consecutive water tiles before drowning; Endurance raises this limit.',
       },
       {
         id: 'water-speed',
@@ -4451,10 +6807,38 @@ export class SkillTreeOverlay {
         title: 'Core',
         accent: uiColors.accentCore,
         rows: compact([
-          fromCore('speed'),
-          fromCore('max-hearts'),
+          fromSection('movement-speed', 'Speed'),
+          fromSection('turn-forgiveness'),
+          fromSection('max-hearts', 'Max Hearts'),
+          fromSection('invulnerability-window'),
           fromCore('post-hit-invulnerability'),
         ]),
+      },
+      {
+        id: 'combat',
+        title: 'Combat',
+        accent: uiColors.accentCommand,
+        rows: compact([
+          fromSection('melee-damage'),
+          fromSection('melee-crit'),
+          fromSection('projectile-crit'),
+        ]),
+      },
+      {
+        id: 'weapons',
+        title: 'Weapons',
+        accent: uiColors.accentUtility,
+        rows: compact([
+          fromSection('weapon-cooldown'),
+          fromSection('lock-on-range'),
+          fromSection('lock-on-speed'),
+        ]),
+      },
+      {
+        id: 'arcane',
+        title: 'Arcane',
+        accent: uiColors.accentArcana,
+        rows: compact([fromCore('mana-max'), fromCore('mana-regen'), fromCore('spell-slots')]),
       },
       {
         id: 'apples',
@@ -4475,10 +6859,14 @@ export class SkillTreeOverlay {
         title: 'Survival',
         accent: uiColors.accentSurvival,
         rows: compact([
+          fromSection('hazard-stability'),
+          fromSection('environmental-resistance'),
           fromCore('frost-resistance'),
           fromCore('heat-resistance'),
+          fromSection('rare-outcomes'),
           fromSection('damage-reduction'),
           fromSection('powerup-invulnerability'),
+          fromCore('stored-nutrition'),
         ]),
       },
       {
@@ -4502,6 +6890,7 @@ export class SkillTreeOverlay {
           fromCore('powerup-discovery', 'Powerup Discovery Chance'),
           fromSection('hazard-sense'),
           fromSection('wall-sense-radius'),
+          fromCore('pickup-radius'),
         ]),
       },
       {
@@ -4536,6 +6925,7 @@ export class SkillTreeOverlay {
           fromSection('trust-gain'),
           fromSection('apology-effectiveness'),
           fromSection('intimidation-control'),
+          fromCore('companion-capacity'),
         ]),
       },
     ];
@@ -4658,6 +7048,34 @@ export class SkillTreeOverlay {
     const perks = this.system.getPerks();
 
     this.scoreText.setText(i18n.getFeatureString('hudScore') + ': ' + this.scene.score);
+    const nutrition = this.scene.getFlag<{ stored?: number }>('growth.reserveNutrition');
+    const digestive = this.scene.getFlag<{ mode?: 'growth' | 'reserve' | 'recovery' }>(
+      'growth.digestiveChoice',
+    );
+    const nutritionCapacity = this.system.getDerivedStat('nutritionCapacity');
+    const vitality = this.scene.getFlag<{ stored?: number; charged?: boolean }>(
+      'fortitude.bloodBank',
+    );
+    const vitalityCapacity = this.system.getDerivedStat('storedVitalityCapacity');
+    const fastProgress = Number(this.scene.getFlag<number>('faith.islam.fastProgress') ?? 0);
+    const iftarReady = Boolean(this.scene.getFlag<boolean>('faith.islam.iftarReady'));
+    const resourceSuffix = [
+      digestive
+        ? `Digest ${digestive.mode === 'reserve' ? 'STORE' : digestive.mode === 'recovery' ? 'HEAL' : 'GROW'}`
+        : '',
+      nutritionCapacity > 0
+        ? `Nutrition ${Math.max(0, Number(nutrition?.stored ?? 0))}/${nutritionCapacity}`
+        : '',
+      vitalityCapacity > 0
+        ? vitality?.charged
+          ? 'Vitality READY'
+          : `Vitality ${Math.max(0, Number(vitality?.stored ?? 0))}/${vitalityCapacity}`
+        : '',
+      iftarReady ? 'IFTAR READY' : fastProgress > 0 ? `Fast ${fastProgress}/3` : '',
+      stats.extraLives > 0 ? `Lives ${stats.extraLives}` : '',
+    ]
+      .filter(Boolean)
+      .join('  |  ');
     if (stats.manaMax > 0) {
       const manaLine =
         'Mana: ' +
@@ -4667,9 +7085,10 @@ export class SkillTreeOverlay {
         ' (+' +
         stats.manaRegen.toFixed(1) +
         '/tick)';
-      this.manaText.setText(manaLine);
+      this.manaText.setText(resourceSuffix ? `${manaLine}  |  ${resourceSuffix}` : manaLine);
     } else {
-      this.manaText.setText(i18n.getFeatureString('manaLatent'));
+      const latent = i18n.getFeatureString('manaLatent');
+      this.manaText.setText(resourceSuffix ? `${latent}  |  ${resourceSuffix}` : latent);
     }
 
     if (!this.hintSticky) {
@@ -4681,11 +7100,14 @@ export class SkillTreeOverlay {
     const equipmentActive = this.activeTab === 'equipment';
     const itemsActive = this.activeTab === 'items';
     const inventoryActive = equipmentActive || itemsActive;
-    const customizationActive = this.activeTab === 'customize';
+    const cosmeticsActive = this.activeTab === 'cosmetics';
     const cardsActive = this.activeTab === 'cards';
     const spellsActive = this.activeTab === 'spells';
+    const maneuversActive = this.activeTab === 'maneuvers';
     const cheatsActive = this.activeTab === 'cheats';
     const peopleActive = this.activeTab === 'people';
+    const companionsActive = this.activeTab === 'companions';
+    const atmosphereActive = this.activeTab === 'atmosphere';
     const datingActive = this.activeTab === 'dating';
     const questsActive = this.activeTab === 'quests';
     const factionsActive = this.activeTab === 'factions';
@@ -4694,19 +7116,33 @@ export class SkillTreeOverlay {
     const infoActive = this.activeTab === 'info';
     const graphActive = this.activeTab === 'graph';
     const achievementsActive = this.activeTab === 'achievements';
+    const controlsActive = this.activeTab === 'controls';
+    const calendarActive = this.activeTab === 'calendar';
+    const spotifyActive = this.activeTab === 'spotify';
+    const youtubeActive = this.activeTab === 'youtube';
     const structuredActive =
       inventoryActive ||
       equipmentActive ||
       itemsActive ||
       cardsActive ||
       spellsActive ||
+      maneuversActive ||
       peopleActive ||
+      companionsActive ||
+      atmosphereActive ||
       datingActive ||
       questsActive ||
       destinyActive ||
       artifactsActive ||
-      infoActive;
-    this.connectionGraphics.setVisible(skillsActive);
+      controlsActive ||
+      calendarActive ||
+      spotifyActive ||
+      youtubeActive ||
+      infoActive ||
+      cheatsActive ||
+      cosmeticsActive;
+    this.skillTreeWorld.setVisible(skillsActive);
+    this.skillViewportBackground.setVisible(skillsActive);
     this.specialUiGraphics.setVisible(specialActive);
     this.specialMainContainer.setVisible(specialActive);
     this.specialDerivedContainer.setVisible(specialActive);
@@ -4714,23 +7150,29 @@ export class SkillTreeOverlay {
     this.specialChanceText.setVisible(false);
     this.inventoryItemsText.setVisible(false);
     this.customizationText.setVisible(false);
-    this.styleContainer.setVisible(customizationActive);
     this.cardsText.setVisible(false);
     this.spellsText.setVisible(false);
     this.questListText.setVisible(false);
     this.factionsText.setVisible(false);
     this.factionContainer.setVisible(factionsActive);
     this.structuredContainer.setVisible(structuredActive);
+    this.updateSpotifyPanelVisibility();
+    this.updateYouTubePanelVisibility();
+    this.styleContainer.setVisible(false);
     this.achievementTree?.setVisible(achievementsActive);
     if (
       !spellsActive &&
+      !maneuversActive &&
       !specialActive &&
       !questsActive &&
       !datingActive &&
       !peopleActive &&
+      !companionsActive &&
+      !atmosphereActive &&
       !destinyActive &&
       !artifactsActive &&
-      !customizationActive
+      !cosmeticsActive &&
+      !cheatsActive
     ) {
       this.scrollHintText.setVisible(false);
     }
@@ -4745,10 +7187,20 @@ export class SkillTreeOverlay {
       this.specialChanceText.setY(this.detailPanel.y + 14);
       this.specialChanceScrollOffset = 0;
     }
-    if (!questsActive && !datingActive && !peopleActive && !destinyActive && !artifactsActive) {
+    if (
+      !questsActive &&
+      !datingActive &&
+      !peopleActive &&
+      !companionsActive &&
+      !atmosphereActive &&
+      !destinyActive &&
+      !artifactsActive &&
+      !spotifyActive &&
+      !cheatsActive
+    ) {
       this.resetScrollableText(this.questListText);
     }
-    if (!customizationActive) {
+    if (!cosmeticsActive) {
       this.resetScrollableText(this.customizationText);
       this.clearStyleContent();
     }
@@ -4761,7 +7213,7 @@ export class SkillTreeOverlay {
     if (!inventoryActive) {
       this.resetScrollableText(this.inventoryItemsText);
     }
-    if (!customizationActive) {
+    if (!cosmeticsActive) {
       this.clearCustomizationHover();
     }
     const mapActive = this.activeTab === 'map';
@@ -4786,16 +7238,12 @@ export class SkillTreeOverlay {
       this.graphGraphics.clear();
       this.graphLabels.setText('');
     }
-    this.cheatContainer.setVisible(cheatsActive);
-    this.cheatBackground.setVisible(cheatsActive);
-    this.cheatTitle.setVisible(cheatsActive);
-    this.cheatInputText.setVisible(cheatsActive);
-    this.cheatApplyButton.setVisible(cheatsActive);
     if (cheatsActive) {
-      this.cheatApplyButton.setText(i18n.getFeatureString('cheatApply'));
-      this.refreshCheatInputText();
+      // Cheat input elements are no longer used; the new UI has Enable buttons on each card.
+      this.cheatContainer.setVisible(false);
     } else {
       this.cheatInputFocused = false;
+      this.cheatContainer.setVisible(false);
     }
 
     if (this.stubText) {
@@ -4804,28 +7252,35 @@ export class SkillTreeOverlay {
         !skillsActive &&
         !specialActive &&
         !inventoryActive &&
-        !customizationActive &&
+        !cosmeticsActive &&
         !cardsActive &&
         !spellsActive &&
+        !maneuversActive &&
         !mapActive &&
         !graphActive &&
         !cheatsActive &&
         !peopleActive &&
+        !companionsActive &&
+        !atmosphereActive &&
         !datingActive &&
         !destinyActive &&
         !artifactsActive &&
         !questsActive &&
         !factionsActive &&
+        !controlsActive &&
+        !calendarActive &&
+        !spotifyActive &&
         !infoActive &&
         !achievementsActive;
       this.stubText.setVisible(showStub);
       if (showStub) {
         const tab = TAB_DEFINITIONS.find((def) => def.id === this.activeTab);
-        this.stubText.setText(
-          tab?.i18nPlaceholderKey
-            ? resolvePlaceholder(tab)
-            : i18n.getFeatureString('skillTreeStubText'),
-        );
+        if (tab && tab.i18nPlaceholderKey) {
+          const placeholderKey = tab.i18nPlaceholderKey;
+          this.stubText.setText(i18n.getFeatureString(placeholderKey));
+        } else {
+          this.stubText.setText(i18n.getFeatureString('skillTreeStubText'));
+        }
       }
     }
 
@@ -4838,7 +7293,9 @@ export class SkillTreeOverlay {
       this.achievementTree?.refresh();
       if (!this.hintSticky) {
         this.hintText.setText(
-          'Achievements: drag to pan, mouse wheel to zoom, click portraits for details.',
+          this.currentInputMode === 'controller'
+            ? 'Achievements: right stick pans the tree. Use the highlighted achievement for details.'
+            : 'Achievements: drag to pan, mouse wheel to zoom, click portraits for details.',
         );
         this.hintText.setColor('#fff3a8');
       }
@@ -4850,7 +7307,11 @@ export class SkillTreeOverlay {
       this.detailRankText.setVisible(false);
       this.detailBody.setVisible(false);
       if (!this.hintSticky) {
-        this.hintText.setText('SPECIAL: click +/- to preview, then apply or reset.');
+        this.hintText.setText(
+          this.currentInputMode === 'controller'
+            ? `SPECIAL: left stick selects a stat control; ${this.confirmKeyLabel()} activates it.`
+            : 'SPECIAL: click +/- to preview, then apply or reset.',
+        );
         this.hintText.setColor('#9ad1ff');
       }
     } else {
@@ -4862,15 +7323,24 @@ export class SkillTreeOverlay {
       if (!this.hintSticky) {
         const hintByTab: Partial<Record<TabId, string>> = {
           inventory: i18n.getFeatureString('hintInventory'),
-          equipment: 'Equipment: select gear, compare modifiers, press E to equip or unequip.',
+          equipment: `Equipment: select gear, compare modifiers, press ${this.confirmKeyLabel()} to equip or unequip.`,
           items: 'Items: click rows for details. Press U to use selected consumables.',
           cards: i18n.getFeatureString('cardHintCards'),
-          spells: i18n.getFeatureString('hintSpells'),
+          spells: `Spells: click an available row to bind ${this.primaryAbilityKeyLabel()}.`,
+          maneuvers: `Maneuvers: equip one learned technique; use ${getPrimaryBindingLabelForDisplay('maneuver.activate', this.currentInputMode)} during play.`,
           people: i18n.getFeatureString('hintPeople'),
+          companions: 'Herd: feed companions to raise bond tiers and hunting bonuses.',
+          atmosphere:
+            'Atmosphere: inspect the current sky, season, local weather translation, and gameplay modifiers.',
           dating: i18n.getFeatureString('hintDating'),
           quests: i18n.getFeatureString('hintQuests'),
           destiny: i18n.getFeatureString('hintDestiny'),
           artifacts: i18n.getFeatureString('hintArtifacts'),
+          calendar: 'Calendar: browse months and tap a day to see its birthdays.',
+          controls: 'Controls: browse canonical actions and defaults by input mode.',
+          cheats: 'Cheats: click to view codes, then type and apply.',
+          spotify: 'Spotify: paste a link and use the embedded player controls.',
+          youtube: 'YouTube: paste a link, then resume to watch it top-right.',
           info: 'Browse grouped menu systems and current run tools.',
         };
         this.hintText.setText(
@@ -4907,7 +7377,7 @@ export class SkillTreeOverlay {
           }
         }
         for (const [itemId, count] of items) {
-          const item = getItem(itemId) as any;
+          const item = getItem(itemId) as Item | undefined;
           const name = item?.name ?? itemId;
           let suffix = '';
           if (item && item.kind === 'equipment') {
@@ -4916,7 +7386,9 @@ export class SkillTreeOverlay {
           }
           const category = item?.category ? String(item.category) : 'item';
           const prefix =
-            item?.kind === 'equipment' ? '[E] ' : `[${category.charAt(0).toUpperCase()}] `;
+            item?.kind === 'equipment'
+              ? `[${this.confirmKeyLabel()}] `
+              : `[${category.charAt(0).toUpperCase()}] `;
           lines.push(`${prefix}${name} x${count}${suffix}`);
           index.push(itemId);
         }
@@ -4949,11 +7421,13 @@ export class SkillTreeOverlay {
       this.detailRankText.setText('').setVisible(false);
       this.detailBody
         .setText(
-          'Q now resolves through a bindable action slot. Spell casts can share this tab with future follower commands.',
+          `${this.primaryAbilityKeyLabel()} now resolves through a bindable action slot. Spell casts can share this tab with future follower commands.`,
         )
         .setVisible(true);
       if (!this.hintSticky) {
-        this.hintText.setText(i18n.getFeatureString('hintSpells'));
+        this.hintText.setText(
+          `Spells: click an available row to bind ${this.primaryAbilityKeyLabel()}.`,
+        );
         this.hintText.setColor('#ffbdfd');
       }
     }
@@ -5071,14 +7545,6 @@ export class SkillTreeOverlay {
     }
 
     if (cheatsActive) {
-      this.detailTitle.setText(i18n.getFeatureString('tabCheats')).setVisible(true);
-      this.detailSubtitle.setText('String Input').setVisible(true);
-      this.detailRankText.setText('').setVisible(false);
-      this.detailBody
-        .setText(
-          "Supported cheats:\n\nspecial10\nstats10\ninvestingincrypto\n90fps240Hz\nimawiddlebabywhoneedshelp\nimmortal\nmammamia\nstarman\nmario\nryan's closet\nteleporterquest\ngreenpurchase\nfindmybaby\nbabyquest\nfreakyou\ntimequest\nfreakdennis\nfreakerdennis",
-        )
-        .setVisible(true);
       if (!this.hintSticky) {
         this.hintText.setText(i18n.getFeatureString('hintCheats'));
         this.hintText.setColor('#9ad1ff');
@@ -5100,8 +7566,10 @@ export class SkillTreeOverlay {
       }
     }
 
-    if (customizationActive) {
-      this.buildStyleContent();
+    if (cosmeticsActive) {
+      this.buildCosmeticsContent();
+      this.normalizeControllerActionIndex();
+      this.drawControllerFocus();
       if (!this.hintSticky) {
         this.hintText.setText(i18n.getFeatureString('hintCustomization'));
         this.hintText.setColor('#9ad1ff');
@@ -5114,12 +7582,16 @@ export class SkillTreeOverlay {
       this.activeTab !== 'spells' &&
       this.activeTab !== 'cards' &&
       this.activeTab !== 'people' &&
+      this.activeTab !== 'atmosphere' &&
       this.activeTab !== 'dating' &&
       this.activeTab !== 'destiny' &&
       this.activeTab !== 'quests' &&
       this.activeTab !== 'factions' &&
       this.activeTab !== 'map' &&
       this.activeTab !== 'info' &&
+      this.activeTab !== 'controls' &&
+      this.activeTab !== 'calendar' &&
+      this.activeTab !== 'spotify' &&
       this.activeTab !== 'cheats' &&
       this.activeTab !== 'graph' &&
       this.activeTab !== 'achievements'
@@ -5136,8 +7608,11 @@ export class SkillTreeOverlay {
       for (const visual of this.nodeVisuals.values()) {
         visual.container.setVisible(false);
       }
+      this.skillTreeWorld.setVisible(false);
       return;
     }
+
+    this.skillTreeWorld.setVisible(true);
 
     this.updateSkillTreeNodeLayout(perks);
     this.drawConnections(perks);
@@ -5231,6 +7706,9 @@ export class SkillTreeOverlay {
         this.clearPerkDetails(true);
       }
     }
+    if (this.currentInputMode === 'controller') {
+      this.focusControllerSkill();
+    }
   }
 
   private formatQuestInfo(quests: Quest[]): string {
@@ -5243,8 +7721,11 @@ export class SkillTreeOverlay {
     const completedIds = new Set(this.scene.completedQuests);
     const acceptedIds = new Set(this.scene.acceptedQuests);
     const trackedQuestId =
-      typeof (this.scene as any).getActiveQuestMarkerQuestId === 'function'
-        ? ((this.scene as any).getActiveQuestMarkerQuestId() as string | undefined)
+      typeof (this.scene as unknown as Record<string, (...args: unknown[]) => unknown | undefined>)
+        .getActiveQuestMarkerQuestId === 'function'
+        ? ((
+            this.scene as unknown as Record<string, (...args: unknown[]) => unknown | undefined>
+          ).getActiveQuestMarkerQuestId() as string | undefined)
         : undefined;
     let row = 0;
 
@@ -5258,12 +7739,20 @@ export class SkillTreeOverlay {
             : '[ ]';
       const trackingMarker = trackedQuestId === quest.id ? '[*]' : '[ ]';
       const subtasks =
-        typeof (this.scene as any).getQuestSubtasks === 'function'
-          ? ((this.scene as any).getQuestSubtasks(quest.id) as string[])
+        typeof (
+          this.scene as unknown as Record<string, (...args: unknown[]) => unknown | undefined>
+        ).getQuestSubtasks === 'function'
+          ? ((
+              this.scene as unknown as Record<string, (...args: unknown[]) => unknown | undefined>
+            ).getQuestSubtasks(quest.id) as string[])
           : [];
       const objectives =
-        typeof (this.scene as any).getQuestObjectiveSummaries === 'function'
-          ? ((this.scene as any).getQuestObjectiveSummaries(quest.id) as QuestObjectiveSummary[])
+        typeof (
+          this.scene as unknown as Record<string, (...args: unknown[]) => unknown | undefined>
+        ).getQuestObjectiveSummaries === 'function'
+          ? ((
+              this.scene as unknown as Record<string, (...args: unknown[]) => unknown | undefined>
+            ).getQuestObjectiveSummaries(quest.id) as QuestObjectiveSummary[])
           : [];
       const subtaskText =
         subtasks.length > 0 ? `\n${subtasks.map((line) => `  ${line}`).join('\n')}` : '';
@@ -5372,6 +7861,54 @@ export class SkillTreeOverlay {
       .join('\n\n');
   }
 
+  private formatAtmosphereInfo(view: ResolvedAtmosphereView | undefined): string[] {
+    if (!view) {
+      return ['Atmosphere data is unavailable.'];
+    }
+    const state = view.state;
+    const intensity = `${Math.round(state.weatherIntensity * 100)}%`;
+    const progress = `${Math.round(state.phaseProgress * 100)}%`;
+    const nextRoll = state.remainingWeatherPhaseTicks <= 1 ? 'Shift soon' : 'Holding';
+    const juice = view.activeJuice.length > 0 ? view.activeJuice.join(', ') : 'none';
+    const bias = Object.entries(view.gameplay.animalSpawnBiasAdd)
+      .filter(([, value]) => Number(value) !== 0)
+      .map(([kind, value]) => `${kind} ${Number(value) > 0 ? '+' : ''}${value}`)
+      .join(', ');
+    return [
+      view.playerSummary.oneLine ?? 'Sky, light, and body',
+      `Sky: ${view.playerSummary.skyLabel}`,
+      `Local Air: ${view.playerSummary.localLabel}`,
+      `Light: ${view.playerSummary.lightLabel}${view.darkness.lanternRecommended ? ' - lantern helpful' : ''}`,
+      `Shelter: ${view.playerSummary.shelterLabel}`,
+      `Weather Shift: ${nextRoll}`,
+      `Body: ${view.effects.includes('heat-pressure') ? 'Heat building' : view.effects.includes('cold-pressure') ? 'Cold building' : 'Stable'}`,
+      `Debug: ${progress} phase, ${intensity} intensity, juice ${juice}`,
+      `Debug: Visibility ${Math.round(view.gameplay.visibilityScalar * 100)}%, heat ${Math.round(view.gameplay.heatRateScalar * 100)}%, cold ${Math.round(view.gameplay.coldRateScalar * 100)}%`,
+      `Debug: Animals ${Math.round(view.gameplay.animalSpawnChanceScalar * 100)}%${bias ? ` (${bias})` : ''}`,
+      `Debug: Enemy Activity ${Math.round(view.gameplay.enemySpawnChanceScalar * 100)}%`,
+      `Lightning: ${view.gameplay.lightningProfile.enabled ? 'telegraphed' : 'off'}`,
+      'Shortcut: Shift+W cycles global weather for testing.',
+    ];
+  }
+
+  private getDayClockProgress(view: ResolvedAtmosphereView): number {
+    const order = ['dawn', 'day', 'dusk', 'night'] as const;
+    const index = Math.max(0, order.indexOf(view.state.dayPhase));
+    const completed = order
+      .slice(0, index)
+      .reduce((sum, phase) => sum + DAY_PHASE_DURATIONS_MS[phase], 0);
+    const current = DAY_PHASE_DURATIONS_MS[view.state.dayPhase] ?? 1;
+    const total = order.reduce((sum, phase) => sum + DAY_PHASE_DURATIONS_MS[phase], 0);
+    return (completed + current * view.state.phaseProgress) / total;
+  }
+
+  private getSeasonClockProgress(view: ResolvedAtmosphereView): number {
+    const order = ['spring', 'summer', 'autumn', 'winter'];
+    const index = Math.max(0, order.indexOf(view.state.season));
+    const dayInSeason = positiveModulo(view.state.worldDay, 7) / 7;
+    return (index + dayInSeason) / order.length;
+  }
+
   private formatCardCollection(collection: CardCollection): string {
     const owned = CARD_DEFINITIONS.map((card) => ({
       card,
@@ -5395,52 +7932,16 @@ export class SkillTreeOverlay {
     return lines.join('\n').trimEnd();
   }
 
-  private formatFactionCards(
-    factions: FactionCardView[],
-    wards: Partial<Record<WardDeathSource, number>>,
-  ): string {
-    const visible = factions.filter((faction) => faction.discovered);
-    if (visible.length === 0) {
-      return 'FACTION STANDING\n\nNo factions discovered yet.';
-    }
-    const lines: string[] = [];
-    for (const faction of visible) {
-      const sign = faction.alignment > 0 ? '+' : '';
-      const meter = this.formatStandingMeter(faction.alignment);
-      lines.push(
-        `FACTION // ${faction.name}`,
-        `${faction.standing.toUpperCase()}  ${sign}${faction.alignment}`,
-        meter,
-        faction.subtitle,
-        '',
-        'EFFECTS',
-        ...faction.effects.map((effect) => `  ${effect}`),
-        '',
-      );
-    }
-
-    const wardLines = Object.entries(wards)
-      .filter(([, count]) => Number(count) > 0)
-      .map(([source, count]) => `  - ${source}: x${count}`);
-    lines.push('Ward Contracts');
-    lines.push(...(wardLines.length > 0 ? wardLines : ['  - none']));
-    return lines.join('\n');
-  }
-
-  private formatStandingMeter(alignment: number): string {
-    const clamped = Phaser.Math.Clamp(alignment, -100, 100);
-    const marker = Math.round(((clamped + 100) / 200) * 20);
-    const cells = Array.from({ length: 21 }, (_, index) => (index === marker ? '|' : '-')).join('');
-    return `-100 Hostile ${cells} +100 Ally`;
-  }
-
   private drawMapPanel(): void {
     this.mapGraphics.clear();
-    const getter: any = this.scene as any;
+    const getter = this.scene as unknown as Record<
+      string,
+      (...args: unknown[]) => unknown | undefined
+    >;
     const rooms: string[] = getter.getGeneratedRoomsOnCurrentLevel
-      ? getter.getGeneratedRoomsOnCurrentLevel()
+      ? ((getter.getGeneratedRoomsOnCurrentLevel() as string[] | undefined) ?? [])
       : [];
-    const current: string = (this.scene as any).currentRoomId ?? '0,0,0';
+    const current: string = this.scene.currentRoomId ?? '0,0,0';
 
     const level = Number(current.split(',')[2] ?? 0);
     this.mapTitle.setText(`Map - Depth ${level}`);
@@ -5637,7 +8138,7 @@ export class SkillTreeOverlay {
   }
 
   private populateMapDetailPanel(): void {
-    const current = (this.scene as any).currentRoomId ?? '0,0,0';
+    const current = this.scene.currentRoomId ?? '0,0,0';
     const [x = 0, y = 0, z = 0] = current.split(',').map((n: string) => Number(n));
     const room =
       typeof this.scene.snakeGame?.getCurrentRoom === 'function'
@@ -5907,11 +8408,7 @@ export class SkillTreeOverlay {
   }
 
   private getSkillBranches(perks: readonly SkillPerkDefinition[]): string[] {
-    return [...new Set(perks.map((perk) => perk.branch))].sort((a, b) => {
-      const aX = perks.find((perk) => perk.branch === a)?.position.x ?? 0;
-      const bX = perks.find((perk) => perk.branch === b)?.position.x ?? 0;
-      return aX - bX;
-    });
+    return [...new Set(perks.filter((perk) => perk.kind !== 'combo').map((perk) => perk.branch))];
   }
 
   private getBranchAccent(branch: string): number {
@@ -5921,101 +8418,103 @@ export class SkillTreeOverlay {
     if (normalized.includes('utility') || normalized.includes('fortitude'))
       return uiColors.accentUtility;
     if (normalized.includes('flow') || normalized.includes('momentum')) return uiColors.accentFlow;
-    if (normalized.includes('command') || normalized.includes('hunting'))
+    if (
+      normalized.includes('predator') ||
+      normalized.includes('command') ||
+      normalized.includes('hunting')
+    )
       return uiColors.accentCommand;
-    if (normalized.includes('arcana') || normalized.includes('mana')) return uiColors.accentArcana;
+    if (
+      normalized.includes('arcane') ||
+      normalized.includes('arcana') ||
+      normalized.includes('mana')
+    )
+      return uiColors.accentArcana;
+    if (normalized.includes('growth')) return uiColors.accentGrowth;
+    if (normalized.includes('fellowship')) return uiColors.accentSocial;
     return uiColors.accentCore;
   }
 
-  private getSkillTreeLayout(perks: readonly SkillPerkDefinition[]): {
-    content: UiRect;
-    branches: string[];
-    progressions: number[];
-    branchRow: Map<string, number>;
-    progressionColumn: Map<number, number>;
-    leftLabelWidth: number;
-    topRankHeight: number;
-    rowGap: number;
-    colGap: number;
-  } {
-    const bounds = this.getSkillTreeBounds();
-    const content = insetRect(bounds, 16);
-    const branches = this.getSkillBranches(perks);
-    const progressions = [...new Set(perks.map((perk) => perk.position.y))].sort((a, b) => a - b);
-    const branchRow = new Map(branches.map((branch, index) => [branch, index]));
-    const progressionColumn = new Map(progressions.map((position, index) => [position, index]));
-    const leftLabelWidth = 104;
-    const topRankHeight = 42;
-    const rowGap =
-      branches.length > 1
-        ? Phaser.Math.Clamp(
-            (content.height - topRankHeight - 42) / Math.max(1, branches.length - 1),
-            42,
-            58,
-          )
-        : 0;
-    const colGap = 140;
-    this.skillTreeContentWidth =
-      leftLabelWidth + Math.max(0, progressions.length - 1) * colGap + 56;
-    this.skillTreeContentHeight = content.height;
-    this.skillTreePanX = Phaser.Math.Clamp(
-      this.skillTreePanX,
-      0,
-      Math.max(0, this.skillTreeContentWidth - content.width),
-    );
-    this.skillTreePanY = 0;
-    return {
-      content,
-      branches,
-      progressions,
-      branchRow,
-      progressionColumn,
-      leftLabelWidth,
-      topRankHeight,
-      rowGap,
-      colGap,
-    };
+  private rebuildSkillWorldPositions(perks: readonly SkillPerkDefinition[]): void {
+    this.skillWorldPositions.clear();
+    for (const [id, point] of buildSkillTreeWorldLayout(perks)) {
+      this.skillWorldPositions.set(id, point);
+    }
+    this.skillViewport.setWorldPoints([...this.skillWorldPositions.values()]);
+    if (!this.skillViewportInitialized) {
+      const root = getSkillTreeFoundationPoint(perks, this.skillWorldPositions);
+      this.skillViewport.centerOn(root);
+      this.skillViewportInitialized = true;
+    }
   }
 
   private panSkillTree(deltaY: number, deltaX = 0): void {
-    const bounds = this.getSkillTreeBounds();
-    const maxX = Math.max(0, this.skillTreeContentWidth - insetRect(bounds, 16).width);
-    const horizontalDelta = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
-    this.skillTreePanX = Phaser.Math.Clamp(this.skillTreePanX + horizontalDelta, 0, maxX);
-    this.skillTreePanY = 0;
-    this.refresh();
+    this.skillViewport.panBy(-deltaX, -deltaY);
+    this.applySkillViewportTransform();
+  }
+
+  private zoomSkillTree(rawZoom: number, anchor?: TreePoint): void {
+    const content = insetRect(this.getSkillTreeBounds(), 16);
+    if (
+      this.skillViewport.zoomAround(
+        rawZoom,
+        anchor ?? { x: content.width / 2, y: content.height / 2 },
+      )
+    ) {
+      this.applySkillViewportTransform();
+    }
+  }
+
+  private centerSkillTree(perkId?: string): void {
+    const point = perkId
+      ? this.skillWorldPositions.get(perkId)
+      : getSkillTreeFoundationPoint(this.system.getPerks(), this.skillWorldPositions);
+    if (!point) return;
+    this.skillViewport.centerOn(point);
+    this.applySkillViewportTransform();
+  }
+
+  private applySkillViewportTransform(): void {
+    const content = insetRect(this.getSkillTreeBounds(), 16);
+    this.skillTreeWorld
+      .setPosition(content.x + this.skillViewport.pan.x, content.y + this.skillViewport.pan.y)
+      .setScale(this.skillViewport.zoom);
   }
 
   private updateSkillTreeNodeLayout(perks: readonly SkillPerkDefinition[]): void {
-    const { content, branchRow, progressionColumn, leftLabelWidth, topRankHeight, rowGap, colGap } =
-      this.getSkillTreeLayout(perks);
+    if (this.skillWorldPositions.size === 0) this.rebuildSkillWorldPositions(perks);
     for (const perk of perks) {
       const visual = this.nodeVisuals.get(perk.id);
-      if (!visual) continue;
-      const row = branchRow.get(perk.branch) ?? 0;
-      const col = progressionColumn.get(perk.position.y) ?? 0;
-      const px = content.x + leftLabelWidth + col * colGap - this.skillTreePanX;
-      const py = content.y + topRankHeight + row * rowGap - this.skillTreePanY;
-      visual.container.setPosition(px, py);
-      visual.position.set(px, py);
+      const point = this.skillWorldPositions.get(perk.id);
+      if (!visual || !point) continue;
+      visual.container.setPosition(point.x, point.y);
+      visual.position.set(point.x, point.y);
     }
+    this.applySkillViewportTransform();
+  }
+
+  private isPointerInSkillViewport(pointer: Phaser.Input.Pointer): boolean {
+    const bounds = insetRect(this.getSkillTreeBounds(), 16);
+    const x = pointer.x - this.overlayX;
+    const y = pointer.y - this.overlayY;
+    return (
+      x >= bounds.x &&
+      x <= bounds.x + bounds.width &&
+      y >= bounds.y &&
+      y <= bounds.y + bounds.height
+    );
   }
 
   private buildNodes(): void {
     const perks = this.system.getPerks();
-    const { content, branchRow, progressionColumn, leftLabelWidth, topRankHeight, rowGap, colGap } =
-      this.getSkillTreeLayout(perks);
+    this.rebuildSkillWorldPositions(perks);
     const radius = 16;
 
     for (const perk of perks) {
-      const row = branchRow.get(perk.branch) ?? 0;
-      const col = progressionColumn.get(perk.position.y) ?? 0;
-      const px = content.x + leftLabelWidth + col * colGap - this.skillTreePanX;
-      const py = content.y + topRankHeight + row * rowGap - this.skillTreePanY;
+      const point = this.skillWorldPositions.get(perk.id) ?? { x: 0, y: 0 };
+      const px = point.x;
+      const py = point.y;
       const nodeContainer = this.scene.add.container(px, py);
-      if (this.contentMask) {
-        nodeContainer.setMask(this.contentMask);
-      }
 
       const button = this.scene.add.circle(0, 0, radius, 0x13233a).setStrokeStyle(2, 0x2b4a63);
       button.setInteractive({ useHandCursor: true });
@@ -6060,9 +8559,16 @@ export class SkillTreeOverlay {
         if (!this.detailPinned) {
           this.populatePerkDetails(perk.id);
         }
-        const absX = this.container.x + px;
-        const absY = this.container.y + py;
-        (this.scene as any).juice?.uiSparkle?.(absX, absY);
+        const content = insetRect(this.getSkillTreeBounds(), 16);
+        const screen = this.skillViewport.worldToViewport({ x: px, y: py });
+        const absX = this.container.x + content.x + screen.x;
+        const absY = this.container.y + content.y + screen.y;
+        (
+          this.scene as unknown as Record<
+            string,
+            Record<string, (...args: unknown[]) => void> | undefined
+          >
+        ).juice?.uiSparkle?.(absX, absY);
         this.showConnectionHighlight(perk.id);
         if (!this.hintSticky) {
           this.hintText.setText('Skill details update on hover. Click to invest when available.');
@@ -6089,7 +8595,11 @@ export class SkillTreeOverlay {
         this.hideHoverTip();
         this.clearConnectionHighlight();
       });
-      button.on('pointerdown', () => {
+      button.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        this.skillViewport.beginDrag({ x: pointer.x, y: pointer.y });
+      });
+      button.on('pointerup', () => {
+        if (this.skillViewport.didDrag()) return;
         try {
           const state = this.system.getPurchaseState(perk.id);
           this.handlers.onRequestPurchase(perk.id, state);
@@ -6098,7 +8608,7 @@ export class SkillTreeOverlay {
         }
       });
 
-      this.container.add(nodeContainer);
+      this.skillTreeWorld.add(nodeContainer);
 
       this.nodeVisuals.set(perk.id, {
         definition: perk,
@@ -6110,6 +8620,7 @@ export class SkillTreeOverlay {
         position: new Phaser.Math.Vector2(px, py),
       });
     }
+    this.applySkillViewportTransform();
   }
 
   private showConnectionHighlight(perkId: string): void {
@@ -6217,11 +8728,13 @@ export class SkillTreeOverlay {
       yoyo: true,
     });
     // Ring pulse around node
-    const absX = this.container.x + target.x;
-    const absY = this.container.y + target.y;
+    const content = insetRect(this.getSkillTreeBounds(), 16);
+    const screen = this.skillViewport.worldToViewport(visual.position);
+    const absX = this.container.x + content.x + screen.x;
+    const absY = this.container.y + content.y + screen.y;
     const g = this.scene.add.graphics().setDepth(this.options.depth + 1);
-    this.container.add(g);
-    const state = { r: 16, a: 0.9 } as any;
+    this.skillTreeWorld.add(g);
+    const state = { r: 16, a: 0.9 } as { r: number; a: number };
     this.scene.tweens.add({
       targets: state,
       r: 36,
@@ -6231,11 +8744,16 @@ export class SkillTreeOverlay {
       onUpdate: () => {
         g.clear();
         g.lineStyle(2, 0x9ad1ff, state.a);
-        g.strokeCircle(absX, absY, state.r);
+        g.strokeCircle(target.x, target.y, state.r);
       },
       onComplete: () => g.destroy(),
     });
-    (this.scene as any).juice?.uiSparkle?.(absX, absY);
+    (
+      this.scene as unknown as Record<
+        string,
+        Record<string, (...args: unknown[]) => void> | undefined
+      >
+    ).juice?.uiSparkle?.(absX, absY);
   }
 
   private drawConnections(perks: SkillPerkDefinition[]): void {
@@ -6243,63 +8761,46 @@ export class SkillTreeOverlay {
     for (const child of this.skillTreeChromeObjects.splice(0)) {
       child.destroy();
     }
-    const bounds = this.getSkillTreeBounds();
-    const { content, branches, progressions, leftLabelWidth, topRankHeight, rowGap, colGap } =
-      this.getSkillTreeLayout(perks);
-
-    drawUiCard(this.connectionGraphics, {
-      rect: bounds,
-      fill: uiColors.panelBgSecondary,
-      stroke: uiColors.accentGrowth,
-      alpha: 0.86,
-      strokeAlpha: 0.62,
-      radius: 8,
-    });
-
-    progressions.forEach((_progression, index) => {
-      const x = content.x + leftLabelWidth + index * colGap - this.skillTreePanX;
-      const rankLabel = addUiText(this.scene, this.container, x, content.y + 12, `R${index}`, {
-        align: 'center',
-        color: uiColors.textMuted,
-        fontSize: '10px',
-      }).setDepth(this.options.depth + 1);
-      if (this.contentMask) {
-        rankLabel.setMask(this.contentMask);
-      }
-      this.skillTreeChromeObjects.push(rankLabel);
+    const entryPoints = perks
+      .filter((perk) => perk.kind === 'entry')
+      .map((perk) => this.skillWorldPositions.get(perk.id))
+      .filter((point): point is TreePoint => Boolean(point));
+    const orderedEntries = [...entryPoints].sort((left, right) => left.x - right.x);
+    for (let index = 1; index < orderedEntries.length; index += 1) {
+      const previous = orderedEntries[index - 1]!;
+      const entry = orderedEntries[index]!;
       this.connectionGraphics
-        .lineStyle(1, uiColors.panelBorderMuted, 0.28)
-        .lineBetween(x, content.y + 30, x, content.y + content.height - 10);
-    });
-
-    branches.forEach((branch, index) => {
-      const y = content.y + topRankHeight + index * rowGap - this.skillTreePanY;
+        .lineStyle(2, 0x5dd6a2, 0.32)
+        .lineBetween(previous.x, previous.y, entry.x, entry.y);
+    }
+    const branches = this.getSkillBranches(perks);
+    branches.forEach((branch) => {
+      const branchPerks = perks.filter((perk) => perk.branch === branch && perk.kind !== 'combo');
+      const points = branchPerks
+        .map((perk) => this.skillWorldPositions.get(perk.id))
+        .filter((point): point is TreePoint => Boolean(point));
+      if (points.length === 0) return;
+      const entryPerk = branchPerks.find((perk) => perk.kind === 'entry');
+      const x =
+        (entryPerk ? this.skillWorldPositions.get(entryPerk.id)?.x : undefined) ??
+        points.reduce((sum, point) => sum + point.x, 0) / points.length;
+      const minY = Math.min(...points.map((point) => point.y));
+      const maxY = Math.max(...points.map((point) => point.y));
       const accent = this.getBranchAccent(branch);
+      this.connectionGraphics.lineStyle(2, accent, 0.42).lineBetween(x, minY - 50, x, maxY + 28);
       this.connectionGraphics
-        .lineStyle(2, accent, 0.42)
-        .lineBetween(
-          content.x + leftLabelWidth - 12 - this.skillTreePanX,
-          y,
-          content.x + this.skillTreeContentWidth - 20 - this.skillTreePanX,
-          y,
-        );
-      this.connectionGraphics.fillStyle(accent, 0.16).fillRoundedRect(content.x, y - 18, 86, 36, 6);
-      const branchLabel = addUiText(
-        this.scene,
-        this.container,
-        content.x + 43,
-        y - 7,
-        branch.toUpperCase(),
-        {
-          align: 'center',
-          color: `#${accent.toString(16).padStart(6, '0')}`,
-          fontSize: '10px',
+        .fillStyle(accent, 0.16)
+        .fillRoundedRect(x - 55, maxY + 24, 110, 36, 7);
+      const branchLabel = this.scene.add
+        .text(x, maxY + 42, branch.toUpperCase(), {
+          fontFamily: 'monospace',
+          fontSize: '11px',
           fontStyle: 'bold',
-        },
-      ).setDepth(this.options.depth + 1);
-      if (this.contentMask) {
-        branchLabel.setMask(this.contentMask);
-      }
+          color: `#${accent.toString(16).padStart(6, '0')}`,
+        })
+        .setOrigin(0.5)
+        .setDepth(this.options.depth + 1);
+      this.skillTreeWorld.add(branchLabel);
       this.skillTreeChromeObjects.push(branchLabel);
     });
 
@@ -6325,20 +8826,41 @@ export class SkillTreeOverlay {
           .strokePath();
       }
     }
-    if (this.skillTreeContentWidth > content.width) {
-      const railX = content.x + 10;
-      const railY = content.y + content.height - 8;
-      const railW = content.width - 20;
-      const thumbW = Math.max(34, (content.width / this.skillTreeContentWidth) * railW);
-      const maxOffset = Math.max(1, this.skillTreeContentWidth - content.width);
-      const thumbX = railX + (this.skillTreePanX / maxOffset) * (railW - thumbW);
-      this.connectionGraphics
-        .fillStyle(uiColors.panelBgInset, 0.82)
-        .fillRoundedRect(railX, railY, railW, 5, 2);
-      this.connectionGraphics
-        .fillStyle(uiColors.panelGlow, 0.9)
-        .fillRoundedRect(thumbX, railY, thumbW, 5, 2);
-    }
+
+    const bounds = insetRect(this.getSkillTreeBounds(), 16);
+    const zoomLabel = addUiText(
+      this.scene,
+      this.container,
+      bounds.x + 8,
+      bounds.y + bounds.height - 24,
+      `${Math.round(this.skillViewport.zoom * 100)}%  DRAG/WHEEL`,
+      { color: uiColors.textMuted, fontSize: '10px' },
+    ).setDepth(this.options.depth + 2);
+    const makeViewportButton = (x: number, label: string, onClick: () => void) => {
+      const button = this.scene.add
+        .text(x, bounds.y + 7, ` ${label} `, {
+          fontFamily: 'monospace',
+          fontSize: '12px',
+          color: '#fff3a8',
+          backgroundColor: '#244155',
+          padding: { x: 4, y: 3 },
+        })
+        .setInteractive({ useHandCursor: true })
+        .setDepth(this.options.depth + 2);
+      button.on('pointerdown', onClick);
+      this.container.add(button);
+      return button;
+    };
+    const centerButton = makeViewportButton(bounds.x + bounds.width - 78, 'CENTER', () =>
+      this.centerSkillTree(),
+    );
+    const zoomIn = makeViewportButton(bounds.x + 8, '+', () =>
+      this.zoomSkillTree(this.skillViewport.zoom + 0.15),
+    );
+    const zoomOut = makeViewportButton(bounds.x + 42, '-', () =>
+      this.zoomSkillTree(this.skillViewport.zoom - 0.15),
+    );
+    this.skillTreeChromeObjects.push(zoomLabel, centerButton, zoomIn, zoomOut);
   }
 
   private setActiveTab(tabId: TabId): void {
@@ -6357,7 +8879,15 @@ export class SkillTreeOverlay {
     if (tabId === 'special') {
       this.specialChanceScrollOffset = 0;
     }
-    (this.scene as any).juice?.uiTabSwitch?.();
+    (
+      this.scene as unknown as Record<
+        string,
+        Record<string, (...args: unknown[]) => void> | undefined
+      >
+    ).juice?.uiTabSwitch?.();
+    // Trigger tab switch flash
+    this.tabSwitchFlash = 1;
+    this.tabSwitchFlashColor = TAB_ACCENTS[this.activePrimaryTab];
     this.updateTabVisuals();
     this.hintSticky = false;
     this.hintTimer?.remove();
@@ -6377,7 +8907,15 @@ export class SkillTreeOverlay {
         this.specialChanceScrollOffset = 0;
       }
     }
-    (this.scene as any).juice?.uiTabSwitch?.();
+    (
+      this.scene as unknown as Record<
+        string,
+        Record<string, (...args: unknown[]) => void> | undefined
+      >
+    ).juice?.uiTabSwitch?.();
+    // Trigger tab switch flash
+    this.tabSwitchFlash = 1;
+    this.tabSwitchFlashColor = TAB_ACCENTS[primaryTabId];
     this.updateTabVisuals();
     this.hintSticky = false;
     this.hintTimer?.remove();
@@ -6385,6 +8923,36 @@ export class SkillTreeOverlay {
     this.refresh();
     if (firstChild) {
       this.handlers.onTabChange?.(firstChild.id);
+    }
+  }
+
+  private cyclePrimaryTab(direction: number): void {
+    const currentIndex = PRIMARY_TAB_DEFINITIONS.findIndex(
+      (primary) => primary.id === this.activePrimaryTab,
+    );
+    const next =
+      PRIMARY_TAB_DEFINITIONS[
+        (currentIndex + direction + PRIMARY_TAB_DEFINITIONS.length) % PRIMARY_TAB_DEFINITIONS.length
+      ];
+    if (next) {
+      this.setActivePrimaryTab(next.id);
+    }
+  }
+
+  private cycleSecondaryTab(direction: number): void {
+    const visibleTabs = TAB_DEFINITIONS.filter(
+      (tab) => tab.group === this.activePrimaryTab && this.isTabAvailable(tab.id),
+    );
+    if (visibleTabs.length === 0) {
+      return;
+    }
+    const currentIndex = Math.max(
+      0,
+      visibleTabs.findIndex((tab) => tab.id === this.activeTab),
+    );
+    const next = visibleTabs[(currentIndex + direction + visibleTabs.length) % visibleTabs.length];
+    if (next) {
+      this.setActiveTab(next.id);
     }
   }
 
@@ -6528,10 +9096,33 @@ export class SkillTreeOverlay {
     const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
 
     const lines: string[] = [definition.description];
+    if (definition.usageHint) {
+      lines.push(`HOW TO USE\n${definition.usageHint}`);
+    }
+    if (definition.kind === 'combo' && definition.secondaryBranch) {
+      lines.push(`Combo: ${definition.branch} + ${definition.secondaryBranch}`);
+    } else if (definition.route) {
+      lines.push(`Specialization: ${definition.route}`);
+    }
+
+    const ownership = this.system.getOwnership(perkId);
+    if (ownership?.sources.length) {
+      const sourceLabels = ownership.sources.map((source) => {
+        if (source.type === 'class') return `Class: ${source.classId}`;
+        if (source.type === 'faith') return `Faith: ${source.faithId}`;
+        if (source.type === 'migration') return 'Legacy skill';
+        if (source.type === 'debug') return 'Debug grant';
+        return 'Purchased';
+      });
+      lines.push('Owned from: ' + sourceLabels.join(', '));
+    }
 
     if (rank > 0 && definition.rankDescriptions.length > 0) {
       const currentIndex = Math.min(rank - 1, definition.rankDescriptions.length - 1);
-      if (currentIndex >= 0) {
+      if (
+        currentIndex >= 0 &&
+        definition.rankDescriptions[currentIndex] !== definition.description
+      ) {
         lines.push('Current: ' + definition.rankDescriptions[currentIndex]);
       }
     }
@@ -6540,7 +9131,8 @@ export class SkillTreeOverlay {
       const nextIndex = Math.min(rank, definition.rankDescriptions.length - 1);
       const nextDescription = definition.rankDescriptions[nextIndex];
       const nextCost = definition.costByRank[rank];
-      let nextLine = 'Next: ' + nextDescription;
+      let nextLine =
+        nextDescription === definition.description ? 'Purchase' : 'Next: ' + nextDescription;
       if (Number.isFinite(nextCost)) {
         nextLine += ' (Cost ' + nextCost + ')';
       }
@@ -6558,7 +9150,13 @@ export class SkillTreeOverlay {
     }
 
     this.detailTitle.setText(definition.title).setVisible(true);
-    this.detailSubtitle.setText(definition.branch).setVisible(true);
+    this.detailSubtitle
+      .setText(
+        definition.secondaryBranch
+          ? `${definition.branch} + ${definition.secondaryBranch}`
+          : definition.branch,
+      )
+      .setVisible(true);
     this.detailRankText
       .setText('Rank ' + clampedRank + '/' + maxRank + ' - ' + statusLabel)
       .setVisible(true);
@@ -6581,20 +9179,44 @@ export class SkillTreeOverlay {
 
   private updateDefaultHint(stats: SkillTreeStats): void {
     this.hintText.setVisible(false);
+    if (this.activeTab === 'spotify' || this.activeTab === 'youtube') {
+      this.setFooterHints([
+        { key: this.currentInputMode === 'controller' ? 'Touch' : 'Click', label: 'Load URL' },
+        { key: this.cancelKeyLabel(), label: 'Resume' },
+      ]);
+      return;
+    }
+
     if (this.activeTab === 'spells') {
       this.setFooterHints([
-        { key: 'Click', label: 'Bind Q slot' },
-        { key: 'Wheel', label: 'Scroll spells' },
-        { key: 'Esc', label: 'Resume' },
+        {
+          key: this.currentInputMode === 'controller' ? 'A' : 'Click',
+          label: `Bind ${this.primaryAbilityKeyLabel()} slot`,
+        },
+        {
+          key: this.currentInputMode === 'controller' ? 'Right Stick' : 'Wheel',
+          label: 'Scroll spells',
+        },
+        { key: this.cancelKeyLabel(), label: 'Resume' },
       ]);
       return;
     }
 
     if (this.activeTab === 'special') {
       this.setFooterHints([
-        { key: '+/-', label: 'Preview stats' },
-        { key: 'Wheel', label: 'Scroll derived' },
-        { key: 'Esc', label: 'Resume' },
+        {
+          key: this.currentInputMode === 'controller' ? 'Left Stick' : '+/-',
+          label: 'Select stat change',
+        },
+        {
+          key: this.currentInputMode === 'controller' ? 'A' : 'Click',
+          label: 'Activate',
+        },
+        {
+          key: this.currentInputMode === 'controller' ? 'Right Stick' : 'Wheel',
+          label: 'Scroll derived',
+        },
+        { key: this.cancelKeyLabel(), label: 'Resume' },
       ]);
       return;
     }
@@ -6602,51 +9224,82 @@ export class SkillTreeOverlay {
     if (this.activeTab !== 'skills') {
       if (this.stubText) {
         const tab = TAB_DEFINITIONS.find((def) => def.id === this.activeTab);
-        this.stubText.setText(
-          tab?.i18nPlaceholderKey
-            ? resolvePlaceholder(tab)
-            : i18n.getFeatureString('skillTreeStubText'),
-        );
+        if (tab && tab.i18nPlaceholderKey) {
+          const placeholderKey = tab.i18nPlaceholderKey;
+          this.stubText.setText(i18n.getFeatureString(placeholderKey));
+        } else {
+          this.stubText.setText(i18n.getFeatureString('skillTreeStubText'));
+        }
       }
       if (this.activeTab === 'equipment') {
         this.setFooterHints([
-          { key: 'Click', label: 'Select gear' },
-          { key: 'E', label: 'Equip toggle' },
-          { key: 'Wheel', label: 'Scroll list' },
-          { key: 'Esc', label: 'Resume' },
+          {
+            key: this.currentInputMode === 'controller' ? 'Left Stick' : 'Click',
+            label: 'Select gear',
+          },
+          { key: this.confirmKeyLabel(), label: 'Equip toggle' },
+          {
+            key: this.currentInputMode === 'controller' ? 'Right Stick' : 'Wheel',
+            label: 'Scroll list',
+          },
+          { key: this.cancelKeyLabel(), label: 'Resume' },
         ]);
         return;
       }
       this.setFooterHints([
-        { key: 'Click', label: 'Select row/card' },
-        { key: 'Wheel', label: 'Scroll panel' },
-        { key: 'Esc', label: 'Resume' },
+        {
+          key: this.currentInputMode === 'controller' ? 'Left Stick' : 'Click',
+          label: 'Select row/card',
+        },
+        {
+          key: this.currentInputMode === 'controller' ? 'Right Stick' : 'Wheel',
+          label: 'Scroll panel',
+        },
+        { key: this.cancelKeyLabel(), label: 'Resume' },
       ]);
       return;
     }
 
     if (stats.arcanePulseUnlocked) {
       this.setFooterHints([
-        { key: 'Hover', label: 'Inspect skill' },
-        { key: 'Click', label: 'Invest points' },
-        { key: 'Wheel', label: 'Pan tree' },
-        { key: 'Q', label: 'Arcane pulse ready' },
-        { key: 'Esc', label: 'Resume' },
+        {
+          key: this.currentInputMode === 'controller' ? 'Left Stick' : 'Hover',
+          label: 'Inspect skill',
+        },
+        { key: this.confirmKeyLabel(), label: 'Invest points' },
+        {
+          key: this.currentInputMode === 'controller' ? 'Right Stick' : 'Wheel',
+          label: 'Pan tree',
+        },
+        { key: this.primaryAbilityKeyLabel(), label: 'Arcane pulse ready' },
+        { key: this.cancelKeyLabel(), label: 'Resume' },
       ]);
     } else if (stats.manaMax > 0) {
       this.setFooterHints([
-        { key: 'Hover', label: 'Inspect skill' },
-        { key: 'Click', label: 'Invest points' },
-        { key: 'Wheel', label: 'Pan tree' },
+        {
+          key: this.currentInputMode === 'controller' ? 'Left Stick' : 'Hover',
+          label: 'Inspect skill',
+        },
+        { key: this.confirmKeyLabel(), label: 'Invest points' },
+        {
+          key: this.currentInputMode === 'controller' ? 'Right Stick' : 'Wheel',
+          label: 'Pan tree',
+        },
         { key: 'Mana', label: `${Math.floor(stats.mana)}/${Math.floor(stats.manaMax)}` },
-        { key: 'Esc', label: 'Resume' },
+        { key: this.cancelKeyLabel(), label: 'Resume' },
       ]);
     } else {
       this.setFooterHints([
-        { key: 'Hover', label: 'Inspect skill' },
-        { key: 'Click', label: 'Invest points' },
-        { key: 'Wheel', label: 'Pan tree' },
-        { key: 'Esc', label: 'Resume' },
+        {
+          key: this.currentInputMode === 'controller' ? 'Left Stick' : 'Hover',
+          label: 'Inspect skill',
+        },
+        { key: this.confirmKeyLabel(), label: 'Invest points' },
+        {
+          key: this.currentInputMode === 'controller' ? 'Right Stick' : 'Wheel',
+          label: 'Pan tree',
+        },
+        { key: this.cancelKeyLabel(), label: 'Resume' },
       ]);
     }
   }
@@ -6661,7 +9314,6 @@ export class SkillTreeOverlay {
       return;
     }
     const layout = this.getPauseMenuLayout();
-    const gap = 10;
     let x = layout.footer.x + 14;
     const y = layout.footer.y + 10;
     for (const hint of hints.slice(0, 5)) {
@@ -6690,4 +9342,8 @@ export class SkillTreeOverlay {
       }
     }
   }
+}
+
+function positiveModulo(value: number, divisor: number): number {
+  return ((value % divisor) + divisor) % divisor;
 }

@@ -1,8 +1,30 @@
 import type { Vector2Like } from '../core/math.js';
 
-export type LayerKind = 'townInterior' | 'cave' | 'building' | 'basement' | 'dungeon' | 'other';
+export type LayerKind = 'townInterior';
 
-export type LayerTemplateId = 'thievesGuild';
+export type LayerTemplateId =
+  | 'thievesGuild'
+  | 'tavern'
+  | 'generalStore'
+  | 'butcherShop'
+  | 'potionMaker'
+  | 'mapper'
+  | 'wizardShop'
+  | 'inn'
+  | 'townHall'
+  | 'residentialHome';
+
+export type TownDoorKind =
+  | 'shopDoorClosed'
+  | 'shopDoorOpen'
+  | 'homeDoorClosed'
+  | 'homeDoorOpen'
+  | 'tavernDoor'
+  | 'civicDoor'
+  | 'guildGrateClosed'
+  | 'guildGrateOpen'
+  | 'gateBarrierClosed'
+  | 'gateBarrierOpen';
 
 export type LayerInstanceState = 'available' | 'active' | 'completed' | 'locked';
 
@@ -17,6 +39,14 @@ export interface LayerEntrance {
   kind: LayerKind;
   templateId: LayerTemplateId;
   label?: string;
+  displayName?: string;
+  doorLabel?: string;
+  townBuildingId?: string;
+  ownerResidentId?: string;
+  ownerResidentRole?: string;
+  doorKind?: TownDoorKind;
+  publicAccess?: boolean;
+  crimeOnEntry?: boolean;
   locked?: boolean;
   discovered?: boolean;
   returnPosition: Vector2Like;
@@ -44,6 +74,14 @@ export interface LayerInstance {
   zones: LayerZone[];
   boundaryMode: LayerBoundaryMode;
   townId?: string;
+  displayName?: string;
+  doorLabel?: string;
+  townBuildingId?: string;
+  ownerResidentId?: string;
+  ownerResidentRole?: string;
+  doorKind?: TownDoorKind;
+  publicAccess?: boolean;
+  crimeOnEntry?: boolean;
   tags?: string[];
 }
 
@@ -57,4 +95,4 @@ export interface LayerRuntimeState {
 }
 
 export const LAYER_ENTRANCE_TILE = 'Y';
-export const LAYER_EXIT_TILE = 'Y';
+export const LAYER_EXIT_TILE = 'v';

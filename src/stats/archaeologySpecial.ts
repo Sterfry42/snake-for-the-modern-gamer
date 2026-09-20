@@ -43,5 +43,6 @@ export function buildArchaeologyTuning(stats: SpecialStats): ArchaeologyTuning {
     equipmentRewardChance: getEquipmentRecoveryChanceBonus(stats),
     excavationAppleBonus: getExcavationAppleBonus(stats),
     goldAppleFrequency: getRareArtifactChanceBonus(stats),
+    artifactCacheChanceBonus: getArtifactRecoveryChanceBonus(stats),
   };
 }

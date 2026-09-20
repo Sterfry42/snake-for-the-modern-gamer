@@ -408,7 +408,10 @@ export function canFish(
   y: number,
 ): { canFish: boolean; message?: string } {
   // Check if player has a fishing rod
-  const hasRod = player.getItemCount('fishing_rod') > 0 || player.getItemCount('enchanted_fishing_rod') > 0 || player.getItemCount('diamond_fishing_rod') > 0;
+  const hasRod =
+    player.getItemCount('fishing_rod') > 0 ||
+    player.getItemCount('enchanted_fishing_rod') > 0 ||
+    player.getItemCount('diamond_fishing_rod') > 0;
   if (!hasRod) {
     return { canFish: false, message: 'You need a fishing rod to fish!' };
   }
@@ -423,12 +426,7 @@ export function canFish(
 }
 
 function isAdjacentToWater(room: RoomSnapshot, x: number, y: number): boolean {
-  const neighbors = [
-    `${x - 1},${y}`,
-    `${x + 1},${y}`,
-    `${x},${y - 1}`,
-    `${x},${y + 1}`,
-  ];
+  const neighbors = [`${x - 1},${y}`, `${x + 1},${y}`, `${x},${y - 1}`, `${x},${y + 1}`];
 
   if (room.minecraftBlocks) {
     for (const n of neighbors) {
@@ -451,7 +449,6 @@ function isAdjacentToWater(room: RoomSnapshot, x: number, y: number): boolean {
 
 function getWaterTilesFromLayout(layout: string[]): Array<{ x: number; y: number }> {
   const result: Array<{ x: number; y: number }> = [];
-  const rows = layout.length > 0 ? layout[0].split('') : [];
   for (let y = 0; y < layout.length; y++) {
     const row = layout[y] ?? '';
     for (let x = 0; x < row.length; x++) {
@@ -485,8 +482,8 @@ export function castLine(
   return { success: true };
 }
 
-function calculateBiteDelay(state: FishingState): number {
-  const baseDelay = 100 + Math.random() * 300;
+function calculateBiteDelay(state: FishingState, rng: () => number = Math.random): number {
+  const baseDelay = 100 + rng() * 300;
   const lureMultiplier = getLureSpeedMultiplier(state);
   return Math.floor(baseDelay / lureMultiplier);
 }
@@ -501,7 +498,7 @@ function getLureSpeedMultiplier(state: FishingState): number {
 
   if (state.rod && state.rod.enchanted) {
     const luckLevel = state.rod.enchantments.get('luck_of_the_sea') ?? 0;
-    multiplier *= (1 + luckLevel * 0.2);
+    multiplier *= 1 + luckLevel * 0.2;
   }
 
   return Math.max(0.5, multiplier);
@@ -509,6 +506,7 @@ function getLureSpeedMultiplier(state: FishingState): number {
 
 export function tickFishing(
   state: FishingState,
+  rng: () => number = Math.random,
 ): { bite: boolean; fishCaught: FishCaught | null; message?: string } {
   if (!state.casting || !state.inWater) {
     return { bite: false, fishCaught: null };
@@ -522,14 +520,14 @@ export function tickFishing(
     // Chance to bite depends on enchantments and rod
     const biteChance = calculateBiteChance(state);
 
-    if (Math.random() < biteChance) {
-      const fish = tryCatchFish(state);
+    if (rng() < biteChance) {
+      const fish = tryCatchFish(state, rng);
       return { bite: true, fishCaught: fish };
     }
 
     // Reset bite delay
     state.lureTimer = 0;
-    state.biteDelay = calculateBiteDelay(state);
+    state.biteDelay = calculateBiteDelay(state, rng);
   }
 
   return { bite: false, fishCaught: null };
@@ -546,14 +544,14 @@ function calculateBiteChance(state: FishingState): number {
   return Math.min(0.15, chance);
 }
 
-function tryCatchFish(state: FishingState): FishCaught | null {
+function tryCatchFish(_state: FishingState, rng: () => number = Math.random): FishCaught | null {
   // Get available fish based on biome
   const availableFish = getAvailableFish();
   if (availableFish.length === 0) return null;
 
   // Weighted random selection
   const totalWeight = availableFish.reduce((sum, f) => sum + getFishWeight(f), 0);
-  let roll = Math.random() * totalWeight;
+  let roll = rng() * totalWeight;
 
   let selected: FishDefinition | null = null;
   for (const fish of availableFish) {
@@ -569,8 +567,9 @@ function tryCatchFish(state: FishingState): FishCaught | null {
   }
 
   // Calculate weight
-  const weight = selected.baseWeight + Math.random() * (selected.maxWeight - selected.baseWeight);
-  const isLegendary = selected.rarity === 'legendary' || (selected.rarity === 'epic' && Math.random() < 0.2);
+  const weight = selected.baseWeight + rng() * (selected.maxWeight - selected.baseWeight);
+  const isLegendary =
+    selected.rarity === 'legendary' || (selected.rarity === 'epic' && rng() < 0.2);
 
   return {
     type: selected.id,
@@ -603,6 +602,7 @@ function getAvailableFish(): FishDefinition[] {
 export function applyFishCatch(
   player: MinecraftPlayer,
   fish: FishCaught,
+  rng: () => number = Math.random,
 ): { success: boolean; message: string } {
   // Add fish to inventory
   player.addItem(fish.itemId, fish.count);
@@ -612,12 +612,12 @@ export function applyFishCatch(
 
   // Chance for bonus drops
   const fishDef = FISH_DEFINITIONS[fish.type];
-  if (fishDef?.dropItem && fishDef.dropItem && Math.random() < 0.3) {
+  if (fishDef?.dropItem && fishDef.dropItem && rng() < 0.3) {
     const dropCount = fishDef.dropCount ?? 1;
     player.addItem(fishDef.dropItem, dropCount);
   }
 
-  const rarityText = fish.isLegendary ? 'LEGENDARY' : fishDef?.rarity.toUpperCase() ?? '';
+  const rarityText = fish.isLegendary ? 'LEGENDARY' : (fishDef?.rarity.toUpperCase() ?? '');
   const message = fish.isLegendary
     ? `🐟 YOU CAUGHT A ${rarityText} ${fishDef?.name ?? fish.type} (${fish.weight.toFixed(1)} kg)! +${fish.xp} XP`
     : `🎣 Caught ${fishDef?.name ?? fish.type}! +${fish.xp} XP`;
@@ -652,11 +652,7 @@ export function useFishingRod(
   return { success: true };
 }
 
-export function damageFishingRod(
-  player: MinecraftPlayer,
-  rodItemId: string,
-  amount: number,
-): void {
+export function damageFishingRod(player: MinecraftPlayer, rodItemId: string, amount: number): void {
   if (!player.state.fishingRodDurability) {
     player.state.fishingRodDurability = {};
   }
@@ -718,7 +714,9 @@ export function getFishByRarity(rarity: string): FishEntry[] {
 }
 
 export function getRareFish(): FishEntry[] {
-  return getFishList().filter((f) => f.rarity === 'rare' || f.rarity === 'epic' || f.rarity === 'legendary');
+  return getFishList().filter(
+    (f) => f.rarity === 'rare' || f.rarity === 'epic' || f.rarity === 'legendary',
+  );
 }
 
 export function getLegendaryFish(): FishEntry[] {

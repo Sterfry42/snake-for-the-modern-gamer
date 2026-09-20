@@ -1,4 +1,8 @@
+/**
+ * Game Config
+ */
 import type { Vector2Like } from '../core/math.js';
+import type { AtmosphereConfig } from '../world/atmosphereTypes.js';
 import {
   DEFAULT_RACCOON_MODE_CONFIG,
   type CharacterMode,
@@ -62,12 +66,52 @@ export interface AppleTypeConfig {
     | 'shielded'
     | 'gold'
     | 'skittish'
+    | 'roadRash'
     | 'mochi'
     | 'wasabi'
     | 'yuzu'
     | 'koi'
     | 'amacha'
-    | 'caffeinated';
+    | 'caffeinated'
+    | 'lavender'
+    | 'coldBeer'
+    | 'love'
+    | 'treat'
+    | 'frost'
+    | 'winterberry'
+    | 'heatwave'
+    // Buffoonery apples
+    | 'spud'
+    | 'yodel'
+    // Evolved/Mutation apples
+    | 'spicyEnergy'
+    | 'frostMochi'
+    | 'caffeinatedShield'
+    | 'coldCaffeinated'
+    | 'lavenderCalm'
+    | 'loveShield'
+    | 'tripleThreat'
+    | 'frostWasabi'
+    | 'yuzuEnergy'
+    | 'mochiShield'
+    | 'winterberryFrost'
+    | 'goldSpicy'
+    | 'treatMochi'
+    | 'heatwaveFrost'
+    | 'ultimateFusion'
+    // Archaeological apples
+    | 'amber'
+    | 'fossil'
+    | 'relic'
+    // Dream World apples
+    | 'dream'
+    | 'dream-gravity'
+    | 'dream-phase'
+    | 'dream-speed'
+    | 'nightmare'
+    | 'nightmare-hunter'
+    | 'lucid'
+    | 'lucid-master';
 }
 
 export interface AppleSystemConfig {
@@ -139,11 +183,26 @@ export interface GameConfig {
   features: FeatureSystemConfig;
   character: CharacterConfig;
   minecraft?: MinecraftConfig;
+  atmosphere?: AtmosphereConfig;
   freakerDennis?: FreakerDennisConfig;
   roamingSnakes?: RoamingSnakeConfig;
 }
 
 export type PowerupKind = 'phase' | 'smite' | 'gun';
+
+export const defaultAtmosphereConfig: AtmosphereConfig = {
+  enabled: true,
+  phaseDurationMs: 120_000,
+  daysPerSeason: 7,
+  minWeatherPhases: 2,
+  maxWeatherPhases: 2,
+  weatherIntensityMin: 0.35,
+  weatherIntensityMax: 1,
+  lightningEnabled: true,
+  visualParticlesEnabled: true,
+  dayNightTintEnabled: true,
+  gameplayModifiersEnabled: true,
+};
 
 const initialSnakeBody: Vector2Like[] = [
   { x: 5, y: 12 },
@@ -225,6 +284,14 @@ export const defaultGameConfig: GameConfig = {
         behavior: 'skittish',
       },
       {
+        id: 'roadRash',
+        label: 'Road Rash Apple',
+        color: 0xff4d1f,
+        outlineDarkenFactor: 0.58,
+        spawn: { base: 0.2, scoreThreshold: 12 },
+        behavior: 'roadRash',
+      },
+      {
         id: 'mochi',
         label: 'Mochi Apple',
         color: 0xf5d5e8,
@@ -272,6 +339,137 @@ export const defaultGameConfig: GameConfig = {
         spawn: { base: 0.18, scoreThreshold: 12 },
         behavior: 'caffeinated',
       },
+      {
+        id: 'cold-beer',
+        label: 'Cold Beer Apple',
+        color: 0xf5a623,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.25, scoreThreshold: 8 },
+        behavior: 'coldBeer',
+      },
+      {
+        id: 'love',
+        label: 'Love Apple',
+        color: 0xff69b4,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.02, scoreThreshold: 50 },
+        behavior: 'love',
+      },
+      {
+        id: 'treat',
+        label: 'Treat',
+        color: 0xffb7ff,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.005, scoreThreshold: 100 },
+        behavior: 'treat',
+      },
+      // Buffoonery apples — the wise old snake considers both "dangerous but delicious."
+      {
+        id: 'spud',
+        label: 'Demoted Spud',
+        color: 0xc8965a,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.02, scoreThreshold: 30 },
+        behavior: 'spud',
+      },
+      {
+        id: 'yodel',
+        label: 'Alpine Yodel',
+        color: 0x7ec8e3,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.01, scoreThreshold: 45 },
+        behavior: 'yodel',
+      },
+      // Dream World Apples
+      {
+        id: 'dream',
+        label: 'Dream Apple',
+        color: 0xb19cd9,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'dream',
+      },
+      {
+        id: 'dream-gravity',
+        label: 'Gravity Apple',
+        color: 0x87ceeb,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'dream',
+      },
+      {
+        id: 'dream-phase',
+        label: 'Phase Apple',
+        color: 0xe6e6fa,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'dream',
+      },
+      {
+        id: 'dream-speed',
+        label: 'Swift Dream Apple',
+        color: 0x98fb98,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'dream',
+      },
+      {
+        id: 'nightmare',
+        label: 'Nightmare Apple',
+        color: 0x8b0000,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'nightmare',
+      },
+      {
+        id: 'nightmare-hunter',
+        label: 'Hunter Apple',
+        color: 0x4a0000,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'nightmare',
+      },
+      {
+        id: 'lucid',
+        label: 'Lucid Apple',
+        color: 0xffd700,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'lucid',
+      },
+      {
+        id: 'lucid-master',
+        label: 'Master Lucid Apple',
+        color: 0xffaa00,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'lucid',
+      },
+      // Archaeological Apples
+      {
+        id: 'amber',
+        label: 'Amber Apple',
+        color: 0xffbf00,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.08, scoreThreshold: 20 },
+        behavior: 'amber',
+      },
+      {
+        id: 'fossil',
+        label: 'Fossil Apple',
+        color: 0xd2b48c,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.06, scoreThreshold: 30 },
+        behavior: 'fossil',
+      },
+      {
+        id: 'relic',
+        label: 'Relic Apple',
+        color: 0x9370db,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.03, scoreThreshold: 50 },
+        behavior: 'relic',
+      },
     ],
     skittishMoveChance: 0.225,
   },
@@ -292,12 +490,15 @@ export const defaultGameConfig: GameConfig = {
       'starforgedVanguard',
       'coordinates',
       'minecraft',
+      'radio',
+      'lindseyBirthday25',
     ],
   },
   character: {
     mode: 'snake',
     raccoon: DEFAULT_RACCOON_MODE_CONFIG,
   },
+  atmosphere: defaultAtmosphereConfig,
   freakerDennis: {
     rainbowPalette: {
       enabled: true,

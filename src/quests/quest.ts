@@ -46,7 +46,9 @@ export abstract class Quest {
     runtime.setFlag(this.baselineFlagKey(), baseline);
   }
 
-  onReward(_runtime: QuestRuntime): void {}
+  onReward(runtime: QuestRuntime): void {
+    void runtime;
+  }
 
   protected baselineKeys(): readonly string[] {
     return [];

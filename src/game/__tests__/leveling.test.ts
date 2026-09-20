@@ -1,0 +1,55 @@
+import { describe, expect, it, vi } from 'vitest';
+import { defaultGameConfig } from '../../config/gameConfig.js';
+import { QuestRegistry } from '../../quests/questRegistry.js';
+import { SnakeGame } from '../snakeGame.js';
+
+describe('SnakeGame leveling integration', () => {
+  it('refreshes max hearts immediately when skill perks add heart bonuses', () => {
+    const game = new SnakeGame(defaultGameConfig, new QuestRegistry(), {});
+    game.setFlag('player.maxHealth', 3);
+    game.setFlag('player.health', 3);
+    expect(game.getFlag<number>('player.maxHealth')).toBe(3);
+
+    game.setFlag('player.skillMaxHeartBonus', 1);
+    game.refreshPlayerMaxHealth();
+
+    expect(game.getFlag<number>('player.maxHealth')).toBe(4);
+    expect(game.getFlag<number>('player.health')).toBe(4);
+  });
+
+  it('grants one SPECIAL point per lifetime-score level and ignores spending', () => {
+    const game = new SnakeGame(defaultGameConfig, new QuestRegistry(), {});
+    const onLevelUp = vi.fn();
+    game.setLevelUpCallback(onLevelUp);
+
+    game.addScore(99);
+    expect(game.getSpecialStatsView().progression.level).toBe(1);
+    expect(game.getSpecialStatsView().unspentPoints).toBe(0);
+
+    game.addScore(1);
+    expect(game.getSpecialStatsView().progression).toMatchObject({
+      level: 2,
+      lifetimeScore: 100,
+      nextLevelScore: expect.any(Number),
+    });
+    expect(game.getSpecialStatsView().unspentPoints).toBe(1);
+    expect(onLevelUp).toHaveBeenLastCalledWith(
+      expect.objectContaining({ previousLevel: 1, level: 2, levelsGained: 1 }),
+    );
+
+    game.addScore(-40);
+    expect(game.getScore()).toBe(60);
+    expect(game.getSpecialStatsView().progression.lifetimeScore).toBe(100);
+
+    game.addScore(1900);
+    expect(game.getSpecialStatsView().progression.level).toBe(10);
+    expect(game.getSpecialStatsView().unspentPoints).toBe(9);
+    expect(onLevelUp).toHaveBeenLastCalledWith(
+      expect.objectContaining({ previousLevel: 2, level: 10, levelsGained: 8 }),
+    );
+    expect(game.getSaveData().levelProgression).toMatchObject({
+      level: 10,
+      lifetimeScore: 2000,
+    });
+  });
+});

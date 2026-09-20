@@ -1,5 +1,4 @@
 import type { MinecraftPlayer } from './player.js';
-import type { RoomSnapshot } from '../world/types.js';
 
 // ─── Potion Effects ─────────────────────────────────────────────────────────
 
@@ -214,7 +213,9 @@ export const POTION_EFFECTS: Record<PotionEffectId, PotionEffect> = {
     name: 'Instant Damage',
     description: 'Deals 6 damage to undead mobs only',
     color: '#4A0E0E',
-    applyOnDrink: (_player) => {},
+    applyOnDrink: (_player) => {
+      void _player;
+    },
     durationTicks: 1,
   },
   damage_i: {
@@ -222,7 +223,9 @@ export const POTION_EFFECTS: Record<PotionEffectId, PotionEffect> = {
     name: 'Instant Damage I',
     description: 'Deals 6 damage',
     color: '#4A0E0E',
-    applyOnDrink: (_player) => {},
+    applyOnDrink: (_player) => {
+      void _player;
+    },
     durationTicks: 1,
   },
   fire_resistance: {
@@ -402,7 +405,9 @@ export const POTION_EFFECTS: Record<PotionEffectId, PotionEffect> = {
     name: 'Slowness',
     description: 'Decreases movement speed',
     color: '#555588',
-    applyOnDrink: (_player) => {},
+    applyOnDrink: (_player) => {
+      void _player;
+    },
     durationTicks: 600,
   },
   poison: {
@@ -410,7 +415,9 @@ export const POTION_EFFECTS: Record<PotionEffectId, PotionEffect> = {
     name: 'Poison',
     description: 'Gradually deals damage over time',
     color: '#22AA22',
-    applyOnDrink: (_player) => {},
+    applyOnDrink: (_player) => {
+      void _player;
+    },
     durationTicks: 300,
   },
   wither: {
@@ -418,7 +425,9 @@ export const POTION_EFFECTS: Record<PotionEffectId, PotionEffect> = {
     name: 'Wither',
     description: 'Gradually deals damage over time',
     color: '#333333',
-    applyOnDrink: (_player) => {},
+    applyOnDrink: (_player) => {
+      void _player;
+    },
     durationTicks: 300,
   },
   hunger: {
@@ -426,7 +435,9 @@ export const POTION_EFFECTS: Record<PotionEffectId, PotionEffect> = {
     name: 'Hunger',
     description: 'Decreases hunger drain rate',
     color: '#554433',
-    applyOnDrink: (_player) => {},
+    applyOnDrink: (_player) => {
+      void _player;
+    },
     durationTicks: 600,
   },
   weakening: {
@@ -434,7 +445,9 @@ export const POTION_EFFECTS: Record<PotionEffectId, PotionEffect> = {
     name: 'Weakness',
     description: 'Decreases attack damage',
     color: '#666666',
-    applyOnDrink: (_player) => {},
+    applyOnDrink: (_player) => {
+      void _player;
+    },
     durationTicks: 600,
   },
   confusion: {
@@ -442,7 +455,9 @@ export const POTION_EFFECTS: Record<PotionEffectId, PotionEffect> = {
     name: 'Confusion',
     description: 'Causes nausea effect',
     color: '#8888AA',
-    applyOnDrink: (_player) => {},
+    applyOnDrink: (_player) => {
+      void _player;
+    },
     durationTicks: 200,
   },
   nausea: {
@@ -450,7 +465,9 @@ export const POTION_EFFECTS: Record<PotionEffectId, PotionEffect> = {
     name: 'Nausea',
     description: 'Causes nausea effect',
     color: '#8888AA',
-    applyOnDrink: (_player) => {},
+    applyOnDrink: (_player) => {
+      void _player;
+    },
     durationTicks: 200,
   },
   blindness: {
@@ -458,7 +475,9 @@ export const POTION_EFFECTS: Record<PotionEffectId, PotionEffect> = {
     name: 'Blindness',
     description: 'Obscures vision',
     color: '#111111',
-    applyOnDrink: (_player) => {},
+    applyOnDrink: (_player) => {
+      void _player;
+    },
     durationTicks: 200,
   },
   mining_fatigue: {
@@ -466,7 +485,9 @@ export const POTION_EFFECTS: Record<PotionEffectId, PotionEffect> = {
     name: 'Mining Fatigue',
     description: 'Slows mining speed',
     color: '#444444',
-    applyOnDrink: (_player) => {},
+    applyOnDrink: (_player) => {
+      void _player;
+    },
     durationTicks: 600,
   },
   health_boost: {
@@ -681,11 +702,7 @@ const BREWING_INPUT_SLOTS = 3;
 const BREWING_OUTPUT_SLOTS = 3;
 const BREW_TICKS = 200;
 
-export function createBrewingStandState(
-  x: number,
-  y: number,
-  roomId: string,
-): BrewingStandState {
+export function createBrewingStandState(x: number, y: number, roomId: string): BrewingStandState {
   return {
     x,
     y,
@@ -729,10 +746,7 @@ export function tryBreakBrewingStand(
 
 // ─── Brewing Logic ──────────────────────────────────────────────────────────
 
-export function canBrew(
-  stand: BrewingStandState,
-  ingredient: string,
-): boolean {
+export function canBrew(stand: BrewingStandState, ingredient: string): boolean {
   if (!stand.fuel || stand.fuel <= 0) return false;
   if (!ingredient || ingredient === '') return false;
   const hasBasePotion = stand.inputSlots.some(
@@ -767,9 +781,7 @@ export function startBrewing(
   return { success: true, message: 'Brewing started...' };
 }
 
-export function tickBrewingStand(
-  stand: BrewingStandState,
-): { done: boolean } {
+export function tickBrewingStand(stand: BrewingStandState): { done: boolean } {
   if (!stand.brewing) {
     return { done: false };
   }
@@ -796,8 +808,9 @@ export function tickBrewingStand(
 
 export function tryDrinkPotion(
   player: MinecraftPlayer,
-  potionType: string,
+  _potionType: string,
 ): { success: boolean; message?: string } {
+  void _potionType;
   const effectId: PotionEffectId = 'speed_i';
   const effect = POTION_EFFECTS[effectId];
   if (!effect) {
@@ -817,18 +830,50 @@ export interface BrewingRecipe {
 }
 
 export const BREWING_RECIPES: readonly BrewingRecipe[] = [
-  { ingredient: 'nether_wart', result: 'awkward_potion', description: 'Makes Awkward Potion (base)' },
+  {
+    ingredient: 'nether_wart',
+    result: 'awkward_potion',
+    description: 'Makes Awkward Potion (base)',
+  },
   { ingredient: 'sugar', result: 'speed_potion', description: 'Makes Speed Potion' },
   { ingredient: 'blaze_rod', result: 'strength_potion', description: 'Makes Strength Potion' },
-  { ingredient: 'ghast_tear', result: 'regeneration_potion', description: 'Makes Regeneration Potion' },
+  {
+    ingredient: 'ghast_tear',
+    result: 'regeneration_potion',
+    description: 'Makes Regeneration Potion',
+  },
   { ingredient: 'spider_eye', result: 'poison_potion', description: 'Makes Poison Potion' },
-  { ingredient: 'golden_carrot', result: 'night_vision_potion', description: 'Makes Night Vision Potion' },
-  { ingredient: 'magma_cream', result: 'fire_resistance_potion', description: 'Makes Fire Resistance Potion' },
-  { ingredient: 'pufferfish', result: 'water_breathing_potion', description: 'Makes Water Breathing Potion' },
-  { ingredient: 'rabbit_foot', result: 'jump_boost_potion', description: 'Makes Jump Boost Potion' },
-  { ingredient: 'ender_pearl', result: 'invisibility_potion', description: 'Makes Invisibility Potion' },
+  {
+    ingredient: 'golden_carrot',
+    result: 'night_vision_potion',
+    description: 'Makes Night Vision Potion',
+  },
+  {
+    ingredient: 'magma_cream',
+    result: 'fire_resistance_potion',
+    description: 'Makes Fire Resistance Potion',
+  },
+  {
+    ingredient: 'pufferfish',
+    result: 'water_breathing_potion',
+    description: 'Makes Water Breathing Potion',
+  },
+  {
+    ingredient: 'rabbit_foot',
+    result: 'jump_boost_potion',
+    description: 'Makes Jump Boost Potion',
+  },
+  {
+    ingredient: 'ender_pearl',
+    result: 'invisibility_potion',
+    description: 'Makes Invisibility Potion',
+  },
   { ingredient: 'redstone', result: 'extended_duration', description: 'Extends potion duration' },
   { ingredient: 'glowstone_dust', result: 'upgraded_level', description: 'Upgrades potion level' },
   { ingredient: 'gunpowder', result: 'splash_potion', description: 'Makes splash potion' },
-  { ingredient: 'fermented_spider_eye', result: 'inverted_effect', description: 'Inverts potion effect' },
+  {
+    ingredient: 'fermented_spider_eye',
+    result: 'inverted_effect',
+    description: 'Inverts potion effect',
+  },
 ];

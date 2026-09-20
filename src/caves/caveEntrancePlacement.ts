@@ -2,11 +2,12 @@ import type { GridConfig, WorldConfig } from '../config/gameConfig.js';
 import type { Vector2Like } from '../core/math.js';
 import { createRng } from '../core/rng.js';
 import type { RoomSnapshot } from '../world/types.js';
+import { parseCoordinateRoomId } from '../world/roomAddress.js';
 import type { CaveEntrance } from './caveTypes.js';
 import { CAVE_ENTRANCE_TILE } from './caveTypes.js';
 import { pickWeightedCaveTemplate } from './caveTemplates.js';
 
-const BASE_CAVE_CHANCE = 0.265;
+const BASE_CAVE_CHANCE = 0.18;
 const CARDINALS: Vector2Like[] = [
   { x: 1, y: 0 },
   { x: -1, y: 0 },
@@ -116,7 +117,11 @@ function isRoomEligibleForCave(room: RoomSnapshot, worldConfig: WorldConfig): bo
   if (room.id === worldConfig.originRoomId) {
     return false;
   }
-  const [x = 0, y = 0] = room.id.split(',').map(Number);
+  const address = parseCoordinateRoomId(room.id);
+  if (!address) {
+    return false;
+  }
+  const { x, y } = address;
   if (Math.abs(x) + Math.abs(y) < 2) {
     return false;
   }

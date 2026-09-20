@@ -15,6 +15,7 @@ import bisonDef from './definitions/bison.js';
 import bassDef from './definitions/bass.js';
 import possumDef from './definitions/possum.js';
 import armadilloDef from './definitions/armadillo.js';
+import frogDef from './definitions/frog.js';
 
 const ALL_DEFINITIONS: readonly AnimalDefinition[] = [
   rabbitDef,
@@ -33,6 +34,7 @@ const ALL_DEFINITIONS: readonly AnimalDefinition[] = [
   bassDef,
   possumDef,
   armadilloDef,
+  frogDef,
 ];
 
 const DEFINITION_MAP = new Map<string, AnimalDefinition>(

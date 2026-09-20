@@ -44,25 +44,19 @@ export function applySkillEffect(effect: SkillEffect, context: SkillEffectContex
       break;
     }
     case 'registerSpell': {
-      console.info(
-        `[Skills] Registered spell '${effect.spellId}'. (Effect implementation pending.)`,
-      );
       break;
     }
     case 'statModifier': {
-      console.info(
-        `[Skills] Applied stat modifier '${effect.stat}' by ${effect.value}. (Effect implementation pending.)`,
-      );
+      break;
+    }
+    case 'derivedStatModifier': {
+      context.system.applyDerivedStatModifier(effect);
       break;
     }
     case 'unlockMechanic': {
-      console.info(
-        `[Skills] Unlocked mechanic '${effect.mechanic}'. ${effect.note ?? '(Effect implementation pending.)'}`,
-      );
       break;
     }
     case 'placeholder': {
-      console.info(`[Skills] Placeholder effect triggered: ${effect.note}`);
       break;
     }
     default: {

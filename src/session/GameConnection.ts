@@ -1,3 +1,6 @@
+/**
+ * Game Connection
+ */
 import type { ClientCommand, CommandResult } from './ClientCommand.js';
 import type { GameEvent } from './GameEvent.js';
 import type { GameSnapshot } from './GameSnapshot.js';

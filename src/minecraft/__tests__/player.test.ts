@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { MinecraftPlayer, isWalkable, isWalkableWithCreativeOverride, canMineBlock, getToolTier } from '../player.js';
-import { getMinecraftItem } from '../itemRegistry.js';
+import {
+  MinecraftPlayer,
+  isWalkable,
+  isWalkableWithCreativeOverride,
+  canMineBlock,
+  getToolTier,
+} from '../player.js';
+import type { BiomeId } from '../../world/biomes.js';
+import type { RoomSnapshot } from '../../world/types.js';
 
 describe('MinecraftPlayer', () => {
   it('should create player with default stats', () => {
@@ -78,12 +85,12 @@ describe('isWalkable', () => {
       id: '0,0,0',
       layout: ['................'],
       portals: [],
-      biomeId: 'verdigris-basin' as any,
+      biomeId: 'verdigris-basin' as BiomeId,
       biomeTitle: 'Test',
       backgroundColor: 0xffffff,
       wallColor: 0x000000,
       wallOutlineColor: 0x333333,
-    } as any;
+    } as unknown as RoomSnapshot;
     expect(isWalkable(room, 5, 0)).toBe(true);
   });
 
@@ -92,12 +99,12 @@ describe('isWalkable', () => {
       id: '0,0,0',
       layout: ['##############..'],
       portals: [],
-      biomeId: 'verdigris-basin' as any,
+      biomeId: 'verdigris-basin' as BiomeId,
       biomeTitle: 'Test',
       backgroundColor: 0xffffff,
       wallColor: 0x000000,
       wallOutlineColor: 0x333333,
-    } as any;
+    } as unknown as RoomSnapshot;
     expect(isWalkable(room, 5, 0)).toBe(false);
   });
 
@@ -106,12 +113,12 @@ describe('isWalkable', () => {
       id: '0,0,0',
       layout: ['~~~...............'],
       portals: [],
-      biomeId: 'verdigris-basin' as any,
+      biomeId: 'verdigris-basin' as BiomeId,
       biomeTitle: 'Test',
       backgroundColor: 0xffffff,
       wallColor: 0x000000,
       wallOutlineColor: 0x333333,
-    } as any;
+    } as unknown as RoomSnapshot;
     expect(isWalkable(room, 2, 0)).toBe(false);
   });
 
@@ -120,13 +127,13 @@ describe('isWalkable', () => {
       id: '0,0,0',
       layout: ['................'],
       portals: [],
-      biomeId: 'verdigris-basin' as any,
+      biomeId: 'verdigris-basin' as BiomeId,
       biomeTitle: 'Test',
       backgroundColor: 0xffffff,
       wallColor: 0x000000,
       wallOutlineColor: 0x333333,
       minecraftBlocks: { '5,0': 'stone' },
-    } as any;
+    } as unknown as RoomSnapshot;
     expect(isWalkable(room, 5, 0)).toBe(false);
   });
 
@@ -135,13 +142,13 @@ describe('isWalkable', () => {
       id: '0,0,0',
       layout: ['................'],
       portals: [],
-      biomeId: 'verdigris-basin' as any,
+      biomeId: 'verdigris-basin' as BiomeId,
       biomeTitle: 'Test',
       backgroundColor: 0xffffff,
       wallColor: 0x000000,
       wallOutlineColor: 0x333333,
       minecraftBlocks: { '5,0': 'water' },
-    } as any;
+    } as unknown as RoomSnapshot;
     expect(isWalkable(room, 5, 0)).toBe(true);
   });
 });
@@ -215,10 +222,26 @@ describe('MinecraftPlayer creative mode', () => {
 
   it('should include all expected block types', () => {
     const expected = [
-      'dirt', 'grass', 'stone', 'cobblestone', 'sand',
-      'gravel', 'wood', 'planks', 'torch', 'glass',
-      'furnace', 'chest', 'bed', 'crafting_table', 'pumpkin',
-      'iron_block', 'gold_block', 'diamond_ore', 'iron_ore', 'coal_ore',
+      'dirt',
+      'grass',
+      'stone',
+      'cobblestone',
+      'sand',
+      'gravel',
+      'wood',
+      'planks',
+      'torch',
+      'glass',
+      'furnace',
+      'chest',
+      'bed',
+      'crafting_table',
+      'pumpkin',
+      'iron_block',
+      'gold_block',
+      'diamond_ore',
+      'iron_ore',
+      'coal_ore',
     ];
     for (const bt of expected) {
       expect(MinecraftPlayer.CREATIVE_BLOCK_TYPES).toContain(bt);
@@ -232,13 +255,13 @@ describe('isWalkableWithCreativeOverride', () => {
       id: '0,0,0',
       layout: ['................'],
       portals: [],
-      biomeId: 'verdigris-basin' as any,
+      biomeId: 'verdigris-basin' as BiomeId,
       biomeTitle: 'Test',
       backgroundColor: 0xffffff,
       wallColor: 0x000000,
       wallOutlineColor: 0x333333,
       minecraftBlocks: { '5,0': 'stone' },
-    } as any;
+    } as unknown as RoomSnapshot;
     expect(isWalkableWithCreativeOverride(room, 5, 0, true)).toBe(true);
   });
 
@@ -247,13 +270,13 @@ describe('isWalkableWithCreativeOverride', () => {
       id: '0,0,0',
       layout: ['##############..'],
       portals: [],
-      biomeId: 'verdigris-basin' as any,
+      biomeId: 'verdigris-basin' as BiomeId,
       biomeTitle: 'Test',
       backgroundColor: 0xffffff,
       wallColor: 0x000000,
       wallOutlineColor: 0x333333,
       minecraftBlocks: {},
-    } as any;
+    } as unknown as RoomSnapshot;
     expect(isWalkableWithCreativeOverride(room, 5, 0, true)).toBe(false);
   });
 
@@ -262,13 +285,13 @@ describe('isWalkableWithCreativeOverride', () => {
       id: '0,0,0',
       layout: ['................'],
       portals: [],
-      biomeId: 'verdigris-basin' as any,
+      biomeId: 'verdigris-basin' as BiomeId,
       biomeTitle: 'Test',
       backgroundColor: 0xffffff,
       wallColor: 0x000000,
       wallOutlineColor: 0x333333,
       minecraftBlocks: { '5,0': 'stone' },
-    } as any;
+    } as unknown as RoomSnapshot;
     expect(isWalkableWithCreativeOverride(room, 5, 0, false)).toBe(false);
   });
 });

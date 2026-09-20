@@ -1,8 +1,8 @@
 import type { GridConfig } from '../config/gameConfig.js';
-import { vectorKey } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 import { pickNpcName } from '../npcs/npcNames.js';
-import { buildHouseNpcProfile } from '../npcs/profiles.js';
+import { createHumanoidSpawn } from './humanoidSpawn.js';
+import { fillRect, findRandomRectPlacement, pickOne, setTile } from './structurePlacement.js';
 import type { RoomSnapshot } from './types.js';
 
 const CAMP_NAMES = [
@@ -22,48 +22,10 @@ interface GoblinCampPlacementOptions {
   margin?: number;
 }
 
-function setChar(layout: string[][], x: number, y: number, ch: string): void {
-  if (y < 0 || y >= layout.length) return;
-  if (x < 0 || x >= layout[y].length) return;
-  layout[y][x] = ch;
-}
-
-function fillRect(
-  layout: string[][],
-  left: number,
-  top: number,
-  width: number,
-  height: number,
-  ch: string,
-): void {
-  for (let y = top; y < top + height; y += 1) {
-    for (let x = left; x < left + width; x += 1) {
-      setChar(layout, x, y, ch);
-    }
-  }
-}
-
-function canPlaceRect(
-  layout: string[][],
-  left: number,
-  top: number,
-  width: number,
-  height: number,
-  forbiddenCells?: ReadonlySet<string>,
-): boolean {
-  for (let y = top; y < top + height; y += 1) {
-    for (let x = left; x < left + width; x += 1) {
-      if (layout[y]?.[x] !== '.') return false;
-      if (forbiddenCells?.has(vectorKey({ x, y }))) return false;
-    }
-  }
-  return true;
-}
-
 function drawTent(layout: string[][], left: number, top: number): void {
-  setChar(layout, left + 1, top, 'T');
+  setTile(layout, left + 1, top, 'T');
   fillRect(layout, left, top + 1, 3, 2, 'S');
-  setChar(layout, left + 1, top + 2, '.');
+  setTile(layout, left + 1, top + 2, '.');
 }
 
 function randomName(rng: RandomGenerator): string {
@@ -76,44 +38,25 @@ export function tryPlaceGoblinCamp(
   rng: RandomGenerator,
   options: GoblinCampPlacementOptions = {},
 ): NonNullable<RoomSnapshot['goblinCamp']> | null {
-  if (grid.cols < 24 || grid.rows < 18) {
-    return null;
-  }
+  if (grid.cols < 24 || grid.rows < 18) return null;
 
-  const margin = options.margin ?? CAMP_MARGIN;
   const coreWidth = 8;
   const coreHeight = 4;
   const footprintWidth = coreWidth + SAFE_AREA_PADDING * 2;
   const footprintHeight = coreHeight + SAFE_AREA_PADDING * 2;
-  const minLeft = margin;
-  const minTop = margin;
-  const maxLeft = grid.cols - footprintWidth - margin;
-  const maxTop = grid.rows - footprintHeight - margin;
-
-  if (maxLeft < minLeft || maxTop < minTop) {
-    return null;
-  }
-
-  let camp: { left: number; top: number; width: number; height: number } | null = null;
-  for (let attempt = 0; attempt < CAMP_ATTEMPTS; attempt += 1) {
-    const left = minLeft + Math.floor(rng() * (maxLeft - minLeft + 1));
-    const top = minTop + Math.floor(rng() * (maxTop - minTop + 1));
-    if (!canPlaceRect(layout, left, top, footprintWidth, footprintHeight, options.forbiddenCells)) {
-      continue;
-    }
-    camp = { left, top, width: footprintWidth, height: footprintHeight };
-    break;
-  }
-
-  if (!camp) {
-    return null;
-  }
+  const camp = findRandomRectPlacement(layout, grid, rng, {
+    width: footprintWidth,
+    height: footprintHeight,
+    margin: options.margin ?? CAMP_MARGIN,
+    attempts: CAMP_ATTEMPTS,
+    forbiddenCells: options.forbiddenCells,
+  });
+  if (!camp) return null;
 
   const center = {
     x: camp.left + Math.floor(camp.width / 2),
     y: camp.top + Math.floor(camp.height / 2),
   };
-
   const safeArea = {
     left: camp.left,
     top: camp.top,
@@ -137,33 +80,31 @@ export function tryPlaceGoblinCamp(
     { x: center.x - 1, y: center.y },
     { x: center.x + 2, y: center.y + 1 },
   ];
-  fires.forEach((fire) => setChar(layout, fire.x, fire.y, 'L'));
+  fires.forEach((fire) => setTile(layout, fire.x, fire.y, 'L'));
 
   const shopSpot = { x: center.x, y: center.y - 1 };
-  setChar(layout, shopSpot.x, shopSpot.y, 'G');
+  setTile(layout, shopSpot.x, shopSpot.y, 'G');
   const guardSpots = [
     { x: center.x - 3, y: center.y + 1 },
     { x: center.x + 4, y: center.y - 1 },
   ];
-  guardSpots.forEach((spot) => setChar(layout, spot.x, spot.y, 'G'));
+  guardSpots.forEach((spot) => setTile(layout, spot.x, spot.y, 'G'));
 
-  const campName = CAMP_NAMES[Math.floor(rng() * CAMP_NAMES.length)]!;
   return {
     id: `goblin-camp:${camp.left},${camp.top}`,
-    name: campName,
+    name: pickOne(CAMP_NAMES, rng),
     center,
     safeArea,
     tents,
     fires,
-    guards: guardSpots.map((spot) => ({
-      ...buildHouseNpcProfile(randomName(rng), 'sage-2'),
-      x: spot.x,
-      y: spot.y,
-    })),
-    shopkeeper: {
-      ...buildHouseNpcProfile(`${randomName(rng)} the Clerk`, 'sage-1'),
-      x: shopSpot.x,
-      y: shopSpot.y,
-    },
+    guards: guardSpots.map((spot) =>
+      createHumanoidSpawn(randomName(rng), spot.x, spot.y, 'sage-2'),
+    ),
+    shopkeeper: createHumanoidSpawn(
+      `${randomName(rng)} the Clerk`,
+      shopSpot.x,
+      shopSpot.y,
+      'sage-1',
+    ),
   };
 }

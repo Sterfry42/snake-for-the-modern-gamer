@@ -4,12 +4,12 @@ import {
   getSmeltingTime,
   isFuel,
   getFuelBurnTime,
-  createFurnaceState,
   tryLoadFurnace,
   tryCollectFurnaceOutput,
   tryPlaceFurnace,
   tickFurnaces,
 } from '../furnace.js';
+import { MinecraftPlayer } from '../player.js';
 
 describe('furnace', () => {
   describe('smelting recipes', () => {
@@ -76,11 +76,12 @@ describe('furnace', () => {
       const player = {
         getItemCount: (id: string) => (id === 'coal' ? 5 : 0),
         removeItem: (id: string, count?: number) => {
+          void count;
           if (id === 'coal') return true;
           return false;
         },
         addItem: () => {},
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       const result = tryLoadFurnace(furnaces, player, 5, 5, '0,0,0', 'coal');
       expect(result.success).toBe(true);
@@ -92,11 +93,12 @@ describe('furnace', () => {
       const player = {
         getItemCount: (id: string) => (id === 'coal' ? 5 : id === 'raw_iron' ? 3 : 0),
         removeItem: (id: string, count?: number) => {
+          void count;
           if (id === 'coal' || id === 'raw_iron') return true;
           return false;
         },
         addItem: () => {},
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       tryLoadFurnace(furnaces, player, 5, 5, '0,0,0', 'coal');
       tryLoadFurnace(furnaces, player, 5, 5, '0,0,0', 'raw_iron');
@@ -117,12 +119,12 @@ describe('furnace', () => {
           return false;
         },
         addItem: () => {},
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       tryLoadFurnace(furnaces, player, 5, 5, '0,0,0', 'coal');
       tryLoadFurnace(furnaces, player, 5, 5, '0,0,0', 'raw_iron');
 
-      tickFurnaces(furnaces, []);
+      tickFurnaces(furnaces);
       const furnace = furnaces.get('5,5,0,0,0');
       expect(furnace?.progress).toBe(1);
     });
@@ -141,7 +143,7 @@ describe('furnace', () => {
       furnace!.burning = true;
 
       for (let i = 0; i < 20; i++) {
-        tickFurnaces(furnaces, []);
+        tickFurnaces(furnaces);
       }
       expect(furnace?.inputItem).toBeNull();
       expect(furnace?.outputItem).toBe('iron_ingot');
@@ -167,7 +169,7 @@ describe('furnace', () => {
         addItem: (id: string) => {
           outputItems.push(id);
         },
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       const result = tryCollectFurnaceOutput(furnaces, player, 5, 5, '0,0,0');
       expect(result.success).toBe(true);
@@ -187,7 +189,7 @@ describe('furnace', () => {
       furnace!.fuelRemaining = 10;
       furnace!.burning = true;
 
-      tickFurnaces(furnaces, []);
+      tickFurnaces(furnaces);
 
       // The furnace continues burning since outputItem is null
       // (smelting block only runs when both input AND output are set)
@@ -207,7 +209,7 @@ describe('furnace', () => {
           return false;
         },
         addItem: () => {},
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       // Load 3 coal (30 burn time total), then raw_iron
       tryLoadFurnace(furnaces, player, 5, 5, '0,0,0', 'coal');
@@ -217,7 +219,7 @@ describe('furnace', () => {
 
       // Run 20 ticks to complete one smelt (raw_iron takes 20 ticks, coal gives 30 fuel)
       for (let i = 0; i < 20; i++) {
-        tickFurnaces(furnaces, []);
+        tickFurnaces(furnaces);
       }
 
       const furnace = furnaces.get('5,5,0,0,0');

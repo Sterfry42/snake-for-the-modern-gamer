@@ -5,18 +5,30 @@ export type CaveTemplateId =
   | 'skittishAppleRush'
   | 'caffeinatedAppleRush'
   | 'simpleTreasure'
+  | 'pitchBlackTreasure'
   | 'lakeTreasure'
   | 'caveDweller'
   | 'monsterDen'
-  | 'randomStructureRoom';
+  | 'randomStructureRoom'
+  | 'targetingGallery'
+  | 'echoMaze'
+  | 'floodedTreasury'
+  | 'shrineOfBadProbability'
+  | 'fossilDigSite';
 
 export type CaveLayoutId =
   | 'appleRush'
   | 'simpleTreasure'
+  | 'pitchBlackTreasure'
   | 'lakeTreasure'
   | 'caveDweller'
   | 'monsterDen'
-  | 'structureRoom';
+  | 'structureRoom'
+  | 'targetingGallery'
+  | 'echoMaze'
+  | 'floodedTreasury'
+  | 'shrineOfBadProbability'
+  | 'fossilDigSite';
 
 export type CaveBoundaryMode = 'solidWalls' | 'wrap';
 export type CaveExitMode = 'manual' | 'timerForced' | 'combatClear' | 'rewardClaimed';

@@ -113,4 +113,49 @@ describe('SimulationScheduler', () => {
     expect(diagnostics.clocks.find((clock) => clock.id === 'action')?.stepsLastUpdate).toBe(2);
     expect(diagnostics.clocks.find((clock) => clock.id === 'actor')?.stepsLastUpdate).toBe(1);
   });
+
+  it('caps catch-up work per clock and reports dropped backlog', () => {
+    let steps = 0;
+    const scheduler = new SimulationScheduler([
+      {
+        id: 'action',
+        intervalMs: 10,
+        maxStepsPerUpdate: 3,
+        step: () => {
+          steps += 1;
+        },
+      },
+    ]);
+
+    scheduler.update(250, { action: true });
+
+    const diagnostics = scheduler.getDiagnostics();
+    const action = diagnostics.clocks.find((clock) => clock.id === 'action');
+    expect(steps).toBe(3);
+    expect(action?.stepsLastUpdate).toBe(3);
+    expect(action?.droppedStepsLastUpdate).toBe(22);
+    expect(action?.accumulatorMs).toBe(0);
+  });
+
+  it('keeps Actor clock work tied to elapsed time instead of render frequency', () => {
+    const countActorSteps = (frameDeltaMs: number, frameCount: number): number => {
+      let actorSteps = 0;
+      const scheduler = new SimulationScheduler([
+        {
+          id: 'actor',
+          intervalMs: 100,
+          step: () => {
+            actorSteps += 1;
+          },
+        },
+      ]);
+      for (let frame = 0; frame < frameCount; frame += 1) {
+        scheduler.update(frameDeltaMs, { actor: true });
+      }
+      return actorSteps;
+    };
+
+    expect(countActorSteps(20, 50)).toBe(10);
+    expect(countActorSteps(5, 200)).toBe(10);
+  });
 });

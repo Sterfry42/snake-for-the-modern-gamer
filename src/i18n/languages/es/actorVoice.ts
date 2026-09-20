@@ -2220,6 +2220,21 @@ export const ACTOR_VOICE_ES: ActorVoiceTranslations = {
   'consistency-talk-biome-moonlit-parish-4': {
     line: 'Las calles estan llenas de cuentas pendientes, favores pequenos y promesas mal cerradas.',
   },
+  'consistency-talk-biome-provence-valley-0': {
+    line: '{{name}} se detiene entre los campos de lavanda, como si el aroma mismo le diera tiempo para elegir las palabras.',
+  },
+  'consistency-talk-biome-provence-valley-1': {
+    line: 'El valle habla suave. {{name}} deja que el silencio entre entre las palabras, como quien deja entrar la luz.',
+  },
+  'consistency-talk-biome-provence-valley-2': {
+    line: '{{name}} guarda una calma que no es pasividad, sino una decision de no apresurarse.',
+  },
+  'consistency-talk-biome-provence-valley-3': {
+    line: 'En el valle, los recuerdos tienen sabor a hierbas secas. {{name}} los comparte sin prisa.',
+  },
+  'consistency-talk-biome-provence-valley-4': {
+    line: '{{name}} sonrie con la sonrisa de quien sabe que el tiempo, aqui, se mide en cosechas.',
+  },
   'consistency-talk-biome-sable-depths-0': {
     line: '{{name}} te mira con cuidado y habla en voz baja sobre el camino, la memoria y las consecuencias.',
   },
@@ -4975,6 +4990,21 @@ export const ACTOR_VOICE_ES: ActorVoiceTranslations = {
   },
   'deep-talk-biome-moonlit-parish-practical': {
     line: 'El pueblo recuerda mas de lo que admite. {{name}} deja que esa verdad caiga despacio.',
+  },
+  'deep-talk-biome-provence-valley-cowardly': {
+    line: 'El miedo aqui tiene un sabor a lavanda quemada. {{name}} lo reconoce y baja la voz.',
+  },
+  'deep-talk-biome-provence-valley-deadpan': {
+    line: '{{name}} habla con la calma de quien ha visto crecer la misma cosecha durante anos.',
+  },
+  'deep-talk-biome-provence-valley-goblin': {
+    line: 'El valle no es un lugar para los impacientes. {{name}} lo dice sin juicios, solo como un hecho del terreno.',
+  },
+  'deep-talk-biome-provence-valley-poetic': {
+    line: 'Entre los campos, cada historia se cuenta como un poema lento. {{name}} deja que las palabras fluyan.',
+  },
+  'deep-talk-biome-provence-valley-practical': {
+    line: '{{name}} ofrece consejo como quien ofrece agua de un pozo: sin fanfarron, con la certeza de que llega a quien la necesita.',
   },
   'deep-talk-biome-sable-depths-cowardly': {
     line: '路上没有完全安全的故事，只有暂时没有咬人的故事。',

@@ -1,3 +1,6 @@
+/**
+ * Raccoon Mode
+ */
 import type { Vector2Like } from '../core/math.js';
 
 export type CharacterMode = 'snake' | 'raccoon';

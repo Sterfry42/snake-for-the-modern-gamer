@@ -2,8 +2,11 @@ import type { GridConfig } from '../../config/gameConfig.js';
 import type { RoomSnapshot } from '../types.js';
 import type { EdgeAccessPlan } from './edgeAccess.js';
 import type { TownRoomMembership } from './multiRoomStructures.js';
+import type { TransitionContract } from './transitionContracts.js';
 import type { TerrainCanvas } from './terrainCanvas.js';
 import type { VegetationInstance } from '../types.js';
+import type { BulletTrainStation } from '../bulletTrainTypes.js';
+import type { RollercoasterStation } from '../rollercoasterTypes.js';
 
 export type RoomLayout = string[][];
 export type ProtectedCells = ReadonlySet<string> | undefined;
@@ -28,6 +31,24 @@ export type RoomArchetypeId =
   | 'choke-point'
   | 'ocean'
   | 'dense-forest'
+  | 'mosaic-arrival'
+  | 'old-town-alley'
+  | 'sun-plaza'
+  | 'awning-alley'
+  | 'orange-grove-courtyard'
+  | 'ruined-stucco-block'
+  | 'fountain-court'
+  | 'gaudi-park-approach'
+  | 'white-village-switchback'
+  | 'beach-promenade'
+  | 'siesta-market'
+  | 'festival-plaza'
+  | 'mosaic-park'
+  | 'tapas-crawl-room'
+  | 'souvenir-trapwalk'
+  | 'cathedral-of-shade'
+  | 'el-drac-approach'
+  | 'el-drac-arena'
   | 'cherry-garden'
   | 'bamboo-thicket'
   | 'shrine-courtyard'
@@ -56,8 +77,10 @@ export interface RoomGenerationContext {
   village?: RoomSnapshot['village'];
   goblinCamp?: RoomSnapshot['goblinCamp'];
   town?: RoomSnapshot['town'];
+  layerEntrances?: RoomSnapshot['layerEntrances'];
   townPerimeter?: RoomSnapshot['townPerimeter'];
   snakeMcDonalds?: RoomSnapshot['snakeMcDonalds'];
+  snakeCanes?: RoomSnapshot['snakeCanes'];
   shrine?: RoomSnapshot['shrine'];
   ramenStand?: RoomSnapshot['ramenStand'];
   koiPond?: RoomSnapshot['koiPond'];
@@ -71,19 +94,28 @@ export interface RoomGenerationContext {
   billboardOracle?: RoomSnapshot['billboardOracle'];
   roadCrew?: RoomSnapshot['roadCrew'];
   molemanDigSite?: RoomSnapshot['molemanDigSite'];
+  lavenderFarm?: RoomSnapshot['lavenderFarm'];
+  cheeseShop?: RoomSnapshot['cheeseShop'];
+  garage?: RoomSnapshot['garage'];
   temperatureReliefs?: RoomSnapshot['temperatureReliefs'];
+  bulletTrainStation?: BulletTrainStation;
+  rollercoasterStation?: RollercoasterStation;
   townMembership?: TownRoomMembership | null;
   townAdjacency?: TownRoomMembership | null;
+  transitionContracts?: TransitionContract[];
   reservedEdgeAccess?: EdgeAccessPlan[];
   protectedCells?: ReadonlySet<string>;
   palette: RoomGenerationPalette;
   archetype?: RoomArchetype;
   isOcean: boolean;
   isDenseForest: boolean;
+  isMosaicCoast: boolean;
   isJadePeak: boolean;
   isLibertyBadlands: boolean;
+  isProvenceValley: boolean;
   spawnGuard: SpawnGuard | null;
   vegetation: VegetationInstance[];
+  mosaicCoast?: RoomSnapshot['mosaicCoast'];
 }
 
 export interface RoomGenerationStage {
@@ -92,7 +124,7 @@ export interface RoomGenerationStage {
 }
 
 export interface RoomGenerationOperations {
-  createGenerationContext(roomId: string, grid: GridConfig): RoomGenerationContext;
+  createGenerationContext(roomId: string, grid?: GridConfig): RoomGenerationContext;
   finalizeGenerationContext(context: RoomGenerationContext): RoomSnapshot;
   resolveBiomeMap(context: RoomGenerationContext): void;
   resolveMultiRoomStructures(context: RoomGenerationContext): void;

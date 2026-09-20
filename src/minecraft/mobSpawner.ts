@@ -1,7 +1,6 @@
 import type { MobTypeId } from './types.js';
 import { MobManager } from './mobManager.js';
 import { LightingSystem } from './lighting.js';
-import { PLAYER_MAX_HEALTH } from './config.js';
 
 // ─── Mob Spawner Types ──────────────────────────────────────────────────────
 
@@ -240,6 +239,18 @@ export const SPAWNER_BLOCK_DEFS: Record<SpawnerBlockId, SpawnerBlockDefinition> 
 
 export class MobSpawnerManager {
   private spawners: Map<string, MobSpawnerState> = new Map();
+  private _rng: (() => number) | null = null;
+
+  private get rng(): () => number {
+    if (!this._rng) {
+      this._rng = () => Math.random();
+    }
+    return this._rng;
+  }
+
+  setRng(rng: () => number): void {
+    this._rng = rng;
+  }
 
   private toKey(x: number, y: number, roomId: string): string {
     return `${roomId}:${x},${y}`;
@@ -278,7 +289,11 @@ export class MobSpawnerManager {
     return { success: true };
   }
 
-  public removeSpawner(x: number, y: number, roomId: string): { success: boolean; message?: string } {
+  public removeSpawner(
+    x: number,
+    y: number,
+    roomId: string,
+  ): { success: boolean; message?: string } {
     const key = this.toKey(x, y, roomId);
     if (!this.spawners.has(key)) {
       return { success: false, message: 'No spawner here.' };
@@ -329,8 +344,8 @@ export class MobSpawnerManager {
       if (currentTime - spawner.lastSpawn < spawner.delayBetweenSpawns) continue;
 
       // Try to spawn
-      if (Math.random() < 0.05) {
-        this.trySpawnFromSpawner(spawner, mobManager, currentTime, gridSize, onMobDeath);
+      if (this.rng() < 0.05) {
+        this.trySpawnFromSpawner(spawner, mobManager, gridSize, onMobDeath);
         spawner.lastSpawn = currentTime;
       }
     }
@@ -339,7 +354,6 @@ export class MobSpawnerManager {
   private trySpawnFromSpawner(
     spawner: MobSpawnerState,
     mobManager: MobManager,
-    currentTime: number,
     gridSize: number,
     onMobDeath: (mobId: string, x: number, y: number, roomId: string) => void,
   ): void {
@@ -348,21 +362,22 @@ export class MobSpawnerManager {
 
     if (spawnPositions.length === 0) return;
 
-    const chosen = spawnPositions[Math.floor(Math.random() * spawnPositions.length)];
+    const chosen = spawnPositions[Math.floor(this.rng() * spawnPositions.length)];
     mobManager.spawnMob(spawner.roomId, spawner.mobType, chosen.x, chosen.y);
 
     // Handle mob death drops
     const mob = mobManager.getMob(Array.from(mobManager['mobs'].values()).pop()?.id ?? '');
     if (mob) {
-      mobManager.onMobDeath(mob.id, (itemId, count) => {
-        // Drops would be handled by the game
-      });
+      mobManager.onMobDeath(mob.id, () => undefined);
     }
 
     onMobDeath(mobManager['mobs'].keys().next().value ?? '', chosen.x, chosen.y, spawner.roomId);
   }
 
-  private findValidSpawnPositions(spawner: MobSpawnerState, gridSize: number): Array<{ x: number; y: number }> {
+  private findValidSpawnPositions(
+    spawner: MobSpawnerState,
+    gridSize: number,
+  ): Array<{ x: number; y: number }> {
     const positions: Array<{ x: number; y: number }> = [];
     const range = 4;
 
@@ -407,9 +422,11 @@ export function activateSpawner(
   x: number,
   y: number,
   roomId: string,
-  playerX: number,
-  playerY: number,
+  _playerX: number,
+  _playerY: number,
 ): { success: boolean; message?: string } {
+  void _playerX;
+  void _playerY;
   const spawner = spawnerManager.getSpawner(x, y, roomId);
   if (!spawner) {
     return { success: false, message: 'No spawner here.' };
@@ -464,14 +481,16 @@ export const SPAWNER_LOOT_TABLE: SpawnerLootEntry[] = [
   { itemId: 'diamond', minCount: 1, maxCount: 1, weight: 1 },
 ];
 
-export function getSpawnerLoot(): Array<{ itemId: string; count: number }> {
+export function getSpawnerLoot(
+  rng: () => number = Math.random,
+): Array<{ itemId: string; count: number }> {
   const loot: Array<{ itemId: string; count: number }> = [];
 
   for (const entry of SPAWNER_LOOT_TABLE) {
-    const roll = Math.random() * 100;
+    const roll = rng() * 100;
     if (roll >= entry.weight * 10) continue;
 
-    const count = Math.floor(Math.random() * (entry.maxCount - entry.minCount + 1)) + entry.minCount;
+    const count = Math.floor(rng() * (entry.maxCount - entry.minCount + 1)) + entry.minCount;
     loot.push({ itemId: entry.itemId, count });
   }
 

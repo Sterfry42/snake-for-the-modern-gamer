@@ -9,6 +9,7 @@ import {
   TOTAL_FISH_COUNT,
 } from './achievementDefinitions.js';
 import { AchievementManager } from './achievementManager.js';
+import { getAchievementReward } from './achievementRewards.js';
 import { MemoryAchievementStorage } from './achievementStorage.js';
 import type { AchievementEvent, AchievementSnapshot } from './achievementTypes.js';
 
@@ -35,6 +36,9 @@ function snapshot(overrides: Partial<AchievementSnapshot> = {}): AchievementSnap
     coldResistance: 0,
     cowbellTilesWalked: 0,
     wardDamageTypesHeld: 0,
+    trainZonesTraveled: 0,
+    highlightFollowers: 0,
+    maxSpecialStat: 5,
     ...overrides,
   };
 }
@@ -90,6 +94,7 @@ describe('revised achievement catalog', () => {
       { type: 'combat:jadeKatanaWallSmite', roomId: '0,0,0' },
       { type: 'divine:angelEncountered', angelKind: 'normal' },
       { type: 'divine:angelEncountered', angelKind: 'goblin' },
+      { type: 'divine:escapedHell', itemId: 'get-out-of-hell-free-card' },
       {
         type: 'fishing:caught',
         fishTypeId: 'rare',
@@ -118,6 +123,7 @@ describe('revised achievement catalog', () => {
       'combat.katanaSmite',
       'divine.meetAngel',
       'divine.meetGoblinAngel',
+      'divine.snakeOutOfHell',
       'fishing.rare',
       'archaeology.chain3',
       'archaeology.chain5',
@@ -174,6 +180,86 @@ describe('revised achievement catalog', () => {
     expect(HAZARD_SURVIVAL_TARGET_MS).toBe(60_000);
   });
 
+  it('unlocks arcade and SPECIAL achievements from their actual triggers', () => {
+    const manager = new AchievementManager(ACHIEVEMENT_DEFINITIONS, new MemoryAchievementStorage());
+    manager.recordEvent({ type: 'arcade:played' });
+    manager.recordEvent({ type: 'arcade:blueScreen' });
+    manager.evaluateSnapshot(snapshot({ maxSpecialStat: 10 }));
+    expect(manager.isCompleted('arcade.snakeception')).toBe(true);
+    expect(manager.isCompleted('arcade.blueScreen')).toBe(true);
+    expect(manager.isCompleted('stats.special10')).toBe(true);
+  });
+
+  it('unlocks the bullet train distance achievement from one long ride', () => {
+    const manager = new AchievementManager(ACHIEVEMENT_DEFINITIONS, new MemoryAchievementStorage());
+    manager.evaluateSnapshot(snapshot({ trainZonesTraveled: 5 }));
+    expect(manager.isCompleted('exploration.trainSixZones')).toBe(false);
+    manager.evaluateSnapshot(snapshot({ trainZonesTraveled: 6 }));
+    expect(manager.isCompleted('exploration.trainSixZones')).toBe(true);
+  });
+
+  it('places the new achievements beside their actual progression parents with proper rewards', () => {
+    const snakeception = ACHIEVEMENT_DEFINITIONS.find(
+      (definition) => definition.id === 'arcade.snakeception',
+    )!;
+    const blueScreen = ACHIEVEMENT_DEFINITIONS.find(
+      (definition) => definition.id === 'arcade.blueScreen',
+    )!;
+    const special10 = ACHIEVEMENT_DEFINITIONS.find(
+      (definition) => definition.id === 'stats.special10',
+    )!;
+    const score500Index = ACHIEVEMENT_DEFINITIONS.findIndex(
+      (definition) => definition.id === 'stats.score500',
+    );
+    const special10Index = ACHIEVEMENT_DEFINITIONS.findIndex(
+      (definition) => definition.id === 'stats.special10',
+    );
+    const score1000Index = ACHIEVEMENT_DEFINITIONS.findIndex(
+      (definition) => definition.id === 'stats.score1000',
+    );
+
+    expect(snakeception.prerequisites).toEqual(['core.firstApple']);
+    expect(blueScreen.prerequisites).toEqual(['arcade.snakeception']);
+    expect(special10.prerequisites).toEqual(['stats.score500']);
+    expect(special10Index).toBeGreaterThan(score500Index);
+    expect(special10Index).toBeLessThan(score1000Index);
+    expect(snakeception.tree.x).toBeLessThan(500);
+    expect(blueScreen.tree.x).toBeLessThan(500);
+    expect(getAchievementReward(snakeception)).toBe(30);
+    expect(getAchievementReward(blueScreen)).toBe(100);
+    expect(getAchievementReward(special10)).toBe(75);
+    expect(snakeception.icon.kind).toBe('arcadeCabinet');
+    expect(blueScreen.icon.kind).toBe('blueScreen');
+    expect(special10.icon.kind).toBe('specialStat');
+  });
+
+  it('forms a collision-free progression tree with only intentional standalone roots', () => {
+    const byId = new Map(ACHIEVEMENT_DEFINITIONS.map((definition) => [definition.id, definition]));
+    const occupied = new Map<string, string>();
+    const standaloneIds = new Set(['core.firstApple', 'system.zoomFlurry', 'archaeology.firstDig']);
+
+    for (const definition of ACHIEVEMENT_DEFINITIONS) {
+      const coordinate = `${definition.tree.x},${definition.tree.y}`;
+      expect(
+        occupied.get(coordinate),
+        `${definition.id} overlaps ${occupied.get(coordinate)}`,
+      ).toBe(undefined);
+      occupied.set(coordinate, definition.id);
+
+      for (const prerequisite of definition.prerequisites ?? []) {
+        expect(byId.has(prerequisite), `${definition.id} has missing parent ${prerequisite}`).toBe(
+          true,
+        );
+      }
+      if (!standaloneIds.has(definition.id)) {
+        expect(
+          definition.prerequisites?.length,
+          `${definition.id} is disconnected`,
+        ).toBeGreaterThan(0);
+      }
+    }
+  });
+
   it('assigns distinctive portrait kinds to revised categories', () => {
     for (const id of [
       'core.bigBite',
@@ -186,15 +272,21 @@ describe('revised achievement catalog', () => {
       'treasure.first',
       'towns.wanted5',
       'relationships.divorced',
+      'relationships.motherLove',
       'equipment.fullLoadout',
       'fishing.completeJournal',
       'archaeology.allArtifacts',
       'divine.meetAngel',
       'divine.meetGoblinAngel',
+      'divine.snakeOutOfHell',
       'caves.appleRushClear',
       'companions.first',
       'shops.generalBuyout',
       'cards.fullDeck',
+      'archaeology.firstDig',
+      'arcade.snakeception',
+      'arcade.blueScreen',
+      'stats.special10',
     ]) {
       const definition = ACHIEVEMENT_DEFINITIONS.find((entry) => entry.id === id);
       expect(definition?.icon.kind, id).not.toBe('snake');

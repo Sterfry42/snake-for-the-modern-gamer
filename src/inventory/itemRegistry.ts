@@ -1,6 +1,19 @@
 import type { Item } from './item.js';
+import { generateBiomeLocatorItems } from '../world/biomeLocators.js';
+import { generateStructureLocatorItems } from '../world/structureLocators.js';
+import { getRestaurantFoods } from '../shops/restaurants.js';
+
+const RESTAURANT_FOOD_ITEMS: readonly Item[] = getRestaurantFoods().map((food) => ({
+  id: food.id,
+  name: food.name,
+  description: food.description,
+  kind: 'consumable',
+  category: 'food',
+}));
 
 export const ITEMS: readonly Item[] = [
+  ...generateBiomeLocatorItems(),
+  ...generateStructureLocatorItems(),
   {
     id: 'apple-normal',
     name: 'Recovered Standard Apple',
@@ -44,6 +57,14 @@ export const ITEMS: readonly Item[] = [
     category: 'food',
   },
   {
+    id: 'apple-cold-beer',
+    name: 'Cold Beer Apple',
+    description:
+      'A crisp golden apple, cold as a friday night. The wise old snake says "fuhgeddaboudit, this is the one."',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
     id: 'weapon-revolver',
     name: 'Pilgrim Revolver',
     description: 'A worn sidearm for formal disagreements. Equip it in your weapon slot to fire.',
@@ -63,6 +84,47 @@ export const ITEMS: readonly Item[] = [
       gunEnabled: true,
       tickDelayScalar: 1.08,
     },
+  },
+  {
+    id: 'weapon-gopro',
+    name: 'GoPro',
+    description:
+      'Equip it in the weapon slot, click for a live countdown, then record six seconds worth posting.',
+    kind: 'equipment',
+    slot: 'weapon',
+    modifiers: {
+      activeTool: 'gopro',
+    },
+  },
+  {
+    id: 'weapon-bomb-slingshot',
+    name: 'Bomb Slingshot',
+    description:
+      'A two-handed menace for throwing bombs in any direction. Bombs sold separately, naturally.',
+    kind: 'equipment',
+    slot: 'weapon',
+    modifiers: {
+      activeTool: 'bomb-slingshot',
+    },
+  },
+  {
+    id: 'weapon-binoculars',
+    name: 'Binoculars',
+    description:
+      'Equip them in the weapon slot and click to survey a full 3x3 room block. The wise old snake says the edges still know the rules.',
+    kind: 'equipment',
+    slot: 'weapon',
+    modifiers: {
+      activeTool: 'binoculars',
+    },
+  },
+  {
+    id: 'bomb',
+    name: 'Bomb',
+    description:
+      'A timed explosive. Throw it with a Bomb Slingshot, or use it from inventory to place it at your head.',
+    kind: 'consumable',
+    category: 'consumable',
   },
   {
     id: 'boots-quick',
@@ -87,23 +149,22 @@ export const ITEMS: readonly Item[] = [
   {
     id: 'boots-swim-fins',
     name: 'Swim Fins',
-    description: 'Flexible fins that let you cross lakes and ocean water.',
+    description:
+      'Flexible fins that let you cross lakes and ocean water. Water still pushes back a little.',
     kind: 'equipment',
     slot: 'boots',
     modifiers: {
       swimmingEnabled: true,
-      tickDelayScalar: 1.05,
     },
   },
   {
     id: 'boots-lead-flippers',
     name: 'Lead Flippers',
-    description: 'Village-grade flippers. They cross water and make every tile feel farther away.',
+    description: 'Village-grade flippers. They cross water, but every stroke has weight.',
     kind: 'equipment',
     slot: 'boots',
     modifiers: {
       swimmingEnabled: true,
-      tickDelayScalar: 1.12,
     },
   },
   {
@@ -114,6 +175,17 @@ export const ITEMS: readonly Item[] = [
     slot: 'helm',
     modifiers: {
       wallSenseBonus: 2,
+    },
+  },
+  {
+    id: 'helm-daggerfell',
+    name: 'Daggerfell Helm',
+    description:
+      'An ancient helm with an impossibly narrow eye slit. Gives the world a disturbing sense of depth.',
+    kind: 'equipment',
+    slot: 'helm',
+    modifiers: {
+      firstPersonView: true,
     },
   },
   {
@@ -129,7 +201,8 @@ export const ITEMS: readonly Item[] = [
   {
     id: 'gloves-mason',
     name: "Mason's Gloves",
-    description: 'Your tail lays bricks behind you.',
+    description:
+      'Your tail lays temporary masonry blocks behind you. They crumble after a couple seconds, and your snake can pass right through them.',
     kind: 'equipment',
     slot: 'gloves',
     modifiers: {
@@ -188,6 +261,16 @@ export const ITEMS: readonly Item[] = [
     },
   },
   {
+    id: 'jeans-perfect-fit',
+    name: 'A Pair of Jeans That Fit Just Right',
+    description: 'No pinching, no sagging. These things were born for you. You betcha.',
+    kind: 'equipment',
+    slot: 'belt',
+    modifiers: {
+      tickDelayScalar: 0.95,
+    },
+  },
+  {
     id: 'amulet-phoenix',
     name: 'Phoenix Charm',
     description: 'A single ember that cheats death once.',
@@ -217,6 +300,16 @@ export const ITEMS: readonly Item[] = [
     modifiers: {
       tickDelayScalar: 0.92,
       invulnerabilityBonus: 20,
+    },
+  },
+  {
+    id: 'amulet-lantern',
+    name: 'Traveler Lantern',
+    description: 'A steady little lantern. It makes dark rooms readable without asking for fuel.',
+    kind: 'equipment',
+    slot: 'amulet',
+    modifiers: {
+      lightRadiusTiles: 6,
     },
   },
   {
@@ -342,6 +435,20 @@ export const ITEMS: readonly Item[] = [
     category: 'food',
   },
   {
+    id: 'frog-meat',
+    name: 'Frog Legs',
+    description: 'A pair of raw frog legs. Snappy texture, delicate flavor. Cook them first.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'cooked-frog',
+    name: 'Cooked Frog Legs',
+    description: 'Golden fried frog legs. Crispy outside, tender within. A delicacy.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
     id: 'hide',
     name: 'Hide',
     description: 'A scrap of cured animal hide. Tough and flexible.',
@@ -384,6 +491,13 @@ export const ITEMS: readonly Item[] = [
     category: 'consumable',
   },
   {
+    id: 'get-out-of-hell-free-card',
+    name: 'Get Out of Hell Free',
+    description: 'Consumed at a Hell ending. Revives you with 1 Life Charge at depth -1000.',
+    kind: 'consumable',
+    category: 'consumable',
+  },
+  {
     id: 'beer',
     name: 'Beer',
     description: 'A tavern drink. Briefly makes your path drift side to side.',
@@ -411,26 +525,7 @@ export const ITEMS: readonly Item[] = [
     kind: 'consumable',
     category: 'material',
   },
-  {
-    id: 'food-snake-burger',
-    name: 'Snake Burger',
-    description:
-      'A juicy burger made with premium snake meat. +5 length, 1 minute invulnerability.',
-    kind: 'consumable',
-  },
-  {
-    id: 'food-snake-fries',
-    name: 'Snake Fries',
-    description:
-      'Crispy golden fries seasoned with serpent herbs. +5 length, 1 minute invulnerability.',
-    kind: 'consumable',
-  },
-  {
-    id: 'food-snake-nuggets',
-    name: 'Snake Nuggets',
-    description: 'Crispy little nuggets of snake. +2 length, 30 seconds invulnerability.',
-    kind: 'consumable',
-  },
+  ...RESTAURANT_FOOD_ITEMS,
   {
     id: 'orange-juice',
     name: 'Orange Juice',
@@ -890,6 +985,594 @@ export const ITEMS: readonly Item[] = [
     kind: 'consumable',
     category: 'food',
   },
+  {
+    id: 'fish-desert-frog',
+    name: 'Desert Frog',
+    description: 'A tough little survivor. Croaks even out of water.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  // Verdigris Basin frogs
+  {
+    id: 'fish-green-frog',
+    name: 'Green Frog',
+    description: 'A plump marsh frog. Indignant about being caught.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  // Gloam Garden frogs
+  {
+    id: 'fish-moon-frog',
+    name: 'Moon Frog',
+    description: 'A pale, ghostly frog. Still faintly glowing.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  // Elderwood Maze frogs
+  {
+    id: 'fish-swamp-frog',
+    name: 'Swamp Frog',
+    description: 'Mottled and muddy. A swamp survivor with a strong leap.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  // Radio
+  {
+    id: 'belt-radio',
+    name: 'Wise Old Radio',
+    description:
+      'A pocket radio that picks up transcendent frequencies. Equip it in your belt slot to tune into radio stations. Each station grants unique buffs.',
+    kind: 'equipment',
+    slot: 'belt',
+  },
+  // Chicken Fried
+  {
+    id: 'chicken-fried',
+    name: 'Chicken Fried',
+    description:
+      'Golden, crispy, and perfectly breaded. A real Southern comfort food that hits the spot.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  // ===== GARDEN ITEMS =====
+  {
+    id: 'garden-watering-can',
+    name: 'Watering Can',
+    description: 'A trusty watering can for your garden. Keeps plants happy and growing.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'garden-fertilizer',
+    name: 'Garden Fertilizer',
+    description: 'Rich compost that speeds up plant growth. Sprinkle it around your seeds.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'garden-pest-spray',
+    name: 'Pest Spray',
+    description: 'Organic pest spray. Keeps aphids and caterpillars at bay.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'garden-rake',
+    name: 'Garden Rake',
+    description: 'A sturdy rake for clearing plots and preparing soil.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'garden-golden-rake',
+    name: 'Golden Garden Rake',
+    description: 'A legendary rake that makes gardening 50% faster. Old Martha would be proud.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'garden-seed-packet',
+    name: 'Seed Packet (Mixed)',
+    description: 'A packet containing a random selection of garden seeds.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'seed-normal',
+    name: 'Standard Apple Seed',
+    description: 'Grows a standard apple. Reliable, steady, and always a good choice.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'seed-gold',
+    name: 'Golden Apple Seed',
+    description: 'Grows a gleaming golden apple. Rare and valuable.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'seed-treat',
+    name: 'Treat Apple Seed',
+    description: 'Grows a sweet treat apple. Good for snacking.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'seed-lavender',
+    name: 'Lavender Apple Seed',
+    description: 'Grows a fragrant lavender apple. Pairs beautifully with love apples.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'seed-love',
+    name: 'Love Apple Seed',
+    description: 'Grows a heart-shaped love apple. Double yield with lavender!',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'seed-caffeinated',
+    name: 'Caffeinated Apple Seed',
+    description: 'Grows a jittery caffeinated apple. Grows faster in heat.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'seed-wasabi',
+    name: 'Wasabi Apple Seed',
+    description: 'Grows a spicy wasabi apple. Pairs with caffeinated for hybrid apples.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'seed-mochi',
+    name: 'Mochi Apple Seed',
+    description: 'Grows a chewy mochi apple. Best in autumn weather.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'seed-yuzu',
+    name: 'Yuzu Apple Seed',
+    description: 'Grows a citrusy yuzu apple. Pairs well with mochi.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'seed-frost',
+    name: 'Frost Apple Seed',
+    description: 'Grows an icy frost apple. Thrives in cold weather.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'seed-winterberry',
+    name: 'Winterberry Apple Seed',
+    description: 'Grows a winter-hardy berry apple. Pairs with frost.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'seed-skittish',
+    name: 'Skittish Apple Seed',
+    description: 'Grows a twitchy skittish apple. Fast to grow, fast to move.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'seed-cold-beer',
+    name: 'Cold Beer Apple Seed',
+    description: 'Grows a crisp cold beer apple. Refreshing in summer.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'seed-mocha',
+    name: 'Mocha Apple Seed',
+    description: 'Grows a rich mocha apple. Best in autumn.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'garden-plot-key',
+    name: 'Garden Plot Key',
+    description: 'Unlocks an additional garden plot. More room for more apples.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  // === ALCHEMY POTION ITEMS ===
+  {
+    id: 'potion-growth',
+    name: 'Growth Potion',
+    description: 'Temporarily increase snake size for reaching distant apples.',
+    kind: 'consumable',
+    category: 'consumable',
+  },
+  {
+    id: 'potion-phase',
+    name: 'Phase Potion',
+    description: 'Allow the snake to pass through obstacles briefly.',
+    kind: 'consumable',
+    category: 'consumable',
+  },
+  {
+    id: 'potion-magnet',
+    name: 'Apple Magnet',
+    description: 'Attract nearby apples toward the snake.',
+    kind: 'consumable',
+    category: 'consumable',
+  },
+  {
+    id: 'potion-time-slow',
+    name: 'Time Slow Elixir',
+    description: 'Slow down all apple movement for easier catching.',
+    kind: 'consumable',
+    category: 'consumable',
+  },
+  {
+    id: 'potion-shadow-cloak',
+    name: 'Shadow Cloak',
+    description: 'Make the snake invisible to enemies for a duration.',
+    kind: 'consumable',
+    category: 'consumable',
+  },
+  {
+    id: 'potion-rainbow-trail',
+    name: 'Rainbow Trail',
+    description: 'Leave a trail that attracts specific apple types.',
+    kind: 'consumable',
+    category: 'consumable',
+  },
+  {
+    id: 'potion-speed-boost',
+    name: 'Swiftstride Elixir',
+    description: 'Temporarily increase snake movement speed.',
+    kind: 'consumable',
+    category: 'consumable',
+  },
+  {
+    id: 'potion-shield',
+    name: 'Guardian Ward',
+    description: 'Grant temporary invulnerability to damage.',
+    kind: 'consumable',
+    category: 'consumable',
+  },
+  {
+    id: 'potion-size-shrink',
+    name: 'Pip Squeeze',
+    description: 'Shrink the snake to slip through tight spaces.',
+    kind: 'consumable',
+    category: 'consumable',
+  },
+  {
+    id: 'potion-lucidity',
+    name: 'Oneiric Draught',
+    description: 'Enter a dream-like state with enhanced perception.',
+    kind: 'consumable',
+    category: 'consumable',
+  },
+  // Mythic potions
+  {
+    id: 'potion-mythic-growth',
+    name: "Titan's Bane",
+    description: 'A legendary growth potion that permanently increases base length.',
+    kind: 'consumable',
+    category: 'consumable',
+  },
+  {
+    id: 'potion-mythic-phase',
+    name: 'Void Walker',
+    description: 'Phase through all obstacles permanently for the rest of the run.',
+    kind: 'consumable',
+    category: 'consumable',
+  },
+  {
+    id: 'potion-mythic-apple-rain',
+    name: 'Apple Storm',
+    description: 'Summon a legendary rain of apples across the entire world.',
+    kind: 'consumable',
+    category: 'consumable',
+  },
+  {
+    id: 'potion-mythic-transformation',
+    name: 'Golden Serpent',
+    description: 'Transform the snake into a legendary golden serpent.',
+    kind: 'consumable',
+    category: 'consumable',
+  },
+  // Alchemy ingredients as items
+  {
+    id: 'ingredient-normal-apple',
+    name: 'Standard Apple Extract',
+    description: 'Basic apple essence. The foundation of all alchemy.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-skittish-apple',
+    name: 'Skittish Apple Essence',
+    description: 'A twitchy essence that jitters when left unattended.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-pearl-apple',
+    name: 'Pearl Apple Concentrate',
+    description: 'A pale, polished essence with a smooth texture.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-yuzu-apple',
+    name: 'Yuzu Apple Distillate',
+    description: 'Sharp citrus essence that stings the nostrils.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-gold-apple',
+    name: 'Golden Apple Magma',
+    description: 'A gleaming essence that radiates warmth.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-wasabi-apple',
+    name: 'Wasabi Apple Resin',
+    description: 'A hot green resin that clears the sinuses.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-caf-apple',
+    name: 'Caffeinated Apple Tincture',
+    description: 'A jittery essence that keeps you awake for days.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-mochi-apple',
+    name: 'Mochi Apple Paste',
+    description: 'A sticky, chewy essence that clings to everything.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-cold-beer-apple',
+    name: 'Cold Beer Apple Brew',
+    description: 'A crisp golden brew. The wise old snake says "fuhgeddaboudit."',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-quartz',
+    name: 'Crystal Quartz',
+    description: 'A clear mineral shard from deep caves.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-amber',
+    name: 'Sun Amber',
+    description: 'Warm golden mineral that traps ancient light.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-lapis',
+    name: 'Deep Lapis Lazuli',
+    description: 'A deep blue stone from the darkest cave layers.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-meteor-iron',
+    name: 'Meteor Iron Fragment',
+    description: 'A piece of fallen star metal. Warm to the touch.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-void-crystal',
+    name: 'Void Crystal',
+    description: 'A dark crystal that seems to absorb light around it.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-honey',
+    name: 'Wildflower Honey',
+    description: 'Sweet honey from the garden bees.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-spider-silk',
+    name: 'Spider Silk Strand',
+    description: 'Incredibly strong silk from a cave spider.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-bear-essence',
+    name: 'Bear Essence',
+    description: 'A powerful essence from a tamed bear.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-eagle-feather',
+    name: 'Golden Eagle Feather',
+    description: 'A feather from a mountain eagle. Light as air.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-fox-cub',
+    name: 'Fox Cub Fur Tuft',
+    description: 'A tuft of russet fur from a tamed fox.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-snake-scale',
+    name: 'Shed Snake Scale',
+    description: 'A scale from a wise old snake. Shimmering with potential.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-mint',
+    name: 'Garden Mint',
+    description: 'Fresh mint from the garden patch.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-nightshade',
+    name: 'Moonlit Nightshade',
+    description: 'A dark herb that glows faintly under moonlight.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-sunroot',
+    name: 'Sunroot Tuber',
+    description: 'A golden root that stores sunlight.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-ghost-garlic',
+    name: 'Ghost Garlic',
+    description: 'A translucent bulb that repels spirits.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-dew',
+    name: 'Morning Dew',
+    description: 'Collected at dawn. Pure and refreshing.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-shadow-essence',
+    name: 'Shadow Essence',
+    description: 'Condensed darkness from the deepest caves.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-light-essence',
+    name: 'Light Essence',
+    description: 'Captured sunlight in a vial. Warm and inviting.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-time-essence',
+    name: 'Time Essence',
+    description: 'A viscous golden fluid that flows backward.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-philosophers-stone',
+    name: "Philosopher's Stone Fragment",
+    description: 'A fragment of the legendary stone. It hums with power.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-elixir-of-life',
+    name: 'Elixir of Life Drop',
+    description: 'A single drop that pulses with life force.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-void-essence',
+    name: 'Void Essence Core',
+    description: 'The heart of nothingness. Dangerous to handle.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  {
+    id: 'ingredient-aurora-crystal',
+    name: 'Aurora Crystal',
+    description: 'A crystal that shifts through every color. Beautiful and deadly.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  // Alchemy station item
+  {
+    id: 'alchemy-station',
+    name: 'Alchemy Station',
+    description:
+      'A sturdy table for mixing potions and elixirs. The wise old snake built this one from a fallen tree stump.',
+    kind: 'consumable',
+    category: 'material',
+  },
+  // Recipe scrolls
+  {
+    id: 'recipe-scroll-growth',
+    name: 'Scroll of Growth',
+    description: 'A recipe scroll showing how to brew a Growth Potion.',
+    kind: 'consumable',
+    category: 'recipe',
+  },
+  {
+    id: 'recipe-scroll-phase',
+    name: 'Scroll of Phasing',
+    description: 'A recipe scroll showing how to brew a Phase Potion.',
+    kind: 'consumable',
+    category: 'recipe',
+  },
+  {
+    id: 'recipe-scroll-magnet',
+    name: 'Scroll of Attraction',
+    description: 'A recipe scroll showing how to brew an Apple Magnet.',
+    kind: 'consumable',
+    category: 'recipe',
+  },
+  {
+    id: 'recipe-scroll-shield',
+    name: 'Scroll of Warding',
+    description: 'A recipe scroll showing how to brew a Shield Potion.',
+    kind: 'consumable',
+    category: 'recipe',
+  },
+  {
+    id: 'recipe-scroll-speed',
+    name: 'Scroll of Swiftstride',
+    description: 'A recipe scroll showing how to brew a Swiftstride Elixir.',
+    kind: 'consumable',
+    category: 'recipe',
+  },
+  {
+    id: 'recipe-scroll-time-slow',
+    name: 'Scroll of Slowness',
+    description: 'A recipe scroll showing how to brew a Time Slow Elixir.',
+    kind: 'consumable',
+    category: 'recipe',
+  },
+  {
+    id: 'recipe-scroll-shadow',
+    name: 'Scroll of Shadows',
+    description: 'A recipe scroll showing how to brew a Shadow Cloak.',
+    kind: 'consumable',
+    category: 'recipe',
+  },
+  {
+    id: 'recipe-scroll-rainbow',
+    name: 'Scroll of Rainbows',
+    description: 'A recipe scroll showing how to brew a Rainbow Trail.',
+    kind: 'consumable',
+    category: 'recipe',
+  },
 ];
 
 const ITEM_MAP = new Map<string, Item>(ITEMS.map((item) => [item.id, item]));
@@ -926,6 +1609,7 @@ const CHEST_LOOT_ITEM_IDS = [
   'raiju-bottle',
   'kappa-bowl',
   'orange-juice',
+  'belt-radio',
 ] as const;
 const CHEST_LOOT_EXCLUDED_IDS = new Set([
   'weapon-market-revolver',
@@ -941,7 +1625,7 @@ const CHEST_LOOT_EXCLUDED_IDS = new Set([
 
 export const CHEST_LOOT_ITEMS: readonly Item[] = CHEST_LOOT_ITEM_IDS.map((id) =>
   ITEM_MAP.get(id),
-).filter((item): item is Item => Boolean(item) && !CHEST_LOOT_EXCLUDED_IDS.has(item.id));
+).filter((item): item is Item => item != null && !CHEST_LOOT_EXCLUDED_IDS.has(item.id));
 
 export function getItem(id: string): Item | undefined {
   return ITEM_MAP.get(id);

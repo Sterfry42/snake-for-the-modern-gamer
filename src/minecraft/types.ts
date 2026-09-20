@@ -1,5 +1,3 @@
-import type { Vector2Like } from '../core/math.js';
-
 // ─── Block System ────────────────────────────────────────────────────────────
 
 export type BlockKind = 'solid' | 'transparent' | 'light' | 'crop' | 'special';
@@ -95,7 +93,12 @@ export interface MinecraftPlayerState {
   absorptionHearts?: number;
   hasteActive?: boolean;
   damageResistance?: boolean;
-  enchantedItems?: Array<any>;
+  enchantedItems?: Array<{
+    itemId: string;
+    enchantments: Map<string, number>;
+    enchantmentLevel: number;
+  }>;
+
   fishingRodDurability?: Record<string, number>;
 }
 

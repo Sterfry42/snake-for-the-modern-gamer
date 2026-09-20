@@ -6,6 +6,7 @@ import {
   tryBreakChest,
   getChestContents,
 } from '../chest.js';
+import { MinecraftPlayer } from '../player.js';
 
 describe('chest', () => {
   describe('chest placement', () => {
@@ -42,7 +43,7 @@ describe('chest', () => {
           return true;
         },
         addItem: () => {},
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       const result = tryDepositToChest(chests, player, 5, 5, '0,0,0', 'cobblestone', 5);
       expect(result.success).toBe(true);
@@ -64,7 +65,7 @@ describe('chest', () => {
           return true;
         },
         addItem: () => {},
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       // First deposit
       tryDepositToChest(chests, player, 5, 5, '0,0,0', 'cobblestone', 5);
@@ -92,7 +93,7 @@ describe('chest', () => {
         getItemCount: () => 0,
         removeItem: () => true,
         addItem: (id: string, count: number) => withdrawn.push({ itemId: id, count }),
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       const result = tryWithdrawFromChest(chests, player, 5, 5, '0,0,0', 'cobblestone', 3);
       expect(result.success).toBe(true);
@@ -115,7 +116,7 @@ describe('chest', () => {
         getItemCount: () => 0,
         removeItem: () => true,
         addItem: (id: string, count: number) => collected.push({ itemId: id, count }),
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       const result = tryBreakChest(chests, player, 5, 5, '0,0,0');
       expect(result.success).toBe(true);

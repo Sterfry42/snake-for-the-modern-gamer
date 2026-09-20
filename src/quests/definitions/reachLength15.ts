@@ -1,18 +1,9 @@
-import { Quest } from '../quest.js';
-import type { QuestRuntime } from '../quest.js';
+import { LengthQuest } from './countingQuest.js';
 
-class ReachLengthFifteenQuest extends Quest {
-  constructor() {
-    super('reach-length-15', 'Longer Line', 'Grow your snake to length 15');
-  }
-
-  override isCompleted(runtime: QuestRuntime): boolean {
-    return runtime.getSnakeLength() >= 15;
-  }
-
-  override onReward(runtime: QuestRuntime): void {
-    runtime.addScore(25);
-  }
-}
-
-export default new ReachLengthFifteenQuest();
+export default new LengthQuest(
+  'reach-length-15',
+  'Longer Line',
+  'Grow your snake to length 15',
+  15,
+  25,
+);
