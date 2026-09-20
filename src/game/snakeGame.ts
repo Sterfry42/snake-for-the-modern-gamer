@@ -21719,10 +21719,7 @@ export class SnakeGame implements QuestRuntime {
     return changed;
   }
 
-  private findAdjacentHouseGardenTile(
-    local: Vector2Like,
-    tile: 'D' | 'R',
-  ): Vector2Like | null {
+  private findAdjacentHouseGardenTile(local: Vector2Like, tile: 'D' | 'R'): Vector2Like | null {
     const room = this.world.getRoom(HOUSE_ROOM_ID);
     const positions = [
       local,
