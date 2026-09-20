@@ -143,6 +143,7 @@ import { stableStringHashPositive, type Vector2Like } from '../core/math.js';
 import { MAYORAL_PLATFORMS } from '../civic/mayoralPlatforms.js';
 import type { MayoralPlatformId } from '../civic/civicTypes.js';
 import {
+  getSnakeSceneSpecialShop,
   hasSnakeSceneButcherSegmentSale,
   isSnakeSceneSupportedActorInteraction,
 } from './snakeSceneActorInteractionSupport.js';
@@ -176,6 +177,7 @@ import {
 } from '../vehicles/carPhysics.js';
 import type { AnimalCompanionView } from '../animals/companions.js';
 import { isSnakeSceneRuntimeReady } from './snakeSceneStartup.js';
+import { getTownTurnBasedBounds } from './snakeSceneTurnBasedSupport.js';
 import type { InventorySystem } from '../inventory/inventory.js';
 import type { BulletTrainStation } from '../world/bulletTrainTypes.js';
 import { runBulletTrainRide } from '../world/bulletTrainScene.js';
@@ -1839,6 +1841,7 @@ const SIMULATION_MODE_RULES: Record<GameMode, Record<string, ClockRule>> = {
 export default class SnakeScene extends Phaser.Scene {
   graphics!: Phaser.GameObjects.Graphics;
   wallGraphics!: Phaser.GameObjects.Graphics;
+  private structurePlacementGraphics!: Phaser.GameObjects.Graphics;
   readonly grid = defaultGameConfig.grid;
 
   public snakeGame!: SnakeGame;
@@ -2231,6 +2234,7 @@ export default class SnakeScene extends Phaser.Scene {
   async create() {
     this.graphics = this.add.graphics();
     this.wallGraphics = this.add.graphics().setDepth(15);
+    this.structurePlacementGraphics = this.add.graphics().setDepth(27);
     // Reduce subpixel jitter and keep lines crisp during shake/zoom
     this.cameras.main.setRoundPixels(true);
     this.runtimeSpriteFactory = new RuntimeSpriteFactory(this);
@@ -2270,6 +2274,10 @@ export default class SnakeScene extends Phaser.Scene {
         const mappedDirection = this.resolveFirstPersonDirection({ x, y });
         if (this.isFirstPersonPresentationRequested() && !mappedDirection) return;
         const direction = mappedDirection ?? { x, y };
+        if (this.snakeGame.getStructurePlacement()) {
+          this.moveStructurePlacement(direction);
+          return;
+        }
         this.setDir(direction.x, direction.y);
         if (this.isManualHouseMovementActive()) {
           this.consumeManualResumePause();
@@ -2280,6 +2288,10 @@ export default class SnakeScene extends Phaser.Scene {
       },
       onTogglePause: () => {
         this.inputModeManager.markTouchInput();
+        if (this.snakeGame.getStructurePlacement()) {
+          this.cancelStructurePlacement();
+          return;
+        }
         this.togglePauseMenu();
       },
       onAction: (actionId) => {
@@ -2647,6 +2659,24 @@ export default class SnakeScene extends Phaser.Scene {
       if (this.awaitingLevelUpDirection && controlDirection) {
         event.preventDefault();
         if (!this.resumeAfterLevelUpDirection()) {
+          return;
+        }
+      }
+
+      if (!this.paused && this.snakeGame.getStructurePlacement()) {
+        if (isKeyboardEventForAction(event, 'back.cancel')) {
+          this.cancelStructurePlacement();
+          event.preventDefault();
+          return;
+        }
+        if (isKeyboardEventForAction(event, 'interact.confirm')) {
+          this.confirmStructurePlacement();
+          event.preventDefault();
+          return;
+        }
+        if (controlDirection) {
+          this.moveStructurePlacement(controlDirection);
+          event.preventDefault();
           return;
         }
       }
@@ -3388,6 +3418,15 @@ export default class SnakeScene extends Phaser.Scene {
     this.inputModeManager.markTouchInput();
     this.emitInputActionDebug(actionId, 'touch');
 
+    if (this.snakeGame.getStructurePlacement()) {
+      if (actionId === 'interact.confirm') {
+        this.confirmStructurePlacement();
+      } else if (actionId === 'back.cancel') {
+        this.cancelStructurePlacement();
+      }
+      return;
+    }
+
     if (actionId === 'interact.confirm') {
       this.performInteractAction();
       return;
@@ -3480,6 +3519,10 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private performInteractAction(): void {
+    if (this.snakeGame.getStructurePlacement()) {
+      this.confirmStructurePlacement();
+      return;
+    }
     this.gameConnection.send({
       type: 'interact',
       playerId: this.snakeGame.getLocalPlayerId(),
@@ -3505,6 +3548,55 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.tryInteractBulletTrain()) return;
     if (this.tryInteractRollercoaster()) return;
     if (this.isInHouse()) this.openHouseUpgradeMenu();
+  }
+
+  private moveStructurePlacement(direction: Vector2Like): boolean {
+    this.snakeGame.stepStructurePlacement(direction);
+    this.gameSession.refreshSnapshot();
+    this.isDirty = true;
+    return true;
+  }
+
+  private confirmStructurePlacement(): void {
+    const result = this.snakeGame.confirmStructurePlacement();
+    if (result.ok) {
+      this.snakeRenderer.markStaticRoomDirty(result.structure.roomId);
+      this.showQuestHintPopup('Small House placed.', '#5dd6a2');
+    } else {
+      const reasons = result.validation?.reasons.join(', ') ?? 'no placement preview';
+      this.showQuestHintPopup(`Cannot build here: ${reasons}.`, '#ff6b6b');
+    }
+    this.isDirty = true;
+  }
+
+  private cancelStructurePlacement(): void {
+    this.snakeGame.cancelStructurePlacement();
+    this.showQuestHintPopup('Construction canceled.', '#9ad1ff');
+    this.isDirty = true;
+  }
+
+  private drawStructurePlacementPreview(visible: boolean): void {
+    const graphics = this.structurePlacementGraphics;
+    graphics.clear().setVisible(false);
+    if (!visible || !this.snakeGame.getStructurePlacement()) return;
+
+    const preview = this.snakeGame.previewStructurePlacement();
+    if (!preview) return;
+
+    const cellSize = this.grid.cell;
+    for (const cell of preview.cells) {
+      const color = cell.valid ? 0x43d17a : 0xff5b66;
+      const inset = 2;
+      const x = cell.x * cellSize;
+      const y = cell.y * cellSize;
+      graphics
+        .fillStyle(color, 0.38)
+        .fillRect(x + inset, y + inset, cellSize - inset * 2, cellSize - inset * 2);
+      graphics
+        .lineStyle(2, color, 0.95)
+        .strokeRect(x + inset, y + inset, cellSize - inset * 2, cellSize - inset * 2);
+    }
+    graphics.setVisible(true);
   }
 
   private runActionClockStep(stepMs: number): void {
@@ -10416,6 +10508,16 @@ export default class SnakeScene extends Phaser.Scene {
 
   private handleControllerAction(actionId: ControlActionId): boolean {
     this.emitInputActionDebug(actionId, 'controller');
+    if (this.snakeGame.getStructurePlacement()) {
+      if (actionId === 'interact.confirm') {
+        this.confirmStructurePlacement();
+        return true;
+      }
+      if (actionId === 'back.cancel') {
+        this.cancelStructurePlacement();
+        return true;
+      }
+    }
     switch (actionId) {
       case 'interact.confirm':
         if (this.drivingCar) {
@@ -10554,6 +10656,20 @@ export default class SnakeScene extends Phaser.Scene {
       }
       return this.skillTree.handleControllerCommand(command, this.paused);
     }
+    if (this.snakeGame.getStructurePlacement()) {
+      if (command === 'confirm' || command === 'primary') {
+        this.confirmStructurePlacement();
+        return true;
+      }
+      if (command === 'cancel' || command === 'menu') {
+        this.cancelStructurePlacement();
+        return true;
+      }
+      if (command === 'up') return this.moveStructurePlacement({ x: 0, y: -1 });
+      if (command === 'down') return this.moveStructurePlacement({ x: 0, y: 1 });
+      if (command === 'left') return this.moveStructurePlacement({ x: -1, y: 0 });
+      if (command === 'right') return this.moveStructurePlacement({ x: 1, y: 0 });
+    }
     if (command === 'menu') {
       this.togglePauseMenu();
       return true;
@@ -10593,6 +10709,9 @@ export default class SnakeScene extends Phaser.Scene {
       return true;
     }
     const direction = mappedDirection ?? { x, y };
+    if (this.snakeGame.getStructurePlacement()) {
+      return this.moveStructurePlacement(direction);
+    }
     this.emitInputActionDebug('move', 'controller', `${direction.x},${direction.y}`);
     this.setDir(direction.x, direction.y);
     if (this.isManualHouseMovementActive()) {
@@ -11749,6 +11868,7 @@ export default class SnakeScene extends Phaser.Scene {
         renderScale: binocularsView ? 1 / 3 : 1,
       });
     }
+    this.drawStructurePlacementPreview(!binocularsView && !firstPersonRendered);
     if (!binocularsView && !firstPersonRendered) {
       this.drawCars(room.id);
     }
@@ -13844,7 +13964,7 @@ export default class SnakeScene extends Phaser.Scene {
       return [room.snakeMcDonalds.bounds];
     }
     if (room.town) {
-      return [room.town.safeArea];
+      return [getTownTurnBasedBounds(this.grid)];
     }
     if (room.molemanDigSite) {
       return [room.molemanDigSite.bounds];
@@ -15033,7 +15153,7 @@ export default class SnakeScene extends Phaser.Scene {
   private showTownGuild(town: TownStructure): void {
     const freshTown = this.snakeGame.getCurrentTown() ?? town;
     const guild = freshTown.thievesGuild;
-    if (!guild?.discovered) {
+    if (!freshTown.discoveredGuild && !guild?.discovered) {
       this.showQuestHintPopup('The guild is still only a rumor.', '#ff6b6b');
       return;
     }
@@ -20596,9 +20716,15 @@ export default class SnakeScene extends Phaser.Scene {
             );
             return;
           }
-          if (this.isGarageMechanicProfile(profile)) {
-            this.showGarageMechanicShop();
-            return;
+          switch (getSnakeSceneSpecialShop(actorRole, this.isGarageMechanicProfile(profile))) {
+            case 'garage':
+              this.showGarageMechanicShop();
+              return;
+            case 'maneuver-trainer':
+              this.showManeuverTrainerShop(profile.displayName);
+              return;
+            case 'generic':
+              break;
           }
           void this.snakeGame.chooseActorInteraction(profile.actorId ?? '', id).then((result) => {
             if (result.ok && result.action === 'shop') {

@@ -25,3 +25,18 @@ export function isSnakeSceneSupportedActorInteraction(id: string): boolean {
 export function hasSnakeSceneButcherSegmentSale(role: string | undefined): boolean {
   return role === 'butcher';
 }
+
+export type SnakeSceneSpecialShop = 'garage' | 'maneuver-trainer' | 'generic';
+
+export function getSnakeSceneSpecialShop(
+  role: string | undefined,
+  isGarageMechanic: boolean,
+): SnakeSceneSpecialShop {
+  if (isGarageMechanic) {
+    return 'garage';
+  }
+  if (role === 'physicalTrainer') {
+    return 'maneuver-trainer';
+  }
+  return 'generic';
+}

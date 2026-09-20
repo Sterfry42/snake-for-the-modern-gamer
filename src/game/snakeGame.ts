@@ -6750,8 +6750,8 @@ export class SnakeGame implements QuestRuntime {
   private saveTownRuntimeState(town: TownStructure): void {
     const previous = this.getTownRuntimeState(town);
     this.createTownRuntimeStore().update(town.id, (runtime) => ({
-      ...createTownRuntimeState(town, this.civic, previous),
       ...runtime,
+      ...createTownRuntimeState(town, this.civic, previous),
       openedGates: [
         ...new Set([
           ...(previous?.openedGates ?? []),
