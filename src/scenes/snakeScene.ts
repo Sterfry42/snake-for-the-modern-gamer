@@ -2224,6 +2224,9 @@ export default class SnakeScene extends Phaser.Scene {
           type: 'interact',
           playerId: this.snakeGame.getLocalPlayerId(),
         });
+        if (this.tryInteractHouseGarden()) {
+          return;
+        }
         if (this.tryInteractQuestTarget()) {
           return;
         }
@@ -2269,6 +2272,7 @@ export default class SnakeScene extends Phaser.Scene {
         if (key === '4') this.tryBuyHouse('bed');
         if (key === '5') this.tryBuyHouse('plant');
         if (key === '6') this.tryBuyHouse('lamp');
+        if (key === '7') this.tryBuyHouse('garden');
       }
     });
 
@@ -2478,6 +2482,9 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     this.updateHouseAmbience();
+    if (this.snakeGame.tickHouseGarden(_stepMs)) {
+      this.isDirty = true;
+    }
     this.tickHouseAmbientEffects();
     this.skillTree.tick();
     this.isDirty = true;
@@ -8144,7 +8151,8 @@ export default class SnakeScene extends Phaser.Scene {
         `4) Bed (12) ${purchases['bed'] ? '✓' : ''}`,
         `5) Plant (8) ${purchases['plant'] ? '✓' : ''}`,
         `6) Lamp (14) ${purchases['lamp'] ? '✓' : ''}`,
-        `Press 1, 2, or 3 to buy`,
+        `7) Garden plot (6) ${this.getHouseGardenLabel(purchases)}`,
+        `Press 1-7 to buy; E harvests ready garden`,
       ];
       this.houseHud.setText(lines.join('\n'));
       this.houseHud.setVisible(true);
@@ -9250,7 +9258,31 @@ export default class SnakeScene extends Phaser.Scene {
     return skillLives + phoenixLives;
   }
 
-  private tryBuyHouse(kind: 'couch' | 'kitchen' | 'expand' | 'bed' | 'plant' | 'lamp'): void {
+  private getHouseGardenLabel(purchases: Record<string, unknown>): string {
+    if (!purchases['garden']) {
+      return '';
+    }
+    if (this.snakeGame.getFlag<boolean>('house.garden.ready')) {
+      return 'ready';
+    }
+    const growthMs = Number(this.snakeGame.getFlag<number>('house.garden.growthMs') ?? 0);
+    const percent = Math.min(99, Math.floor((growthMs / 45000) * 100));
+    return `${percent}%`;
+  }
+
+  private tryInteractHouseGarden(): boolean {
+    const result = this.snakeGame.interactHouseGarden();
+    if (!result.ok) {
+      return false;
+    }
+    this.isDirty = true;
+    this.showQuestHintPopup(result.message ?? 'Garden harvested.', '#7ee082');
+    return true;
+  }
+
+  private tryBuyHouse(
+    kind: 'couch' | 'kitchen' | 'expand' | 'bed' | 'plant' | 'lamp' | 'garden',
+  ): void {
     const ok = this.snakeGame.purchaseHouseItem(kind);
     if (ok) {
       if (kind === 'expand')
@@ -9343,7 +9375,7 @@ export default class SnakeScene extends Phaser.Scene {
     const tile = room.layout[local.y]?.[local.x];
     if (!tile) return false;
     // Interior tiles (wood, rug, trim, and furniture) across any generated house.
-    return 'WETCKBPL'.includes(tile);
+    return 'WETCKBPLDR'.includes(tile);
   }
 
   private isManualHouseMovementActive(): boolean {
@@ -9417,7 +9449,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (!this.isInHouse()) {
       return [];
     }
-    const bounds = this.getTileBounds(room, 'WETCKBPL');
+    const bounds = this.getTileBounds(room, 'WETCKBPLDR');
     return bounds ? [bounds] : [];
   }
 

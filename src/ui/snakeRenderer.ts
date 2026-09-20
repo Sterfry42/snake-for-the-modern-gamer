@@ -1868,6 +1868,8 @@ export class SnakeRenderer {
       bed: { fill: '#ffb3c1', accent: '#fff0f4', outline: '#6e4350' },
       plant: { fill: '#62d96b', accent: '#9a6b3d', outline: '#29472d' },
       lamp: { fill: '#ffe58a', accent: '#fff6c7', outline: '#6c5a25' },
+      garden: { fill: '#7a5430', accent: '#68c06a', outline: '#3f2e1d' },
+      gardenReady: { fill: '#7a5430', accent: '#f04444', outline: '#3f2e1d' },
     };
   }
 
@@ -2579,6 +2581,10 @@ export class SnakeRenderer {
         return 'plant';
       case 'L':
         return 'lamp';
+      case 'D':
+        return 'garden';
+      case 'R':
+        return 'gardenReady';
       default:
         return null;
     }

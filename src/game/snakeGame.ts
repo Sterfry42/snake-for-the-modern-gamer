@@ -441,6 +441,10 @@ export interface DeathDebugSnapshot {
 }
 
 const POST_DEATH_INVULNERABILITY_TICKS = 30;
+const HOUSE_ROOM_ID = '0,-1,0';
+const HOUSE_GARDEN_GROW_MS = 45000;
+const HOUSE_GARDEN_SCORE_REWARD = 5;
+const HOUSE_GARDEN_GROWTH_REWARD = 1;
 const LARGE_TOWN_QUEST_IDS = new Set([
   'tax-collector-future-body',
   'green-purchase',
@@ -11965,12 +11969,10 @@ export class SnakeGame implements QuestRuntime {
   }
 
   // --- House decoration API ---
-  purchaseHouseItem(kind: 'couch' | 'kitchen' | 'expand' | 'bed' | 'plant' | 'lamp'): boolean {
-    const houseId = '0,-1,0';
-    const room = this.world.getRoom(houseId);
-    const cols = this.config.grid.cols;
-    const rows = this.config.grid.rows;
-
+  purchaseHouseItem(
+    kind: 'couch' | 'kitchen' | 'expand' | 'bed' | 'plant' | 'lamp' | 'garden',
+  ): boolean {
+    const room = this.world.getRoom(HOUSE_ROOM_ID);
     const purchases = (this.getFlag<Record<string, unknown>>('house.purchases') ?? {}) as Record<
       string,
       unknown
@@ -11983,6 +11985,7 @@ export class SnakeGame implements QuestRuntime {
       bed: 12,
       plant: 8,
       lamp: 14,
+      garden: 6,
     } as const as Record<string, number>;
 
     const cost = costs[kind];
@@ -12046,6 +12049,16 @@ export class SnakeGame implements QuestRuntime {
       if (!bbox) return false;
       setChar(bbox.right - 2, bbox.bottom - 2, 'L');
       purchases[kind] = true;
+    } else if (kind === 'garden') {
+      if (purchases[kind]) return false;
+      const bbox = this.getHouseBoundingBox(room);
+      if (!bbox) return false;
+      const y = bbox.top + 2;
+      const startX = bbox.left + Math.max(3, Math.floor((bbox.right - bbox.left) / 2) - 1);
+      for (let x = startX; x < startX + 2; x += 1) setChar(x, y, 'D');
+      purchases[kind] = true;
+      this.setFlag('house.garden.growthMs', 0);
+      this.setFlag('house.garden.ready', undefined);
     }
 
     // Deduct points and persist state
@@ -12054,6 +12067,57 @@ export class SnakeGame implements QuestRuntime {
     const purchaseCount = Number(this.getFlag<number>('house.itemsPurchased') ?? 0);
     this.setFlag('house.itemsPurchased', purchaseCount + 1);
     return true;
+  }
+
+  tickHouseGarden(deltaMs: number): boolean {
+    if (this.snake.currentRoomId !== HOUSE_ROOM_ID) {
+      return false;
+    }
+    const purchases = (this.getFlag<Record<string, unknown>>('house.purchases') ?? {}) as Record<
+      string,
+      unknown
+    >;
+    if (!purchases['garden'] || this.getFlag<boolean>('house.garden.ready')) {
+      return false;
+    }
+    const growthMs = Math.min(
+      HOUSE_GARDEN_GROW_MS,
+      Number(this.getFlag<number>('house.garden.growthMs') ?? 0) + Math.max(0, deltaMs),
+    );
+    this.setFlag('house.garden.growthMs', growthMs);
+    if (growthMs < HOUSE_GARDEN_GROW_MS) {
+      return false;
+    }
+    this.setFlag('house.garden.ready', true);
+    return this.replaceHouseGardenTiles('D', 'R');
+  }
+
+  interactHouseGarden(): { ok: boolean; message?: string } {
+    if (this.snake.currentRoomId !== HOUSE_ROOM_ID) {
+      return { ok: false };
+    }
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return { ok: false };
+    }
+    const [roomX, roomY] = HOUSE_ROOM_ID.split(',').map(Number);
+    const local = {
+      x: head.x - roomX * this.config.grid.cols,
+      y: head.y - roomY * this.config.grid.rows,
+    };
+    const adjacentReady = this.findAdjacentHouseGardenTile(local, 'R');
+    if (!adjacentReady || !this.getFlag<boolean>('house.garden.ready')) {
+      return { ok: false };
+    }
+    this.addScore(HOUSE_GARDEN_SCORE_REWARD);
+    this.growSnake(HOUSE_GARDEN_GROWTH_REWARD);
+    this.setFlag('house.garden.growthMs', 0);
+    this.setFlag('house.garden.ready', undefined);
+    this.replaceHouseGardenTiles('R', 'D');
+    return {
+      ok: true,
+      message: `Garden harvest +${HOUSE_GARDEN_SCORE_REWARD} score, +${HOUSE_GARDEN_GROWTH_REWARD} length.`,
+    };
   }
 
   private getHouseBoundingBox(room: {
@@ -12124,10 +12188,37 @@ export class SnakeGame implements QuestRuntime {
               layout[y][x] = ch;
           }
     };
-    tryPlace('C');
-    tryPlace('K');
+    ['C', 'K', 'B', 'P', 'L', 'D', 'R'].forEach(tryPlace);
 
     room.layout = layout.map((r) => r.join(''));
+  }
+
+  private replaceHouseGardenTiles(from: string, to: string): boolean {
+    const room = this.world.getRoom(HOUSE_ROOM_ID);
+    let changed = false;
+    room.layout = room.layout.map((row) => {
+      if (!row.includes(from)) {
+        return row;
+      }
+      changed = true;
+      return row.split(from).join(to);
+    });
+    return changed;
+  }
+
+  private findAdjacentHouseGardenTile(
+    local: Vector2Like,
+    tile: 'D' | 'R',
+  ): Vector2Like | null {
+    const room = this.world.getRoom(HOUSE_ROOM_ID);
+    const positions = [
+      local,
+      { x: local.x + 1, y: local.y },
+      { x: local.x - 1, y: local.y },
+      { x: local.x, y: local.y + 1 },
+      { x: local.x, y: local.y - 1 },
+    ];
+    return positions.find((position) => room.layout[position.y]?.[position.x] === tile) ?? null;
   }
 
   private isImmortal(): boolean {
@@ -12182,7 +12273,7 @@ export class SnakeGame implements QuestRuntime {
     const localX = head.x - roomX * this.config.grid.cols;
     const localY = head.y - roomY * this.config.grid.rows;
     const tile = room.layout[localY]?.[localX] ?? '.';
-    const sheltered = 'WETCKBPLGO'.includes(tile);
+    const sheltered = 'WETCKBPLGODR'.includes(tile);
     const onRelief = room.temperatureReliefs?.find(
       (relief) => relief.x === localX && relief.y === localY,
     );

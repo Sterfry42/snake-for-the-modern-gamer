@@ -1,6 +1,13 @@
 import type { RuntimeSpriteRecipe } from '../runtimeSpriteFactory.js';
 
-export type FurnitureSpriteVariant = 'couch' | 'kitchen' | 'bed' | 'plant' | 'lamp';
+export type FurnitureSpriteVariant =
+  | 'couch'
+  | 'kitchen'
+  | 'bed'
+  | 'plant'
+  | 'lamp'
+  | 'garden'
+  | 'gardenReady';
 
 export interface FurnitureSpritePalette {
   couch: { fill: string; accent: string; outline: string };
@@ -8,9 +15,19 @@ export interface FurnitureSpritePalette {
   bed: { fill: string; accent: string; outline: string };
   plant: { fill: string; accent: string; outline: string };
   lamp: { fill: string; accent: string; outline: string };
+  garden: { fill: string; accent: string; outline: string };
+  gardenReady: { fill: string; accent: string; outline: string };
 }
 
-const VARIANTS: readonly FurnitureSpriteVariant[] = ['couch', 'kitchen', 'bed', 'plant', 'lamp'];
+const VARIANTS: readonly FurnitureSpriteVariant[] = [
+  'couch',
+  'kitchen',
+  'bed',
+  'plant',
+  'lamp',
+  'garden',
+  'gardenReady',
+];
 
 function fillPixel(
   context: CanvasRenderingContext2D,
@@ -264,6 +281,66 @@ export const furnitureSpriteRecipe: RuntimeSpriteRecipe<
           ],
           pixelSize,
           palette.plant.accent,
+        );
+      });
+      return;
+    }
+
+    if (variant === 'garden' || variant === 'gardenReady') {
+      const colors = variant === 'garden' ? palette.garden : palette.gardenReady;
+      drawSprite(context, size, (pixelSize) => {
+        drawPixels(
+          context,
+          [
+            [1, 3],
+            [2, 3],
+            [3, 3],
+            [4, 3],
+            [5, 3],
+            [6, 3],
+            [1, 4],
+            [6, 4],
+            [1, 5],
+            [2, 5],
+            [3, 5],
+            [4, 5],
+            [5, 5],
+            [6, 5],
+          ],
+          pixelSize,
+          colors.outline,
+        );
+        drawPixels(
+          context,
+          [
+            [2, 4],
+            [3, 4],
+            [4, 4],
+            [5, 4],
+          ],
+          pixelSize,
+          colors.fill,
+        );
+        drawPixels(
+          context,
+          variant === 'gardenReady'
+            ? [
+                [3, 1],
+                [4, 1],
+                [2, 2],
+                [3, 2],
+                [4, 2],
+                [5, 2],
+                [3, 3],
+                [4, 3],
+              ]
+            : [
+                [2, 3],
+                [4, 3],
+                [5, 3],
+              ],
+          pixelSize,
+          colors.accent,
         );
       });
       return;
