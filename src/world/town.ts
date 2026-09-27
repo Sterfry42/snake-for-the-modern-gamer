@@ -9,6 +9,7 @@ import {
   type LayerTemplateId,
   type TownDoorKind,
 } from '../layers/layerTypes.js';
+import { fillRect, setTile } from './structurePlacement.js';
 import type { BiomeId } from './biomes.js';
 import { createHumanoidIdentity, type WorldHumanoidIdentity } from './humanoidSpawn.js';
 import { isSolidTile, tileHasTag } from './tiles.js';
@@ -497,12 +498,6 @@ export const PHYSICAL_TOWN_DISTRICTS: readonly TownDistrictKind[] = [
   'backAlley',
 ] as const;
 
-function setChar(layout: string[][], x: number, y: number, ch: string): void {
-  if (y < 0 || y >= layout.length) return;
-  if (x < 0 || x >= layout[y].length) return;
-  layout[y][x] = ch;
-}
-
 const IMPORTANT_TOWN_TILES = new Set(['G', 'Y', 'v', 't', 'd', 'h', 'j', 'u', 'U', 'x', 'o']);
 export function isBlockingTownTile(tile: string | undefined): boolean {
   return tileHasTag(tile, 'townBlocking');
@@ -569,21 +564,6 @@ class TownRoomBuildContext {
       return;
     }
     this.layout[args.y]![args.x] = args.tile;
-  }
-}
-
-function fillRect(
-  layout: string[][],
-  left: number,
-  top: number,
-  width: number,
-  height: number,
-  ch: string,
-): void {
-  for (let y = top; y < top + height; y += 1) {
-    for (let x = left; x < left + width; x += 1) {
-      setChar(layout, x, y, ch);
-    }
   }
 }
 
@@ -1741,7 +1721,7 @@ function carveDoor(layout: string[][], side: ExitSide): void {
     const runupStartY = side === 'north' ? 0 : rows - 3;
     for (let x = cx - halfWidth; x <= cx + halfWidth; x += 1) {
       for (let y = runupStartY; y < runupStartY + 3; y += 1) {
-        setChar(layout, x, y, 'E');
+        setTile(layout, x, y, 'E');
       }
     }
     return;
@@ -1749,7 +1729,7 @@ function carveDoor(layout: string[][], side: ExitSide): void {
   const runupStartX = side === 'west' ? 0 : cols - 3;
   for (let y = cy - halfWidth; y <= cy + halfWidth; y += 1) {
     for (let x = runupStartX; x < runupStartX + 3; x += 1) {
-      setChar(layout, x, y, 'E');
+      setTile(layout, x, y, 'E');
     }
   }
 }
@@ -1767,7 +1747,7 @@ function drawBoundaryWall(layout: string[][], side: ExitSide, hasOpening: boolea
     const startY = side === 'north' ? 0 : rows - 2;
     for (let y = startY; y < startY + 2; y += 1) {
       for (let x = 0; x < cols; x += 1) {
-        setChar(layout, x, y, isDoorX(x) ? 'E' : '#');
+        setTile(layout, x, y, isDoorX(x) ? 'E' : '#');
       }
     }
     if (hasOpening) {
@@ -1779,7 +1759,7 @@ function drawBoundaryWall(layout: string[][], side: ExitSide, hasOpening: boolea
   const startX = side === 'west' ? 0 : cols - 2;
   for (let x = startX; x < startX + 2; x += 1) {
     for (let y = 0; y < rows; y += 1) {
-      setChar(layout, x, y, isDoorY(y) ? 'E' : '#');
+      setTile(layout, x, y, isDoorY(y) ? 'E' : '#');
     }
   }
   if (hasOpening) {
@@ -1831,7 +1811,7 @@ function stampNpc(
     context.stamp({ x, y, tile: 'G', source, purpose: 'npc', blocking: false });
     return;
   }
-  setChar(layout, x, y, 'G');
+  setTile(layout, x, y, 'G');
 }
 
 function createTownLayerEntrance(args: {
@@ -1924,7 +1904,7 @@ function addTownLayerEntrance(
       overwriteImportant: true,
     });
   } else {
-    setChar(layout, entrance.x, entrance.y, tile);
+    setTile(layout, entrance.x, entrance.y, tile);
   }
   entrances.push({
     ...entrance,
@@ -2003,17 +1983,17 @@ function drawBuildingShell(
 ): void {
   fillRect(layout, left, top, width, height, 'S');
   for (let x = left; x < left + width; x += 1) {
-    setChar(layout, x, top, '#');
-    setChar(layout, x, top + height - 1, '#');
+    setTile(layout, x, top, '#');
+    setTile(layout, x, top + height - 1, '#');
   }
   for (let y = top; y < top + height; y += 1) {
-    setChar(layout, left, y, '#');
-    setChar(layout, left + width - 1, y, '#');
+    setTile(layout, left, y, '#');
+    setTile(layout, left + width - 1, y, '#');
   }
-  setChar(layout, door.x, door.y, door.tile ?? '.');
+  setTile(layout, door.x, door.y, door.tile ?? '.');
   if (width >= 6 && height >= 5) {
-    setChar(layout, Math.max(left + 1, door.x - 2), Math.max(top + 2, door.y - 2), 'R');
-    setChar(layout, Math.min(left + width - 2, door.x + 2), Math.max(top + 2, door.y - 2), 'R');
+    setTile(layout, Math.max(left + 1, door.x - 2), Math.max(top + 2, door.y - 2), 'R');
+    setTile(layout, Math.min(left + width - 2, door.x + 2), Math.max(top + 2, door.y - 2), 'R');
   }
 }
 
@@ -2027,11 +2007,11 @@ function drawFenceRun(
   let x = from.x;
   let y = from.y;
   while (x !== to.x || y !== to.y) {
-    setChar(layout, x, y, 'P');
+    setTile(layout, x, y, 'P');
     if (x !== to.x) x += dx;
     if (y !== to.y) y += dy;
   }
-  setChar(layout, to.x, to.y, 'P');
+  setTile(layout, to.x, to.y, 'P');
 }
 
 function gateGuardPositionForSide(
@@ -2072,11 +2052,11 @@ export function renderTownGateSide(args: {
     const stripYs = args.side === 'north' ? [0, 1] : [rows - 2, rows - 1];
     for (const y of stripYs) {
       for (let x = 0; x < cols; x += 1) {
-        setChar(args.layout, x, y, '#');
+        setTile(args.layout, x, y, '#');
       }
     }
     for (const cell of townGateFootprintCells({ side: args.side, cols, rows })) {
-      setChar(args.layout, cell.x, cell.y, gateTile);
+      setTile(args.layout, cell.x, cell.y, gateTile);
     }
     const innerY = args.side === 'north' ? 3 : rows - 4;
     const guardPosition = {
@@ -2084,7 +2064,7 @@ export function renderTownGateSide(args: {
       y: Math.max(1, Math.min(rows - 2, innerY)),
     };
     if (args.includeGuard) {
-      setChar(args.layout, guardPosition.x, guardPosition.y, 'G');
+      setTile(args.layout, guardPosition.x, guardPosition.y, 'G');
     }
     return args.includeGuard ? { guardPosition } : {};
   }
@@ -2092,11 +2072,11 @@ export function renderTownGateSide(args: {
   const stripXs = args.side === 'west' ? [0, 1] : [cols - 2, cols - 1];
   for (const x of stripXs) {
     for (let y = 0; y < rows; y += 1) {
-      setChar(args.layout, x, y, '#');
+      setTile(args.layout, x, y, '#');
     }
   }
   for (const cell of townGateFootprintCells({ side: args.side, cols, rows })) {
-    setChar(args.layout, cell.x, cell.y, gateTile);
+    setTile(args.layout, cell.x, cell.y, gateTile);
   }
   const innerX = args.side === 'west' ? 3 : cols - 4;
   const guardPosition = {
@@ -2104,7 +2084,7 @@ export function renderTownGateSide(args: {
     y: center.y + 2,
   };
   if (args.includeGuard) {
-    setChar(args.layout, guardPosition.x, guardPosition.y, 'G');
+    setTile(args.layout, guardPosition.x, guardPosition.y, 'G');
   }
   return args.includeGuard ? { guardPosition } : {};
 }
@@ -2197,8 +2177,8 @@ export function createTownDistrictRoom(args: {
         drawConnectedRoad(layout, openSides);
         fillRect(layout, center.x - 4, center.y - 3, 9, 7, 'E');
         fillRect(layout, center.x - 1, center.y - 1, 3, 3, 'P');
-        setChar(layout, center.x, center.y, 'M');
-        setChar(layout, center.x + 7, center.y - 3, 'D');
+        setTile(layout, center.x, center.y, 'M');
+        setTile(layout, center.x + 7, center.y - 3, 'D');
         if (tavern) {
           drawBuildingShell(layout, 4, 4, 11, 7, {
             x: tavern.door.x,
@@ -2206,8 +2186,8 @@ export function createTownDistrictRoom(args: {
             tile: townDoorTile(tavern.doorKind),
           });
           fillRect(layout, 5, 5, 9, 2, 'S');
-          setChar(layout, 7, 8, 'R');
-          setChar(layout, 11, 8, 'R');
+          setTile(layout, 7, 8, 'R');
+          setTile(layout, 11, 8, 'R');
           addTownLayerEntrance(
             layout,
             layerEntrances,
@@ -2231,8 +2211,8 @@ export function createTownDistrictRoom(args: {
             tile: townDoorTile(townHall.doorKind),
           });
           fillRect(layout, 22, 5, 6, 2, 'S');
-          setChar(layout, 24, 8, 'M');
-          setChar(layout, 26, 8, 'P');
+          setTile(layout, 24, 8, 'M');
+          setTile(layout, 26, 8, 'P');
           addTownLayerEntrance(
             layout,
             layerEntrances,
@@ -2249,9 +2229,9 @@ export function createTownDistrictRoom(args: {
             context,
           );
         }
-        setChar(layout, args.grid.cols - 8, 7, 'D');
-        setChar(layout, center.x + 5, center.y - 4, 'P');
-        setChar(layout, center.x - 5, center.y + 4, 'P');
+        setTile(layout, args.grid.cols - 8, 7, 'D');
+        setTile(layout, center.x + 5, center.y - 4, 'P');
+        setTile(layout, center.x - 5, center.y + 4, 'P');
       }
       break;
     case 'marketStreet':
@@ -2284,8 +2264,8 @@ export function createTownDistrictRoom(args: {
             context,
           );
         }
-        setChar(layout, 5, 6, 'M');
-        setChar(layout, 8, 6, 'A');
+        setTile(layout, 5, 6, 'M');
+        setTile(layout, 8, 6, 'A');
         drawBuildingShell(layout, center.x - 4, 3, 9, 6, {
           x: butcher?.door.x ?? center.x,
           y: butcher?.door.y ?? 8,
@@ -2308,8 +2288,8 @@ export function createTownDistrictRoom(args: {
             context,
           );
         }
-        setChar(layout, center.x - 2, 5, 'F');
-        setChar(layout, center.x + 2, 5, 'A');
+        setTile(layout, center.x - 2, 5, 'F');
+        setTile(layout, center.x + 2, 5, 'A');
         drawBuildingShell(layout, args.grid.cols - 11, 4, 8, 6, {
           x: potionMaker?.door.x ?? args.grid.cols - 7,
           y: potionMaker?.door.y ?? 9,
@@ -2332,8 +2312,8 @@ export function createTownDistrictRoom(args: {
             context,
           );
         }
-        setChar(layout, args.grid.cols - 9, 6, 'P');
-        setChar(layout, args.grid.cols - 6, 6, 'P');
+        setTile(layout, args.grid.cols - 9, 6, 'P');
+        setTile(layout, args.grid.cols - 6, 6, 'P');
         drawBuildingShell(layout, 3, 18, 8, 5, {
           x: mapper?.door.x ?? 7,
           y: mapper?.door.y ?? 22,
@@ -2356,8 +2336,8 @@ export function createTownDistrictRoom(args: {
             context,
           );
         }
-        setChar(layout, 6, 20, 'M');
-        setChar(layout, 8, 20, 'S');
+        setTile(layout, 6, 20, 'M');
+        setTile(layout, 8, 20, 'S');
         drawBuildingShell(layout, args.grid.cols - 11, 18, 8, 5, {
           x: wizardShop?.door.x ?? args.grid.cols - 7,
           y: wizardShop?.door.y ?? 22,
@@ -2380,14 +2360,14 @@ export function createTownDistrictRoom(args: {
             context,
           );
         }
-        setChar(layout, args.grid.cols - 9, 20, 'P');
-        setChar(layout, args.grid.cols - 6, 20, 'M');
+        setTile(layout, args.grid.cols - 9, 20, 'P');
+        setTile(layout, args.grid.cols - 6, 20, 'M');
         for (let x = 5; x < args.grid.cols - 5; x += 6) {
           fillRect(layout, x, center.y + 4, 4, 2, 'S');
-          setChar(layout, x + 1, center.y + 5, x % 2 === 0 ? 'M' : 'A');
+          setTile(layout, x + 1, center.y + 5, x % 2 === 0 ? 'M' : 'A');
         }
-        setChar(layout, center.x + 2, center.y - 2, 'P');
-        setChar(layout, center.x - 2, center.y + 2, 'P');
+        setTile(layout, center.x + 2, center.y - 2, 'P');
+        setTile(layout, center.x - 2, center.y + 2, 'P');
       }
       break;
     case 'residentialStreet':
@@ -2437,8 +2417,8 @@ export function createTownDistrictRoom(args: {
           { x: args.grid.cols - 13, y: center.y + 5 },
           { x: args.grid.cols - 4, y: center.y + 5 },
         );
-        setChar(layout, 5, center.y + 3, 'P');
-        setChar(layout, args.grid.cols - 6, center.y + 3, 'P');
+        setTile(layout, 5, center.y + 3, 'P');
+        setTile(layout, args.grid.cols - 6, center.y + 3, 'P');
       }
       break;
     case 'backAlley':
@@ -2453,7 +2433,7 @@ export function createTownDistrictRoom(args: {
         fillRect(layout, 8, center.y - 1, args.grid.cols - 16, 2, 'E');
         fillRect(layout, center.x - 8, center.y - 5, 16, 2, 'A');
         fillRect(layout, center.x + 5, center.y + 2, 5, 3, 'A');
-        setChar(layout, center.x + 7, center.y + 1, 'M');
+        setTile(layout, center.x + 7, center.y + 1, 'M');
         addTownLayerEntrance(
           layout,
           layerEntrances,
@@ -2476,8 +2456,8 @@ export function createTownDistrictRoom(args: {
           },
           context,
         );
-        setChar(layout, center.x + 5, center.y, 'S');
-        setChar(layout, center.x - 8, center.y - 2, 'P');
+        setTile(layout, center.x + 5, center.y, 'S');
+        setTile(layout, center.x - 8, center.y - 2, 'P');
       }
       break;
     case 'guildHideout':
@@ -2486,9 +2466,9 @@ export function createTownDistrictRoom(args: {
       fillRect(layout, center.x - 9, center.y - 4, 18, 8, 'E');
       fillRect(layout, center.x - 8, center.y - 3, 6, 2, 'A');
       fillRect(layout, center.x + 3, center.y - 3, 6, 2, 'S');
-      setChar(layout, center.x - 6, center.y + 1, 'P');
-      setChar(layout, center.x, center.y, 'E');
-      setChar(layout, center.x + 4, center.y + 2, 'A');
+      setTile(layout, center.x - 6, center.y + 1, 'P');
+      setTile(layout, center.x, center.y, 'E');
+      setTile(layout, center.x + 4, center.y + 2, 'A');
       break;
   }
 
@@ -2627,7 +2607,7 @@ export function stampTownBoundaryCorner(
   for (let y = yStart; y <= yEnd; y += 1) {
     for (let x = xStart; x <= xEnd; x += 1) {
       if (x === xStart || x === xEnd || y === yStart || y === yEnd) {
-        setChar(layout, x, y, '#');
+        setTile(layout, x, y, '#');
       }
     }
   }

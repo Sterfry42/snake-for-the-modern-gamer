@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { Quest } from '../quests';
+import type { Quest } from './src/quests/quest';
 import type SnakeScene from '../src/scenes/snakeScene';
 
 // Mock the console.warn to prevent it from cluttering the test output
@@ -29,7 +29,7 @@ describe('Quest System', () => {
 
     beforeEach(async () => {
         // Isolate modules for each test to ensure a clean state
-        questSystem = await vi.importActual('./quests.ts');
+        questSystem = await vi.importActual('./src/quests/questRuntime.ts');
         // This is a helper to reset the internal state of the module
         questSystem._clearQuests();
     });

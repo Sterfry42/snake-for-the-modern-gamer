@@ -1,3 +1,5 @@
+import { resolveNumericModifier, type ModifierAtom } from './modifierResolver.js';
+
 export type DerivedStatId =
   | 'maxHealth'
   | 'actionStepIntervalScalar'
@@ -89,6 +91,7 @@ export class DerivedStatResolver {
     const base = this.bases[stat] ?? DEFAULT_BASES[stat];
     const additions: Array<{ sourceId: string; value: number }> = [];
     const multipliers: Array<{ sourceId: string; value: number }> = [];
+    const atoms: ModifierAtom<DerivedStatId>[] = [];
     for (const source of [...this.sources.values()].sort((a, b) => a.id.localeCompare(b.id))) {
       for (const modifier of source.modifiers) {
         if (modifier.stat !== stat || !Number.isFinite(modifier.value)) continue;
@@ -96,16 +99,26 @@ export class DerivedStatResolver {
           sourceId: source.id,
           value: modifier.value,
         });
+        // Additive atoms run before multiplicative ones so the resolver applies
+        // every source's additions first, matching the historical breakdown math.
+        atoms.push({
+          id: `${source.id}:${modifier.operation}`,
+          sourceId: source.id,
+          sourceKind: source.category,
+          target: stat,
+          op: modifier.operation,
+          value: modifier.value,
+          priority: modifier.operation === 'add' ? 0 : 1,
+        });
       }
     }
-    const added = additions.reduce((value, modifier) => value + modifier.value, base);
-    const multiplied = multipliers.reduce((value, modifier) => value * modifier.value, added);
     const [minimum, maximum] = CLAMPS[stat];
+    const value = resolveNumericModifier(atoms, stat, { base, min: minimum, max: maximum });
     return {
       base,
       additions,
       multipliers,
-      value: Math.max(minimum, Math.min(maximum, multiplied)),
+      value,
     };
   }
 }
