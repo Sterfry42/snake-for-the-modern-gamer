@@ -1,10 +1,7 @@
-import { Quest } from "./src/quests/quest.js";
-import { QuestRegistry } from "./src/quests/questRegistry.js";
+import type { Quest } from './quest.js';
+import { QuestRegistry } from './questRegistry.js';
 
 const globalRegistry = new QuestRegistry();
-
-export { Quest };
-export type { QuestRuntime } from "./src/quests/quest.js";
 
 export function registerQuest(quest: Quest): void {
   globalRegistry.register(quest);
@@ -20,4 +17,9 @@ export function getAvailableQuests(completedQuestIds: string[]): Quest[] {
 
 export function _clearQuests(): void {
   globalRegistry.clear();
+}
+
+export async function createQuestRegistry(): Promise<QuestRegistry> {
+  await globalRegistry.loadBuiltIns();
+  return globalRegistry;
 }

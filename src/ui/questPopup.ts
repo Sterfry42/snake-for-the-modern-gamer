@@ -3,7 +3,7 @@
  */
 import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
-import type { Quest } from '../../quests.js';
+import type { Quest } from '../quests/quest.js';
 import { RuntimeSpriteFactory } from './runtimeSpriteFactory.js';
 import { i18n } from '../i18n/i18nManager.js';
 import {

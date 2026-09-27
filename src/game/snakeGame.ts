@@ -198,7 +198,7 @@ import {
   type TownRoomKind,
   type TownStructure,
 } from '../world/town.js';
-import { isDestructibleTile } from '../world/tiles.js';
+import { isDestructibleTile, tileHasTag } from '../world/tiles.js';
 import {
   isStationaryTownRole,
   isTownCriminalRole,
@@ -2087,7 +2087,7 @@ export class SnakeGame implements QuestRuntime {
       return false;
     }
     const tile = room.layout[localY]?.[localX];
-    if (!tile || tile === '#' || tile === '~' || isBlockingTownTile(tile)) {
+    if (!tile || isBlockingTownTile(tile)) {
       return false;
     }
     return !snake.bodySegments.some((segment) => segment.x === next.x && segment.y === next.y);
@@ -3497,7 +3497,7 @@ export class SnakeGame implements QuestRuntime {
     }
     const room = this.world.getRoom(info.roomId);
     const tile = room.layout[info.localY]?.[info.localX];
-    if (tile === '~' && !this.canSurviveWaterStep()) {
+    if (tileHasTag(tile, 'liquid') && !this.canSurviveWaterStep()) {
       return {
         key: `water:${target.x},${target.y}:${direction.x},${direction.y}`,
         graceTicks,
@@ -3505,10 +3505,7 @@ export class SnakeGame implements QuestRuntime {
     }
     // Masonry blocks (the snake's own temporary walls) are always passable.
     // Regular walls still require wall-survival abilities.
-    if (
-      (tile === '#' || (tile !== '~' && isBlockingTownTile(tile))) &&
-      !this.canSurviveWallStep()
-    ) {
+    if (isBlockingTownTile(tile) && tile !== '~' && !this.canSurviveWallStep()) {
       return {
         key: `wall:${target.x},${target.y}:${direction.x},${direction.y}`,
         graceTicks,
@@ -5464,6 +5461,49 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
+  /**
+   * Canonical player damage application. Every hazard/combat path that hurts
+   * the player funnels through here: health mutation, damage telemetry, low
+   * health events, hit UI, and optional post-hit invulnerability.
+   */
+  private applyPlayerDamage(options: {
+    amount: number;
+    source: string;
+    extra?: Record<string, unknown>;
+    invulnTicks?: number;
+    hitSource?: string;
+    lowHealthSource?: string;
+  }): { previous: number; current: number; max: number; killed: boolean } {
+    const max = Number(this.getFlag<number>('player.maxHealth') ?? 3);
+    const previous = Number(this.getFlag<number>('player.health') ?? max);
+    const current = Math.max(0, previous - options.amount);
+    this.setFlag('player.health', current);
+    const damage = previous - current;
+    if (damage > 0) {
+      this.emitHealthDebug('snake.damaged', options.source, previous, current, max, {
+        damage,
+        ...options.extra,
+      });
+    }
+    this.emitPlayerLowHealthEvent(current, max, options.lowHealthSource ?? options.source);
+    this.setFlag('ui.healthRevealed', true);
+    if (options.invulnTicks !== undefined) {
+      this.grantUnifiedInvulnerability(options.invulnTicks);
+    }
+    const head = this.snake.bodySegments[0];
+    if (head) {
+      this.setFlag('ui.playerHit', {
+        x: head.x,
+        y: head.y,
+        roomId: this.snake.currentRoomId,
+        health: current,
+        maxHealth: max,
+        source: options.hitSource,
+      });
+    }
+    return { previous, current, max, killed: current <= 0 };
+  }
+
   private damagePlayerFromBomb(bomb: BombInstance): boolean {
     if (bomb.roomId !== this.snake.currentRoomId) {
       return false;
@@ -5474,28 +5514,12 @@ export class SnakeGame implements QuestRuntime {
     if (!hitSegment) {
       return false;
     }
-    const head = this.snake.bodySegments[0];
-    const max = Number(this.getFlag<number>('player.maxHealth') ?? 3);
-    const current = Number(this.getFlag<number>('player.health') ?? max);
-    const next = Math.max(0, current - bomb.damage);
-    this.setFlag('player.health', next);
-    this.emitHealthDebug('snake.damaged', 'bomb', current, next, max, {
-      damage: current - next,
-      radius: bomb.radius,
+    const result = this.applyPlayerDamage({
+      amount: bomb.damage,
+      source: 'bomb',
+      extra: { radius: bomb.radius },
     });
-    this.emitPlayerLowHealthEvent(next, max, 'bomb');
-    this.setFlag('ui.healthRevealed', true);
-    if (head) {
-      this.setFlag('ui.playerHit', {
-        x: head.x,
-        y: head.y,
-        roomId: this.snake.currentRoomId,
-        health: next,
-        maxHealth: max,
-        source: 'bomb',
-      });
-    }
-    return next <= 0;
+    return result.killed;
   }
 
   private isWithinBombRadius(position: Vector2Like, bomb: BombInstance): boolean {
@@ -5891,7 +5915,7 @@ export class SnakeGame implements QuestRuntime {
     const [roomX, roomY] = this.parseRoomCoordinates(this.snake.currentRoomId);
     const localX = head.x - roomX * this.config.grid.cols;
     const localY = head.y - roomY * this.config.grid.rows;
-    return room.layout[localY]?.[localX] === '~';
+    return tileHasTag(room.layout[localY]?.[localX], 'liquid');
   }
 
   isSnakeHeadOnWaterTile(): boolean {
@@ -11716,28 +11740,12 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private applySwordDamageToPlayer(): void {
-    const max = Number(this.getFlag<number>('player.maxHealth') ?? 3);
-    const current = Number(this.getFlag<number>('player.health') ?? max);
-    const next = Math.max(0, current - 1);
-    this.setFlag('player.health', next);
-    this.emitHealthDebug('snake.damaged', 'npc-hostile', current, next, max, {
-      damage: current - next,
-      hitStyle: 'sword',
-      hitCount: 1,
+    this.applyPlayerDamage({
+      amount: 1,
+      source: 'npc-hostile',
+      extra: { hitStyle: 'sword', hitCount: 1 },
+      hitSource: 'sword',
     });
-    this.emitPlayerLowHealthEvent(next, max, 'npc-hostile');
-    this.setFlag('ui.healthRevealed', true);
-    const head = this.snake.bodySegments[0];
-    if (head) {
-      this.setFlag('ui.playerHit', {
-        x: head.x,
-        y: head.y,
-        roomId: this.snake.currentRoomId,
-        health: next,
-        maxHealth: max,
-        source: 'sword',
-      });
-    }
   }
 
   private damageHostileActorInSwordArc(
@@ -14402,7 +14410,7 @@ export class SnakeGame implements QuestRuntime {
     for (let y = Math.floor(position.y); y < Math.floor(position.y) + CAR_HEIGHT_TILES; y += 1) {
       for (let x = Math.floor(position.x); x < Math.floor(position.x) + CAR_WIDTH_TILES; x += 1) {
         const tile = room.layout[y]?.[x];
-        if (!tile || tile === '#' || tile === '~' || isBlockingTownTile(tile)) {
+        if (!tile || isBlockingTownTile(tile)) {
           return false;
         }
       }
@@ -16669,7 +16677,7 @@ export class SnakeGame implements QuestRuntime {
     hazard: 'hot' | 'cold' | null;
     active: boolean;
   } {
-    if (this.getFlag<boolean>('cheat.immortal')) {
+    if (this.isImmortal()) {
       return {
         current: 0,
         max: 10,
@@ -21719,10 +21727,7 @@ export class SnakeGame implements QuestRuntime {
     return changed;
   }
 
-  private findAdjacentHouseGardenTile(
-    local: Vector2Like,
-    tile: 'D' | 'R',
-  ): Vector2Like | null {
+  private findAdjacentHouseGardenTile(local: Vector2Like, tile: 'D' | 'R'): Vector2Like | null {
     const room = this.world.getRoom(HOUSE_ROOM_ID);
     const positions = [
       local,
@@ -21969,29 +21974,16 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private applyLightningDamage(): boolean {
-    const head = this.snake.bodySegments[0];
-    if (!head || hasCollisionInvulnerability(this.snake.flags)) {
+    if (!this.snake.bodySegments[0] || hasCollisionInvulnerability(this.snake.flags)) {
       return false;
     }
-    const max = Number(this.getFlag<number>('player.maxHealth') ?? 3);
-    const current = Number(this.getFlag<number>('player.health') ?? max);
-    const next = Math.max(0, current - 1);
-    this.setFlag('player.health', next);
-    this.emitHealthDebug('snake.damaged', 'lightning', current, next, max, {
-      damage: current - next,
-    });
-    this.emitPlayerLowHealthEvent(next, max, 'lightning');
-    this.setFlag('ui.healthRevealed', true);
-    this.grantUnifiedInvulnerability(8);
-    this.setFlag('ui.playerHit', {
-      x: head.x,
-      y: head.y,
-      roomId: this.snake.currentRoomId,
-      health: next,
-      maxHealth: max,
+    const result = this.applyPlayerDamage({
+      amount: 1,
       source: 'lightning',
+      invulnTicks: 8,
+      hitSource: 'lightning',
     });
-    return next <= 0;
+    return result.killed;
   }
 
   private hasLightningAttractingEquipment(): boolean {
@@ -22043,7 +22035,7 @@ export class SnakeGame implements QuestRuntime {
     if (!head) {
       return false;
     }
-    if (this.getFlag<boolean>('cheat.immortal')) {
+    if (this.isImmortal()) {
       this.setFlag('player.temperatureExposureMs', 0);
       this.setFlag('player.temperatureHotExposureMs', 0);
       this.setFlag('player.temperatureColdExposureMs', 0);
@@ -22282,28 +22274,11 @@ export class SnakeGame implements QuestRuntime {
       hotDamageProgressMs,
       coldDamageProgressMs,
     );
-    this.setFlag('player.health', Math.max(0, currentHealth));
-    if (currentHealth < previousHealth) {
-      this.emitHealthDebug(
-        'snake.damaged',
-        `temperature:${biome.temperatureHazard}`,
-        previousHealth,
-        Math.max(0, currentHealth),
-        maxHealth,
-        {
-          damage: previousHealth - Math.max(0, currentHealth),
-          hazard: biome.temperatureHazard,
-        },
-      );
-    }
-    this.emitPlayerLowHealthEvent(Math.max(0, currentHealth), maxHealth, 'temperature');
-    this.setFlag('ui.healthRevealed', true);
-    this.setFlag('ui.playerHit', {
-      x: head.x,
-      y: head.y,
-      roomId: this.snake.currentRoomId,
-      health: Math.max(0, currentHealth),
-      maxHealth,
+    const result = this.applyPlayerDamage({
+      amount: previousHealth - Math.max(0, currentHealth),
+      source: `temperature:${biome.temperatureHazard}`,
+      extra: { hazard: biome.temperatureHazard },
+      lowHealthSource: 'temperature',
     });
     this.setFlag('ui.temperatureDamageFlash', {
       x: head.x,
@@ -22311,7 +22286,7 @@ export class SnakeGame implements QuestRuntime {
       roomId: this.snake.currentRoomId,
       hazard: biome.temperatureHazard,
     });
-    return currentHealth <= 0;
+    return result.killed;
   }
 
   private isNeutralTemperatureShelter(
@@ -22397,30 +22372,14 @@ export class SnakeGame implements QuestRuntime {
       });
       return false;
     }
-    const max = Number(this.getFlag<number>('player.maxHealth') ?? 3);
-    const current = Number(this.getFlag<number>('player.health') ?? max);
-    const next = Math.max(0, current - 1);
-    this.setFlag('player.health', next);
-    this.emitHealthDebug('snake.damaged', style ?? 'bullet', current, next, max, {
-      damage: current - next,
-      hitStyle: style ?? 'bullet',
-      hitCount: hits,
+    const result = this.applyPlayerDamage({
+      amount: 1,
+      source: style ?? 'bullet',
+      extra: { hitStyle: style ?? 'bullet', hitCount: hits },
+      invulnTicks: 10,
+      hitSource: style,
     });
-    this.emitPlayerLowHealthEvent(next, max, style ?? 'bullet');
-    this.setFlag('ui.healthRevealed', true);
-    this.grantUnifiedInvulnerability(10);
-    const head = this.snake.bodySegments[0];
-    if (head) {
-      this.setFlag('ui.playerHit', {
-        x: head.x,
-        y: head.y,
-        roomId: this.snake.currentRoomId,
-        health: next,
-        maxHealth: max,
-        source: style,
-      });
-    }
-    return next <= 0;
+    return result.killed;
   }
 
   private maybeQueueFreakJoeyEncounter(roomId: string): void {
