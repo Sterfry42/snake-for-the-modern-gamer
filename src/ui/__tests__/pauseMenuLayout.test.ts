@@ -29,6 +29,7 @@ describe('pause menu layout zones', () => {
     expect(intersects(layout.topTabs, layout.content)).toBe(false);
     expect(intersects(layout.topTabs, layout.detail)).toBe(false);
     expect(intersects(layout.status, layout.subTabs)).toBe(false);
+    expect(intersects(layout.status, layout.topTabs)).toBe(false);
     expect(intersects(layout.status, layout.content)).toBe(false);
     expect(intersects(layout.status, layout.detail)).toBe(false);
     expect(intersects(layout.subTabs, layout.content)).toBe(false);
@@ -56,4 +57,16 @@ describe('pause menu layout zones', () => {
       expect(contains(layout.shell, rect)).toBe(true);
     }
   });
+
+  it.each(sizes)(
+    'keeps the status ticker in the original tab-row slot at $width x $height',
+    ({ width, height }) => {
+      const layout = computePauseMenuLayoutForTest(width, height);
+
+      expect(layout.status.y).toBe(layout.topTabs.y);
+      expect(layout.status.height).toBe(layout.topTabs.height);
+      expect(layout.status.x).toBeGreaterThanOrEqual(layout.topTabs.x + layout.topTabs.width);
+      expect(layout.subTabs.y).toBeGreaterThanOrEqual(layout.topTabs.y + layout.topTabs.height);
+    },
+  );
 });
