@@ -1,5 +1,9 @@
 export type ModifierSourceKind =
   | 'special'
+  | 'background'
+  | 'class'
+  | 'faith'
+  | 'perk'
   | 'skill'
   | 'equipment'
   | 'apple'

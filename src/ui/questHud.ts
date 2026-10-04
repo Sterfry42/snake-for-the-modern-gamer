@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
-import type { Quest } from '../../quests.js';
+import type { Quest } from '../quests/quest.js';
 import type {
   AtmosphereState,
   GlobalWeather,

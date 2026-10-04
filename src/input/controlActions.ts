@@ -1,4 +1,7 @@
 export type ControlActionId =
+  | 'starforged.panel'
+  | 'starforged.ability'
+  | 'starforged.super'
   | 'move.up'
   | 'move.down'
   | 'move.left'
@@ -191,6 +194,45 @@ export const CONTROL_ACTIONS: readonly ControlAction[] = [
       mobile: bind('Menu Button'),
     },
     rebindable: true,
+  },
+  {
+    id: 'starforged.panel',
+    label: 'Starforged Panel',
+    category: 'actions',
+    description: 'Toggle the Starforged Vanguard panel.',
+    defaultBindings: {
+      keyboardMouse: bind('L'),
+      controller: [],
+      mobile: [],
+    },
+    rebindable: true,
+    hidden: true,
+  },
+  {
+    id: 'starforged.ability',
+    label: 'Starforged Ability',
+    category: 'actions',
+    description: 'Spend a Starforged Vanguard ability charge.',
+    defaultBindings: {
+      keyboardMouse: bind('Z'),
+      controller: [],
+      mobile: [],
+    },
+    rebindable: true,
+    hidden: true,
+  },
+  {
+    id: 'starforged.super',
+    label: 'Starforged Super',
+    category: 'actions',
+    description: 'Spend a Starforged Vanguard super charge.',
+    defaultBindings: {
+      keyboardMouse: bind('X'),
+      controller: [],
+      mobile: [],
+    },
+    rebindable: true,
+    hidden: true,
   },
   {
     id: 'map.toggle',

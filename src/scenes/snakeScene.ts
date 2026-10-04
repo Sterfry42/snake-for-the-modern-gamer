@@ -69,7 +69,7 @@ import {
   type ClockDiagnostics,
   type ClockRule,
 } from '../systems/simulationScheduler.js';
-import { createQuestRegistry } from '../systems/quests.js';
+import { createQuestRegistry } from '../quests/questRuntime.js';
 import { SkillTreeManager } from '../systems/skillTreeManager.js';
 import type { OwnedSkillState } from '../systems/skillTypes.js';
 import { QuestHud } from '../ui/questHud.js';
@@ -137,7 +137,7 @@ import {
   shouldBlockPauseToggle,
   shouldResumeFromPauseOverlay,
 } from '../input/controllerMenuRouting.js';
-import type { Quest } from '../../quests.js';
+import type { Quest } from '../quests/quest.js';
 import type { AppleSnapshot } from '../apples/types.js';
 import { stableStringHashPositive, type Vector2Like } from '../core/math.js';
 import { MAYORAL_PLATFORMS } from '../civic/mayoralPlatforms.js';
@@ -10586,6 +10586,9 @@ export default class SnakeScene extends Phaser.Scene {
       case 'save.quick':
         this.saveUI.save();
         return true;
+      case 'starforged.panel':
+      case 'starforged.ability':
+      case 'starforged.super':
       case 'aim.fire':
       case 'move.up':
       case 'move.down':

@@ -9,7 +9,7 @@ import type {
 import { getItem } from '../inventory/itemRegistry.js';
 import { isLocatorItemId } from '../world/biomeLocators.js';
 import type { EquipableItem, EquipmentSlot, Item } from '../inventory/item.js';
-import type { Quest } from '../../quests.js';
+import type { Quest } from '../quests/quest.js';
 import { i18n } from '../i18n/i18nManager.js';
 import type { VillageShopHatId, VillageShopStyleId } from '../shops/villageShop.js';
 import {

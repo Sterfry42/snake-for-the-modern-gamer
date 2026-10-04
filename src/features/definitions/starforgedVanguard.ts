@@ -3,6 +3,7 @@
  */
 import Phaser from 'phaser';
 import { Feature } from '../feature.js';
+import { isKeyboardEventForAction } from '../../input/controlActions.js';
 import type SnakeScene from '../../scenes/snakeScene.js';
 import { StarforgedSystem } from '../../starforged/starforgedSystem.js';
 import {
@@ -184,21 +185,20 @@ class StarforgedVanguardFeature extends Feature {
       ) {
         return;
       }
-      const key = event.key.toLowerCase();
-      if (scene.paused && key !== 'l') {
+      if (scene.paused && !isKeyboardEventForAction(event, 'starforged.panel')) {
         return;
       }
       const state = this.readState(scene);
       if (!state.active) {
         return;
       }
-      if (key === 'l') {
+      if (isKeyboardEventForAction(event, 'starforged.panel')) {
         this.togglePanel(scene);
         event.preventDefault();
-      } else if (key === 'z') {
+      } else if (isKeyboardEventForAction(event, 'starforged.ability')) {
         this.spendAbility(scene);
         event.preventDefault();
-      } else if (key === 'x') {
+      } else if (isKeyboardEventForAction(event, 'starforged.super')) {
         this.spendSuper(scene);
         event.preventDefault();
       }
