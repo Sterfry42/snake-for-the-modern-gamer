@@ -114,6 +114,8 @@ import {
 } from './saveManager.js';
 import { InventorySystem } from '../inventory/inventory.js';
 import { CHEST_LOOT_ITEMS, getItem } from '../inventory/itemRegistry.js';
+import { SpellbookService, type LearnSpellResult } from '../systems/spells/spellbookService.js';
+import { getSpellTome } from '../systems/spells/spellTomes.js';
 import {
   CARD_SHOP_OFFERS,
   CARD_TO_ITEM_MIGRATION,
@@ -18016,6 +18018,36 @@ export class SnakeGame implements QuestRuntime {
     return result;
   }
 
+  learnSpellFromTome(tomeItemId: string): LearnSpellResult {
+    if (this.inventory.getItemCount(tomeItemId) <= 0) {
+      return { ok: false, reason: 'unknown-spell' };
+    }
+    const tome = getSpellTome(tomeItemId);
+    if (!tome) {
+      return { ok: false, reason: 'unknown-spell' };
+    }
+    const spellbook = new SpellbookService({
+      getFlag: (key) => this.getFlag(key),
+      setFlag: (key, value) => this.setFlag(key, value),
+      getCapacity: () =>
+        Math.max(0, Math.floor(Number(this.getFlag<number>('derived.spellSlotCapacity') ?? 0))),
+    });
+    const result = spellbook.learn(tome.spellId);
+    if (result.ok) {
+      this.inventory.removeItem(tomeItemId, 1);
+      this.setFlag('ui.itemUsed', {
+        itemId: tomeItemId,
+        itemName: getItem(tomeItemId)?.name,
+        learnedSpellId: tome.spellId,
+      });
+      this.setFlag('ui.spellLearned', {
+        spellId: tome.spellId,
+        label: result.spell.label,
+      });
+    }
+    return result;
+  }
+
   knowsAlchemyRecipe(recipeId: string): boolean {
     return this.getAlchemyState().knownRecipes.includes(recipeId);
   }
@@ -18389,6 +18421,26 @@ export class SnakeGame implements QuestRuntime {
           result.reason === 'already-known'
             ? 'You already know that recipe.'
             : 'That scroll refuses to make sense.',
+        color: '#ffd166',
+      };
+    }
+
+    if (itemId.startsWith('spell-tome-')) {
+      const result = this.learnSpellFromTome(itemId);
+      if (result.ok) {
+        return {
+          ok: true,
+          message: `${result.spell.label} learned.`,
+          color: '#ffbdfd',
+          consume: true,
+        };
+      }
+      return {
+        ok: false,
+        message:
+          result.reason === 'already-known'
+            ? `You already know ${result.spell?.label ?? 'that spell'}.`
+            : 'That tome refuses to open.',
         color: '#ffd166',
       };
     }

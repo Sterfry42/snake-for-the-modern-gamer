@@ -472,6 +472,23 @@ type TitleMenuMode =
 type ArchipelagoTitleField = 'serverUrl' | 'slotName' | 'password';
 type ArchipelagoTitleControl = ArchipelagoTitleField | 'connect' | 'disconnect' | 'back';
 const CHARACTER_MODE_STORAGE_KEY = 'snakeGameCharacterMode';
+
+interface SnakeE2EWindowApi {
+  startRun(): void;
+  grantItem(itemId: string, count?: number): void;
+  useItem(itemId: string): { ok: boolean; message: string; color?: string };
+  grantManaBloom(): boolean;
+  castPrimary(): boolean;
+  getFlag<T = unknown>(key: string): T | undefined;
+  getInventoryCount(itemId: string): number;
+  getScore(): number;
+}
+
+declare global {
+  interface Window {
+    snakeE2E?: SnakeE2EWindowApi;
+  }
+}
 const RACCOON_STASH_POPUP_TEXTURE_KEY = 'raccoon-popup-stash';
 const RACCOON_SAD_POPUP_TEXTURE_KEY = 'raccoon-popup-sad';
 const RACCOON_WEIGHT_THRESHOLD_TEXTURE_KEY = 'raccoon-weight-threshold';
@@ -2399,6 +2416,7 @@ export default class SnakeScene extends Phaser.Scene {
       ) ?? null;
 
     this.initGame(true);
+    this.installE2EBridge();
 
     // Autosave timer: save every 30 seconds during gameplay
     this.autosaveTimer = this.time.addEvent({
@@ -3877,6 +3895,27 @@ export default class SnakeScene extends Phaser.Scene {
     if (!this.titleVisible) {
       getDebugBus()?.setRunPhase(this.paused ? 'paused' : 'playing');
     }
+  }
+
+  private installE2EBridge(): void {
+    if (!import.meta.env.DEV) return;
+    window.snakeE2E = {
+      startRun: () => {
+        this.startNewGameFromTitle();
+      },
+      grantItem: (itemId, count = 1) => {
+        this.snakeGame.grantInventoryItem(itemId, count);
+      },
+      useItem: (itemId) => {
+        const result = this.snakeGame.useInventoryItem(itemId);
+        return { ok: result.ok, message: result.message, color: result.color };
+      },
+      grantManaBloom: () => this.skillTree.grantStartingPerk('manaBloom', { type: 'debug' }),
+      castPrimary: () => this.skillTree.handleKeyDown('q', false),
+      getFlag: (key) => this.snakeGame.getFlag(key),
+      getInventoryCount: (itemId) => this.snakeGame.getInventory().getItemCount(itemId),
+      getScore: () => this.snakeGame.getScore(),
+    };
   }
 
   private runActionStep(): void {

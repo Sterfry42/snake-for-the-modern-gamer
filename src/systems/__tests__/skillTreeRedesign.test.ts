@@ -36,6 +36,9 @@ function createRuntime(
     notifyArcaneVeilUnlocked() {},
     onArcanePulseCast() {},
     onArcaneVeilTriggered() {},
+    getFlag<T = unknown>(key: string): T | undefined {
+      return this.flags.get(key) as T | undefined;
+    },
     setFlag(key, value) {
       this.flags.set(key, value);
     },

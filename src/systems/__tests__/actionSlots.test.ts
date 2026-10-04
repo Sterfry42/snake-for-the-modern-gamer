@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ActionSlotController, type ActionSlotRuntime } from '../actionSlots.js';
+import {
+  ActionSlotController,
+  type ActionSlotRuntime,
+  type ActionSlotUseResult,
+} from '../actionSlots.js';
 import type { SkillTreeStats } from '../skillTypes.js';
 
 function makeRuntime(overrides: Partial<ActionSlotRuntime> = {}) {
@@ -26,6 +30,24 @@ function makeRuntime(overrides: Partial<ActionSlotRuntime> = {}) {
         flags.set(key, value);
       }
     },
+    knowsSpell: (spellId) =>
+      (flags.get('arcane.spellbook.known') as string[] | undefined)?.includes(spellId) ?? false,
+    isSpellLoaded: (spellId) =>
+      (flags.get('arcane.spellbook.loadout') as string[] | undefined)?.includes(spellId) ?? false,
+    getFirstLoadedSpellId: () =>
+      (flags.get('arcane.spellbook.loadout') as string[] | undefined)?.[0],
+    tryCastSpell: vi.fn((spellId: string): ActionSlotUseResult => {
+      if (spellId === 'summon-rat-familiar' && runtime.hasRatFamiliar()) {
+        return { ok: false, reason: 'Your rat familiar is already out there.' };
+      }
+      const cost = spellId === 'summon-rat-familiar' ? 25 : 20;
+      const label = spellId === 'summon-rat-familiar' ? 'Summon Rat Familiar' : 'Arcane Pulse';
+      if (stats.mana < cost) {
+        const missing = Math.max(1, Math.ceil(cost - stats.mana));
+        return { ok: false, reason: `${label} needs more mana - missing ${missing}.` };
+      }
+      return { ok: true, label };
+    }),
     tryCastArcanePulse: vi.fn(() => true),
     getArcanePulseCost: () => 20,
     tryActivateManualSurge: () => ({ ok: true, message: 'Surge on.' }),
@@ -60,30 +82,36 @@ describe('summon rat familiar action slot', () => {
   it('binds and casts the summon when the rite is unlocked', () => {
     const { runtime, flags } = makeRuntime();
     flags.set('arcane.familiarRite', { enabled: true });
+    flags.set('arcane.spellbook.known', ['summon-rat-familiar']);
+    flags.set('arcane.spellbook.loadout', ['summon-rat-familiar']);
     const controller = new ActionSlotController(runtime);
 
     expect(controller.bind('q', 'summon-rat-familiar').ok).toBe(true);
     const result = controller.use('q');
 
     expect(result).toEqual({ ok: true, label: 'Summon Rat Familiar' });
-    expect(runtime.tryCastSummonFamiliar).toHaveBeenCalledOnce();
+    expect(runtime.tryCastSpell).toHaveBeenCalledWith('summon-rat-familiar');
   });
 
   it('refuses to summon while a rat familiar is already out', () => {
     const { runtime, flags } = makeRuntime({ hasRatFamiliar: () => true });
     flags.set('arcane.familiarRite', { enabled: true });
+    flags.set('arcane.spellbook.known', ['summon-rat-familiar']);
+    flags.set('arcane.spellbook.loadout', ['summon-rat-familiar']);
     const controller = new ActionSlotController(runtime);
 
     expect(controller.bind('q', 'summon-rat-familiar').ok).toBe(true);
     const result = controller.use('q');
 
     expect(result).toEqual({ ok: false, reason: 'Your rat familiar is already out there.' });
-    expect(runtime.tryCastSummonFamiliar).not.toHaveBeenCalled();
+    expect(runtime.tryCastSpell).toHaveBeenCalledWith('summon-rat-familiar');
   });
 
   it('reports missing mana for the summon', () => {
     const { runtime, stats, flags } = makeRuntime();
     flags.set('arcane.familiarRite', { enabled: true });
+    flags.set('arcane.spellbook.known', ['summon-rat-familiar']);
+    flags.set('arcane.spellbook.loadout', ['summon-rat-familiar']);
     stats.mana = 10;
     const controller = new ActionSlotController(runtime);
 
@@ -92,18 +120,35 @@ describe('summon rat familiar action slot', () => {
 
     expect(result).toEqual({
       ok: false,
-      reason: 'Summon Rat Familiar needs 25 mana - missing 15.',
+      reason: 'Summon Rat Familiar needs more mana - missing 15.',
     });
-    expect(runtime.tryCastSummonFamiliar).not.toHaveBeenCalled();
+    expect(runtime.tryCastSpell).toHaveBeenCalledWith('summon-rat-familiar');
   });
 
   it('keeps Arcane Pulse as the default binding when unlocked', () => {
     const { runtime, stats, flags } = makeRuntime();
     stats.arcanePulseUnlocked = true;
     flags.set('arcane.familiarRite', { enabled: true });
+    flags.set('arcane.spellbook.known', ['arcane-pulse']);
+    flags.set('arcane.spellbook.loadout', ['arcane-pulse']);
     const controller = new ActionSlotController(runtime);
 
     controller.ensureDefaultBinding();
     expect(controller.getBound('q')).toBe('arcane-pulse');
+  });
+
+  it('keeps non-spell commands out of the Spellbook view', () => {
+    const { runtime, stats, flags } = makeRuntime();
+    stats.arcanePulseUnlocked = true;
+    flags.set('arcane.spellbook.known', ['arcane-pulse']);
+    flags.set('arcane.spellbook.loadout', ['arcane-pulse']);
+    const controller = new ActionSlotController(runtime);
+
+    expect(controller.getAbilityViews().map((view) => view.id)).toContain('manual-surge');
+    expect(controller.getSpellAbilityViews().map((view) => view.id)).toEqual([
+      'arcane-pulse',
+      'arcane-veil',
+      'summon-rat-familiar',
+    ]);
   });
 });

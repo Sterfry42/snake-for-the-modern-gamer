@@ -36,6 +36,10 @@ export interface ActionSlotRuntime {
   getStats(): SkillTreeStats;
   getFlag<T = unknown>(key: string): T | undefined;
   setFlag(key: string, value: unknown): void;
+  knowsSpell(spellId: string): boolean;
+  isSpellLoaded(spellId: string): boolean;
+  getFirstLoadedSpellId(): string | undefined;
+  tryCastSpell(spellId: string): ActionSlotUseResult;
   tryCastArcanePulse(): boolean;
   getArcanePulseCost(): number;
   tryActivateManualSurge(): { ok: boolean; message: string };
@@ -61,21 +65,13 @@ export class ActionSlotController {
         description: 'Spend mana to detonate a short burst around the snake.',
         getManaCost: () => this.runtime.getArcanePulseCost(),
         getDisabledReason: (stats) =>
-          stats.arcanePulseUnlocked ? undefined : 'Unlock Arcane Pulse in the skill tree.',
-        canBind: (stats) => stats.arcanePulseUnlocked,
-        use: (stats) => {
-          if (!stats.arcanePulseUnlocked) {
-            return { ok: false, reason: 'Unlock Arcane Pulse in the skill tree to cast.' };
-          }
-          const cost = this.runtime.getArcanePulseCost();
-          if (stats.mana < cost) {
-            const missing = Math.max(1, Math.ceil(cost - stats.mana));
-            return { ok: false, reason: `Arcane Pulse needs ${cost} mana - missing ${missing}.` };
-          }
-          return this.runtime.tryCastArcanePulse()
-            ? { ok: true, label: 'Arcane Pulse' }
-            : { ok: false, reason: 'Arcane Pulse fizzled.' };
-        },
+          this.getSpellDisabledReason(
+            'arcane-pulse',
+            stats,
+            'Unlock Arcane Pulse in the skill tree.',
+          ),
+        canBind: (stats) => this.canBindSpell('arcane-pulse', stats.arcanePulseUnlocked),
+        use: () => this.runtime.tryCastSpell('arcane-pulse'),
       },
       {
         id: 'manual-surge',
@@ -109,31 +105,17 @@ export class ActionSlotController {
       {
         id: 'summon-rat-familiar',
         label: 'Summon Rat Familiar',
-        kind: 'summon',
+        kind: 'spell',
         description: 'Call a rat familiar that hunts nearby enemies for a short time.',
         getManaCost: () => this.runtime.getSummonFamiliarCost(),
         getDisabledReason: () =>
-          this.familiarRiteUnlocked() ? undefined : 'Unlock Familiar Rite in the skill tree.',
-        canBind: () => this.familiarRiteUnlocked(),
-        use: (stats) => {
-          if (!this.familiarRiteUnlocked()) {
-            return { ok: false, reason: 'Unlock Familiar Rite in the skill tree to cast.' };
-          }
-          if (this.runtime.hasRatFamiliar()) {
-            return { ok: false, reason: 'Your rat familiar is already out there.' };
-          }
-          const cost = this.runtime.getSummonFamiliarCost();
-          if (stats.mana < cost) {
-            const missing = Math.max(1, Math.ceil(cost - stats.mana));
-            return {
-              ok: false,
-              reason: `Summon Rat Familiar needs ${cost} mana - missing ${missing}.`,
-            };
-          }
-          return this.runtime.tryCastSummonFamiliar()
-            ? { ok: true, label: 'Summon Rat Familiar' }
-            : { ok: false, reason: 'The familiar rite fizzled.' };
-        },
+          this.getSpellDisabledReason(
+            'summon-rat-familiar',
+            this.runtime.getStats(),
+            'Unlock Familiar Rite in the skill tree.',
+          ),
+        canBind: () => this.canBindSpell('summon-rat-familiar', this.familiarRiteUnlocked()),
+        use: () => this.runtime.tryCastSpell('summon-rat-familiar'),
       },
       {
         id: 'command-follower',
@@ -172,6 +154,35 @@ export class ActionSlotController {
     return Boolean(this.runtime.getFlag<{ enabled?: boolean }>('arcane.familiarRite')?.enabled);
   }
 
+  private canBindSpell(spellId: string, legacyUnlocked: boolean): boolean {
+    return (
+      (legacyUnlocked || this.runtime.knowsSpell(spellId)) && this.runtime.isSpellLoaded(spellId)
+    );
+  }
+
+  private getSpellDisabledReason(
+    spellId: string,
+    stats: SkillTreeStats,
+    lockedReason: string,
+  ): string | undefined {
+    if (
+      !stats.arcanePulseUnlocked &&
+      spellId === 'arcane-pulse' &&
+      !this.runtime.knowsSpell(spellId)
+    ) {
+      return lockedReason;
+    }
+    if (
+      spellId === 'summon-rat-familiar' &&
+      !this.familiarRiteUnlocked() &&
+      !this.runtime.knowsSpell(spellId)
+    ) {
+      return lockedReason;
+    }
+    if (!this.runtime.isSpellLoaded(spellId)) return 'Add this spell to your Spell Loadout first.';
+    return undefined;
+  }
+
   getBound(slot: ActionSlotId = 'q'): string | undefined {
     return this.getState()[slot];
   }
@@ -183,8 +194,9 @@ export class ActionSlotController {
     if (current?.canBind(stats)) {
       return;
     }
-    if (stats.arcanePulseUnlocked) {
-      this.saveState({ ...state, q: 'arcane-pulse' });
+    const firstLoadedSpellId = this.runtime.getFirstLoadedSpellId();
+    if (firstLoadedSpellId) {
+      this.saveState({ ...state, q: firstLoadedSpellId });
     }
   }
 
@@ -204,6 +216,10 @@ export class ActionSlotController {
         manaCost: ability.getManaCost?.(),
       };
     });
+  }
+
+  getSpellAbilityViews(): readonly ActionAbilityView[] {
+    return this.getAbilityViews().filter((ability) => ability.kind === 'spell');
   }
 
   bind(slot: ActionSlotId, abilityId: string): ActionSlotUseResult {

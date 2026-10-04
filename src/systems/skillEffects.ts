@@ -44,6 +44,7 @@ export function applySkillEffect(effect: SkillEffect, context: SkillEffectContex
       break;
     }
     case 'registerSpell': {
+      context.system.registerSpell(effect.spellId);
       break;
     }
     case 'statModifier': {

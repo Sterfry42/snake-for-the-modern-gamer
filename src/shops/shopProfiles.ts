@@ -128,6 +128,18 @@ const WIZARD_SUPPLIES: readonly VillageShopSupplyOffer[] = [
     note: 'Portable brewing furniture, tuned by someone who owns too many candles.',
   },
   {
+    id: 'spell-tome-arcane-pulse',
+    itemId: 'spell-tome-arcane-pulse',
+    price: 48,
+    note: 'A novice spell tome. Short burst, big attitude.',
+  },
+  {
+    id: 'spell-tome-summon-rat-familiar',
+    itemId: 'spell-tome-summon-rat-familiar',
+    price: 76,
+    note: 'A conjuration tome with suspicious little footprints in the margins.',
+  },
+  {
     id: 'recipe-scroll-shield',
     itemId: 'recipe-scroll-shield',
     price: 24,
@@ -185,7 +197,11 @@ export const DEFAULT_SHOP_PROFILES: ReadonlyMap<string, ShopProfile> = new Map(
     }),
     profile('wizard', {
       consumables: { poolId: 'wizard-consumables', randomCount: 3 },
-      items: { poolId: 'wizard-items', anchored: ['alchemy-station'], randomCount: 4 },
+      items: {
+        poolId: 'wizard-items',
+        anchored: ['alchemy-station', 'spell-tome-arcane-pulse'],
+        randomCount: 4,
+      },
     }),
     profile('butcher', {
       consumables: { poolId: 'butcher-consumables', randomCount: 'all' },
@@ -281,6 +297,8 @@ const DEFAULT_SHOP_OFFER_POOL_LIST: ShopOfferPool[] = [
     WIZARD_SUPPLIES.filter((offer) =>
       [
         'alchemy-station',
+        'spell-tome-arcane-pulse',
+        'spell-tome-summon-rat-familiar',
         'ingredient-pearl-apple',
         'ingredient-quartz',
         'ingredient-meteor-iron',
@@ -289,6 +307,8 @@ const DEFAULT_SHOP_OFFER_POOL_LIST: ShopOfferPool[] = [
     ),
     {
       'alchemy-station': 1,
+      'spell-tome-arcane-pulse': 12,
+      'spell-tome-summon-rat-familiar': 4,
       'ingredient-pearl-apple': 12,
       'ingredient-quartz': 20,
       'ingredient-meteor-iron': 3,

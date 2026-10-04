@@ -37,8 +37,11 @@ describe('shop profile resolver', () => {
 
     expect(wizardTabs.map((tab) => tab.id)).toEqual(['consumables', 'items']);
     expect(wizardTabs.find((tab) => tab.id === 'consumables')?.offers).toHaveLength(2);
-    expect(wizardTabs.find((tab) => tab.id === 'items')?.offers).toHaveLength(5);
+    expect(wizardTabs.find((tab) => tab.id === 'items')?.offers).toHaveLength(6);
     expect(wizardTabs.find((tab) => tab.id === 'items')?.offers[0]?.id).toBe('alchemy-station');
+    expect(wizardTabs.flatMap((tab) => tab.offers).map((offer) => offer.id)).toContain(
+      'spell-tome-arcane-pulse',
+    );
     expect(wizardTabs.flatMap((tab) => tab.offers).map((offer) => offer.id)).not.toEqual(
       potionTabs.flatMap((tab) => tab.offers).map((offer) => offer.id),
     );
@@ -75,7 +78,7 @@ describe('shop profile resolver', () => {
     expect(tabs.flatMap((tab) => tab.offers).map((offer) => offer.id)).not.toContain(
       'alchemy-station',
     );
-    expect(tabs.find((tab) => tab.id === 'items')?.offers).toHaveLength(4);
+    expect(tabs.find((tab) => tab.id === 'items')?.offers).toHaveLength(5);
   });
 
   it('can resolve a new test profile and pool without role-specific runtime code', () => {
