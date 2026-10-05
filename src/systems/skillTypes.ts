@@ -167,9 +167,11 @@ export interface SkillTreeRuntime {
   notifyArcaneVeilUnlocked(): void;
   onArcanePulseCast(): void;
   onArcaneVeilTriggered(): void;
+  getFlag<T = unknown>(key: string): T | undefined;
   spendSafeSnakeLength?(segments: number): number;
   onAstralNova?(): void;
   onSummonFamiliarCast?(): void;
+  hasRatFamiliar?(): boolean;
   setFlag(key: string, value: unknown): void;
 }
 
@@ -208,8 +210,10 @@ export interface SkillTreeSystemApi {
   applyDerivedStatModifier(effect: SkillEffectDerivedStatModifier): void;
   unlockArcanePulse(): void;
   unlockArcaneVeil(): void;
+  registerSpell(spellId: string): void;
   modifyScoreGain(amount: number): number;
   consumeExtraLife(): boolean;
+  tryCastSpell(spellId: string): import('./actionSlots.js').ActionSlotUseResult;
   tryCastArcanePulse(): boolean;
   getArcanePulseCost(): number;
   getArcaneVeilCost(): number;

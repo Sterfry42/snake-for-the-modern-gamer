@@ -21,7 +21,7 @@ const args =
         '-Command',
         [
           '$ErrorActionPreference = "Stop"',
-          `$source = ${JSON.stringify(path.join(source, '*'))}`,
+          `$source = ${JSON.stringify(source)}`,
           `$outFile = ${JSON.stringify(outFile)}`,
           `$tempZipFile = ${JSON.stringify(tempZipFile)}`,
           'Compress-Archive -Path $source -DestinationPath $tempZipFile -Force',
@@ -39,7 +39,7 @@ const args =
           '        if "__pycache__" in path.parts or path.suffix == ".pyc":',
           '            continue',
           '        if path.is_file():',
-          '            zf.write(path, path.relative_to(source))',
+          '            zf.write(path, path.relative_to(source.parent))',
         ].join('\n'),
       ];
 

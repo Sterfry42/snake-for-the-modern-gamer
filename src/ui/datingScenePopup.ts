@@ -18,6 +18,9 @@ import {
   type DatingPortraitVariant,
 } from './spriteRecipes/datingPortraitRecipe.js';
 import { getDebugBus } from '../debug/debugRuntime.js';
+import { loadDlss5Settings } from './presentation/dlss5/dlss5Settings.js';
+import type { Dlss5PortraitService } from './presentation/dlss5/dlss5PortraitService.js';
+import { resolveDlss5PortraitIdentity } from './presentation/dlss5/portraitResolver.js';
 
 export type DatingSceneAction =
   | RelationshipChoice
@@ -53,6 +56,7 @@ interface DatingSceneOptions {
 
 export class DatingScenePopup {
   private readonly spriteFactory: RuntimeSpriteFactory;
+  private readonly dlss5PortraitService: Dlss5PortraitService;
   private container?: Phaser.GameObjects.Container;
   private portrait?: Phaser.GameObjects.Image;
   private title?: Phaser.GameObjects.Text;
@@ -67,10 +71,12 @@ export class DatingScenePopup {
   private controllerMode = false;
   private keyboardFocus = false;
   private hoveredActionIndex = -1;
+  private activeDlss5PortraitRequestKey: string | null = null;
   private onAction?: (action: DatingSceneAction) => void;
 
   constructor(private readonly scene: SnakeScene) {
     this.spriteFactory = new RuntimeSpriteFactory(scene);
+    this.dlss5PortraitService = scene.getDlss5PortraitService();
     this.build();
   }
 
@@ -108,6 +114,7 @@ export class DatingScenePopup {
 
   hide(): void {
     this.container?.setVisible(false);
+    this.activeDlss5PortraitRequestKey = null;
     this.onAction = undefined;
   }
 
@@ -194,6 +201,7 @@ export class DatingScenePopup {
     const asset = getDatingPortraitAsset(profile, mood);
 
     if (asset && this.scene.textures.exists(asset.key)) {
+      this.activeDlss5PortraitRequestKey = null;
       this.portrait
         ?.setTexture(asset.key)
         .clearTint()
@@ -202,10 +210,12 @@ export class DatingScenePopup {
         .setPosition(width / 2, Math.max(18 + portraitSize / 2, topHeight / 2))
         .setVisible(true);
       this.applyPortraitMoodTreatment(mood, asset.mood === mood);
+      this.startDlss5PortraitLoad(profile, portraitSize, topHeight, mood);
       return;
     }
 
     this.setGeneratedPortrait(profile, portraitSize, topHeight, mood);
+    this.startDlss5PortraitLoad(profile, portraitSize, topHeight, mood);
   }
 
   private setGeneratedPortrait(
@@ -222,6 +232,59 @@ export class DatingScenePopup {
     );
     this.portrait
       ?.setTexture(keys[this.variantFor(profile)])
+      .clearTint()
+      .setAlpha(1)
+      .setDisplaySize(portraitSize, portraitSize)
+      .setPosition(width / 2, Math.max(18 + portraitSize / 2, topHeight / 2))
+      .setVisible(true);
+    this.applyPortraitMoodTreatment(mood, false);
+  }
+
+  private startDlss5PortraitLoad(
+    profile: RelationshipCandidateProfile,
+    portraitSize: number,
+    topHeight: number,
+    mood: DatingPortraitMood,
+  ): void {
+    if (!loadDlss5Settings().enabled) {
+      this.activeDlss5PortraitRequestKey = null;
+      return;
+    }
+
+    const identity = resolveDlss5PortraitIdentity({
+      id: profile.id,
+      portraitId: profile.portraitId,
+      species: profile.species,
+    });
+    if (!identity) {
+      this.activeDlss5PortraitRequestKey = null;
+      return;
+    }
+
+    const cached = this.dlss5PortraitService.getCachedTexture(identity);
+    if (cached) {
+      this.applyDlss5PortraitTexture(cached, portraitSize, topHeight, mood);
+      return;
+    }
+
+    const requestKey = `${identity.key}:${profile.id}:${portraitSize}:${mood}`;
+    this.activeDlss5PortraitRequestKey = requestKey;
+    void this.dlss5PortraitService.loadTexture(identity, { size: 192 }).then((textureKey) => {
+      if (textureKey && this.isVisible() && this.activeDlss5PortraitRequestKey === requestKey) {
+        this.applyDlss5PortraitTexture(textureKey, portraitSize, topHeight, mood);
+      }
+    });
+  }
+
+  private applyDlss5PortraitTexture(
+    textureKey: string,
+    portraitSize: number,
+    topHeight: number,
+    mood: DatingPortraitMood,
+  ): void {
+    const width = this.scene.scale.width;
+    this.portrait
+      ?.setTexture(textureKey)
       .clearTint()
       .setAlpha(1)
       .setDisplaySize(portraitSize, portraitSize)

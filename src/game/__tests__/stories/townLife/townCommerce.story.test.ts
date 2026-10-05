@@ -423,6 +423,7 @@ describe('Town life commerce hardening stories', () => {
         expect(view?.offers.map((offer) => offer.id)).toEqual(
           expect.arrayContaining([
             'alchemy-station',
+            'spell-tome-arcane-pulse',
             'recipe-scroll-shield',
             'recipe-scroll-phase',
             'ingredient-pearl-apple',
@@ -438,6 +439,41 @@ describe('Town life commerce hardening stories', () => {
       expect(scenario.game.getInventory().getItemCount('alchemy-station')).toBe(1);
       scenario.assertWorldIntegrity();
     }
+  });
+
+  it('TOWN-MAGIC-001 - wizard shops sell spell tomes that teach known spells', async () => {
+    const scenario = createHeadlessScenario({ seed: 'town-magic-001-wizard-spell-tomes' });
+    scenario.setDayPhase('day');
+    scenario.game.setScore(300);
+    const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'wizardShop' });
+
+    moveSnakeIntoDoor(scenario, room, entrance);
+    await scenario.advanceActorTicks(3);
+
+    const wizard = currentRoomActorWithRole(scenario, 'wizard');
+    const view = scenario.game.getActorShopView(wizard.id);
+    expect(view?.offers.map((offer) => offer.id)).toContain('spell-tome-arcane-pulse');
+
+    const purchase = scenario.game.purchaseActorShopOffer(wizard.id, 'spell-tome-arcane-pulse');
+    expect(purchase).toMatchObject({ ok: true, offerId: 'spell-tome-arcane-pulse' });
+    expect(scenario.game.getInventory().getItemCount('spell-tome-arcane-pulse')).toBe(1);
+
+    const learned = scenario.game.useInventoryItem('spell-tome-arcane-pulse');
+    expect(learned).toMatchObject({ ok: true });
+    expect(scenario.game.getInventory().getItemCount('spell-tome-arcane-pulse')).toBe(0);
+    expect(scenario.game.getFlag('arcane.spellbook.known')).toEqual(['arcane-pulse']);
+    expect(scenario.game.getFlag('arcane.spellbook.loadout')).toEqual(['arcane-pulse']);
+    expect(scenario.game.getFlag('actions.slots')).toEqual({ q: 'arcane-pulse' });
+    expect(scenario.game.getFlag('ui.spellLearned')).toMatchObject({
+      spellId: 'arcane-pulse',
+      label: 'Arcane Pulse',
+    });
+
+    scenario.game.grantInventoryItem('spell-tome-arcane-pulse', 1);
+    const duplicate = scenario.game.useInventoryItem('spell-tome-arcane-pulse');
+    expect(duplicate).toMatchObject({ ok: false });
+    expect(scenario.game.getInventory().getItemCount('spell-tome-arcane-pulse')).toBe(1);
+    scenario.assertWorldIntegrity();
   });
 
   it('TOWN-ALCHEMY-002 - player shop interaction opens specialist alchemy inventory', async () => {

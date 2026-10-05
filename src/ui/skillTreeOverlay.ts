@@ -177,6 +177,8 @@ const DETAIL_PANEL_PADDING = 12;
 const CLICK_ROW_TOP_BIAS = 8;
 const MAIN_PANEL_X = TREE_PADDING.horizontal;
 const MAIN_PANEL_Y = TREE_PADDING.top - 12;
+const STATUS_TEXT_MAX_FONT_SIZE = 16;
+const STATUS_TEXT_MIN_FONT_SIZE = 10;
 const TAB_ACCENTS: Record<PrimaryTabId, number> = {
   growth: uiColors.accentGrowth,
   gear: uiColors.accentGear,
@@ -700,7 +702,7 @@ export class SkillTreeOverlay {
     this.manaText = this.scene.add
       .text(this.options.width - 24, this.getPauseMenuLayout().status.y + 9, '', {
         fontFamily: 'monospace',
-        fontSize: '16px',
+        fontSize: `${STATUS_TEXT_MAX_FONT_SIZE}px`,
         color: '#9ad1ff',
         align: 'right',
       })
@@ -1458,6 +1460,26 @@ export class SkillTreeOverlay {
 
   private getPauseMenuLayout(): PauseMenuLayout {
     return computePauseMenuLayoutForTest(this.options.width, this.options.height);
+  }
+
+  private setManaStatusText(text: string): void {
+    const layout = this.getPauseMenuLayout().status;
+    const maxWidth = layout.width - 20;
+    this.manaText.setText(text);
+    this.manaText.setScale(1, 1);
+
+    for (
+      let fontSize = STATUS_TEXT_MAX_FONT_SIZE;
+      fontSize >= STATUS_TEXT_MIN_FONT_SIZE;
+      fontSize--
+    ) {
+      this.manaText.setFontSize(`${fontSize}px`);
+      if (this.manaText.width <= maxWidth) {
+        return;
+      }
+    }
+
+    this.manaText.setScale(Math.min(1, maxWidth / Math.max(1, this.manaText.width)), 1);
   }
 
   private drawTabPlates(g: Phaser.GameObjects.Graphics, layout: PauseMenuLayout): void {
@@ -7086,10 +7108,10 @@ export class SkillTreeOverlay {
         ' (+' +
         stats.manaRegen.toFixed(1) +
         '/tick)';
-      this.manaText.setText(resourceSuffix ? `${manaLine}  |  ${resourceSuffix}` : manaLine);
+      this.setManaStatusText(resourceSuffix ? `${manaLine}  |  ${resourceSuffix}` : manaLine);
     } else {
       const latent = i18n.getFeatureString('manaLatent');
-      this.manaText.setText(resourceSuffix ? `${latent}  |  ${resourceSuffix}` : latent);
+      this.setManaStatusText(resourceSuffix ? `${latent}  |  ${resourceSuffix}` : latent);
     }
 
     if (!this.hintSticky) {

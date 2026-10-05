@@ -124,7 +124,7 @@ describe('first-person world view', () => {
     expect(world.getBillboards()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: 'snake:1', x: 4.5, y: 1.5 }),
-        expect.objectContaining({ id: 'apple:1,0,0:10,8', x: 10.5, y: 8.5 }),
+        expect.objectContaining({ id: 'apple:1,0,0:normal', x: 10.5, y: 8.5 }),
         expect.objectContaining({ id: 'enemy:enemy-1:0', x: 12.5, y: 8.5 }),
       ]),
     );

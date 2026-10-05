@@ -2,6 +2,7 @@ import type { Item } from './item.js';
 import { generateBiomeLocatorItems } from '../world/biomeLocators.js';
 import { generateStructureLocatorItems } from '../world/structureLocators.js';
 import { getRestaurantFoods } from '../shops/restaurants.js';
+import { SPELL_TOMES } from '../systems/spells/spellTomes.js';
 
 const RESTAURANT_FOOD_ITEMS: readonly Item[] = getRestaurantFoods().map((food) => ({
   id: food.id,
@@ -1517,6 +1518,13 @@ export const ITEMS: readonly Item[] = [
     category: 'material',
   },
   // Recipe scrolls
+  ...SPELL_TOMES.map((tome) => ({
+    id: tome.itemId,
+    name: tome.name,
+    description: tome.description,
+    kind: 'consumable' as const,
+    category: 'spell-tome' as const,
+  })),
   {
     id: 'recipe-scroll-growth',
     name: 'Scroll of Growth',

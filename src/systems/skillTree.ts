@@ -2,6 +2,9 @@ import { applySkillEffect } from './skillEffects.js';
 import { SKILL_DEFINITIONS } from './skillCatalog.js';
 import { migrateSkillRanks, type SkillMigrationResult } from './skillMigration.js';
 import { assertValidSkillDefinitions } from './skillValidation.js';
+import type { ActionSlotUseResult } from './actionSlots.js';
+import { SpellbookService } from './spells/spellbookService.js';
+import { SpellCastService } from './spells/spellCastService.js';
 import {
   DerivedStatResolver,
   type DerivedStatBreakdown,
@@ -65,6 +68,7 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
   private readonly flagEffects = new Map<string, SkillEffectSetFlag>();
   private readonly derivedStats = new DerivedStatResolver();
   private readonly derivedModifierSources = new Map<string, DerivedStatSource>();
+  private readonly spellbook: SpellbookService;
 
   private extraLifeCharges = 0;
   private scoreMultiplier = 1;
@@ -91,6 +95,11 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
     for (const definition of PERK_DEFINITIONS) {
       this.perkLookup.set(definition.id, definition);
     }
+    this.spellbook = new SpellbookService({
+      getFlag: (key) => this.runtime.getFlag(key),
+      setFlag: (key, value) => this.runtime.setFlag(key, value),
+      getCapacity: () => this.derivedStats.resolve('spellSlotCapacity'),
+    });
   }
 
   getBaseActionStepIntervalMs(): number {
@@ -456,6 +465,7 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
 
   unlockArcanePulse(): void {
     this.arcanePulseUnlocked = true;
+    this.registerSpell('arcane-pulse');
     if (!this.manaEnabled) {
       this.enableMana({ max: 50, regen: 1 });
     }
@@ -465,6 +475,22 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
   unlockArcaneVeil(): void {
     this.arcaneVeilUnlocked = true;
     this.runtime.notifyArcaneVeilUnlocked();
+  }
+
+  registerSpell(spellId: string): void {
+    this.spellbook.learn(spellId);
+  }
+
+  knowsSpell(spellId: string): boolean {
+    return this.spellbook.knows(spellId);
+  }
+
+  isSpellLoaded(spellId: string): boolean {
+    return this.spellbook.isLoaded(spellId);
+  }
+
+  getFirstLoadedSpellId(): string | undefined {
+    return this.spellbook.getLoadout()[0]?.id;
   }
 
   applyActionStepIntervalScalar(
@@ -488,33 +514,42 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
   }
 
   tryCastSummonFamiliar(): boolean {
-    if (this.getRank('familiarRite') <= 0) {
-      return false;
-    }
-    if (!this.trySpendMana(this.summonFamiliarCost)) {
-      return false;
-    }
-    this.runtime.onSummonFamiliarCast?.();
-    return true;
+    return this.tryCastSpell('summon-rat-familiar').ok;
   }
 
   tryCastArcanePulse(): boolean {
-    if (!this.arcanePulseUnlocked) {
-      return false;
-    }
-    let overcastSegments = 0;
-    if (!this.trySpendMana(this.arcanePulseCost)) {
-      if (this.getRank('overcast') <= 0) return false;
-      const missingMana = Math.max(0, this.arcanePulseCost - this.manaCurrent);
-      const requiredSegments = Math.max(1, Math.ceil(missingMana / 10));
-      const removed = this.runtime.spendSafeSnakeLength?.(requiredSegments) ?? 0;
-      if (removed < requiredSegments) return false;
-      overcastSegments = removed;
-      this.manaCurrent = 0;
-      this.runtime.notifyManaChanged(this.manaCurrent, this.manaMax, this.manaRegen);
-      this.runtime.setFlag('ui.overcast', { segments: removed, missingMana });
-    }
-    this.runtime.onArcanePulseCast();
+    return this.tryCastSpell('arcane-pulse').ok;
+  }
+
+  tryCastSpell(spellId: string): ActionSlotUseResult {
+    const result = new SpellCastService(this.spellbook, {
+      getMana: () => this.manaCurrent,
+      spendMana: (amount) => this.trySpendMana(amount),
+      spendOvercastSegments: (missingMana) => {
+        if (this.getRank('overcast') <= 0) return 0;
+        const requiredSegments = Math.max(1, Math.ceil(missingMana / 10));
+        return this.runtime.spendSafeSnakeLength?.(requiredSegments) ?? 0;
+      },
+      onOvercast: (segments, missingMana) => {
+        this.manaCurrent = 0;
+        this.runtime.notifyManaChanged(this.manaCurrent, this.manaMax, this.manaRegen);
+        this.runtime.setFlag('ui.overcast', { segments, missingMana, spellId });
+      },
+      getSpellRuntime: () => ({
+        hasRatFamiliar: () => Boolean(this.runtime.hasRatFamiliar?.()),
+        castArcanePulse: () => {
+          this.runtime.onArcanePulseCast();
+          return { magnitude: 1 };
+        },
+        castSummonRatFamiliar: () => {
+          this.runtime.onSummonFamiliarCast?.();
+          return { magnitude: 1 };
+        },
+      }),
+    }).cast(spellId);
+
+    if (!result.ok) return { ok: false, reason: this.describeSpellFailure(result) };
+
     if (this.getRank('spellweaver') > 0) {
       this.spellweaverSequence += 1;
       if (this.spellweaverSequence >= 3) {
@@ -525,11 +560,11 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
         this.runtime.notifyManaChanged(this.manaCurrent, this.manaMax, this.manaRegen);
       }
     }
-    if (overcastSegments >= 2 && this.getRank('astralNova') > 0) {
+    if (result.overcastSegments >= 2 && this.getRank('astralNova') > 0) {
       this.runtime.onAstralNova?.();
-      this.runtime.setFlag('ui.astralNova', { segments: overcastSegments });
+      this.runtime.setFlag('ui.astralNova', { segments: result.overcastSegments, spellId });
     }
-    return true;
+    return { ok: true, label: result.label };
   }
 
   tick(): void {
@@ -633,5 +668,33 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
     this.manaCurrent -= amount;
     this.runtime.notifyManaChanged(this.manaCurrent, this.manaMax, this.manaRegen);
     return true;
+  }
+
+  private describeSpellFailure(
+    result: Extract<ReturnType<SpellCastService['cast']>, { ok: false }>,
+  ): string {
+    const label = result.label ?? result.spellId;
+    switch (result.reason) {
+      case 'unknown-spell':
+        return 'Unknown spell.';
+      case 'not-known':
+        return `Learn ${label} before casting it.`;
+      case 'not-loaded':
+        return `Add ${label} to your Spell Loadout first.`;
+      case 'insufficient-mana': {
+        const missing = Math.max(1, Math.ceil(result.manaMissing ?? 1));
+        return `${label} needs more mana - missing ${missing}.`;
+      }
+      case 'summon-limit':
+        return 'Your rat familiar is already out there.';
+      case 'invalid-target':
+        return `${label} has no valid target.`;
+      case 'blocked-state':
+        return `${label} cannot be cast right now.`;
+      default: {
+        const exhaustive: never = result.reason;
+        return exhaustive;
+      }
+    }
   }
 }

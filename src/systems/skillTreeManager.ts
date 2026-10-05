@@ -47,6 +47,10 @@ export class SkillTreeManager implements SkillTreeRuntime {
       getStats: () => this.system.getStats(),
       getFlag: (key) => this.scene.getFlag(key),
       setFlag: (key, value) => this.scene.setFlag(key, value),
+      knowsSpell: (spellId) => this.system.knowsSpell(spellId),
+      isSpellLoaded: (spellId) => this.system.isSpellLoaded(spellId),
+      getFirstLoadedSpellId: () => this.system.getFirstLoadedSpellId(),
+      tryCastSpell: (spellId) => this.system.tryCastSpell(spellId),
       tryCastArcanePulse: () => this.system.tryCastArcanePulse(),
       getArcanePulseCost: () => this.system.getArcanePulseCost(),
       tryActivateManualSurge: () => this.scene.snakeGame.tryActivateManualSurge(),
@@ -59,7 +63,7 @@ export class SkillTreeManager implements SkillTreeRuntime {
     });
     this.overlay = new SkillTreeOverlay(this.scene, this.system, {
       onRequestPurchase: (perkId, state) => this.handlePerkInteraction(perkId, state),
-      getSpellSlotView: () => this.actionSlots.getAbilityViews(),
+      getSpellSlotView: () => this.actionSlots.getSpellAbilityViews(),
       onBindSpellSlot: (abilityId) => this.bindQSlot(abilityId),
       getDatingView: () => this.scene.getDatingCandidateViews(),
       getPeopleView: () => this.scene.getPeopleJournalView(),
@@ -267,6 +271,10 @@ export class SkillTreeManager implements SkillTreeRuntime {
 
   setFlag(key: string, value: unknown): void {
     this.scene.setFlag(key, value);
+  }
+
+  getFlag<T = unknown>(key: string): T | undefined {
+    return this.scene.getFlag<T>(key);
   }
 
   getStats(): SkillTreeStats {
@@ -512,6 +520,10 @@ export class SkillTreeManager implements SkillTreeRuntime {
     if (this.overlay.isVisible()) {
       this.overlay.announce('A rat familiar answers the rite.', '#c9b8ff', 2400);
     }
+  }
+
+  hasRatFamiliar(): boolean {
+    return this.scene.hasRatFamiliar();
   }
 
   // internal helpers

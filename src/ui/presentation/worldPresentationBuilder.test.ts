@@ -147,7 +147,7 @@ describe('world presentation builder', () => {
 
     expect(scene.sprites).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: 'apple:1,0,0:10,8', x: 10.5, y: 8.5 }),
+        expect.objectContaining({ id: 'apple:1,0,0:normal', x: 10.5, y: 8.5 }),
         expect.objectContaining({ id: 'enemy:enemy-local:0', x: 12.5, y: 8.5 }),
       ]),
     );

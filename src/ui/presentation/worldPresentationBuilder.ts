@@ -167,7 +167,7 @@ function pushRoomSprites(
   if (activeApple && activeApple.roomId === entry.room.id) {
     const position = localRenderPoint(activeApple.position, placement);
     sprites.push({
-      id: `apple:${entry.room.id}:${activeApple.position.x},${activeApple.position.y}`,
+      id: `apple:${entry.room.id}:${activeApple.typeId}`,
       kind: 'apple',
       x: position.x + 0.5,
       y: position.y + 0.5,

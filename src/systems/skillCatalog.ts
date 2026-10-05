@@ -573,7 +573,10 @@ const arcane: SkillPerkDefinition[] = [
     cost: 66,
     tags: ['spell', 'summon'],
     usageHint: 'Bind Summon Rat Familiar to your primary ability slot.',
-    effects: [flag('arcane.familiarRite', { enabled: true })],
+    effects: [
+      flag('arcane.familiarRite', { enabled: true }),
+      { type: 'registerSpell', spellId: 'summon-rat-familiar' },
+    ],
   }),
 ];
 

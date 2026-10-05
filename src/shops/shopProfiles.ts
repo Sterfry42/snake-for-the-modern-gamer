@@ -43,6 +43,7 @@ export interface ShopOfferView {
   price: number;
   note: string;
   itemId?: string;
+  quantity?: number;
 }
 
 export interface ShopResolvedTab {
@@ -128,6 +129,18 @@ const WIZARD_SUPPLIES: readonly VillageShopSupplyOffer[] = [
     note: 'Portable brewing furniture, tuned by someone who owns too many candles.',
   },
   {
+    id: 'spell-tome-arcane-pulse',
+    itemId: 'spell-tome-arcane-pulse',
+    price: 48,
+    note: 'A novice spell tome. Short burst, big attitude.',
+  },
+  {
+    id: 'spell-tome-summon-rat-familiar',
+    itemId: 'spell-tome-summon-rat-familiar',
+    price: 76,
+    note: 'A conjuration tome with suspicious little footprints in the margins.',
+  },
+  {
     id: 'recipe-scroll-shield',
     itemId: 'recipe-scroll-shield',
     price: 24,
@@ -185,7 +198,11 @@ export const DEFAULT_SHOP_PROFILES: ReadonlyMap<string, ShopProfile> = new Map(
     }),
     profile('wizard', {
       consumables: { poolId: 'wizard-consumables', randomCount: 3 },
-      items: { poolId: 'wizard-items', anchored: ['alchemy-station'], randomCount: 4 },
+      items: {
+        poolId: 'wizard-items',
+        anchored: ['alchemy-station', 'spell-tome-arcane-pulse'],
+        randomCount: 4,
+      },
     }),
     profile('butcher', {
       consumables: { poolId: 'butcher-consumables', randomCount: 'all' },
@@ -281,6 +298,8 @@ const DEFAULT_SHOP_OFFER_POOL_LIST: ShopOfferPool[] = [
     WIZARD_SUPPLIES.filter((offer) =>
       [
         'alchemy-station',
+        'spell-tome-arcane-pulse',
+        'spell-tome-summon-rat-familiar',
         'ingredient-pearl-apple',
         'ingredient-quartz',
         'ingredient-meteor-iron',
@@ -289,6 +308,8 @@ const DEFAULT_SHOP_OFFER_POOL_LIST: ShopOfferPool[] = [
     ),
     {
       'alchemy-station': 1,
+      'spell-tome-arcane-pulse': 12,
+      'spell-tome-summon-rat-familiar': 4,
       'ingredient-pearl-apple': 12,
       'ingredient-quartz': 20,
       'ingredient-meteor-iron': 3,
@@ -335,6 +356,7 @@ const DEFAULT_SHOP_OFFER_POOL_LIST: ShopOfferPool[] = [
             price: offer.price,
             note: offer.note,
             itemId: offer.itemId,
+            quantity: 1,
           },
           context.priceScalar,
         ),
@@ -452,6 +474,7 @@ function equipmentPool(id: string, offers: readonly VillageShopEquipmentOffer[])
             price: offer.price,
             note: offer.note,
             itemId: offer.itemId,
+            quantity: 1,
           },
           context.priceScalar,
         ),
@@ -525,6 +548,7 @@ function supplyOffer(
       price: offer.price,
       note: offer.note,
       itemId: offer.itemId,
+      quantity: defaultSupplyQuantity(offer, category),
     },
     priceScalar,
   );
@@ -535,4 +559,17 @@ function withPriceScalar(offer: ShopOfferView, priceScalar: number): ShopOfferVi
     ...offer,
     price: Math.max(1, Math.ceil(offer.price * priceScalar)),
   };
+}
+
+function defaultSupplyQuantity(offer: VillageShopSupplyOffer, category: ShopTabId): number {
+  if (
+    category === 'items' ||
+    category === 'locators' ||
+    offer.id.startsWith('spell-tome-') ||
+    offer.id.startsWith('recipe-scroll-') ||
+    offer.id === 'alchemy-station'
+  ) {
+    return 1;
+  }
+  return 5;
 }

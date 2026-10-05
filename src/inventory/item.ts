@@ -23,7 +23,7 @@ export interface BaseItem {
   id: string;
   name: string;
   description: string;
-  category?: 'food' | 'material' | 'charm' | 'recipe' | 'quest' | 'consumable';
+  category?: 'food' | 'material' | 'charm' | 'recipe' | 'spell-tome' | 'quest' | 'consumable';
 }
 
 export interface EquipmentModifiers {

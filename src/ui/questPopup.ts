@@ -13,6 +13,9 @@ import {
 } from './spriteRecipes/questPortraitRecipe.js';
 import type { ControllerNavCommand } from '../input/controllerNavigation.js';
 import { getDebugBus } from '../debug/debugRuntime.js';
+import { loadDlss5Settings } from './presentation/dlss5/dlss5Settings.js';
+import type { Dlss5PortraitService } from './presentation/dlss5/dlss5PortraitService.js';
+import { resolveDlss5PortraitIdentity } from './presentation/dlss5/portraitResolver.js';
 
 interface QuestPopupOptions {
   size?: { width: number; height: number };
@@ -39,6 +42,8 @@ interface DialoguePopupCallbacks {
 
 interface DialogueSpeakerOptions {
   portraitId?: string;
+  actorId?: string;
+  species?: string;
 }
 
 const DEFAULT_OPTIONS: Required<QuestPopupOptions> = {
@@ -79,8 +84,10 @@ export class QuestPopup {
   private controllerMode = false;
   private keyboardFocus = false;
   private hoveredAction: 'accept' | 'reject' | 'next' | null = null;
+  private activeDlss5PortraitRequestKey: string | null = null;
   private options: Required<QuestPopupOptions>;
   private readonly spriteFactory: RuntimeSpriteFactory;
+  private readonly dlss5PortraitService: Dlss5PortraitService;
   private readonly portraitTextureKeys: Record<QuestPortraitVariant, string>;
   private readonly portraitPalette: QuestPortraitPalette = {
     frameColor: '#102033',
@@ -104,6 +111,7 @@ export class QuestPopup {
       buttonSpacing: options.buttonSpacing ?? DEFAULT_OPTIONS.buttonSpacing,
     };
     this.spriteFactory = new RuntimeSpriteFactory(scene);
+    this.dlss5PortraitService = scene.getDlss5PortraitService();
     this.portraitTextureKeys = this.spriteFactory.ensureRecipe(
       questPortraitRecipe,
       88,
@@ -149,7 +157,9 @@ export class QuestPopup {
     this.keyboardFocus = false;
     this.hoveredAction = null;
     this.title?.setText(title);
+    this.activeDlss5PortraitRequestKey = null;
     this.portrait?.setTexture(this.resolvePortraitKey(speaker.portraitId)).setVisible(true);
+    this.startDlss5PortraitLoad(speaker.portraitId, title, speaker);
     this.acceptButton?.setText(labels.acceptLabel ?? (i18n.getCommon('quest.accept') as string));
     this.rejectButton?.setText(labels.rejectLabel ?? (i18n.getCommon('quest.refuse') as string));
     this.nextButton?.setText(
@@ -165,6 +175,7 @@ export class QuestPopup {
 
   hide(): void {
     this.container?.setVisible(false);
+    this.activeDlss5PortraitRequestKey = null;
     this.dialogueCallbacks = null;
     this.pages = [];
     this.pageIndex = 0;
@@ -557,7 +568,7 @@ export class QuestPopup {
       .setInteractive({ useHandCursor: true });
   }
 
-  private resolvePortraitKey(portraitId?: string): string {
+  private resolvePortraitKey(portraitId: string | undefined): string {
     const variant: QuestPortraitVariant =
       portraitId === 'sage-2' ||
       portraitId === 'sage-3' ||
@@ -582,5 +593,38 @@ export class QuestPopup {
                 ? 'bandit-neutral'
                 : 'sage-1';
     return this.portraitTextureKeys[variant];
+  }
+
+  private startDlss5PortraitLoad(
+    portraitId: string | undefined,
+    title: string,
+    speaker: DialogueSpeakerOptions,
+  ): void {
+    if (!loadDlss5Settings().enabled) {
+      return;
+    }
+
+    const identity = resolveDlss5PortraitIdentity({
+      id: speaker.actorId ?? `${title}:${portraitId ?? 'fallback'}`,
+      portraitId,
+      species: speaker.species,
+    });
+    if (!identity) {
+      return;
+    }
+
+    const cached = this.dlss5PortraitService.getCachedTexture(identity);
+    if (cached) {
+      this.portrait?.setTexture(cached);
+      return;
+    }
+
+    const requestKey = `${identity.key}:${title}:${portraitId ?? ''}`;
+    this.activeDlss5PortraitRequestKey = requestKey;
+    void this.dlss5PortraitService.loadTexture(identity, { size: 128 }).then((textureKey) => {
+      if (textureKey && this.isVisible() && this.activeDlss5PortraitRequestKey === requestKey) {
+        this.portrait?.setTexture(textureKey);
+      }
+    });
   }
 }
