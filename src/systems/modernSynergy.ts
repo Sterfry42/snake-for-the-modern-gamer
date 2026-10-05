@@ -1,3 +1,4 @@
+import { isRecord, positiveInteger, stringList } from '../core/saveNormalize.js';
 import type { ExpeditionBoardState } from './expeditionBoard.js';
 import type { HighlightReelState } from './highlightReel.js';
 import type { ModernRunState } from './modernRun.js';
@@ -97,7 +98,7 @@ export function createModernSynergyState(): ModernSynergyState {
 
 export function normalizeModernSynergyState(value: unknown): ModernSynergyState {
   if (!isRecord(value)) return createModernSynergyState();
-  const unlockedIds = stringList(value.unlockedIds).filter(isModernSynergyId);
+  const unlockedIds = stringList(value.unlockedIds).sort().filter(isModernSynergyId);
   const lastUnlockedId =
     typeof value.lastUnlockedId === 'string' && isModernSynergyId(value.lastUnlockedId)
       ? value.lastUnlockedId
@@ -224,18 +225,4 @@ function summarizeContext(context: ModernSynergyContext): string {
 
 function isModernSynergyId(value: string): value is ModernSynergyId {
   return SYNERGIES.some((synergy) => synergy.id === value);
-}
-
-function positiveInteger(value: unknown): number {
-  const numeric = Number(value ?? 0);
-  return Number.isFinite(numeric) ? Math.max(0, Math.floor(numeric)) : 0;
-}
-
-function stringList(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return [...new Set(value.filter((entry): entry is string => typeof entry === 'string'))].sort();
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }

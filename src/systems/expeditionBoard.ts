@@ -1,3 +1,4 @@
+import { isRecord, numberList, positiveInteger } from '../core/saveNormalize.js';
 import type { ModernRunEvent } from './modernRun.js';
 
 export type ExpeditionObjectiveKind =
@@ -261,20 +262,4 @@ function cloneExpeditionBoardState(state: ExpeditionBoardState): ExpeditionBoard
     objectives: state.objectives.map((objective) => ({ ...objective })),
     claimedChapterRewards: [...state.claimedChapterRewards],
   };
-}
-
-function positiveInteger(value: unknown): number {
-  const numeric = Number(value ?? 0);
-  return Number.isFinite(numeric) ? Math.max(0, Math.floor(numeric)) : 0;
-}
-
-function numberList(value: unknown): number[] {
-  if (!Array.isArray(value)) return [];
-  return [
-    ...new Set(value.map((entry) => positiveInteger(entry)).filter((entry) => entry > 0)),
-  ].sort((a, b) => a - b);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }

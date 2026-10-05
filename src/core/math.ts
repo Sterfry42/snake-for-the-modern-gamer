@@ -90,6 +90,12 @@ export function unique<T>(values: readonly T[]): T[] {
 
 // ── Direction helpers ────────────────────────────────────────────
 
+/** Hermite smoothstep: 0 at/below edge0, 1 at/above edge1, smoothed between. */
+export function smoothstep(edge0: number, edge1: number, value: number): number {
+  const t = clamp((value - edge0) / (edge1 - edge0), 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
 /** The four cardinal directions (right, left, down, up). */
 export const CARDINAL_DIRECTIONS: readonly Vector2Like[] = [
   { x: 1, y: 0 },

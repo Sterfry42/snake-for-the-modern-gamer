@@ -1,5 +1,5 @@
 import type { GridConfig } from '../config/gameConfig.js';
-import type { Vector2Like } from '../core/math.js';
+import { clamp, smoothstep, type Vector2Like } from '../core/math.js';
 import { parseCoordinateRoomId } from '../world/roomAddress.js';
 import { CAR_HEIGHT_TILES, CAR_WIDTH_TILES } from './car.js';
 
@@ -355,13 +355,4 @@ function approach(value: number, target: number, amount: number): number {
   if (value < target) return Math.min(target, value + amount);
   if (value > target) return Math.max(target, value - amount);
   return target;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
-
-function smoothstep(edge0: number, edge1: number, value: number): number {
-  const t = clamp((value - edge0) / (edge1 - edge0), 0, 1);
-  return t * t * (3 - 2 * t);
 }

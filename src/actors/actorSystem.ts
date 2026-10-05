@@ -1,4 +1,5 @@
 import { AnimalRegistry } from '../animals/animalRegistry.js';
+import { actorGoalEquals } from './actorTypes.js';
 import type { AnimalInstance } from '../animals/types.js';
 import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
 import type {
@@ -904,19 +905,6 @@ export class ActorSystem {
   ): void {
     this.telemetrySink?.({ type, reason, data: { ...data } });
   }
-}
-
-function actorGoalEquals(left: ActorGoal | undefined, right: ActorGoal | undefined): boolean {
-  return (
-    left === right ||
-    (left?.kind === right?.kind &&
-      left?.priority === right?.priority &&
-      left?.roomId === right?.roomId &&
-      left?.targetActorId === right?.targetActorId &&
-      left?.targetPosition?.x === right?.targetPosition?.x &&
-      left?.targetPosition?.y === right?.targetPosition?.y &&
-      left?.reason === right?.reason)
-  );
 }
 
 function isTemporaryEnvironmentGoal(goal: ActorGoal | undefined): boolean {

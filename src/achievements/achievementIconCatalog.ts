@@ -1,14 +1,9 @@
 import Phaser from 'phaser';
+import { hashString } from '../world/generation/worldHash.js';
 import type { AchievementDefinition } from './achievementTypes.js';
 
 const SIZE = 32;
 const PIXEL = 2;
-
-function hash(value: string): number {
-  let result = 2166136261;
-  for (const char of value) result = Math.imul(result ^ char.charCodeAt(0), 16777619);
-  return result >>> 0;
-}
 
 function pixel(
   context: CanvasRenderingContext2D,
@@ -248,7 +243,7 @@ function drawSymbol(context: CanvasRenderingContext2D, kind: string, variant?: s
     rect(context, 7, 2, 2, 2, '#d9b45f');
     pixel(context, 8, 7, '#8a9aaa');
   } else if (kind === 'card') {
-    drawCard(context, hash(variant ?? 'card'));
+    drawCard(context, hashString(variant ?? 'card'));
   } else if (kind === 'bigIron') {
     rect(context, 2, 3, 12, 2, '#8a5c35');
     rect(context, 4, 1, 8, 3, '#c58a4d');
@@ -369,7 +364,7 @@ export function ensureAchievementPortrait(
   context.imageSmoothingEnabled = false;
   context.clearRect(0, 0, SIZE, SIZE);
   rect(context, 0, 0, 16, 16, '#0b1622');
-  const seed = hash(definition.id);
+  const seed = hashString(definition.id);
   if (definition.id === 'core.firstApple') drawApple(context, false);
   else if (
     [

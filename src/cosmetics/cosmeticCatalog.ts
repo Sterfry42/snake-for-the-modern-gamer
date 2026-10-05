@@ -242,7 +242,8 @@ export const LANGUAGE_DEFINITIONS: readonly LanguageDefinition[] = AVAILABLE_LAN
 // Emoticon definitions (re-exported from emoticon catalog)
 // ---------------------------------------------------------------------------
 
-export interface EmoticonDefinition {
+/** Shop view over the canonical emoticon catalog (price becomes cost). */
+export interface EmoticonShopItem {
   id: string;
   label: string;
   cost: number;
@@ -250,7 +251,7 @@ export interface EmoticonDefinition {
   description: string;
 }
 
-export const EMOTICON_CATALOG: readonly EmoticonDefinition[] = EMOTICON_DEFINITIONS.map((e) => ({
+export const EMOTICON_CATALOG: readonly EmoticonShopItem[] = EMOTICON_DEFINITIONS.map((e) => ({
   id: e.id,
   label: e.label,
   cost: e.price,
@@ -302,12 +303,8 @@ export function getLanguageDefinition(id: string): LanguageDefinition | undefine
   return LANGUAGE_DEFINITIONS.find((l) => l.id === id);
 }
 
-export function getAllEmoticonDefinitions(): readonly EmoticonDefinition[] {
+export function getAllEmoticonDefinitions(): readonly EmoticonShopItem[] {
   return EMOTICON_CATALOG;
-}
-
-export function getEmoticonDefinition(id: string): EmoticonDefinition | undefined {
-  return EMOTICON_CATALOG.find((e) => e.id === id);
 }
 
 // ---------------------------------------------------------------------------
@@ -391,7 +388,7 @@ export function toLanguageItem(
 }
 
 export function toEmoticonItem(
-  def: EmoticonDefinition,
+  def: EmoticonShopItem,
   owned: boolean,
   active: boolean,
 ): EmoticonCosmeticItem {

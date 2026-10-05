@@ -1,6 +1,7 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import type { Vector2Like } from '../core/math.js';
 import { createRng } from '../core/rng.js';
+import { hashString } from '../world/generation/worldHash.js';
 import { tryPlaceGoblinCamp } from '../world/goblinCamp.js';
 import { tryPlaceQuestHouse } from '../world/questHouse.js';
 import { tryPlaceShrine } from '../world/shrine.js';
@@ -31,7 +32,7 @@ export function generateCave(args: {
   save?: CaveInstanceSaveData;
 }): CaveGenerationResult {
   const { caveId, parentRoomId, templateId, grid, worldSeed, returnPosition, save } = args;
-  const seed = hash(`${worldSeed}:${caveId}:${templateId}`);
+  const seed = hashString(`${worldSeed}:${caveId}:${templateId}`);
   const rng = createRng(`${seed}`);
   const template = getCaveTemplate(templateId);
   const layout = createBaseCaveLayout(grid);
@@ -543,12 +544,4 @@ function shuffle<T>(items: T[], rng: () => number): void {
     const swapIndex = Math.floor(rng() * (index + 1));
     [items[index], items[swapIndex]] = [items[swapIndex]!, items[index]!];
   }
-}
-
-function hash(value: string): number {
-  let result = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    result = Math.imul(result ^ value.charCodeAt(index), 16777619);
-  }
-  return result >>> 0;
 }

@@ -8,12 +8,15 @@ import type {
   RollercoasterTheme,
   RollercoasterTrackSegment,
 } from './rollercoasterTypes.js';
+import {
+  findContiguousFloorBlocks,
+  findEdgeTiles,
+  generateTransitStationId,
+} from './transitShared.js';
 import type { RoomSnapshot } from './types.js';
 
 const ROLLERCOASTER_ENTRANCE_TILE = 'C';
 const ROLLERCOASTER_STATION_CHANCE = 0.25;
-const MIN_DESTINATIONS = 2;
-const MAX_DESTINATIONS = 4;
 
 // === THEME CONFIG ===
 const THEME_CONFIG: Record<RollercoasterTheme, { name: string; colors: number[] }> = {
@@ -149,84 +152,6 @@ const DISPLAY_NAMES: Record<RollercoasterTheme, string[]> = {
   'volcanic-veer': ['Lava Station', 'Magma Junction', 'Pyro Port', 'Inferno Isle', 'Volcano View'],
   'cosmic-corkscrew': ['Star Dock', 'Nebula Station', 'Galaxy Gate', 'Astro Hub', 'Cosmic Corner'],
 };
-
-/** Find contiguous floor tiles suitable for coaster placement. */
-function findContiguousFloorBlocks(
-  layout: string[][],
-  minSize: number,
-): Array<{ tiles: Array<{ x: number; y: number }>; count: number }> {
-  const visited = new Set<string>();
-  const blocks: Array<{ tiles: Array<{ x: number; y: number }>; count: number }> = [];
-
-  function floodFill(startX: number, startY: number): Array<{ x: number; y: number }> {
-    const tiles: Array<{ x: number; y: number }> = [];
-    const queue: Array<{ x: number; y: number }> = [{ x: startX, y: startY }];
-    const key = `${startX},${startY}`;
-    visited.add(key);
-
-    while (queue.length > 0) {
-      const { x, y } = queue.shift()!;
-      tiles.push({ x, y });
-
-      const neighbors = [
-        { x: x + 1, y },
-        { x: x - 1, y },
-        { x, y: y + 1 },
-        { x, y: y - 1 },
-      ];
-
-      for (const n of neighbors) {
-        if (n.x < 0 || n.y < 0 || n.y >= layout.length || n.x >= layout[0].length) continue;
-        const nk = `${n.x},${n.y}`;
-        if (visited.has(nk)) continue;
-        const tile = layout[n.y]?.[n.x];
-        if (tile !== '.' && tile !== ROLLERCOASTER_ENTRANCE_TILE) continue;
-        visited.add(nk);
-        queue.push(n);
-      }
-    }
-    return tiles;
-  }
-
-  for (let y = 0; y < layout.length; y++) {
-    for (let x = 0; x < layout[y].length; x++) {
-      const key = `${x},${y}`;
-      if (visited.has(key)) continue;
-      const tile = layout[y][x];
-      if (tile !== '.' && tile !== ROLLERCOASTER_ENTRANCE_TILE) continue;
-      const tiles = floodFill(x, y);
-      if (tiles.length >= minSize) {
-        blocks.push({ tiles, count: tiles.length });
-      }
-    }
-  }
-  return blocks;
-}
-
-/** Find tiles near a room edge (within maxDistance tiles of a wall). */
-function findEdgeTiles(layout: string[][], maxDistance: number): Array<{ x: number; y: number }> {
-  const tiles: Array<{ x: number; y: number }> = [];
-  const rows = layout.length;
-  const cols = layout[0]?.length ?? 0;
-
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < cols; x++) {
-      const tile = layout[y][x];
-      if (tile !== '.' && tile !== ROLLERCOASTER_ENTRANCE_TILE) continue;
-
-      const distToEdge = Math.min(x, y, cols - 1 - x, rows - 1 - y);
-      if (distToEdge <= maxDistance) {
-        tiles.push({ x, y });
-      }
-    }
-  }
-  return tiles;
-}
-
-/** Generate a unique station ID from a room ID. */
-export function generateStationId(roomId: string): string {
-  return `rollercoaster:${roomId}`;
-}
 
 /** Pick a random theme for the station. */
 export function pickTheme(rng: RandomGenerator): RollercoasterTheme {
@@ -415,13 +340,13 @@ export function createRollercoasterStation(
 ): RollercoasterStation | null {
   if (rng() >= ROLLERCOASTER_STATION_CHANCE) return null;
 
-  const blocks = findContiguousFloorBlocks(layout, 6);
+  const blocks = findContiguousFloorBlocks(layout, 6, ROLLERCOASTER_ENTRANCE_TILE);
   if (blocks.length === 0) return null;
 
   blocks.sort((a, b) => b.count - a.count);
   const block = blocks[0];
 
-  const edgeTiles = findEdgeTiles(layout, 3).filter((t) =>
+  const edgeTiles = findEdgeTiles(layout, 3, ROLLERCOASTER_ENTRANCE_TILE).filter((t) =>
     block.tiles.some((bt) => bt.x === t.x && bt.y === t.y),
   );
 
@@ -438,7 +363,7 @@ export function createRollercoasterStation(
   const station: RollercoasterStation = {
     entranceX,
     entranceY,
-    stationId: generateStationId(roomId),
+    stationId: generateTransitStationId('rollercoaster', roomId),
     destinations: [],
     used: false,
     trackSegments: [],
@@ -536,4 +461,4 @@ export function createRollercoasterJourney(
   };
 }
 
-export { ROLLERCOASTER_STATION_CHANCE, MIN_DESTINATIONS, MAX_DESTINATIONS, THEME_CONFIG };
+export { ROLLERCOASTER_STATION_CHANCE, THEME_CONFIG };

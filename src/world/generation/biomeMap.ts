@@ -13,6 +13,8 @@ import {
 import { HELL_ESCAPE_DEPTH } from '../hellDepth.js';
 import { sampleClimateForRegion, type ClimateSample } from './climate.js';
 import type { RoomGenerationPalette } from './types.js';
+import { lerp } from '../../core/math.js';
+import { parseRoomId } from '../roomAddress.js';
 import { hashWorldCoordinate, positiveMod } from './worldHash.js';
 import {
   createWorldGenerationIdentity,
@@ -25,11 +27,6 @@ const REGION_SIZE_ROOMS = 8;
 export interface BiomeMap {
   getBiomeForRoomId(roomId: string): BiomeDefinition;
   createPalette(roomId: string): RoomGenerationPalette;
-}
-
-function parseRoomId(roomId: string): { x: number; y: number; z: number } {
-  const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
-  return { x, y, z };
 }
 
 export function isAuthoredStarterBiomeRoom(roomId: string): boolean {
@@ -173,10 +170,6 @@ function rarityMultiplier(rarity: NonNullable<BiomeDefinition['generation']>['ra
 
 function climateFit(value: number, ideal: number, tolerance: number): number {
   return Math.max(0, 1 - Math.abs(value - ideal) / Math.max(0.01, tolerance));
-}
-
-function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * Math.max(0, Math.min(1, t));
 }
 
 export function getVerticalLayerBiomeWeights(z: number): VerticalLayerBiomeWeights {

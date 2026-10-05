@@ -1,4 +1,7 @@
 import type { RuntimeSpriteRecipe } from '../runtimeSpriteFactory.js';
+import { createSpriteRotator, turnsForVariant } from './spriteGeometry.js';
+
+const { rotatePoints } = createSpriteRotator(8);
 
 export type EnemySpriteVariant =
   | 'enemy-up'
@@ -127,32 +130,6 @@ const MUZZLE = [
   [3, 0],
   [4, 0],
 ] as const;
-
-function rotatePoint(x: number, y: number, turns: number): [number, number] {
-  let px = x;
-  let py = y;
-  for (let i = 0; i < turns; i++) {
-    const nextX = 7 - py;
-    const nextY = px;
-    px = nextX;
-    py = nextY;
-  }
-  return [px, py];
-}
-
-function rotatePoints(
-  points: readonly (readonly [number, number])[],
-  turns: number,
-): [number, number][] {
-  return points.map(([x, y]) => rotatePoint(x, y, turns));
-}
-
-function turnsForVariant(variant: EnemySpriteVariant): number {
-  if (variant.endsWith('right')) return 1;
-  if (variant.endsWith('down')) return 2;
-  if (variant.endsWith('left')) return 3;
-  return 0;
-}
 
 const BULLET_OUTLINE = [
   [2, 1],

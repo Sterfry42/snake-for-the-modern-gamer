@@ -1,12 +1,9 @@
 import type { BiomeId } from '../biomes.js';
+import type { RoomCoordinate } from '../roomAddress.js';
 
 export type StructureRoomRole = 'inside' | 'adjacent' | 'approach';
 
-export interface RoomCoordinate {
-  x: number;
-  y: number;
-  z: number;
-}
+export { formatRoomId, parseRoomId, type RoomCoordinate } from '../roomAddress.js';
 
 export interface MultiRoomStructurePlacement {
   id: string;
@@ -47,13 +44,4 @@ export interface TownRoomMembership extends StructureRoomMembership {
   adjacentCornersFacingTown?: Array<'northWest' | 'northEast' | 'southWest' | 'southEast'>;
   isEntranceApproach?: boolean;
   isExitApproach?: boolean;
-}
-
-export function parseRoomId(roomId: string): RoomCoordinate {
-  const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
-  return { x, y, z };
-}
-
-export function formatRoomId(coord: RoomCoordinate): string {
-  return `${coord.x},${coord.y},${coord.z}`;
 }

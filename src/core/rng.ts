@@ -25,3 +25,8 @@ export function createRng(seed?: string): RandomGenerator {
 export function withFallback(rng?: RandomGenerator): RandomGenerator {
   return rng ?? Math.random;
 }
+
+/** Random integer in [0, maxExclusive). */
+export function randomInt(rng: RandomGenerator, maxExclusive: number): number {
+  return Math.floor(rng() * maxExclusive);
+}

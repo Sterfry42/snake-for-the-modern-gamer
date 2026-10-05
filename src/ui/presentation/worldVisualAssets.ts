@@ -1,6 +1,7 @@
 import type Phaser from 'phaser';
 import type { AppleSnapshot } from '../../apples/types.js';
 import type { Vector2Like } from '../../core/math.js';
+import { colorToCss } from '../colorUtils.js';
 import type { AnimalInstance } from '../../animals/types.js';
 import type { BombInstance, FootballInstance } from '../../game/snakeGame.js';
 import type { EnemyInstance } from '../../systems/enemies.js';
@@ -317,10 +318,6 @@ export class WorldVisualAssets implements WorldVisualAssetResolver {
     texture.refresh();
     return textureKey;
   }
-}
-
-function colorToCss(color: number): string {
-  return `#${color.toString(16).padStart(6, '0')}`;
 }
 
 function darkenNumber(color: number, amount: number): number {

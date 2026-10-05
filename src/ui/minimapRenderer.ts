@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import type { GridConfig } from '../config/gameConfig.js';
 import type { Vector2Like } from '../core/math.js';
+import { parseRoomId } from '../world/roomAddress.js';
+import { positiveMod } from '../world/generation/worldHash.js';
 import type { RoomSnapshot } from '../world/types.js';
 
 export interface MinimapRendererOptions {
@@ -202,14 +204,6 @@ function getMinimapTileKind(tile: string): MinimapTileKind {
   }
 }
 
-function parseRoomId(roomId: string): { x: number; y: number; z: number } {
-  if (!/^-?\d+,-?\d+,-?\d+$/.test(roomId)) {
-    return { x: 0, y: 0, z: 0 };
-  }
-  const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
-  return { x, y, z };
-}
-
 function makeRoomId(x: number, y: number, z: number): string {
   return `${x},${y},${z}`;
 }
@@ -223,11 +217,7 @@ function worldToRoomPosition(
   const roomY = Math.floor(position.y / grid.rows);
   return {
     roomId: makeRoomId(roomX, roomY, levelZ),
-    localX: positiveModulo(position.x, grid.cols),
-    localY: positiveModulo(position.y, grid.rows),
+    localX: positiveMod(position.x, grid.cols),
+    localY: positiveMod(position.y, grid.rows),
   };
-}
-
-function positiveModulo(value: number, size: number): number {
-  return ((value % size) + size) % size;
 }

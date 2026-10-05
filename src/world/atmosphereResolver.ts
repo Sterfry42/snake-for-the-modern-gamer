@@ -7,7 +7,7 @@ import {
   particleDefaultsForVisual,
 } from './atmosphereDefaults.js';
 import { BIOME_ATMOSPHERE_PROFILES } from './biomeAtmosphereProfiles.js';
-import { clamp, clamp01, lerp, unique } from '../core/math.js';
+import { clamp, clamp01, lerp, smoothstep, unique } from '../core/math.js';
 
 import type {
   AtmosphereConfig,
@@ -543,7 +543,7 @@ function resolveTint(
 ): ResolvedAtmosphereTint {
   const current = tintStopForPhase(state.dayPhase);
   const next = tintStopForPhase(nextDayPhase(state.dayPhase));
-  const t = smoothstep(state.phaseProgress);
+  const t = smoothstep(0, 1, state.phaseProgress);
   const phaseTint: ResolvedAtmosphereTint = {
     color: lerpColor(current.color, next.color, t),
     alpha: lerp(current.alpha, next.alpha, t),
@@ -620,11 +620,11 @@ function cloudyWeatherTint(
 function resolveWeatherTransitionScalar(state: AtmosphereState): number {
   const startRamp = Math.min(
     state.weatherTransitionProgress ?? 1,
-    smoothstep(clamp(state.phaseProgress / 0.35, 0, 1)),
+    smoothstep(0, 1, state.phaseProgress / 0.35),
   );
   const endingSoon =
     state.remainingWeatherPhaseTicks <= 1
-      ? 1 - smoothstep(clamp((state.phaseProgress - 0.65) / 0.35, 0, 1))
+      ? 1 - smoothstep(0, 1, (state.phaseProgress - 0.65) / 0.35)
       : 1;
   return clamp(startRamp * endingSoon, 0, 1);
 }
@@ -680,9 +680,4 @@ function resolveParticles(
     color: response.particles?.color ?? base.color,
     alpha: clamp(response.particles?.alpha ?? base.alpha, 0, 0.8),
   };
-}
-
-function smoothstep(value: number): number {
-  const t = clamp01(value);
-  return t * t * (3 - 2 * t);
 }

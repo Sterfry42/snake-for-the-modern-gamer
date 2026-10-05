@@ -1,4 +1,7 @@
 import type { RuntimeSpriteRecipe } from '../runtimeSpriteFactory.js';
+import { createSpriteRotator, turnsForVariant } from './spriteGeometry.js';
+
+const { rotatePoints } = createSpriteRotator(9);
 
 type AnimalSpriteType =
   | 'rabbit'
@@ -74,32 +77,6 @@ function drawPixels(
   color: string,
 ): void {
   points.forEach(([x, y]) => fillPixel(context, x, y, pixelSize, color));
-}
-
-function rotatePoint(x: number, y: number, turns: number): [number, number] {
-  let px = x;
-  let py = y;
-  for (let i = 0; i < turns; i++) {
-    const nextX = 8 - py;
-    const nextY = px;
-    px = nextX;
-    py = nextY;
-  }
-  return [px, py];
-}
-
-function rotatePoints(
-  points: readonly (readonly [number, number])[],
-  turns: number,
-): [number, number][] {
-  return points.map(([x, y]) => rotatePoint(x, y, turns));
-}
-
-function turnsForVariant(variant: AnimalSpriteVariant): number {
-  if (variant.endsWith('right')) return 1;
-  if (variant.endsWith('down')) return 2;
-  if (variant.endsWith('left')) return 3;
-  return 0;
 }
 
 function getAnimalType(variant: AnimalSpriteVariant): string {
