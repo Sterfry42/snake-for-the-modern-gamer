@@ -1,6 +1,7 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import type { RoamingSnakeConfig } from '../config/roamingSnakeConfig.js';
 import type { Vector2Like } from '../core/math.js';
+import { isCaveRoomId } from '../caves/caveGenerator.js';
 import type { RandomGenerator } from '../core/rng.js';
 import type { RoomSnapshot } from '../world/types.js';
 import { getBiomeDefinition, getBiomeEnemySpawnChance } from '../world/biomes.js';
@@ -90,10 +91,6 @@ function globalToLocal(roomId: string, position: Vector2Like, grid: GridConfig):
     x: position.x - roomX * grid.cols,
     y: position.y - roomY * grid.rows,
   };
-}
-
-function isCaveRoomId(roomId: string): boolean {
-  return roomId.startsWith('cave:');
 }
 
 function canEatEnemyKind(kind: EnemyInstance['encounterKind']): boolean {

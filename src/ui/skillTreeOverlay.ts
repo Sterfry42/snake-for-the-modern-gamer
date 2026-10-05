@@ -8,6 +8,7 @@ import type {
 } from '../systems/skillTree.js';
 import { getItem } from '../inventory/itemRegistry.js';
 import { isLocatorItemId } from '../world/biomeLocators.js';
+import { positiveMod } from '../world/generation/worldHash.js';
 import type { EquipableItem, EquipmentSlot, Item } from '../inventory/item.js';
 import type { Quest } from '../quests/quest.js';
 import { i18n } from '../i18n/i18nManager.js';
@@ -7927,7 +7928,7 @@ export class SkillTreeOverlay {
   private getSeasonClockProgress(view: ResolvedAtmosphereView): number {
     const order = ['spring', 'summer', 'autumn', 'winter'];
     const index = Math.max(0, order.indexOf(view.state.season));
-    const dayInSeason = positiveModulo(view.state.worldDay, 7) / 7;
+    const dayInSeason = positiveMod(view.state.worldDay, 7) / 7;
     return (index + dayInSeason) / order.length;
   }
 
@@ -9364,8 +9365,4 @@ export class SkillTreeOverlay {
       }
     }
   }
-}
-
-function positiveModulo(value: number, divisor: number): number {
-  return ((value % divisor) + divisor) % divisor;
 }

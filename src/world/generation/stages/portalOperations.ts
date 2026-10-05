@@ -1,5 +1,5 @@
 import type { WorldConfig } from '../../../config/gameConfig.js';
-import type { RandomGenerator } from '../../../core/rng.js';
+import { randomInt, type RandomGenerator } from '../../../core/rng.js';
 import type { RoomGenerationContext } from '../types.js';
 import { isOrdinaryPortalDestinationAllowed } from '../../hellDepth.js';
 
@@ -54,8 +54,4 @@ function createPortal(
     destX: x,
     destY: y,
   };
-}
-
-function randomInt(rng: RandomGenerator, maxExclusive: number): number {
-  return Math.floor(rng() * maxExclusive);
 }

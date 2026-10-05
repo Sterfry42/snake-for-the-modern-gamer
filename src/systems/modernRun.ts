@@ -1,3 +1,5 @@
+import { isRecord, numberList, positiveInteger, stringList } from '../core/saveNormalize.js';
+
 export type ModernRunEvent =
   | { kind: 'apple'; appleTypeId?: string; streak: number; roomId: string; nowMs: number }
   | { kind: 'room'; roomId: string }
@@ -146,7 +148,7 @@ export function normalizeModernRunState(value: unknown): ModernRunState {
           : undefined,
     },
     passport: {
-      appleTypeIds: stringList(passport.appleTypeIds),
+      appleTypeIds: stringList(passport.appleTypeIds).sort(),
       claimedMilestones: numberList(passport.claimedMilestones),
     },
     contracts: mergeContracts(savedContracts, base.contracts),
@@ -355,25 +357,4 @@ function formatAppleType(typeId: string): string {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
-}
-
-function positiveInteger(value: unknown): number {
-  const numeric = Number(value ?? 0);
-  return Number.isFinite(numeric) ? Math.max(0, Math.floor(numeric)) : 0;
-}
-
-function stringList(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return [...new Set(value.filter((entry): entry is string => typeof entry === 'string'))].sort();
-}
-
-function numberList(value: unknown): number[] {
-  if (!Array.isArray(value)) return [];
-  return [
-    ...new Set(value.map((entry) => positiveInteger(entry)).filter((entry) => entry > 0)),
-  ].sort((a, b) => a - b);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }

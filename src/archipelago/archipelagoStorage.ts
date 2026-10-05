@@ -1,3 +1,4 @@
+import { safeLocalStorage } from '../storage/localStorage.js';
 import type { ArchipelagoConnectionConfig } from './archipelagoConnectionTypes.js';
 
 const CONNECTION_STORAGE_KEY = 'snake.ap.connection';
@@ -26,14 +27,6 @@ export interface ArchipelagoRunSaveData {
   };
 }
 
-function getStorage(): Storage | null {
-  try {
-    return typeof globalThis !== 'undefined' ? (globalThis.localStorage ?? null) : null;
-  } catch {
-    return null;
-  }
-}
-
 function normalizeRunPart(value: string | number | undefined): string {
   return encodeURIComponent(
     String(value ?? 'unknown')
@@ -58,7 +51,7 @@ export function getArchipelagoRunStorageKey(input: {
 export class BrowserArchipelagoStorage {
   loadConnection(): ArchipelagoStoredConnection {
     const fallback = { serverUrl: 'ws://localhost:38281', slotName: 'Player' };
-    const storage = getStorage();
+    const storage = safeLocalStorage();
     if (!storage) return fallback;
     try {
       const parsed = JSON.parse(
@@ -80,7 +73,7 @@ export class BrowserArchipelagoStorage {
   }
 
   saveConnection(config: ArchipelagoConnectionConfig): void {
-    const storage = getStorage();
+    const storage = safeLocalStorage();
     if (!storage) return;
     try {
       const stored: ArchipelagoStoredConnection = {
@@ -117,7 +110,7 @@ export class BrowserArchipelagoStorage {
         artifacts: [],
       },
     };
-    const storage = getStorage();
+    const storage = safeLocalStorage();
     if (!storage) return fallback;
     try {
       const parsed = JSON.parse(
@@ -196,7 +189,7 @@ export class BrowserArchipelagoStorage {
   }
 
   saveRun(data: ArchipelagoRunSaveData): void {
-    const storage = getStorage();
+    const storage = safeLocalStorage();
     if (!storage) return;
     try {
       storage.setItem(getArchipelagoRunStorageKey(data), JSON.stringify(data));

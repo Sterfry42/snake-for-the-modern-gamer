@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { AppleSnapshot } from '../../apples/types.js';
 import type { Vector2Like } from '../../core/math.js';
 import type { ClientRoomSnapshot } from '../../session/GameSnapshot.js';
+import { colorToCss, mixColor } from '../colorUtils.js';
 import type { ResolvedAtmosphereView } from '../../world/atmosphereTypes.js';
 import { createFirstPersonSpatialView } from '../presentation/renderSceneSpatialIndex.js';
 import type { WorldRenderScene } from '../presentation/worldRenderScene.js';
@@ -398,21 +399,4 @@ export class FirstPersonRenderer {
     const b = Math.round((color & 0xff) * scale);
     return (r << 16) | (g << 8) | b;
   }
-}
-
-function colorToCss(color: number): string {
-  return `#${color.toString(16).padStart(6, '0')}`;
-}
-
-function mixColor(a: number, b: number, amount: number): number {
-  const ar = (a >> 16) & 0xff;
-  const ag = (a >> 8) & 0xff;
-  const ab = a & 0xff;
-  const br = (b >> 16) & 0xff;
-  const bg = (b >> 8) & 0xff;
-  const bb = b & 0xff;
-  const r = Math.round(ar + (br - ar) * amount);
-  const g = Math.round(ag + (bg - ag) * amount);
-  const blue = Math.round(ab + (bb - ab) * amount);
-  return (r << 16) | (g << 8) | blue;
 }

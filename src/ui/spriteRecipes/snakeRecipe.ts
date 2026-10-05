@@ -1,4 +1,7 @@
 import type { RuntimeSpriteRecipe } from '../runtimeSpriteFactory.js';
+import { createSpriteRotator } from './spriteGeometry.js';
+
+const { rotatePoints } = createSpriteRotator(8);
 
 export type SnakeSpriteVariant =
   | 'head-up'
@@ -59,25 +62,6 @@ function drawPixels(
   color: string,
 ): void {
   points.forEach(([x, y]) => fillPixel(context, x, y, pixelSize, color));
-}
-
-function rotatePoint(x: number, y: number, turns: number): [number, number] {
-  let px = x;
-  let py = y;
-  for (let i = 0; i < turns; i++) {
-    const nextX = 7 - py;
-    const nextY = px;
-    px = nextX;
-    py = nextY;
-  }
-  return [px, py];
-}
-
-function rotatePoints(
-  points: ReadonlyArray<readonly [number, number]>,
-  turns: number,
-): [number, number][] {
-  return points.map(([x, y]) => rotatePoint(x, y, turns));
 }
 
 function directionToTurns(direction: 'up' | 'right' | 'down' | 'left'): number {

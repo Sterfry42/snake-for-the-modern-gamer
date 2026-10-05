@@ -1,4 +1,5 @@
 import type { SyncSaveStore } from './SyncSaveStore.js';
+import { safeLocalStorage } from './localStorage.js';
 
 export class LocalStorageStringSaveStore implements SyncSaveStore<string> {
   private memorySave = new Map<string, string>();
@@ -35,6 +36,6 @@ export class LocalStorageStringSaveStore implements SyncSaveStore<string> {
   }
 
   private getStorage(): Storage | null {
-    return typeof localStorage === 'undefined' ? null : localStorage;
+    return safeLocalStorage();
   }
 }

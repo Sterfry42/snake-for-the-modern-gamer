@@ -1,6 +1,7 @@
 import type { SaveStore } from '../storage/SaveStore.js';
 export type { SaveStore } from '../storage/SaveStore.js';
 import { LocalStorageSaveStore } from '../storage/LocalStorageSaveStore.js';
+import { safeLocalStorage } from '../storage/localStorage.js';
 import { isVersionLessThan, migrateV1toV2, migrateV2toV3, type GameSaveData } from './saveTypes.js';
 
 const STORAGE_PREFIX = 'snake-save';
@@ -217,7 +218,7 @@ export class SaveManagerV2 {
     if (this.legacyMigrationDone) return;
     this.legacyMigrationDone = true;
     try {
-      const storage = typeof localStorage === 'undefined' ? null : localStorage;
+      const storage = safeLocalStorage();
       if (!storage) return;
       const prefix = `${STORAGE_PREFIX}:`;
       const legacySlotIds: string[] = [];
@@ -254,7 +255,7 @@ export class SaveManagerV2 {
 
   private discoverSessions(): void {
     try {
-      const storage = typeof localStorage === 'undefined' ? null : localStorage;
+      const storage = safeLocalStorage();
       if (!storage) return;
       const prefix = `${STORAGE_PREFIX}:${SESSION_KEY_PREFIX}`;
       for (let i = 0; i < storage.length; i++) {

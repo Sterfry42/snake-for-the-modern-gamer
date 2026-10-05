@@ -329,6 +329,23 @@ export interface ActorGoal {
   reason?: string;
 }
 
+/** Deep equality for the small ActorGoal payload. */
+export function actorGoalEquals(
+  left: ActorGoal | undefined,
+  right: ActorGoal | undefined,
+): boolean {
+  return (
+    left === right ||
+    (left?.kind === right?.kind &&
+      left?.priority === right?.priority &&
+      left?.roomId === right?.roomId &&
+      left?.targetActorId === right?.targetActorId &&
+      left?.targetPosition?.x === right?.targetPosition?.x &&
+      left?.targetPosition?.y === right?.targetPosition?.y &&
+      left?.reason === right?.reason)
+  );
+}
+
 export interface ActorTargetThreat {
   targetActorId: string;
   source: 'faction' | 'personal' | 'crime' | 'script' | 'combat' | 'system';

@@ -2,6 +2,7 @@ import type { GridConfig } from '../../config/gameConfig.js';
 import { areBiomesCompatible } from './biomeCompatibility.js';
 import type { BiomeMap } from './biomeMap.js';
 import type { EdgeAccessPlan, EdgeSide } from './edgeAccess.js';
+import { parseRoomId } from '../roomAddress.js';
 import { hashWorldCoordinate } from './worldHash.js';
 import type { WorldGenerationIdentity } from './worldGenerationIdentity.js';
 
@@ -17,11 +18,6 @@ export interface TransitionContract {
 }
 
 const SIDES: readonly EdgeSide[] = ['north', 'south', 'west', 'east'];
-
-function parseRoomId(roomId: string): { x: number; y: number; z: number } {
-  const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
-  return { x, y, z };
-}
 
 function neighborForSide(
   room: { x: number; y: number; z: number },

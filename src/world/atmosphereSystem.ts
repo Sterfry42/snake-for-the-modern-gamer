@@ -1,5 +1,5 @@
 import { createRng, type RandomGenerator } from '../core/rng.js';
-import { clamp, clamp01 } from '../core/math.js';
+import { clamp, clamp01, smoothstep } from '../core/math.js';
 
 import type {
   AtmosphereConfig,
@@ -133,7 +133,7 @@ export class WorldAtmosphereSystem {
     if (this.state.weatherTransitionProgress < 1) {
       this.state.weatherTransitionProgress = Math.max(
         this.state.weatherTransitionProgress,
-        smoothstep(clamp01(this.state.phaseProgress / 0.35)),
+        smoothstep(0, 1, this.state.phaseProgress / 0.35),
       );
     }
     return this.getState();
@@ -308,9 +308,4 @@ function isSkyEvent(value: unknown): value is SkyEvent {
     value === 'meteorShower' ||
     value === 'aurora'
   );
-}
-
-function smoothstep(value: number): number {
-  const t = clamp01(value);
-  return t * t * (3 - 2 * t);
 }

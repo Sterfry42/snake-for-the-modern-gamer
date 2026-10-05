@@ -1,6 +1,6 @@
 import { vectorKey } from '../../../core/math.js';
 import type { WorldConfig } from '../../../config/gameConfig.js';
-import type { RandomGenerator } from '../../../core/rng.js';
+import { randomInt, type RandomGenerator } from '../../../core/rng.js';
 import type { RoomGenerationContext } from '../types.js';
 
 export function placeRandomObstacles(
@@ -55,10 +55,6 @@ export function placeRandomObstacles(
       }
     }
   }
-}
-
-function randomInt(rng: RandomGenerator, maxExclusive: number): number {
-  return Math.floor(rng() * maxExclusive);
 }
 
 function randomIntInRange(
