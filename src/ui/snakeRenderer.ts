@@ -47,9 +47,16 @@ import type { EnemyInstance, BulletInstance } from '../systems/enemies.js';
 import type { AnimalInstance } from '../animals/types.js';
 import type { BombInstance, FootballInstance } from '../game/snakeGame.js';
 import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
+import type { Dlss5InterpolatedSprite } from './presentation/dlss5/dlss5PresentationProcessor.js';
 import type { WorldRenderScene } from './presentation/worldRenderScene.js';
 
 type PowerupKind = NonNullable<RoomSnapshot['powerup']>['kind'];
+
+interface RetainedPresentationTarget {
+  object: Phaser.GameObjects.Image;
+  offsetX: number;
+  offsetY: number;
+}
 
 const LADDER_OUTLINE_ALPHA = 0.8;
 const LADDER_OUTLINE_WIDTH = 1;
@@ -180,6 +187,7 @@ export class SnakeRenderer {
   private renderScale = 1;
   private activePresentationSprites: ReadonlyMap<string, WorldRenderScene['sprites'][number]> =
     new Map();
+  private readonly retainedPresentationTargets = new Map<string, RetainedPresentationTarget[]>();
   // Tracks masonry block creation timestamps for crumbling animation
   private readonly masonryBlockAges = new Map<string, number>();
   private renderDiagnostics: RenderDiagnostics = {
@@ -304,6 +312,7 @@ export class SnakeRenderer {
     this.activePresentationSprites = new Map(
       (opts.presentationScene?.sprites ?? []).map((sprite) => [sprite.id, sprite]),
     );
+    this.retainedPresentationTargets.clear();
     this.graphics.setScale(this.renderScale);
     this.wallGraphics.setScale(this.renderScale);
     this.overlayGraphics.setScale(this.renderScale);
@@ -2267,12 +2276,16 @@ export class SnakeRenderer {
       if (appleInfo?.typeId === 'roadRash') {
         this.drawRoadRashAppleTrail(x, y, appleInfo);
       }
-      this.ensureAppleSprite(startIndex + index)
+      const sprite = this.ensureAppleSprite(startIndex + index);
+      sprite
         .setTexture(this.appleTextureKeys[variant])
         .setPosition(this.scaledPx(x + this.grid.cell / 2), this.scaledPx(y + this.grid.cell / 2))
         .setDisplaySize(this.scaledPx(this.grid.cell), this.scaledPx(this.grid.cell))
         .setTint(appleColor)
         .setVisible(true);
+      if (appleInfo) {
+        this.registerRetainedPresentationTarget(`apple:${room.id}:${appleInfo.typeId}`, sprite);
+      }
     });
 
     const shieldDirs = this.extractShieldDirs(appleInfo);
@@ -2697,6 +2710,7 @@ export class SnakeRenderer {
         .setAlpha(alpha * pulse * ghostAlpha)
         .setTint(tintColor)
         .setVisible(true);
+      this.registerRetainedPresentationTarget(`snake:${index}`, sprite);
 
       if (activeHat && index === 0) {
         const hatTextures = this.getHatTextureKeys(activeHat);
@@ -2709,6 +2723,10 @@ export class SnakeRenderer {
           .setDisplaySize(this.scaledPx(this.grid.cell), this.scaledPx(this.grid.cell))
           .setAlpha(pulse * ghostAlpha)
           .setVisible(true);
+        this.registerRetainedPresentationTarget('snake:0', this.hatSprite, {
+          x: 0,
+          y: -this.grid.cell * 0.12,
+        });
       }
     });
   }
@@ -3321,6 +3339,7 @@ export class SnakeRenderer {
           .setAlpha(1)
           .clearTint()
           .setVisible(true);
+        this.registerRetainedPresentationTarget(`enemy:${enemy.id}:${segmentIndex}`, sprite);
       });
     });
 
@@ -3371,6 +3390,7 @@ export class SnakeRenderer {
         .setAlpha(alpha)
         .clearTint()
         .setVisible(true);
+      this.registerRetainedPresentationTarget(`enemy:${enemy.id}:${segmentIndex}`, sprite);
     });
 
     return spriteIndex;
@@ -3454,6 +3474,7 @@ export class SnakeRenderer {
         )
         .setDisplaySize(this.scaledPx(bulletSize), this.scaledPx(bulletSize))
         .setVisible(true);
+      this.registerRetainedPresentationTarget(`projectile:${bullet.id}`, sprite);
     });
 
     return spriteIndex;
@@ -3603,6 +3624,7 @@ export class SnakeRenderer {
         )
         .setDisplaySize(this.scaledPx(this.grid.cell), this.scaledPx(this.grid.cell))
         .setVisible(true);
+      this.registerRetainedPresentationTarget(`animal:${animal.id}`, sprite);
     });
 
     return spriteIndex;
@@ -4058,6 +4080,31 @@ export class SnakeRenderer {
       return null;
     }
     return { x: sprite.x - 0.5, y: sprite.y - 0.5 };
+  }
+
+  applyDlss5RetainedSpritePositions(sprites: readonly Dlss5InterpolatedSprite[]): void {
+    for (const sprite of sprites) {
+      const targets = this.retainedPresentationTargets.get(sprite.id);
+      if (!targets) {
+        continue;
+      }
+      for (const target of targets) {
+        target.object.setPosition(
+          this.scaledPx(sprite.x * this.grid.cell + target.offsetX),
+          this.scaledPx(sprite.y * this.grid.cell + target.offsetY),
+        );
+      }
+    }
+  }
+
+  private registerRetainedPresentationTarget(
+    spriteId: string,
+    object: Phaser.GameObjects.Image,
+    offset: Vector2Like = { x: 0, y: 0 },
+  ): void {
+    const targets = this.retainedPresentationTargets.get(spriteId) ?? [];
+    targets.push({ object, offsetX: offset.x, offsetY: offset.y });
+    this.retainedPresentationTargets.set(spriteId, targets);
   }
 
   private hashString(value: string): number {

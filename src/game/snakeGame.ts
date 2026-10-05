@@ -7583,6 +7583,7 @@ export class SnakeGame implements QuestRuntime {
     if (offer.itemId) {
       this.addItem(offer.itemId, 1);
     }
+    this.decrementActorShopOfferStock(actorId, offer);
     const result = {
       ok: true,
       message: `Purchased ${offer.label}.`,
@@ -7629,7 +7630,40 @@ export class SnakeGame implements QuestRuntime {
       priceScalar: this.getActorShopPriceScalar(),
       stockCountBonus: this.getActorShopStockCountBonus(),
       hasAlchemyStation: this.getAlchemyStationCount() > 0,
-    }).flatMap((tab) => tab.offers);
+    })
+      .flatMap((tab) => tab.offers)
+      .flatMap((offer) => this.applyActorShopOfferStock(actor.id, offer));
+  }
+
+  private applyActorShopOfferStock(
+    actorId: string,
+    offer: ActorShopOfferView,
+  ): ActorShopOfferView[] {
+    if (offer.quantity === undefined) {
+      return [offer];
+    }
+    const remaining = this.getActorShopOfferRemaining(actorId, offer);
+    if (remaining <= 0) {
+      return [];
+    }
+    return [{ ...offer, quantity: remaining }];
+  }
+
+  private decrementActorShopOfferStock(actorId: string, offer: ActorShopOfferView): void {
+    if (offer.quantity === undefined) {
+      return;
+    }
+    const key = this.getActorShopOfferStockFlagKey(actorId, offer.id);
+    this.setFlag(key, Math.max(0, this.getActorShopOfferRemaining(actorId, offer) - 1));
+  }
+
+  private getActorShopOfferRemaining(actorId: string, offer: ActorShopOfferView): number {
+    const key = this.getActorShopOfferStockFlagKey(actorId, offer.id);
+    return Math.max(0, Math.floor(Number(this.getFlag<number>(key) ?? offer.quantity ?? 0)));
+  }
+
+  private getActorShopOfferStockFlagKey(actorId: string, offerId: string): string {
+    return `shop.stock.${this.getAtmosphereState().worldDay}.${actorId}.${offerId}`;
   }
 
   private getActorShopPriceScalar(): number {
@@ -18038,7 +18072,7 @@ export class SnakeGame implements QuestRuntime {
       getFlag: (key) => this.getFlag(key),
       setFlag: (key, value) => this.setFlag(key, value),
       getCapacity: () =>
-        Math.max(0, Math.floor(Number(this.getFlag<number>('derived.spellSlotCapacity') ?? 0))),
+        Math.max(0, Math.floor(Number(this.getFlag<number>('derived.spellSlotCapacity') ?? 1))),
     });
     const result = spellbook.learn(tome.spellId);
     if (result.ok) {

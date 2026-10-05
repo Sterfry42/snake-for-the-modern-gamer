@@ -462,6 +462,8 @@ describe('Town life commerce hardening stories', () => {
     expect(learned).toMatchObject({ ok: true });
     expect(scenario.game.getInventory().getItemCount('spell-tome-arcane-pulse')).toBe(0);
     expect(scenario.game.getFlag('arcane.spellbook.known')).toEqual(['arcane-pulse']);
+    expect(scenario.game.getFlag('arcane.spellbook.loadout')).toEqual(['arcane-pulse']);
+    expect(scenario.game.getFlag('actions.slots')).toEqual({ q: 'arcane-pulse' });
     expect(scenario.game.getFlag('ui.spellLearned')).toMatchObject({
       spellId: 'arcane-pulse',
       label: 'Arcane Pulse',

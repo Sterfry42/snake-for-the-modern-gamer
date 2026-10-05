@@ -14,7 +14,7 @@ import {
 import type { ControllerNavCommand } from '../input/controllerNavigation.js';
 import { getDebugBus } from '../debug/debugRuntime.js';
 import { loadDlss5Settings } from './presentation/dlss5/dlss5Settings.js';
-import { AnalogPortraitProcessor } from './presentation/dlss5/analogPortraitProcessor.js';
+import type { Dlss5PortraitService } from './presentation/dlss5/dlss5PortraitService.js';
 import { resolveDlss5PortraitIdentity } from './presentation/dlss5/portraitResolver.js';
 
 interface QuestPopupOptions {
@@ -87,7 +87,7 @@ export class QuestPopup {
   private activeDlss5PortraitRequestKey: string | null = null;
   private options: Required<QuestPopupOptions>;
   private readonly spriteFactory: RuntimeSpriteFactory;
-  private readonly dlss5PortraitProcessor: AnalogPortraitProcessor;
+  private readonly dlss5PortraitService: Dlss5PortraitService;
   private readonly portraitTextureKeys: Record<QuestPortraitVariant, string>;
   private readonly portraitPalette: QuestPortraitPalette = {
     frameColor: '#102033',
@@ -111,7 +111,7 @@ export class QuestPopup {
       buttonSpacing: options.buttonSpacing ?? DEFAULT_OPTIONS.buttonSpacing,
     };
     this.spriteFactory = new RuntimeSpriteFactory(scene);
-    this.dlss5PortraitProcessor = new AnalogPortraitProcessor(scene);
+    this.dlss5PortraitService = scene.getDlss5PortraitService();
     this.portraitTextureKeys = this.spriteFactory.ensureRecipe(
       questPortraitRecipe,
       88,
@@ -613,7 +613,7 @@ export class QuestPopup {
       return;
     }
 
-    const cached = this.dlss5PortraitProcessor.getCachedTexture(identity);
+    const cached = this.dlss5PortraitService.getCachedTexture(identity);
     if (cached) {
       this.portrait?.setTexture(cached);
       return;
@@ -621,7 +621,7 @@ export class QuestPopup {
 
     const requestKey = `${identity.key}:${title}:${portraitId ?? ''}`;
     this.activeDlss5PortraitRequestKey = requestKey;
-    void this.dlss5PortraitProcessor.loadTexture(identity, { size: 128 }).then((textureKey) => {
+    void this.dlss5PortraitService.loadTexture(identity, { size: 128 }).then((textureKey) => {
       if (textureKey && this.isVisible() && this.activeDlss5PortraitRequestKey === requestKey) {
         this.portrait?.setTexture(textureKey);
       }

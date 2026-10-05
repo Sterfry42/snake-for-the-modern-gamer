@@ -19,7 +19,7 @@ import {
 } from './spriteRecipes/datingPortraitRecipe.js';
 import { getDebugBus } from '../debug/debugRuntime.js';
 import { loadDlss5Settings } from './presentation/dlss5/dlss5Settings.js';
-import { AnalogPortraitProcessor } from './presentation/dlss5/analogPortraitProcessor.js';
+import type { Dlss5PortraitService } from './presentation/dlss5/dlss5PortraitService.js';
 import { resolveDlss5PortraitIdentity } from './presentation/dlss5/portraitResolver.js';
 
 export type DatingSceneAction =
@@ -56,7 +56,7 @@ interface DatingSceneOptions {
 
 export class DatingScenePopup {
   private readonly spriteFactory: RuntimeSpriteFactory;
-  private readonly dlss5PortraitProcessor: AnalogPortraitProcessor;
+  private readonly dlss5PortraitService: Dlss5PortraitService;
   private container?: Phaser.GameObjects.Container;
   private portrait?: Phaser.GameObjects.Image;
   private title?: Phaser.GameObjects.Text;
@@ -76,7 +76,7 @@ export class DatingScenePopup {
 
   constructor(private readonly scene: SnakeScene) {
     this.spriteFactory = new RuntimeSpriteFactory(scene);
-    this.dlss5PortraitProcessor = new AnalogPortraitProcessor(scene);
+    this.dlss5PortraitService = scene.getDlss5PortraitService();
     this.build();
   }
 
@@ -261,7 +261,7 @@ export class DatingScenePopup {
       return;
     }
 
-    const cached = this.dlss5PortraitProcessor.getCachedTexture(identity);
+    const cached = this.dlss5PortraitService.getCachedTexture(identity);
     if (cached) {
       this.applyDlss5PortraitTexture(cached, portraitSize, topHeight, mood);
       return;
@@ -269,7 +269,7 @@ export class DatingScenePopup {
 
     const requestKey = `${identity.key}:${profile.id}:${portraitSize}:${mood}`;
     this.activeDlss5PortraitRequestKey = requestKey;
-    void this.dlss5PortraitProcessor.loadTexture(identity, { size: 192 }).then((textureKey) => {
+    void this.dlss5PortraitService.loadTexture(identity, { size: 192 }).then((textureKey) => {
       if (textureKey && this.isVisible() && this.activeDlss5PortraitRequestKey === requestKey) {
         this.applyDlss5PortraitTexture(textureKey, portraitSize, topHeight, mood);
       }

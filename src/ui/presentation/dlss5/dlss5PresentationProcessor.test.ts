@@ -33,4 +33,58 @@ describe('DLSS 5 presentation processor', () => {
 
     expect(result.sprites[0]).toMatchObject({ x: 0.5, y: 1 });
   });
+
+  it('uses sprite clock phases for retained interpolation across actor and action sprites', () => {
+    const processor = new Dlss5PresentationProcessor();
+    const previous: WorldRenderScene = {
+      rooms: [],
+      effects: [],
+      sprites: [
+        {
+          id: 'snake:0',
+          kind: 'snake',
+          x: 0.5,
+          y: 0.5,
+          width: 1,
+          height: 1,
+          anchorY: 1,
+          color: 0xffffff,
+          visual: { defaultTextureKey: 'snake' },
+          roomId: '0,0,0',
+        },
+        {
+          id: 'actor-npc:villager-1',
+          kind: 'npc',
+          x: 2.5,
+          y: 2.5,
+          width: 1,
+          height: 1,
+          anchorY: 1,
+          color: 0xffffff,
+          visual: { defaultTextureKey: 'npc' },
+          roomId: '0,0,0',
+        },
+      ],
+    };
+    const current: WorldRenderScene = {
+      ...previous,
+      sprites: [
+        { ...previous.sprites[0]!, x: 1.5 },
+        { ...previous.sprites[1]!, x: 4.5 },
+      ],
+    };
+
+    processor.acceptAuthoritativeScene(previous, 0);
+    processor.acceptAuthoritativeScene(current, 100);
+
+    const retained = processor.getInterpolatedSprites([
+      { id: 'action', intervalMs: 100, accumulatorMs: 25 },
+      { id: 'actor', intervalMs: 100, accumulatorMs: 75 },
+    ]);
+
+    expect(retained.find((sprite) => sprite.id === 'snake:0')).toMatchObject({ x: 0.75 });
+    expect(retained.find((sprite) => sprite.id === 'actor-npc:villager-1')).toMatchObject({
+      x: 4,
+    });
+  });
 });

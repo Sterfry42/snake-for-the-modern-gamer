@@ -88,7 +88,11 @@ import {
 } from '../ui/presentation/worldPresentationBuilder.js';
 import type { WorldRenderScene } from '../ui/presentation/worldRenderScene.js';
 import { WorldVisualAssets } from '../ui/presentation/worldVisualAssets.js';
-import { Dlss5PresentationProcessor } from '../ui/presentation/dlss5/dlss5PresentationProcessor.js';
+import {
+  Dlss5PresentationProcessor,
+  type Dlss5InterpolatedSprite,
+} from '../ui/presentation/dlss5/dlss5PresentationProcessor.js';
+import { Dlss5PortraitService } from '../ui/presentation/dlss5/dlss5PortraitService.js';
 import {
   isDlss5Supported,
   loadDlss5Settings,
@@ -114,6 +118,7 @@ import {
   questGiverSpriteRecipe,
   type QuestGiverSpritePalette,
 } from '../ui/spriteRecipes/questGiverRecipe.js';
+import { actorIdForTownResident } from '../actors/actorFactory.js';
 import {
   molemanSpriteRecipe,
   type MolemanSpritePalette,
@@ -1864,6 +1869,16 @@ const SIMULATION_MODE_RULES: Record<GameMode, Record<string, ClockRule>> = {
   },
 };
 
+interface VillageResidentRetainedTarget {
+  sprite: Phaser.GameObjects.Image;
+  indicator: Phaser.GameObjects.Text;
+  speechText: Phaser.GameObjects.Text;
+  sleepText: Phaser.GameObjects.Text;
+  badgeText: Phaser.GameObjects.Text;
+  activityPropSprite: Phaser.GameObjects.Image;
+  index: number;
+}
+
 export default class SnakeScene extends Phaser.Scene {
   graphics!: Phaser.GameObjects.Graphics;
   wallGraphics!: Phaser.GameObjects.Graphics;
@@ -1886,6 +1901,13 @@ export default class SnakeScene extends Phaser.Scene {
   private snakeRenderer!: SnakeRenderer;
   private firstPersonRenderer!: FirstPersonRenderer;
   private readonly dlss5PresentationProcessor = new Dlss5PresentationProcessor();
+  private readonly dlss5PortraitService = new Dlss5PortraitService(this);
+  private readonly villageResidentRetainedTargets = new Map<
+    string,
+    VillageResidentRetainedTarget
+  >();
+  private dlss5ReconstructionOverlay: Phaser.GameObjects.Graphics | null = null;
+  private dlss5CanvasFilterApplied = false;
   private daggerfellPresentationActive = false;
   private firstPersonInputFacing: Vector2Like | null = null;
   private worldVisualAssets!: WorldVisualAssets;
@@ -6385,6 +6407,8 @@ export default class SnakeScene extends Phaser.Scene {
     this.inputModeUnsubscribe?.();
     this.inputModeUnsubscribe = null;
     this.gameConnection?.disconnect();
+    this.dlss5PortraitService.clear();
+    this.updateDlss5Reconstruction(false);
     if (this.creditsScrollTween) {
       this.creditsScrollTween.destroy();
     }
@@ -9619,6 +9643,9 @@ export default class SnakeScene extends Phaser.Scene {
     const current = loadDlss5Settings();
     saveDlss5Settings({ enabled: !current.enabled });
     this.dlss5PresentationProcessor.reset();
+    if (current.enabled) {
+      this.updateDlss5Reconstruction(false);
+    }
     this.refreshTitleDlss5Text();
   }
 
@@ -10606,8 +10633,15 @@ export default class SnakeScene extends Phaser.Scene {
     this.updateSimulation(delta);
     this.updatePerformanceHud(delta);
     const firstPersonActive = this.isFirstPersonPresentationActive();
+    const dlss5PresentationActive = this.shouldUseDlss5Presentation();
+    const dlss5TopDownRetainedActive = dlss5PresentationActive && !firstPersonActive;
     this.juice.setWorldEffectsVisible(!firstPersonActive && !this.binocularsViewportActive);
-    this.updateVillageResidentSprites();
+    if (dlss5PresentationActive) {
+      this.prewarmDlss5PortraitsForCurrentRoom();
+    }
+    if (!dlss5TopDownRetainedActive || this.isDirty) {
+      this.updateVillageResidentSprites();
+    }
     if (!firstPersonActive) {
       this.tickVillageJuice();
       this.tickBiomeHazardJuice();
@@ -10615,17 +10649,27 @@ export default class SnakeScene extends Phaser.Scene {
     this.tickQuestBabyCry();
     this.flushArchipelagoTrapQueue();
     this.cleanupExpiredMasonryBlocks();
-    if (this.isDirty || this.shouldRedrawDlss5Presentation()) {
+    if (this.isDirty || (dlss5PresentationActive && firstPersonActive)) {
       this.draw();
       this.isDirty = false;
     }
+    if (dlss5TopDownRetainedActive) {
+      this.updateDlss5RetainedPresentation();
+    } else if (!dlss5PresentationActive) {
+      this.dlss5PresentationProcessor.reset();
+    }
+    this.updateDlss5Reconstruction(dlss5TopDownRetainedActive);
   }
 
   private isDlss5PresentationEnabled(): boolean {
     return isDlss5Supported() && loadDlss5Settings().enabled;
   }
 
-  private shouldRedrawDlss5Presentation(): boolean {
+  getDlss5PortraitService(): Dlss5PortraitService {
+    return this.dlss5PortraitService;
+  }
+
+  private shouldUseDlss5Presentation(): boolean {
     return (
       this.isDlss5PresentationEnabled() &&
       !this.paused &&
@@ -10635,6 +10679,112 @@ export default class SnakeScene extends Phaser.Scene {
       !this.villageShopPopup?.isVisible() &&
       !this.datingScenePopup?.isVisible()
     );
+  }
+
+  private updateDlss5RetainedPresentation(): void {
+    const sprites = this.dlss5PresentationProcessor.getInterpolatedSprites(this.getDlss5Clocks());
+    this.snakeRenderer.applyDlss5RetainedSpritePositions(sprites);
+    this.applyDlss5VillageResidentInterpolation(sprites);
+  }
+
+  private getDlss5Clocks(): readonly ClockDiagnostics[] {
+    const clocks = this.simulationScheduler.getDiagnostics().clocks;
+    if (!this.isManualHouseMovementActive()) {
+      return clocks;
+    }
+    return clocks.map((clock) =>
+      clock.id === 'action' || clock.id === 'manual-world'
+        ? { ...clock, accumulatorMs: clock.intervalMs }
+        : clock,
+    );
+  }
+
+  private applyDlss5VillageResidentInterpolation(
+    sprites: readonly Dlss5InterpolatedSprite[],
+  ): void {
+    for (const sprite of sprites) {
+      if (sprite.kind !== 'npc') {
+        continue;
+      }
+      const target = this.villageResidentRetainedTargets.get(sprite.id);
+      if (!target) {
+        continue;
+      }
+
+      const worldX = sprite.x * this.grid.cell;
+      const worldY = sprite.y * this.grid.cell;
+      const bobOffset = Math.sin(this.time.now / (220 + target.index * 17)) * 1.8;
+      target.sprite.setPosition(worldX, worldY - 2 + bobOffset);
+      target.indicator.setPosition(worldX, worldY - this.grid.cell * 0.58 + bobOffset);
+      target.sleepText.setPosition(worldX, worldY - this.grid.cell * 0.66 + bobOffset);
+      target.speechText.setPosition(worldX, worldY - this.grid.cell * 0.78 + bobOffset);
+      target.badgeText.setPosition(
+        worldX - this.grid.cell * 0.2,
+        worldY + this.grid.cell * 0.18 + bobOffset,
+      );
+      target.activityPropSprite.setPosition(
+        worldX + this.grid.cell * 0.28,
+        worldY + this.grid.cell * 0.24 + bobOffset,
+      );
+    }
+  }
+
+  private updateDlss5Reconstruction(active: boolean): void {
+    const canvas = this.game.canvas;
+    if (active && !this.dlss5CanvasFilterApplied) {
+      canvas.style.filter = 'brightness(1.04) contrast(1.18) saturate(1.32)';
+      this.dlss5CanvasFilterApplied = true;
+    } else if (!active && this.dlss5CanvasFilterApplied) {
+      canvas.style.filter = '';
+      this.dlss5CanvasFilterApplied = false;
+    }
+
+    if (!active) {
+      this.dlss5ReconstructionOverlay?.clear().setVisible(false);
+      return;
+    }
+
+    const overlay = this.ensureDlss5ReconstructionOverlay();
+    const width = this.scale.width;
+    const height = this.scale.height;
+    const edgeX = Math.max(28, Math.floor(width * 0.08));
+    const edgeY = Math.max(24, Math.floor(height * 0.08));
+    overlay
+      .clear()
+      .fillStyle(0x050812, 0.18)
+      .fillRect(0, 0, width, edgeY)
+      .fillRect(0, height - edgeY, width, edgeY)
+      .fillRect(0, edgeY, edgeX, height - edgeY * 2)
+      .fillRect(width - edgeX, edgeY, edgeX, height - edgeY * 2)
+      .setBlendMode(Phaser.BlendModes.NORMAL)
+      .fillStyle(0xffffff, 0.035)
+      .fillRect(0, 0, width, Math.max(1, Math.floor(height * 0.018)))
+      .fillRect(
+        0,
+        height - Math.max(1, Math.floor(height * 0.014)),
+        width,
+        Math.max(1, Math.floor(height * 0.014)),
+      )
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .fillStyle(0x9ad1ff, 0.025)
+      .fillRect(0, Math.floor(height * 0.18), width, Math.max(2, Math.floor(height * 0.012)))
+      .fillRect(0, Math.floor(height * 0.72), width, Math.max(2, Math.floor(height * 0.01)))
+      .lineStyle(1, 0xfff3a8, 0.08)
+      .strokeRect(2, 2, width - 4, height - 4)
+      .lineStyle(1, 0x9ad1ff, 0.13)
+      .strokeRect(1, 1, width - 2, height - 2)
+      .setVisible(true);
+  }
+
+  private ensureDlss5ReconstructionOverlay(): Phaser.GameObjects.Graphics {
+    if (!this.dlss5ReconstructionOverlay) {
+      this.dlss5ReconstructionOverlay = this.add
+        .graphics()
+        .setDepth(28)
+        .setScrollFactor(0)
+        .setVisible(false);
+    }
+    return this.dlss5ReconstructionOverlay;
   }
 
   private pollControllerInput(): void {
@@ -14150,6 +14300,9 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (room.molemanDigSite) {
       return [room.molemanDigSite.bounds];
+    }
+    if (room.garage) {
+      return [room.garage.bounds];
     }
     if (
       room.allNiteDiner ||
@@ -23287,6 +23440,10 @@ export default class SnakeScene extends Phaser.Scene {
       this.questGiverSprite.setVisible(false);
       return;
     }
+    if (room.questGiver && this.isQuestGiverActorMaterialized(room.id, room.questGiver.id)) {
+      this.questGiverSprite.setVisible(false);
+      return;
+    }
     const disposition = this.snakeGame.getNpcDisposition(room.id);
     if (
       disposition.hostility === 'hostile' &&
@@ -23375,6 +23532,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private updateVillageResidentSprites(): void {
+    this.villageResidentRetainedTargets.clear();
     this.villageResidentSprites.forEach((sprite) => sprite.setVisible(false));
     this.villageResidentIndicatorTexts.forEach((text) => text.setVisible(false));
     this.villageResidentSpeechTexts.forEach((text) => text.setVisible(false));
@@ -23442,6 +23600,7 @@ export default class SnakeScene extends Phaser.Scene {
       const palette = isGoblin
         ? this.paletteForGoblinResident(goblinStanding)
         : this.paletteForResident(resident.actorId);
+      this.prewarmDlss5PortraitForResident(resident);
       const textures = this.runtimeSpriteFactory.ensureRecipe(
         questGiverSpriteRecipe,
         Math.max(16, Math.floor(this.grid.cell * 0.84)),
@@ -23512,6 +23671,15 @@ export default class SnakeScene extends Phaser.Scene {
       if (sprite.anims.currentAnim?.key !== animKey) {
         sprite.play(animKey);
       }
+      this.villageResidentRetainedTargets.set(`actor-npc:${actor.id}`, {
+        sprite,
+        indicator,
+        speechText,
+        sleepText,
+        badgeText,
+        activityPropSprite,
+        index,
+      });
       if (this.random() < 0.04) {
         this.juice.wandererAura(world.x, world.y - 4, palette.trimColor);
       }
@@ -23523,6 +23691,19 @@ export default class SnakeScene extends Phaser.Scene {
         );
       }
     });
+  }
+
+  private isQuestGiverActorMaterialized(roomId: string, giverId: string): boolean {
+    const actorId = actorIdForTownResident(`quest:${roomId}`, giverId, 'questGiver');
+    const actor = this.snakeGame.getActorSystem().getActor(actorId);
+    return Boolean(
+      actor?.presence?.roomId === roomId &&
+      actor.presence.materialized &&
+      actor.health?.state !== 'dead' &&
+      actor.hostility !== 'dead' &&
+      actor.flags.dead !== true &&
+      actor.flags.eaten !== true,
+    );
   }
 
   private getFirstPersonRuntimeNpcs(roomId: string): readonly RuntimeNpcPresentation[] {
@@ -23578,6 +23759,41 @@ export default class SnakeScene extends Phaser.Scene {
           },
         ];
       });
+  }
+
+  private prewarmDlss5PortraitForResident(resident: PresentRelationshipProfile): void {
+    if (!this.isDlss5PresentationEnabled()) {
+      return;
+    }
+
+    this.dlss5PortraitService.prefetchCandidate(
+      {
+        id: resident.actorId,
+        portraitId: resident.portraitId,
+        species: resident.species,
+      },
+      { size: 192 },
+    );
+  }
+
+  private prewarmDlss5PortraitsForCurrentRoom(): void {
+    const room = this.snakeGame.getCurrentRoom();
+    for (const resident of this.snakeGame.getPresentRelationshipProfilesForRoom(room.id)) {
+      const actor = this.snakeGame.getActorSystem().getActor(resident.actorId);
+      const actorPresence = actor?.presence;
+      if (
+        !actor ||
+        actorPresence?.roomId !== room.id ||
+        !actorPresence.materialized ||
+        actor.health?.state === 'dead' ||
+        actor.hostility === 'dead' ||
+        actor.flags.dead === true ||
+        actor.flags.eaten === true
+      ) {
+        continue;
+      }
+      this.prewarmDlss5PortraitForResident(resident);
+    }
   }
 
   private actorActivityPropPalette(): ActorActivityPropPalette {
