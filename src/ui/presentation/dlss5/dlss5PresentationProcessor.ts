@@ -19,6 +19,7 @@ export class Dlss5PresentationProcessor {
   private previousAuthoritativeScene: WorldRenderScene | null = null;
   private currentAuthoritativeScene: WorldRenderScene | null = null;
   private previousSpritesById: ReadonlyMap<string, RenderSprite> = new Map();
+  private movingSprites: readonly RenderSprite[] = [];
   private currentAuthoritativeSignature = '';
   private lastStepStartedAtMs = 0;
 
@@ -30,6 +31,7 @@ export class Dlss5PresentationProcessor {
         (this.previousAuthoritativeScene?.sprites ?? []).map((sprite) => [sprite.id, sprite]),
       );
       this.currentAuthoritativeScene = scene;
+      this.movingSprites = scene.sprites.filter(isRetainedInterpolatedSprite);
       this.currentAuthoritativeSignature = signature;
       this.lastStepStartedAtMs = nowMs;
     }
@@ -54,7 +56,7 @@ export class Dlss5PresentationProcessor {
       ]),
     );
 
-    return this.currentAuthoritativeScene.sprites.map((sprite) => {
+    return this.movingSprites.map((sprite) => {
       const previous = this.previousSpritesById.get(sprite.id);
       const phase = phaseByClock.get(clockIdForSpriteKind(sprite.kind)) ?? 1;
       const position = interpolateSpritePosition(previous, sprite, phase);
@@ -71,8 +73,27 @@ export class Dlss5PresentationProcessor {
     this.previousAuthoritativeScene = null;
     this.currentAuthoritativeScene = null;
     this.previousSpritesById = new Map();
+    this.movingSprites = [];
     this.currentAuthoritativeSignature = '';
     this.lastStepStartedAtMs = 0;
+  }
+}
+
+function isRetainedInterpolatedSprite(sprite: RenderSprite): boolean {
+  switch (sprite.kind) {
+    case 'snake':
+    case 'enemy':
+    case 'boss':
+    case 'npc':
+    case 'apple':
+    case 'animal':
+    case 'projectile':
+    case 'bomb':
+    case 'football':
+    case 'vehicle':
+      return true;
+    default:
+      return false;
   }
 }
 

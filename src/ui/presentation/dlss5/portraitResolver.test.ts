@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   SYNTHETIC_PORTRAIT_COUNT,
+  canonicalDlss5PortraitIdentityId,
   isEligibleForDlss5SyntheticPortrait,
   resolveDlss5PortraitIdentity,
 } from './portraitResolver.js';
@@ -22,6 +23,26 @@ describe('DLSS 5 portrait resolver', () => {
     expect(first?.index).toBeGreaterThanOrEqual(0);
     expect(first?.index).toBeLessThan(SYNTHETIC_PORTRAIT_COUNT);
     expect(SYNTHETIC_PORTRAIT_COUNT).toBe(10_000);
+  });
+
+  it('prefers actor IDs over relationship profile IDs for canonical identity', () => {
+    const actorIdentity = resolveDlss5PortraitIdentity({
+      id: 'relationship:market:nina',
+      actorId: 'town:market:shopkeeper:nina',
+      portraitId: 'sage-1',
+      species: 'human',
+    });
+    const prewarmIdentity = resolveDlss5PortraitIdentity({
+      id: 'town:market:shopkeeper:nina',
+      actorId: 'town:market:shopkeeper:nina',
+      portraitId: 'sage-1',
+      species: 'human',
+    });
+
+    expect(canonicalDlss5PortraitIdentityId({ id: 'profile:nina', actorId: 'actor:nina' })).toBe(
+      'actor:nina',
+    );
+    expect(actorIdentity).toEqual(prewarmIdentity);
   });
 
   it('keeps authored non-human portraits authoritative', () => {

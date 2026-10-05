@@ -457,6 +457,17 @@ describe('Town life commerce hardening stories', () => {
     const purchase = scenario.game.purchaseActorShopOffer(wizard.id, 'spell-tome-arcane-pulse');
     expect(purchase).toMatchObject({ ok: true, offerId: 'spell-tome-arcane-pulse' });
     expect(scenario.game.getInventory().getItemCount('spell-tome-arcane-pulse')).toBe(1);
+    expect(
+      scenario.game
+        .getActorShopView(wizard.id)
+        ?.offers.some((offer) => offer.id === 'spell-tome-arcane-pulse'),
+    ).toBe(false);
+    expect(
+      scenario.game.purchaseActorShopOffer(wizard.id, 'spell-tome-arcane-pulse'),
+    ).toMatchObject({
+      ok: false,
+      reason: 'missing-offer',
+    });
 
     const learned = scenario.game.useInventoryItem('spell-tome-arcane-pulse');
     expect(learned).toMatchObject({ ok: true });

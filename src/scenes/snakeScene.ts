@@ -1908,6 +1908,7 @@ export default class SnakeScene extends Phaser.Scene {
   >();
   private dlss5ReconstructionOverlay: Phaser.GameObjects.Graphics | null = null;
   private dlss5CanvasFilterApplied = false;
+  private dlss5ColorMatrixFx: Phaser.FX.ColorMatrix | null = null;
   private daggerfellPresentationActive = false;
   private firstPersonInputFacing: Vector2Like | null = null;
   private worldVisualAssets!: WorldVisualAssets;
@@ -4771,7 +4772,7 @@ export default class SnakeScene extends Phaser.Scene {
       nextLabel?: string;
       closeLabel?: string;
     },
-    speaker?: { portraitId?: string },
+    speaker?: { portraitId?: string; actorId?: string; species?: string },
   ): void {
     this.paused = true;
     this.skillTree.hideOverlay();
@@ -4782,6 +4783,17 @@ export default class SnakeScene extends Phaser.Scene {
     });
     this.questPopup.showDialogue(title, pages, callbacks, labels, speaker);
     this.isDirty = true;
+  }
+
+  private speakerForRelationshipProfile(
+    profile: RelationshipCandidateProfile,
+    portraitId?: string,
+  ): { portraitId?: string; actorId?: string; species?: string } {
+    return {
+      portraitId,
+      actorId: profile.actorId,
+      species: profile.species,
+    };
   }
 
   showQuestHintPopup(message: string, color = '#ffe58a'): void {
@@ -10731,8 +10743,13 @@ export default class SnakeScene extends Phaser.Scene {
 
   private updateDlss5Reconstruction(active: boolean): void {
     const canvas = this.game.canvas;
+    this.updateDlss5GpuReconstruction(active);
+    this.snakeRenderer.setDlss5EmissiveBloom(active);
     if (active && !this.dlss5CanvasFilterApplied) {
-      canvas.style.filter = 'brightness(1.04) contrast(1.18) saturate(1.32)';
+      canvas.style.filter =
+        this.game.renderer.type === Phaser.WEBGL
+          ? 'brightness(1.01) contrast(1.04) saturate(1.03)'
+          : 'brightness(1.02) contrast(1.08) saturate(1.08)';
       this.dlss5CanvasFilterApplied = true;
     } else if (!active && this.dlss5CanvasFilterApplied) {
       canvas.style.filter = '';
@@ -10774,6 +10791,33 @@ export default class SnakeScene extends Phaser.Scene {
       .lineStyle(1, 0x9ad1ff, 0.13)
       .strokeRect(1, 1, width - 2, height - 2)
       .setVisible(true);
+  }
+
+  private updateDlss5GpuReconstruction(active: boolean): void {
+    const postFx = this.cameras.main.postFX;
+    if (!active) {
+      if (this.dlss5ColorMatrixFx) {
+        (
+          postFx as Phaser.GameObjects.Components.FX & {
+            remove(fx: Phaser.FX.ColorMatrix): Phaser.GameObjects.Components.FX;
+          }
+        ).remove(this.dlss5ColorMatrixFx);
+        this.dlss5ColorMatrixFx = null;
+      }
+      return;
+    }
+    if (this.dlss5ColorMatrixFx || this.game.renderer.type !== Phaser.WEBGL) {
+      return;
+    }
+    try {
+      this.dlss5ColorMatrixFx = postFx
+        .addColorMatrix()
+        .brightness(1.01)
+        .contrast(1.04)
+        .saturate(1.03);
+    } catch {
+      this.dlss5ColorMatrixFx = null;
+    }
   }
 
   private ensureDlss5ReconstructionOverlay(): Phaser.GameObjects.Graphics {
@@ -20804,7 +20848,7 @@ export default class SnakeScene extends Phaser.Scene {
           },
         },
         { closeLabel: 'Talk', nextLabel: 'Listen' },
-        { portraitId: conversationPortraitId },
+        this.speakerForRelationshipProfile(profile, conversationPortraitId),
       );
       return;
     }
@@ -20832,7 +20876,7 @@ export default class SnakeScene extends Phaser.Scene {
               },
             },
             { closeLabel: 'Talk', nextLabel: 'Listen' },
-            { portraitId: conversationPortraitId },
+            this.speakerForRelationshipProfile(profile, conversationPortraitId),
           );
           return;
         }
@@ -20853,7 +20897,7 @@ export default class SnakeScene extends Phaser.Scene {
               },
             },
             { closeLabel: 'Leave', nextLabel: 'Listen' },
-            { portraitId: conversationPortraitId },
+            this.speakerForRelationshipProfile(profile, conversationPortraitId),
           );
           return;
         }
@@ -20893,7 +20937,7 @@ export default class SnakeScene extends Phaser.Scene {
               },
             },
             { closeLabel: 'Leave', nextLabel: 'Listen' },
-            { portraitId: conversationPortraitId },
+            this.speakerForRelationshipProfile(profile, conversationPortraitId),
           );
           return;
         }
@@ -20937,7 +20981,7 @@ export default class SnakeScene extends Phaser.Scene {
                 rejectLabel: i18n.getCommon('quest.refuse'),
                 nextLabel: 'Next',
               },
-              { portraitId: conversationPortraitId },
+              this.speakerForRelationshipProfile(profile, conversationPortraitId),
             );
             return;
           }
@@ -21038,7 +21082,7 @@ export default class SnakeScene extends Phaser.Scene {
               },
             },
             { closeLabel: 'Leave', nextLabel: 'Listen' },
-            { portraitId: conversationPortraitId },
+            this.speakerForRelationshipProfile(profile, conversationPortraitId),
           );
           return;
         }
@@ -23292,7 +23336,11 @@ export default class SnakeScene extends Phaser.Scene {
         rejectLabel: encounter.rejectLabel ?? i18n.getCommon('quest.refuse'),
         nextLabel: 'Next',
       },
-      { portraitId: encounter.portraitId },
+      {
+        portraitId: encounter.portraitId,
+        actorId: encounter.actorId,
+        species: actor.species,
+      },
     );
   }
 
@@ -23769,6 +23817,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.dlss5PortraitService.prefetchCandidate(
       {
         id: resident.actorId,
+        actorId: resident.actorId,
         portraitId: resident.portraitId,
         species: resident.species,
       },
