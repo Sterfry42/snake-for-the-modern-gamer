@@ -296,15 +296,30 @@ If actor IDs remain stable, the derived portrait does not need to become gamepla
 
 ### Remote source
 
-Initial candidate source:
+Canonical portrait source:
 
 - `lambdaWalker/ds.photo_id` on Hugging Face
-- synthetic ID-style portraits
-- indexed corpus suitable for deterministic actor-to-face mapping
+- URL: `https://huggingface.co/datasets/lambdaWalker/ds.photo_id`
+- 10,000 synthetic ID-style portraits
+- config: `default`
+- split: `body`
+- license: CC BY 4.0
+- attribution: include `lambdaWalker/ds.photo_id` in Snake's credits/third-party notices
 
-Implementation must verify and record the source's current license and required attribution before shipping.
+DLSS 5 uses this dataset for synthetic NPC portrait reconstruction. Portraits are fetched remotely at runtime through the Hugging Face Dataset Viewer rows API and transformed with Snake's analog/VHS presentation effects.
 
-The repository should not commit these portrait textures.
+The repository should not commit source portrait files or processed portrait textures.
+
+Implementation contract:
+
+```yaml
+Source dataset: https://huggingface.co/datasets/lambdaWalker/ds.photo_id
+Selection: stableStringHashPositive(actor.id) % 10_000
+Retrieval: Hugging Face Dataset Viewer / rows API
+Persistence: store/derive dataset row index only
+Never persist: temporary signed image URLs
+Failure: existing procedural portrait fallback
+```
 
 ### Runtime flow
 
@@ -548,7 +563,6 @@ Visual effects should also receive a manual smoke test because exact VHS quality
 
 - benchmark interpolation overhead
 - verify offline behavior
-- verify portrait-source attribution requirements
 - test title/settings/controller navigation
 - test dialogue/dating portrait lifetime edge cases
 

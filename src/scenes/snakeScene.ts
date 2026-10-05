@@ -88,6 +88,12 @@ import {
 } from '../ui/presentation/worldPresentationBuilder.js';
 import type { WorldRenderScene } from '../ui/presentation/worldRenderScene.js';
 import { WorldVisualAssets } from '../ui/presentation/worldVisualAssets.js';
+import { Dlss5PresentationProcessor } from '../ui/presentation/dlss5/dlss5PresentationProcessor.js';
+import {
+  isDlss5Supported,
+  loadDlss5Settings,
+  saveDlss5Settings,
+} from '../ui/presentation/dlss5/dlss5Settings.js';
 import { MinimapRenderer } from '../ui/minimapRenderer.js';
 import { JuiceManager } from '../ui/juice.js';
 import { BossHud } from '../ui/bossHud.js';
@@ -467,6 +473,7 @@ type TitleMenuMode =
   | 'settings'
   | 'settings-resolution'
   | 'settings-difficulty'
+  | 'settings-dlss5'
   | 'credits'
   | 'multiplayer';
 type ArchipelagoTitleField = 'serverUrl' | 'slotName' | 'password';
@@ -1709,6 +1716,8 @@ const CREDITS_CONTENT: string[] = [
   'TypeScript  —  For type-safe development',
   'Vite  —  For blazing fast builds',
   'Vitest  —  For testing',
+  'lambdaWalker/ds.photo_id  -  synthetic DLSS 5 portrait source',
+  'Hugging Face dataset, licensed CC BY 4.0',
   '',
   '',
   '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
@@ -1876,6 +1885,7 @@ export default class SnakeScene extends Phaser.Scene {
   private emoticonActivationTime: number = 0;
   private snakeRenderer!: SnakeRenderer;
   private firstPersonRenderer!: FirstPersonRenderer;
+  private readonly dlss5PresentationProcessor = new Dlss5PresentationProcessor();
   private daggerfellPresentationActive = false;
   private firstPersonInputFacing: Vector2Like | null = null;
   private worldVisualAssets!: WorldVisualAssets;
@@ -2099,6 +2109,9 @@ export default class SnakeScene extends Phaser.Scene {
   private titleSettingsContainer: Phaser.GameObjects.Container | null = null;
   private titleResolutionSettingsContainer: Phaser.GameObjects.Container | null = null;
   private titleDifficultySettingsContainer: Phaser.GameObjects.Container | null = null;
+  private titleDlss5SettingsContainer: Phaser.GameObjects.Container | null = null;
+  private titleDlss5CurrentText: Phaser.GameObjects.Text | null = null;
+  private titleDlss5ToggleButton: Phaser.GameObjects.Container | null = null;
   private titleMultiplayerContainer: Phaser.GameObjects.Container | null = null;
   private titleGitHubButton: Phaser.GameObjects.Container | null = null;
   private titleHeadingText: Phaser.GameObjects.Text | null = null;
@@ -7850,6 +7863,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.titleSettingsContainer?.setVisible(mode === 'settings');
     this.titleResolutionSettingsContainer?.setVisible(mode === 'settings-resolution');
     this.titleDifficultySettingsContainer?.setVisible(mode === 'settings-difficulty');
+    this.titleDlss5SettingsContainer?.setVisible(mode === 'settings-dlss5');
     this.titleMultiplayerContainer?.setVisible(mode === 'multiplayer');
     const isMain = mode === 'main';
     this.titleGitHubButton?.setVisible(isMain);
@@ -8034,6 +8048,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.titleSettingsContainer?.setVisible(false);
     this.titleResolutionSettingsContainer?.setVisible(false);
     this.titleDifficultySettingsContainer?.setVisible(false);
+    this.titleDlss5SettingsContainer?.setVisible(false);
     this.titleMultiplayerContainer?.setVisible(false);
 
     if (!this.creditsContainer) {
@@ -8318,7 +8333,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     const settings = this.add.container(0, 0).setVisible(false);
     const settingsPanel = this.add
-      .rectangle(width / 2, height / 2 + 44, 330, 250, 0x071019, 0.88)
+      .rectangle(width / 2, height / 2 + 44, 330, 306, 0x071019, 0.88)
       .setStrokeStyle(2, 0x8fb7ff)
       .setOrigin(0.5);
     const settingsTitle = this.add
@@ -8337,7 +8352,14 @@ export default class SnakeScene extends Phaser.Scene {
       this.createTitleButton(width / 2 - 105, height / 2 + 44, 'Difficulty', () =>
         this.showTitleScreen('settings-difficulty'),
       ),
-      this.createTitleButton(width / 2 - 105, height / 2 + 96, 'Back', () =>
+      isDlss5Supported()
+        ? this.createTitleButton(width / 2 - 105, height / 2 + 96, 'DLSS 5', () =>
+            this.showTitleScreen('settings-dlss5'),
+          )
+        : this.createTitleButton(width / 2 - 105, height / 2 + 96, 'DLSS 5', () => undefined, {
+            disabled: true,
+          }),
+      this.createTitleButton(width / 2 - 105, height / 2 + 148, 'Back', () =>
         this.showTitleScreen('main'),
       ),
     ]);
@@ -8451,6 +8473,65 @@ export default class SnakeScene extends Phaser.Scene {
         this.showTitleScreen('settings'),
       ),
     ]);
+
+    const dlss5Settings = this.add.container(0, 0).setVisible(false);
+    const dlss5Panel = this.add
+      .rectangle(width / 2, height / 2 + 44, 430, 336, 0x071019, 0.9)
+      .setStrokeStyle(2, 0x5dd6a2)
+      .setOrigin(0.5);
+    const dlss5Title = this.add
+      .text(width / 2, height / 2 - 94, 'DLSS 5', {
+        fontFamily: "Georgia, 'Times New Roman', serif",
+        fontSize: '28px',
+        color: '#fff4cf',
+      })
+      .setOrigin(0.5);
+    const dlss5Subtitle = this.add
+      .text(width / 2, height / 2 - 58, 'Deep Learning Snake Supersampling', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#c8ffe1',
+      })
+      .setOrigin(0.5);
+    this.titleDlss5CurrentText = this.add
+      .text(width / 2, height / 2 - 18, '', {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#fff3a8',
+      })
+      .setOrigin(0.5);
+    this.titleDlss5ToggleButton = this.createTitleButton(
+      width / 2 - 105,
+      height / 2 + 22,
+      'Enable DLSS 5',
+      () => this.toggleTitleDlss5Setting(),
+    );
+    const dlss5Warning = this.add
+      .text(
+        width / 2,
+        height / 2 + 90,
+        'Advanced neural rendering technologies may alter movement smoothness and perceived humanity.',
+        {
+          fontFamily: 'monospace',
+          fontSize: '12px',
+          color: '#8fb7ff',
+          align: 'center',
+          wordWrap: { width: 340 },
+        },
+      )
+      .setOrigin(0.5);
+    dlss5Settings.add([
+      dlss5Panel,
+      dlss5Title,
+      dlss5Subtitle,
+      this.titleDlss5CurrentText,
+      this.titleDlss5ToggleButton,
+      dlss5Warning,
+      this.createTitleButton(width / 2 - 105, height / 2 + 140, 'Back', () =>
+        this.showTitleScreen('settings'),
+      ),
+    ]);
+    this.refreshTitleDlss5Text();
 
     const multiplayer = this.add.container(0, 0).setVisible(false);
     const multiplayerPanel = this.add
@@ -8670,6 +8751,7 @@ export default class SnakeScene extends Phaser.Scene {
       settings,
       resolutionSettings,
       difficultySettings,
+      dlss5Settings,
       multiplayer,
       this.titleMessageText,
     ]);
@@ -8678,6 +8760,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.titleSettingsContainer = settings;
     this.titleResolutionSettingsContainer = resolutionSettings;
     this.titleDifficultySettingsContainer = difficultySettings;
+    this.titleDlss5SettingsContainer = dlss5Settings;
     this.titleMultiplayerContainer = multiplayer;
     this.refreshTitleCharacterModeText();
     this.startTitleTweens(
@@ -8846,6 +8929,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.titleSettingsContainer,
       this.titleResolutionSettingsContainer,
       this.titleDifficultySettingsContainer,
+      this.titleDlss5SettingsContainer,
       this.titleMultiplayerContainer,
     ];
     const active = containers.find((container) => container?.visible);
@@ -9525,6 +9609,31 @@ export default class SnakeScene extends Phaser.Scene {
     saveResolutionSetting(id);
     this.titleMessageText?.setText('Resolution saved. Reloading...');
     this.time.delayedCall(120, () => window.location.reload());
+  }
+
+  private toggleTitleDlss5Setting(): void {
+    if (!isDlss5Supported()) {
+      return;
+    }
+
+    const current = loadDlss5Settings();
+    saveDlss5Settings({ enabled: !current.enabled });
+    this.dlss5PresentationProcessor.reset();
+    this.refreshTitleDlss5Text();
+  }
+
+  private refreshTitleDlss5Text(): void {
+    const supported = isDlss5Supported();
+    const enabled = supported && loadDlss5Settings().enabled;
+    this.titleDlss5CurrentText?.setText(`Current: ${enabled ? 'ON' : 'OFF'}`);
+    const text = this.titleDlss5ToggleButton?.getData('titleLabelText') as
+      | Phaser.GameObjects.Text
+      | undefined;
+    text?.setText(enabled ? 'Disable DLSS 5' : 'Enable DLSS 5');
+    this.setTitleButtonSelected(this.titleDlss5ToggleButton, enabled);
+    if (text) {
+      text.setText(enabled ? 'Disable DLSS 5 *' : 'Enable DLSS 5');
+    }
   }
 
   private startTitleTweens(
@@ -10506,10 +10615,26 @@ export default class SnakeScene extends Phaser.Scene {
     this.tickQuestBabyCry();
     this.flushArchipelagoTrapQueue();
     this.cleanupExpiredMasonryBlocks();
-    if (this.isDirty) {
+    if (this.isDirty || this.shouldRedrawDlss5Presentation()) {
       this.draw();
       this.isDirty = false;
     }
+  }
+
+  private isDlss5PresentationEnabled(): boolean {
+    return isDlss5Supported() && loadDlss5Settings().enabled;
+  }
+
+  private shouldRedrawDlss5Presentation(): boolean {
+    return (
+      this.isDlss5PresentationEnabled() &&
+      !this.paused &&
+      !this.titleVisible &&
+      !this.skillTree?.isOverlayVisible() &&
+      !this.questPopup?.isVisible() &&
+      !this.villageShopPopup?.isVisible() &&
+      !this.datingScenePopup?.isVisible()
+    );
   }
 
   private pollControllerInput(): void {
@@ -11835,6 +11960,18 @@ export default class SnakeScene extends Phaser.Scene {
           atmosphere,
         })
       : null;
+    const dlss5PresentationEnabled = this.isDlss5PresentationEnabled();
+    const displayPresentationScene =
+      presentationScene && dlss5PresentationEnabled
+        ? this.dlss5PresentationProcessor.process(
+            presentationScene,
+            this.time.now,
+            this.actionStepIntervalMs,
+          )
+        : presentationScene;
+    if (!dlss5PresentationEnabled) {
+      this.dlss5PresentationProcessor.reset();
+    }
     const firstPersonRendered = this.shouldRenderFirstPerson({
       localPlayer: Boolean(localPlayer),
       roomSnapshot: Boolean(roomSnapshot),
@@ -11861,7 +11998,7 @@ export default class SnakeScene extends Phaser.Scene {
         atmosphere,
         renderTimeMs: this.time.now,
         manualStepActive: this.isManualHouseMovementActive(),
-        presentationScene: presentationScene!,
+        presentationScene: displayPresentationScene!,
         movement,
       });
     } else {
@@ -11902,7 +12039,10 @@ export default class SnakeScene extends Phaser.Scene {
         animals,
         alchemyStation,
         atmosphere,
-        presentationScene: presentationScene ?? undefined,
+        presentationScene:
+          dlss5PresentationEnabled && displayPresentationScene
+            ? displayPresentationScene
+            : undefined,
         thermalBody: temperature,
         lightningStrike: binocularsView ? null : this.snakeGame.getLightningStrikeView(room.id),
         renderTimeMs: this.time.now,
