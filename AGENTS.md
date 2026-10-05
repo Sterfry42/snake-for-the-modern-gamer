@@ -161,6 +161,29 @@ Historical wise old snake references from commit `41f279f3dc6fd88bab79419480dff3
 
 **NEVER use `@ts-expect-error` to work around TypeScript errors.** If you encounter a TypeScript error, fix the root cause — don't suppress it. Unused variables should be removed, not commented out.
 
+## Commit Sign-Off Requirements
+
+**EVERY commit made in this repository is REQUIRED to carry the following trailers.** No exceptions. A commit missing any of these trailers fails inspection and is not done — full stop.
+
+1. **`Foreman: <AUTHOR NAME>`** — the name of the git user that is signing off on the commit. Use exactly the value of `git config user.name` (for example, `Foreman: Ryan Brue`).
+2. **`Construction-worker: <AGENT>`** — the name of the current running agent or model (for example, `Construction-worker: Qwen3.8-27B`).
+3. **`Signed-off-by: <NAME> <EMAIL>`** — the commit **MUST** be signed off with the full name and email of the current git committer (for example, `Signed-off-by: Ryan Brue <ryanbrue.dev@gmail.com>`). Prefer `git commit --signoff` so the sign-off always matches the committer identity exactly; if adding the trailer manually, take the name and email from `git config user.name` and `git config user.email`.
+
+It is **FORBIDDEN** to use the `Co-Authored-By:` trailer for LLMs. The `Construction-worker:` trailer above is the ONLY permitted way to record agent involvement in a commit. Never substitute `Co-Authored-By:` for it, even in amends, rebases, or squashes.
+
+A conforming commit message looks like this:
+
+```
+Add ladder climbing for the snake
+
+Foreman: Ryan Brue
+Construction-worker: Qwen3.8-27B
+Signed-off-by: Ryan Brue <ryanbrue.dev@gmail.com>
+```
+
+- Values are never placeholders: fill in the real committer name and the real running agent, every single time.
+- These requirements apply to every commit in this repository, including amended, rebased, and squash-generated commits. If you regenerate a commit (amend, rebase, squash), the trailers must survive the regeneration.
+
 ## Snake Encyclopedia
 
 Before implementing functionality, search `docs/core/Snake Encyclopedia.md` for existing reusable systems, helpers, UI surfaces, registries, and consolidation notes. Prefer targeted `rg` queries against that file instead of loading the whole encyclopedia into context.
