@@ -1,4 +1,5 @@
 import type { RoomArchetypeId } from './types.js';
+import { parseRoomId } from '../roomAddress.js';
 import { hashString, positiveMod } from './worldHash.js';
 import type { WorldGenerationIdentity } from './worldGenerationIdentity.js';
 import { clamp } from '../../core/math.js';
@@ -336,11 +337,6 @@ export function getMosaicCoastStarterRegionPlan(
   identity: WorldGenerationIdentity,
 ): MosaicCoastRegionPlan {
   return new MosaicCoastRegionPlanner(identity).getRegionForRoom({ x: 0, y: -10, z: 0 });
-}
-
-function parseRoomId(roomId: string): { x: number; y: number; z: number } {
-  const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
-  return { x, y, z };
 }
 
 function starterContains(coord: { x: number; y: number; z: number }): boolean {

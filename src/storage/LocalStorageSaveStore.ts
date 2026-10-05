@@ -1,4 +1,5 @@
 import type { SaveStore } from './SaveStore.js';
+import { safeLocalStorage } from './localStorage.js';
 
 export class LocalStorageSaveStore<TSaveData> implements SaveStore<TSaveData> {
   constructor(private readonly keyPrefix: string) {}
@@ -31,6 +32,6 @@ export class LocalStorageSaveStore<TSaveData> implements SaveStore<TSaveData> {
   }
 
   private getStorage(): Storage | null {
-    return typeof localStorage === 'undefined' ? null : localStorage;
+    return safeLocalStorage();
   }
 }

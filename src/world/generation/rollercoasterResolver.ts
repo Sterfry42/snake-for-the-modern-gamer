@@ -1,6 +1,7 @@
 import type { GridConfig } from '../../config/gameConfig.js';
 import type { WorldGenerationIdentity } from './worldGenerationIdentity.js';
 import { parseRoomId, type RoomCoordinate } from './multiRoomStructures.js';
+import { hashTransitCoordinate } from '../transitShared.js';
 import { positiveMod } from './worldHash.js';
 
 const COASTER_STATION_REGION_SIZE = 16;
@@ -144,12 +145,12 @@ export class RollercoasterStructureResolver {
     regionKey: string,
     index: number,
   ): RollercoasterPlacement | null {
-    const seed = positiveMod(hashWorldCoordinate(this.identity.seed, regionKey, index), 1000000);
+    const seed = positiveMod(hashTransitCoordinate(this.identity.seed, regionKey, index), 1000000);
 
     for (let attempt = 0; attempt < COASTER_STATION_CANDIDATE_ATTEMPTS; attempt++) {
       const candidateKey = `${regionKey}:${attempt}`;
       const candidateSeed = positiveMod(
-        hashWorldCoordinate(String(seed), candidateKey, 0),
+        hashTransitCoordinate(String(seed), candidateKey, 0),
         1000000,
       );
 
@@ -235,14 +236,4 @@ export class RollercoasterStructureResolver {
   private getRegionKey(coord: RoomCoordinate): string {
     return `${Math.floor(coord.x / COASTER_STATION_REGION_SIZE)},${Math.floor(coord.y / COASTER_STATION_REGION_SIZE)}`;
   }
-}
-
-function hashWorldCoordinate(seed: string, regionKey: string, index: number): number {
-  let hash = 0;
-  const combined = `${seed}:${regionKey}:${index}`;
-  for (let i = 0; i < combined.length; i++) {
-    const char = combined.charCodeAt(i);
-    hash = ((hash << 5) - hash + char) | 0;
-  }
-  return Math.abs(hash);
 }

@@ -5,12 +5,15 @@ import type {
   BulletTrainDestinationChoice,
   BulletTrainStation,
 } from './bulletTrainTypes.js';
+import {
+  findContiguousFloorBlocks,
+  findEdgeTiles,
+  generateTransitStationId,
+} from './transitShared.js';
 import type { RoomSnapshot } from './types.js';
 
 const BULLET_TRAIN_ENTRANCE_TILE = '@';
 const BULLET_TRAIN_STATION_CHANCE = 0.6;
-const MIN_DESTINATIONS = 2;
-const MAX_DESTINATIONS = 4;
 
 const JADE_PEAK_FLAVOR_TEXTS: string[] = [
   'Mist clings to the terraced slopes. The train hums to a stop.',
@@ -41,84 +44,6 @@ const JADE_PEAK_DISPLAY_NAMES: string[] = [
   'Hot Springs',
   'Bamboo Grove',
 ];
-
-/** Find contiguous blocks of floor tiles in a room layout. */
-function findContiguousFloorBlocks(
-  layout: string[][],
-  minSize: number,
-): Array<{ tiles: Array<{ x: number; y: number }>; count: number }> {
-  const visited = new Set<string>();
-  const blocks: Array<{ tiles: Array<{ x: number; y: number }>; count: number }> = [];
-
-  function floodFill(startX: number, startY: number): Array<{ x: number; y: number }> {
-    const tiles: Array<{ x: number; y: number }> = [];
-    const queue: Array<{ x: number; y: number }> = [{ x: startX, y: startY }];
-    const key = `${startX},${startY}`;
-    visited.add(key);
-
-    while (queue.length > 0) {
-      const { x, y } = queue.shift()!;
-      tiles.push({ x, y });
-
-      const neighbors = [
-        { x: x + 1, y },
-        { x: x - 1, y },
-        { x, y: y + 1 },
-        { x, y: y - 1 },
-      ];
-
-      for (const n of neighbors) {
-        if (n.x < 0 || n.y < 0 || n.y >= layout.length || n.x >= layout[0].length) continue;
-        const nk = `${n.x},${n.y}`;
-        if (visited.has(nk)) continue;
-        const tile = layout[n.y]?.[n.x];
-        if (tile !== '.' && tile !== BULLET_TRAIN_ENTRANCE_TILE) continue;
-        visited.add(nk);
-        queue.push(n);
-      }
-    }
-    return tiles;
-  }
-
-  for (let y = 0; y < layout.length; y++) {
-    for (let x = 0; x < layout[y].length; x++) {
-      const key = `${x},${y}`;
-      if (visited.has(key)) continue;
-      const tile = layout[y][x];
-      if (tile !== '.' && tile !== BULLET_TRAIN_ENTRANCE_TILE) continue;
-      const tiles = floodFill(x, y);
-      if (tiles.length >= minSize) {
-        blocks.push({ tiles, count: tiles.length });
-      }
-    }
-  }
-  return blocks;
-}
-
-/** Find tiles near a room edge (within maxDistance tiles of a wall). */
-function findEdgeTiles(layout: string[][], maxDistance: number): Array<{ x: number; y: number }> {
-  const tiles: Array<{ x: number; y: number }> = [];
-  const rows = layout.length;
-  const cols = layout[0]?.length ?? 0;
-
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < cols; x++) {
-      const tile = layout[y][x];
-      if (tile !== '.' && tile !== BULLET_TRAIN_ENTRANCE_TILE) continue;
-
-      const distToEdge = Math.min(x, y, cols - 1 - x, rows - 1 - y);
-      if (distToEdge <= maxDistance) {
-        tiles.push({ x, y });
-      }
-    }
-  }
-  return tiles;
-}
-
-/** Generate a unique station ID from a room ID. */
-export function generateStationId(roomId: string): string {
-  return `bullet-train:${roomId}`;
-}
 
 /** Generate decorations for a station entrance deterministically. */
 export function generateDecorations(
@@ -260,7 +185,7 @@ export function createBulletTrainStation(
   if (rng() >= BULLET_TRAIN_STATION_CHANCE) return null;
 
   // Find contiguous floor blocks
-  const blocks = findContiguousFloorBlocks(layout, 8);
+  const blocks = findContiguousFloorBlocks(layout, 8, BULLET_TRAIN_ENTRANCE_TILE);
   if (blocks.length === 0) return null;
 
   // Pick the largest block
@@ -268,7 +193,7 @@ export function createBulletTrainStation(
   const block = blocks[0];
 
   // Find edge tiles within the block
-  const edgeTiles = findEdgeTiles(layout, 3).filter((t) =>
+  const edgeTiles = findEdgeTiles(layout, 3, BULLET_TRAIN_ENTRANCE_TILE).filter((t) =>
     block.tiles.some((bt) => bt.x === t.x && bt.y === t.y),
   );
 
@@ -283,7 +208,7 @@ export function createBulletTrainStation(
   const station: BulletTrainStation = {
     entranceX: entrance.x,
     entranceY: entrance.y,
-    stationId: generateStationId(roomId),
+    stationId: generateTransitStationId('bullet-train', roomId),
     destinations: [],
     used: false,
     decorations: [],
@@ -325,4 +250,4 @@ export function buildDestinationChoices(
   }));
 }
 
-export { BULLET_TRAIN_STATION_CHANCE, MIN_DESTINATIONS, MAX_DESTINATIONS };
+export { BULLET_TRAIN_STATION_CHANCE };

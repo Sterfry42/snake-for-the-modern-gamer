@@ -1,3 +1,16 @@
+/**
+ * Room Address
+ *
+ * Parsing/formatting for "x,y,z" room ids.
+ * An apple a day keeps the maze away — the wise old snake keeps the coordinates.
+ */
+
+export interface RoomCoordinate {
+  x: number;
+  y: number;
+  z: number;
+}
+
 interface CoordinateRoomAddress {
   kind: 'coordinate';
   roomId: string;
@@ -8,6 +21,17 @@ interface CoordinateRoomAddress {
 
 const COORDINATE_ROOM_PATTERN = /^-?\d+,-?\d+,-?\d+$/;
 
+/** Lenient parser: missing parts default to 0. Room ids are constructed as "x,y,z". */
+export function parseRoomId(roomId: string): RoomCoordinate {
+  const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
+  return { x, y, z };
+}
+
+export function formatRoomId(coord: RoomCoordinate): string {
+  return `${coord.x},${coord.y},${coord.z}`;
+}
+
+/** Strict parser: returns null unless every part is a finite integer. */
 export function parseCoordinateRoomId(roomId: string): CoordinateRoomAddress | null {
   if (!COORDINATE_ROOM_PATTERN.test(roomId)) {
     return null;

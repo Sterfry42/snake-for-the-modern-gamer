@@ -1,4 +1,5 @@
 import { AnimalRegistry } from '../animals/animalRegistry.js';
+import { actorGoalEquals } from './actorTypes.js';
 import type {
   Actor,
   ActorActivity,
@@ -371,19 +372,6 @@ export class ActorRegistry {
       }
     }
   }
-}
-
-function actorGoalEquals(left: ActorGoal | undefined, right: ActorGoal | undefined): boolean {
-  return (
-    left === right ||
-    (left?.kind === right?.kind &&
-      left?.priority === right?.priority &&
-      left?.roomId === right?.roomId &&
-      left?.targetActorId === right?.targetActorId &&
-      left?.targetPosition?.x === right?.targetPosition?.x &&
-      left?.targetPosition?.y === right?.targetPosition?.y &&
-      left?.reason === right?.reason)
-  );
 }
 
 function actorPresenceEquals(

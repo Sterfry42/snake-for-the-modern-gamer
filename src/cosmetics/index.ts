@@ -39,7 +39,7 @@ export type {
   CowbellDefinition,
   UtilityDefinition,
   LanguageDefinition,
-  EmoticonDefinition,
+  EmoticonShopItem,
 } from './cosmeticCatalog.js';
 
 export {
@@ -60,7 +60,6 @@ export {
   getAllLanguageDefinitions,
   getLanguageDefinition,
   getAllEmoticonDefinitions,
-  getEmoticonDefinition,
   toThemeItem,
   toHatItem,
   toCowbellItem,

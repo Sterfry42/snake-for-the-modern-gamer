@@ -1,11 +1,8 @@
+import { clamp01 } from '../core/math.js';
 import type { SpecialStatId, SpecialStats } from './specialTypes.js';
 import { getStatDelta } from './specialStats.js';
 
 export type StatModifierMap = Partial<Record<SpecialStatId, number>>;
-
-export function clamp01(value: number): number {
-  return Math.max(0, Math.min(1, value));
-}
 
 export function clampPercentModifier(value: number, min = -0.75, max = 0.75): number {
   return Math.max(min, Math.min(max, value));

@@ -1,7 +1,8 @@
-import { SnakeGame } from './src/game/snakeGame.js';
-import { defaultGameConfig } from './src/config/gameConfig.js';
-import { QuestRegistry } from './src/quests/questRegistry.js';
-import { clearSavedGameData } from './src/game/saveManager.js';
+import { afterEach, describe, expect, test } from 'vitest';
+import { SnakeGame } from '../snakeGame.js';
+import { defaultGameConfig } from '../../config/gameConfig.js';
+import { QuestRegistry } from '../../quests/questRegistry.js';
+import { clearSavedGameData } from '../saveManager.js';
 
 describe('SnakeGame legacy save adapter', () => {
   let game: SnakeGame;
@@ -18,6 +19,7 @@ describe('SnakeGame legacy save adapter', () => {
         quests: { ...defaultGameConfig.quests, initialQuestCount: 3 },
       },
       registry,
+      {},
     );
     game.reset();
   });
@@ -40,7 +42,7 @@ describe('SnakeGame legacy save adapter', () => {
 
     expect(game.hasSaveFile()).toBe(true);
 
-    game.reset('0,-1,0');
+    game.reset();
     expect(game.loadGame()).toBe(true);
 
     expect(game.getSnakeLength()).toBe(initialLength + 10);
@@ -81,7 +83,7 @@ describe('SnakeGame legacy save adapter', () => {
     });
     game.saveGame();
 
-    game.reset('0,-1,0');
+    game.reset();
     expect(game.loadGame()).toBe(true);
 
     const restoredActor = game.getActorSystem().getActor(actor.id);

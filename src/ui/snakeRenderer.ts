@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { paletteConfig, darkenColor } from '../config/palette.js';
+import { positiveMod } from '../world/generation/worldHash.js';
 import type { GridConfig } from '../config/gameConfig.js';
 import type { Vector2Like } from '../core/math.js';
 import type { RoomSnapshot } from '../world/types.js';
@@ -4080,8 +4081,4 @@ export class SnakeRenderer {
       .setAlpha(ghostAlpha)
       .setVisible(true);
   }
-}
-
-function positiveMod(value: number, modulus: number): number {
-  return ((value % modulus) + modulus) % modulus;
 }

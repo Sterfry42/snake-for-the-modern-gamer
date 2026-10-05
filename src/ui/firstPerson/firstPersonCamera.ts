@@ -1,4 +1,4 @@
-import type { Vector2Like } from '../../core/math.js';
+import { clamp01, lerp, type Vector2Like } from '../../core/math.js';
 import type { FirstPersonCamera } from './firstPersonTypes.js';
 
 const TAU = Math.PI * 2;
@@ -75,12 +75,4 @@ export function cameraTargetDistance(a: FirstPersonCamera, b: FirstPersonCamera)
 
 export function shortestAngleDelta(from: number, to: number): number {
   return ((((to - from) % TAU) + Math.PI * 3) % TAU) - Math.PI;
-}
-
-function lerp(from: number, to: number, alpha: number): number {
-  return from + (to - from) * alpha;
-}
-
-function clamp01(value: number): number {
-  return Math.max(0, Math.min(1, value));
 }

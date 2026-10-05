@@ -1,3 +1,5 @@
+import { safeLocalStorage } from '../storage/localStorage.js';
+
 export type ControlActionId =
   | 'starforged.panel'
   | 'starforged.ability'
@@ -291,13 +293,6 @@ function normalizeBindingLabel(label: string): string {
   return label.toLowerCase().replace(/\s+/g, '');
 }
 
-function getStorage(): Storage | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-  return window.localStorage ?? null;
-}
-
 function sanitizeOverrides(value: unknown): ControlBindingOverrides {
   if (!value || typeof value !== 'object') {
     return {};
@@ -337,7 +332,7 @@ export function loadControlBindingOverrides(): ControlBindingOverrides {
     return cachedOverrides;
   }
 
-  const storage = getStorage();
+  const storage = safeLocalStorage();
   if (!storage) {
     cachedOverrides = {};
     return cachedOverrides;
@@ -354,7 +349,7 @@ export function loadControlBindingOverrides(): ControlBindingOverrides {
 
 export function saveControlBindingOverrides(overrides: ControlBindingOverrides): void {
   cachedOverrides = sanitizeOverrides(overrides);
-  const storage = getStorage();
+  const storage = safeLocalStorage();
   if (!storage) {
     return;
   }
