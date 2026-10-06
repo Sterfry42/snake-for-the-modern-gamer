@@ -16,7 +16,7 @@ import {
   vectorKey,
   type Vector2Like,
 } from '../core/math.js';
-import { createRng, type RandomGenerator } from '../core/rng.js';
+import { createRng, isStatefulRandomGenerator, type RandomGenerator } from '../core/rng.js';
 import { AppleService, type AppleConsumptionResult } from '../apples/appleService.js';
 import type { AppleSnapshot } from '../apples/types.js';
 import {
@@ -2161,10 +2161,6 @@ export class SnakeGame implements QuestRuntime {
       return false;
     }
     return otherSnake.bodySegments.some((segment) => segment.x === head.x && segment.y === head.y);
-  }
-
-  step(paused: boolean): StepResult {
-    return this.actionStep(paused);
   }
 
   actionStep(paused: boolean): StepResult {
@@ -6435,6 +6431,10 @@ export class SnakeGame implements QuestRuntime {
     return this.world.getRoom(roomId);
   }
 
+  peekCachedRoom(roomId: string): RoomSnapshot | undefined {
+    return this.world.peekCachedRoom(roomId);
+  }
+
   claimRoom(
     roomId: string = this.snake.currentRoomId,
     ownerId: string = this.localPlayerId,
@@ -7321,7 +7321,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private expireInterruptedActorSleep(nowMs: number): void {
-    for (const actor of this.actors.registry.getAll()) {
+    for (const actor of this.actors.registry.getForWork('sleep-interruption')) {
       if (
         actor.flags.sleepInterrupted === true &&
         Number(actor.flags.sleepInterruptedUntilMs ?? 0) <= nowMs
@@ -10458,7 +10458,7 @@ export class SnakeGame implements QuestRuntime {
     nowMs: number,
   ): number {
     let actorsMoved = 0;
-    for (const actor of this.actors.registry.getAll()) {
+    for (const actor of this.actors.registry.getForWork('travel')) {
       const goalRoomId = actor.goal?.roomId;
       if (
         !goalRoomId ||
@@ -10767,7 +10767,7 @@ export class SnakeGame implements QuestRuntime {
     const elapsedPhaseMs =
       (DAY_PHASE_DURATIONS_MS[atmosphere.dayPhase] ?? 0) * atmosphere.phaseProgress;
     let recovered = 0;
-    for (const actor of this.actors.registry.getAll()) {
+    for (const actor of this.actors.registry.getForWork('business')) {
       const policy = townBusinessPolicyForRole(actor.role);
       const deadlineMs = policy?.recoveryDeadlineMs[atmosphere.dayPhase];
       if (
@@ -11834,7 +11834,7 @@ export class SnakeGame implements QuestRuntime {
 
   private advanceActorConversations(roomId: string): void {
     const nowMs = Number(this.getFlag<number>('timeMs') ?? 0);
-    for (const actor of this.actors.registry.getAll()) {
+    for (const actor of this.actors.registry.getByRoom(roomId)) {
       if (actor.presence?.roomId !== roomId) {
         continue;
       }
@@ -19530,6 +19530,7 @@ export class SnakeGame implements QuestRuntime {
       'layers.active',
       'minecraft.save',
       'fishing.caughtFish',
+      'fishing.catchJournal',
       'achievement.hotSurvivalMs',
       'achievement.coldSurvivalMs',
       'achievement.cowbellTilesWalked',
@@ -19603,6 +19604,7 @@ export class SnakeGame implements QuestRuntime {
       questsActive: this.questController.getActive().map((q: Quest) => q.id),
       questsCompleted: this.questController.getCompletedIds(),
       questsAccepted: this.questController.getAcceptedIds(),
+      rngState: isStatefulRandomGenerator(this._rng) ? this._rng.getState() : undefined,
     };
 
     const religionId = this.getFlag<string>('religion.id');
@@ -19644,8 +19646,16 @@ export class SnakeGame implements QuestRuntime {
 
     // Fishing data
     const caughtFish = this.getFlag<Record<string, number>>('fishing.caughtFish');
-    if (caughtFish && Object.keys(caughtFish).length > 0) {
-      data.fishing = { caughtFish };
+    const catchJournal = this.getFlag<unknown[]>('fishing.catchJournal');
+    if (
+      (caughtFish && Object.keys(caughtFish).length > 0) ||
+      (catchJournal && catchJournal.length > 0)
+    ) {
+      data.fishing = {
+        caughtFish: caughtFish ?? {},
+        catchJournal: catchJournal ?? [],
+        equippedRod: Object.values(data.equipment).includes('fishing-rod') ? 'fishing-rod' : 'none',
+      };
     }
 
     return data;
@@ -19841,6 +19851,7 @@ export class SnakeGame implements QuestRuntime {
       if (data.worldGeneration) {
         this.worldGenerationIdentity = data.worldGeneration;
         this._rng = createRng(data.worldGeneration.seed);
+        this.restoreRngState(data.rngState);
         this.world = new WorldService(
           this.config.grid,
           this.config.world,
@@ -19902,6 +19913,12 @@ export class SnakeGame implements QuestRuntime {
         if (value !== undefined) {
           this.setFlag(key, value);
         }
+      }
+      if (data.fishing?.caughtFish) {
+        this.setFlag('fishing.caughtFish', data.fishing.caughtFish);
+      }
+      if (data.fishing?.catchJournal) {
+        this.setFlag('fishing.catchJournal', data.fishing.catchJournal);
       }
       this.world.restoreLayerInstances(data.layerInstances);
       this.maneuvers.restore(data.flags?.['maneuvers.state']);
@@ -20001,11 +20018,18 @@ export class SnakeGame implements QuestRuntime {
       this.actorMaterializationDirtyRooms.add(currentRoom.id);
       this.materializeActorsForRoom(currentRoom);
       this.respawnMissingStagedBossesAfterLoad();
+      this.restoreRngState(data.rngState);
 
       return true;
     } catch (error) {
       console.error('Failed to load game:', error);
       return false;
+    }
+  }
+
+  private restoreRngState(rngState: number | undefined): void {
+    if (typeof rngState === 'number' && isStatefulRandomGenerator(this._rng)) {
+      this._rng.setState(rngState);
     }
   }
 

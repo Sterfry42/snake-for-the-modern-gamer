@@ -255,7 +255,7 @@ class MusicFeature extends Feature {
     }
   }
 
-  override onTick(scene: SnakeScene): void {
+  override onActionStep(scene: SnakeScene): void {
     void scene;
     if (!this.composer || !this.genreDetector || !this.melodyCollection) {
       return;

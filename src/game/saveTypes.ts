@@ -78,6 +78,7 @@ export interface GameSaveData {
   activeVehicle?: DrivingCarState;
   layerInstances?: LayerInstance[];
   construction?: ConstructionSaveData;
+  rngState?: number;
 }
 
 /** Compare two semver-style version strings. Returns true if `a < b`. */

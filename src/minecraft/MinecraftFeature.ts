@@ -22,7 +22,7 @@ import {
 } from './crafting.js';
 import type { MinecraftSaveData } from './types.js';
 import { serializeMinecraftState, deserializeMinecraftState } from './save.js';
-import { CHUNK_SIZE } from './config.js';
+import { CHUNK_SIZE, HUNGER_DAMAGE_INTERVAL_TICKS } from './config.js';
 import { blockIdToColor, getBlockHardness, isPlaceableSpecialBlock } from './blockRegistry.js';
 import { getMinecraftItem } from './itemRegistry.js';
 import {
@@ -56,12 +56,16 @@ export class MinecraftFeature extends Feature {
   private craftingUIOpen = false;
   private skyOverlay: Phaser.GameObjects.Graphics | null = null;
   private hudGraphics: Phaser.GameObjects.Graphics | null = null;
+  private controlsText: Phaser.GameObjects.Text | null = null;
+  private hudText: Phaser.GameObjects.Text | null = null;
+  private paletteText: Phaser.GameObjects.Text | null = null;
   private furnaces: Map<string, import('./furnace.js').FurnaceState> = new Map();
   private chests: Map<string, import('./chest.js').ChestState> = new Map();
   private beds: Map<string, import('./bed.js').BedState> = new Map();
   private borderOverlay: Phaser.GameObjects.Graphics | null = null;
 
   private creativeMode = false;
+  private hungerElapsedTicks = 0;
   private _rngInjected = false;
   lastActionStep = 0;
   craftingTableNearby = false;
@@ -99,6 +103,7 @@ export class MinecraftFeature extends Feature {
     this.hudGraphics = scene.add.graphics().setDepth(35);
     this.minecraftMode = false;
     this.creativeMode = false;
+    this.hungerElapsedTicks = 0;
 
     // Initialize from saved data if available
     this.initFromSave(scene);
@@ -110,16 +115,21 @@ export class MinecraftFeature extends Feature {
     this.initFromGame(scene);
 
     const tick = Number(scene.snakeGame.getFlag<number>('timeMs') ?? 0);
+    const elapsedTicks = Math.max(0, tick - this.lastActionStep);
     this.lastActionStep = tick;
 
     // Day/night tick
     this.dayNight?.tick();
 
     // Hunger tick
-    if (tick % 600 === 0) {
-      this.player.state.hunger = Math.max(0, this.player.state.hunger - 1);
-      if (this.player.state.hunger <= 0) {
-        this.player.takeDamage(1);
+    this.hungerElapsedTicks += elapsedTicks;
+    while (this.hungerElapsedTicks >= HUNGER_DAMAGE_INTERVAL_TICKS) {
+      this.hungerElapsedTicks -= HUNGER_DAMAGE_INTERVAL_TICKS;
+      if (!this.creativeMode) {
+        this.player.state.hunger = Math.max(0, this.player.state.hunger - 1);
+        if (this.player.state.hunger <= 0) {
+          this.player.takeDamage(1);
+        }
       }
     }
 
@@ -180,6 +190,10 @@ export class MinecraftFeature extends Feature {
     if (!this.minecraftMode) {
       this.skyOverlay?.setAlpha(0);
       this.borderOverlay?.clear().setAlpha(0);
+      this.controlsText?.setVisible(false);
+      this.hudText?.setVisible(false);
+      this.paletteText?.setVisible(false);
+      this.hudGraphics?.clear();
       return;
     }
 
@@ -202,10 +216,12 @@ export class MinecraftFeature extends Feature {
     // Render creative mode palette bar
     if (this.creativeMode && this.player) {
       this.renderCreativePalette(scene);
+    } else {
+      this.paletteText?.setVisible(false);
     }
 
     // Persistent controls display in bottom left
-    const controlsText = scene.add.text(
+    this.controlsText ??= scene.add.text(
       12,
       height - 110,
       [
@@ -226,8 +242,21 @@ export class MinecraftFeature extends Feature {
         strokeThickness: 3,
       },
     );
-    controlsText.setOrigin(0, 1);
-    controlsText.setDepth(45);
+    this.controlsText.setPosition(12, height - 110).setVisible(true);
+    this.controlsText.setText(
+      [
+        'WASD: Move',
+        'Q: Break | R: Place',
+        'E: Eat',
+        'F/G/H/J: Armor',
+        'Right-click: Interact',
+        this.creativeMode ? '[/]: Cycle blocks' : '',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    );
+    this.controlsText.setOrigin(0, 1);
+    this.controlsText.setDepth(45);
 
     // Render minecraft layer
     this.renderLayer?.render(scene);
@@ -269,7 +298,7 @@ export class MinecraftFeature extends Feature {
 
     // Player health/hunger/XP UI
     if (this.player && scene.snakeGame.getFlag<boolean>('ui.livesRevealed')) {
-      const hudText = scene.add
+      this.hudText ??= scene.add
         .text(scene.scale.width - 120, 8, this.buildHUDText(), {
           fontFamily: 'monospace',
           fontSize: '12px',
@@ -279,12 +308,12 @@ export class MinecraftFeature extends Feature {
         })
         .setDepth(35);
 
-      scene.events.on('update', () => {
-        if (this.player) {
-          hudText.setText(this.buildHUDText());
-          this.renderPlayerBars(scene);
-        }
-      });
+      this.hudText.setPosition(scene.scale.width - 120, 8).setVisible(true);
+      this.hudText.setText(this.buildHUDText());
+      this.renderPlayerBars(scene);
+    } else {
+      this.hudText?.setVisible(false);
+      this.hudGraphics?.clear();
     }
   }
 
@@ -1280,7 +1309,7 @@ export class MinecraftFeature extends Feature {
 
     // Block name label below the palette
     const selectedBlock = blocks[this.player!.creativePaletteSlot] ?? blocks[0];
-    scene.add
+    this.paletteText ??= scene.add
       .text(scene.scale.width / 2, panelY + slotSize + 8, selectedBlock.toUpperCase(), {
         fontFamily: 'monospace',
         fontSize: '10px',
@@ -1291,6 +1320,10 @@ export class MinecraftFeature extends Feature {
       })
       .setOrigin(0.5)
       .setDepth(35);
+    this.paletteText
+      .setPosition(scene.scale.width / 2, panelY + slotSize + 8)
+      .setText(selectedBlock.toUpperCase())
+      .setVisible(true);
   }
 
   private renderPlayerBars(scene: SnakeScene): void {
@@ -1335,10 +1368,30 @@ export class MinecraftFeature extends Feature {
     hudGraphics.strokeRect(hudX, healthY, barWidth, barHeight);
   }
 
+  restoreFromScene(scene: SnakeScene): void {
+    this._rngInjected = false;
+    this._rng = null;
+    this.initFromGame(scene);
+    this.player = new MinecraftPlayer();
+    this.dayNight = new DayNightCycle();
+    this.chunkManager?.clear();
+    this.mobManager?.init();
+    this.furnaces.clear();
+    this.chests.clear();
+    this.beds.clear();
+    this.creativeMode = false;
+    this.minecraftMode = false;
+    this.hungerElapsedTicks = 0;
+    this.lastActionStep = Number(scene.getFlag<number>('timeMs') ?? 0);
+    this.initFromSave(scene);
+    this.onRender(scene);
+  }
+
   private initFromSave(scene: SnakeScene): void {
     const savedData = scene.getFlag<MinecraftSaveData>('minecraft.save');
     if (savedData) {
       const data = deserializeMinecraftState(savedData);
+      this.mobManager?.restoreMobs(data.mobs);
       if (this.player) {
         this.player.state = { ...data.playerState };
         // Restore armor slots
@@ -1568,22 +1621,32 @@ export class MinecraftFeature extends Feature {
   saveToScene(scene: SnakeScene): void {
     if (!this.player || !this.dayNight) return;
 
-    const blocks: Array<{ roomId: string; x: number; y: number; blockType: string }> = [];
-    const dirtyChunks =
-      this.chunkManager?.getDirtyChunks(scene.snakeGame.getCurrentRoom().id) ?? [];
+    const chunkBlocks = this.chunkManager?.serialize() ?? [];
+    const blocks: Array<{ roomId: string; x: number; y: number; blockType: string }> =
+      chunkBlocks.flatMap((chunk) =>
+        chunk.blocks.map((block) => ({
+          roomId: chunk.roomId,
+          x: block.x,
+          y: block.y,
+          blockType: block.blockType,
+        })),
+      );
+    const dirtyChunks = this.chunkManager?.getDirtyChunks() ?? [];
 
-    // Serialize blocks from room
+    // Include legacy room-local blocks that have not yet been mirrored into chunks.
     const room = scene.snakeGame.getCurrentRoom();
     if (room.minecraftBlocks) {
       for (const [key, blockType] of Object.entries(room.minecraftBlocks)) {
         const [x, y] = key.split(',').map(Number);
-        blocks.push({ roomId: room.id, x, y, blockType });
+        if (!blocks.some((block) => block.roomId === room.id && block.x === x && block.y === y)) {
+          blocks.push({ roomId: room.id, x, y, blockType });
+        }
       }
     }
 
     // Serialize mobs
     const mobs = this.mobManager
-      ? this.mobManager.getMobsInRoom(room.id).map((m) => ({
+      ? this.mobManager.getAllMobs().map((m) => ({
           id: m.id,
           type: m.type,
           roomId: m.roomId,
@@ -1632,7 +1695,7 @@ export class MinecraftFeature extends Feature {
       { day: this.dayNight.day, timeOfDay: this.dayNight.timeOfDay },
       mobs,
       blocks,
-      dirtyChunks.map((c) => ({ roomId: room.id, ...c })),
+      dirtyChunks,
       furnaces,
       chests,
       beds,
@@ -1651,5 +1714,8 @@ export class MinecraftFeature extends Feature {
     this.skyOverlay?.destroy();
     this.borderOverlay?.destroy();
     this.hudGraphics?.destroy();
+    this.controlsText?.destroy();
+    this.hudText?.destroy();
+    this.paletteText?.destroy();
   }
 }

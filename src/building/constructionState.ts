@@ -30,7 +30,7 @@ export interface PlacedStructure {
 
 export interface ConstructionSaveData {
   claims?: RoomClaim[];
-  structures?: PlacedStructure[];
+  structures?: Array<Omit<PlacedStructure, 'cells'> & { cells?: readonly StructureStampCell[] }>;
   nextStructureNumber?: number;
 }
 
@@ -267,7 +267,15 @@ export class ConstructionState {
   save(): ConstructionSaveData {
     return {
       claims: [...this.claims.values()].map(cloneClaim),
-      structures: [...this.structures.values()].map(cloneStructure),
+      structures: [...this.structures.values()].map((structure) => ({
+        id: structure.id,
+        roomId: structure.roomId,
+        ownerId: structure.ownerId,
+        blueprintId: structure.blueprintId,
+        anchor: { ...structure.anchor },
+        rotation: structure.rotation,
+        createdAt: structure.createdAt,
+      })),
       nextStructureNumber: this.nextStructureNumber,
     };
   }

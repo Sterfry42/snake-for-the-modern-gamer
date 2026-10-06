@@ -41,6 +41,16 @@ export const CAR_WALL_DAMAGE_COOLDOWN_MS = 650;
 const CAR_EDGE_EPSILON = 0.001;
 const CAR_INTERSECTION_EPSILON = 0.000001;
 
+/** Check the hull between poses instead of jumping across a whole long frame. */
+export function advanceCarPhysics(deltaMs: number, step: (elapsedMs: number) => boolean): void {
+  if (!Number.isFinite(deltaMs) || deltaMs <= 0) return;
+  const elapsed = Math.min(deltaMs, 250);
+  const steps = Math.ceil(elapsed / 8);
+  for (let index = 0; index < steps; index++) {
+    if (!step(elapsed / steps)) break;
+  }
+}
+
 export function carForwardVector(angle: number): Vector2Like {
   return { x: Math.sin(angle), y: -Math.cos(angle) };
 }

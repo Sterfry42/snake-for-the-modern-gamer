@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createRng, withFallback } from '../rng.js';
+import { createRng, isStatefulRandomGenerator, withFallback } from '../rng.js';
 
 describe('RNG unit tests', () => {
   it('createRng produces the same sequence for the same seed', () => {
@@ -72,6 +72,21 @@ describe('RNG unit tests', () => {
       values2.push(rng2());
     }
     expect(values1).toEqual(values2);
+  });
+
+  it('can resume a sequence from an exported state', () => {
+    const rng = createRng('resume-test');
+    for (let index = 0; index < 10; index += 1) {
+      rng();
+    }
+    const state = rng.getState();
+    const expectedNext = [rng(), rng(), rng()];
+
+    const resumed = createRng('resume-test');
+    resumed.setState(state);
+
+    expect([resumed(), resumed(), resumed()]).toEqual(expectedNext);
+    expect(isStatefulRandomGenerator(resumed)).toBe(true);
   });
 
   it('undefined seed produces non-deterministic values (via Math.random)', () => {

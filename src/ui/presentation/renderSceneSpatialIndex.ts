@@ -5,7 +5,7 @@ import type {
   FirstPersonMaterial,
   FirstPersonWorldView,
 } from '../firstPerson/firstPersonTypes.js';
-import type { RenderSprite, RenderTile, WorldRenderScene } from './worldRenderScene.js';
+import type { RenderRoom, RenderSprite, RenderTile, WorldRenderScene } from './worldRenderScene.js';
 
 const OPEN_MATERIAL: FirstPersonMaterial = {
   id: 'open',
@@ -15,18 +15,38 @@ const OPEN_MATERIAL: FirstPersonMaterial = {
 };
 
 export class RenderSceneSpatialIndex {
-  private readonly tiles = new Map<string, RenderTile>();
+  private readonly rooms: readonly RenderRoom[];
+  private static readonly roomTiles = new WeakMap<
+    RenderRoom,
+    readonly (RenderTile | undefined)[]
+  >();
 
   constructor(scene: WorldRenderScene) {
+    this.rooms = scene.rooms;
     for (const room of scene.rooms) {
+      if (RenderSceneSpatialIndex.roomTiles.has(room)) continue;
+      const tiles: (RenderTile | undefined)[] = new Array(room.width * room.height);
       for (const tile of room.tiles) {
-        this.tiles.set(tileKey(tile.x, tile.y), tile);
+        const x = tile.x - room.offsetX;
+        const y = tile.y - room.offsetY;
+        tiles[y * room.width + x] = tile;
       }
+      RenderSceneSpatialIndex.roomTiles.set(room, tiles);
     }
   }
 
   getTile(x: number, y: number): RenderTile | null {
-    return this.tiles.get(tileKey(x, y)) ?? null;
+    if (!Number.isInteger(x) || !Number.isInteger(y)) return null;
+    for (let index = this.rooms.length - 1; index >= 0; index--) {
+      const room = this.rooms[index]!;
+      const localX = x - room.offsetX;
+      const localY = y - room.offsetY;
+      if (localX >= 0 && localY >= 0 && localX < room.width && localY < room.height) {
+        const tile = RenderSceneSpatialIndex.roomTiles.get(room)?.[localY * room.width + localX];
+        if (tile) return tile;
+      }
+    }
+    return null;
   }
 }
 
@@ -117,8 +137,4 @@ function mapBillboardKind(kind: RenderSprite['kind']): FirstPersonBillboard['kin
     default:
       return 'prop';
   }
-}
-
-function tileKey(x: number, y: number): string {
-  return `${x},${y}`;
 }

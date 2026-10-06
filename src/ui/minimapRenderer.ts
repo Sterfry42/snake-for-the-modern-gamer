@@ -11,7 +11,7 @@ export interface MinimapRendererOptions {
   width: number;
   height: number;
   grid: GridConfig;
-  getRoom: (roomId: string) => RoomSnapshot;
+  getRoom: (roomId: string) => RoomSnapshot | undefined;
 }
 
 export interface MinimapSnapshot {
@@ -49,6 +49,8 @@ const COLORS = {
 
 export class MinimapRenderer {
   private readonly graphics: Phaser.GameObjects.Graphics;
+  private readonly snakeGraphics: Phaser.GameObjects.Graphics;
+  private terrainSignature: string | null = null;
   private readonly roomWidth: number;
   private readonly roomHeight: number;
   private visible = false;
@@ -58,6 +60,7 @@ export class MinimapRenderer {
     scene: Phaser.Scene,
   ) {
     this.graphics = scene.add.graphics().setDepth(29).setScrollFactor(0).setVisible(false);
+    this.snakeGraphics = scene.add.graphics().setDepth(29).setScrollFactor(0).setVisible(false);
     this.roomWidth = options.width / 3;
     this.roomHeight = options.height / 3;
   }
@@ -65,8 +68,11 @@ export class MinimapRenderer {
   setVisible(visible: boolean): void {
     this.visible = visible;
     this.graphics.setVisible(visible);
+    this.snakeGraphics.setVisible(visible);
     if (!visible) {
       this.graphics.clear();
+      this.snakeGraphics.clear();
+      this.terrainSignature = null;
     }
   }
 
@@ -75,6 +81,23 @@ export class MinimapRenderer {
       return;
     }
 
+    const current = parseRoomId(snapshot.currentRoomId);
+    const rooms = ROOM_OFFSETS.map((offset) =>
+      this.options.getRoom(makeRoomId(current.x + offset.dx, current.y + offset.dy, current.z)),
+    );
+    const signature = JSON.stringify([
+      snapshot.currentRoomId,
+      rooms.map((room) => room?.layout ?? null),
+    ]);
+    if (signature !== this.terrainSignature) {
+      this.renderTerrain(rooms);
+      this.terrainSignature = signature;
+    }
+    this.snakeGraphics.clear();
+    this.renderSnake(snapshot, current.z);
+  }
+
+  private renderTerrain(rooms: readonly (RoomSnapshot | undefined)[]): void {
     const { x, y, width, height } = this.options;
     this.graphics.clear();
     this.graphics
@@ -84,33 +107,30 @@ export class MinimapRenderer {
       .lineStyle(1, 0x9ad1ff, 0.34)
       .strokeRoundedRect(x - 6.5, y - 6.5, width + 13, height + 13, 6);
 
-    const current = parseRoomId(snapshot.currentRoomId);
     for (let index = 0; index < ROOM_OFFSETS.length; index += 1) {
       const offset = ROOM_OFFSETS[index]!;
       const col = index % 3;
       const row = Math.floor(index / 3);
-      const roomId = makeRoomId(current.x + offset.dx, current.y + offset.dy, current.z);
       const roomX = x + col * this.roomWidth;
       const roomY = y + row * this.roomHeight;
-      const room = this.options.getRoom(roomId);
+      const room = rooms[index];
       this.renderRoom(room, roomX, roomY, offset.dx === 0 && offset.dy === 0);
     }
-
-    this.renderSnake(snapshot, current.z);
   }
 
   destroy(): void {
     this.graphics.destroy();
+    this.snakeGraphics.destroy();
   }
 
-  private renderRoom(room: RoomSnapshot, x: number, y: number, current: boolean): void {
+  private renderRoom(room: RoomSnapshot | undefined, x: number, y: number, current: boolean): void {
     const tileW = this.roomWidth / this.options.grid.cols;
     const tileH = this.roomHeight / this.options.grid.rows;
     this.graphics
       .fillStyle(COLORS.room, current ? 0.88 : 0.64)
       .fillRect(x, y, this.roomWidth, this.roomHeight);
 
-    for (let tileY = 0; tileY < this.options.grid.rows; tileY += 1) {
+    for (let tileY = 0; room && tileY < this.options.grid.rows; tileY += 1) {
       const row = room.layout[tileY] ?? '';
       for (let tileX = 0; tileX < this.options.grid.cols; tileX += 1) {
         const kind = getMinimapTileKind(row[tileX] ?? '.');
@@ -158,7 +178,7 @@ export class MinimapRenderer {
       const x = this.options.x + col * this.roomWidth + position.localX * tileW;
       const y = this.options.y + row * this.roomHeight + position.localY * tileH;
       const isHead = index === 0;
-      this.graphics
+      this.snakeGraphics
         .fillStyle(isHead ? COLORS.snakeHead : COLORS.snakeBody, isHead ? 1 : 0.92)
         .fillRect(x, y, isHead ? segmentW + 1 : segmentW, isHead ? segmentH + 1 : segmentH);
     });

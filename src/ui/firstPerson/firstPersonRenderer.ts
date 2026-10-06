@@ -91,7 +91,6 @@ export class FirstPersonRenderer {
     }
 
     this.activeOptions = options;
-    this.renderFrame(options, options.renderTimeMs ?? this.scene.time.now);
   }
 
   hide(): void {

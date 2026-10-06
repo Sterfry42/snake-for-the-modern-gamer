@@ -50,6 +50,35 @@ describe('save world identity', () => {
     expect(typeof loadedIdentity?.townSalt).toBe('number');
   });
 
+  it('resumes gameplay RNG state after save and load', () => {
+    const game = makeGameWithSeed('save-rng-state');
+    game.reset();
+    for (let index = 0; index < 12; index += 1) {
+      game.random();
+    }
+    const save = game.getSaveData();
+    const expectedNext = [game.random(), game.random(), game.random()];
+
+    const loaded = makeGameWithSeed('different-starting-seed');
+    expect(loaded.loadFromSaveData(save)).toBe(true);
+
+    expect([loaded.random(), loaded.random(), loaded.random()]).toEqual(expectedNext);
+  });
+
+  it('round-trips the fishing catch journal through save data', () => {
+    const game = makeGameWithSeed('save-fishing-journal');
+    game.reset();
+    const journal = [{ fishId: 'fish-minnow', count: 2, largestWeight: 1.25 }];
+    game.setFlag('fishing.catchJournal', journal);
+    game.setFlag('fishing.caughtFish', { 'fish-minnow': 2 });
+
+    const loaded = makeGameWithSeed('different-starting-seed');
+    expect(loaded.loadFromSaveData(game.getSaveData())).toBe(true);
+
+    expect(loaded.getFlag('fishing.catchJournal')).toEqual(journal);
+    expect(loaded.getFlag('fishing.caughtFish')).toEqual({ 'fish-minnow': 2 });
+  });
+
   it('reproduces world state with deterministic seed via fresh game creation', () => {
     const seed = 'save-fresh-creation';
     const gameA = makeGameWithSeed(seed);

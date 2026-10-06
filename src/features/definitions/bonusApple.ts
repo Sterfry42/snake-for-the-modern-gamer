@@ -37,7 +37,7 @@ class BonusAppleFeature extends Feature {
     scene.setFlag('bonusActive', false);
   }
 
-  override onTick(scene: SnakeScene): void {
+  override onActionStep(scene: SnakeScene): void {
     if (!scene.getFlag<boolean>('bonusActive') && scene.random() < ACTIVATION_CHANCE) {
       scene.setFlag('bonusActive', true);
     }

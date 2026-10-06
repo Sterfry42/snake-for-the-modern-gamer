@@ -10,10 +10,38 @@ import {
   resolveCarRoomPosition,
   shouldDamageCarWallImpact,
   updateArcadeCarMotion,
+  advanceCarPhysics,
 } from './carPhysics.js';
 
 describe('car physics helpers', () => {
   const grid = { cols: 60, rows: 34 };
+
+  it('checks intermediate poses during long frames and stops at the first collision', () => {
+    let x = 0;
+    let checks = 0;
+    advanceCarPhysics(250, (elapsedMs) => {
+      checks++;
+      const nextX = x + (10.5 * elapsedMs) / 1000;
+      if (nextX >= 1 && nextX < 2) return false;
+      x = nextX;
+      return true;
+    });
+    expect(checks).toBeGreaterThan(1);
+    expect(x).toBeLessThan(1);
+  });
+
+  it('bounds catch-up and preserves elapsed time across collision substeps', () => {
+    const steps: number[] = [];
+    advanceCarPhysics(1000, (elapsedMs) => {
+      steps.push(elapsedMs);
+      return true;
+    });
+    expect(Math.max(...steps)).toBeLessThanOrEqual(8);
+    expect(steps.reduce((sum, value) => sum + value, 0)).toBeCloseTo(250);
+    advanceCarPhysics(Number.NaN, () => {
+      throw new Error('Invalid frame must not advance');
+    });
+  });
 
   function expectCellsInsideGrid(cells: readonly { x: number; y: number }[]): void {
     for (const cell of cells) {

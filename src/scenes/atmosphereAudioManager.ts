@@ -22,10 +22,9 @@ interface AtmosphereAudioManagerDependencies {
   snakeGame: SnakeGame;
   getTime: () => number;
   showQuestHintPopup: (message: string, color?: string) => void;
-  isDirty: boolean;
   setIsDirty: (value: boolean) => void;
-  titleVisible: boolean;
-  paused: boolean;
+  isTitleVisible: () => boolean;
+  isPaused: () => boolean;
 }
 
 export class AtmosphereAudioManager {
@@ -33,8 +32,8 @@ export class AtmosphereAudioManager {
   private readonly getTime: () => number;
   private readonly showQuestHintPopup: (message: string, color?: string) => void;
   private readonly setIsDirty: (value: boolean) => void;
-  private readonly titleVisible: boolean;
-  private readonly paused: boolean;
+  private readonly isTitleVisible: () => boolean;
+  private readonly isPaused: () => boolean;
 
   private atmosphereAudioContext: AudioContext | null = null;
   private atmosphereNoiseSource: AudioBufferSourceNode | null = null;
@@ -47,14 +46,15 @@ export class AtmosphereAudioManager {
   private desertMusicKey = 'none';
   private lastAtmosphereWorldDay = 0;
   private nextThunderAtMs = 0;
+  private lastVisualKey = '';
 
   constructor(dependencies: AtmosphereAudioManagerDependencies) {
     this.snakeGame = dependencies.snakeGame;
     this.getTime = dependencies.getTime;
     this.showQuestHintPopup = dependencies.showQuestHintPopup;
     this.setIsDirty = dependencies.setIsDirty;
-    this.titleVisible = dependencies.titleVisible;
-    this.paused = dependencies.paused;
+    this.isTitleVisible = dependencies.isTitleVisible;
+    this.isPaused = dependencies.isPaused;
   }
 
   /**
@@ -66,7 +66,19 @@ export class AtmosphereAudioManager {
     if (atmosphere.worldDay > beforeDay) {
       this.notifyDay(atmosphere.worldDay);
     }
-    if (!this.titleVisible && !this.paused) {
+    const visualKey = JSON.stringify([
+      atmosphere.worldDay,
+      atmosphere.season,
+      atmosphere.dayPhase,
+      Math.floor(atmosphere.phaseProgress * 255),
+      atmosphere.globalWeather,
+      atmosphere.weatherIntensity,
+      atmosphere.weatherSeed,
+      Math.floor(atmosphere.weatherTransitionProgress * 255),
+      atmosphere.skyEvent,
+    ]);
+    if (!this.isTitleVisible() && !this.isPaused() && visualKey !== this.lastVisualKey) {
+      this.lastVisualKey = visualKey;
       this.setIsDirty(true);
     }
   }

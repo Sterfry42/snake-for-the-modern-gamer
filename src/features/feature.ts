@@ -12,9 +12,6 @@ export abstract class Feature {
     void context;
   }
   onActionStep(context: FeatureContext): void {
-    this.onTick(context);
-  }
-  onTick(context: FeatureContext): void {
     void context;
   }
   onRender(context: FeatureContext): void {

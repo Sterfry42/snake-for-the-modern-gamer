@@ -69,6 +69,45 @@ describe('SimulationScheduler', () => {
     expect(steps).toEqual([50, 50]);
   });
 
+  it('preserves accumulated phase when an unchanged interval is reapplied', () => {
+    let steps = 0;
+    const scheduler = new SimulationScheduler([
+      {
+        id: 'action',
+        intervalMs: 75,
+        step: () => {
+          steps += 1;
+          scheduler.setClockInterval('action', 75);
+        },
+      },
+    ]);
+
+    for (let frame = 0; frame < 30; frame += 1) {
+      scheduler.update(1000 / 30, { action: true });
+    }
+
+    expect(steps).toBe(13);
+  });
+
+  it('subtracts the current step interval even when a step changes future cadence', () => {
+    const steps: number[] = [];
+    const scheduler = new SimulationScheduler([
+      {
+        id: 'action',
+        intervalMs: 100,
+        step: (stepMs) => {
+          steps.push(stepMs);
+          scheduler.setClockInterval('action', 50);
+        },
+      },
+    ]);
+
+    scheduler.update(100, { action: true });
+    scheduler.update(50, { action: true });
+
+    expect(steps).toEqual([100, 50]);
+  });
+
   it('steps clocks in mode-rule order', () => {
     const steps: string[] = [];
     const scheduler = new SimulationScheduler([

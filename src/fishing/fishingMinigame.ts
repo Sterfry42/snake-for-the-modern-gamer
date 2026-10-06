@@ -35,7 +35,12 @@ export class FishingMinigame {
   private leftKey: Phaser.Input.Keyboard.Key | null = null;
   private rightKey: Phaser.Input.Keyboard.Key | null = null;
   private escapeKey: Phaser.Input.Keyboard.Key | null = null;
+  private spaceKey: Phaser.Input.Keyboard.Key | null = null;
   private controllerPullDirection: -1 | 0 | 1 = 0;
+  private gameplayAccumulatorMs = 0;
+
+  private static readonly GAMEPLAY_STEP_MS = 1000 / 60;
+  private static readonly MAX_GAMEPLAY_STEPS_PER_FRAME = 5;
 
   constructor(config: FishingMinigameConfig) {
     this.config = config;
@@ -50,7 +55,9 @@ export class FishingMinigame {
     this.leftKey = null;
     this.rightKey = null;
     this.escapeKey = null;
+    this.spaceKey = null;
     this.controllerPullDirection = 0;
+    this.gameplayAccumulatorMs = 0;
 
     this.createOverlay();
     this.setupInput();
@@ -249,13 +256,7 @@ export class FishingMinigame {
       this.leftKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT);
       this.rightKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT);
       this.escapeKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-
-      this.escapeKey.on('down', () => {
-        this.handleAbort();
-      });
-      kb.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE).on('down', () => {
-        this.handleAbort();
-      });
+      this.spaceKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     }
   }
 
@@ -265,11 +266,13 @@ export class FishingMinigame {
   }
 
   private update(delta: number): void {
-    void delta;
     if (!this.running || !this.activeState) return;
 
     // Check for abort
-    if (this.escapeKey && Phaser.Input.Keyboard.JustDown(this.escapeKey)) {
+    if (
+      (this.escapeKey && Phaser.Input.Keyboard.JustDown(this.escapeKey)) ||
+      (this.spaceKey && Phaser.Input.Keyboard.JustDown(this.spaceKey))
+    ) {
       this.handleAbort();
       return;
     }
@@ -286,20 +289,30 @@ export class FishingMinigame {
       pullDirection = this.controllerPullDirection;
     }
 
-    // Tick the fishing state
-    const tickResult = this.config.fishingRegistry.tickFishing(this.activeState, pullDirection);
-    this.activeState = tickResult.state;
+    this.gameplayAccumulatorMs += Math.max(0, Math.min(delta, 250));
+    let steps = 0;
+    while (
+      this.gameplayAccumulatorMs >= FishingMinigame.GAMEPLAY_STEP_MS &&
+      steps < FishingMinigame.MAX_GAMEPLAY_STEPS_PER_FRAME
+    ) {
+      this.gameplayAccumulatorMs -= FishingMinigame.GAMEPLAY_STEP_MS;
+      steps += 1;
+      const tickResult = this.config.fishingRegistry.tickFishing(this.activeState, pullDirection);
+      this.activeState = tickResult.state;
 
-    // Check for session end
-    if (this.activeState.complete) {
-      const sessionResult = tickResult.result ?? {
-        caught: false,
-        reason: 'escape',
-      };
-      this.pendingResult = sessionResult;
-      this.config.onComplete(sessionResult);
-      this.stop();
-      return;
+      if (this.activeState.complete) {
+        const sessionResult = tickResult.result ?? {
+          caught: false,
+          reason: 'escape',
+        };
+        this.pendingResult = sessionResult;
+        this.config.onComplete(sessionResult);
+        this.stop();
+        return;
+      }
+    }
+    if (this.gameplayAccumulatorMs >= FishingMinigame.GAMEPLAY_STEP_MS) {
+      this.gameplayAccumulatorMs %= FishingMinigame.GAMEPLAY_STEP_MS;
     }
 
     // Update UI
@@ -452,5 +465,7 @@ export class FishingMinigame {
     this.leftKey = null;
     this.rightKey = null;
     this.escapeKey = null;
+    this.spaceKey = null;
+    this.gameplayAccumulatorMs = 0;
   }
 }

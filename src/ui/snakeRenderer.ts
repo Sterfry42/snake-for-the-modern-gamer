@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { MasonryExpiry, type MasonryBlock } from './masonryExpiry.js';
 import { paletteConfig, darkenColor } from '../config/palette.js';
 import { positiveMod } from '../world/generation/worldHash.js';
 import type { GridConfig } from '../config/gameConfig.js';
@@ -162,7 +163,16 @@ export class SnakeRenderer {
   private readonly snakeSprites: Phaser.GameObjects.Image[] = [];
   private readonly snakeLayer: Phaser.GameObjects.Container;
   private readonly hatSprite: Phaser.GameObjects.Image;
-  private readonly wallGraphics: Phaser.GameObjects.Graphics;
+  private wallGraphics: Phaser.GameObjects.Graphics;
+  private readonly baseTintGraphics: Phaser.GameObjects.Graphics;
+  private readonly staticRoomLayers = new Map<
+    string,
+    {
+      signature: string;
+      floors: Phaser.GameObjects.RenderTexture;
+      walls: Phaser.GameObjects.RenderTexture;
+    }
+  >();
   private readonly defaultSnakeTextureKeys: Record<SnakeSpriteVariant, string>;
   private readonly appleTextureKeys: Record<AppleSpriteVariant, string>;
   private readonly appleSprites: Phaser.GameObjects.Image[] = [];
@@ -195,7 +205,7 @@ export class SnakeRenderer {
     new Map();
   private readonly retainedPresentationTargets = new Map<string, RetainedPresentationTarget[]>();
   // Tracks masonry block creation timestamps for crumbling animation
-  private readonly masonryBlockAges = new Map<string, number>();
+  private readonly masonryExpiry = new MasonryExpiry();
   private renderDiagnostics: RenderDiagnostics = {
     staticCacheStatus: 'disabled',
     staticTileCount: 0,
@@ -207,11 +217,12 @@ export class SnakeRenderer {
 
   constructor(
     private readonly scene: Phaser.Scene,
-    private readonly graphics: Phaser.GameObjects.Graphics,
+    private graphics: Phaser.GameObjects.Graphics,
     wallGraphics: Phaser.GameObjects.Graphics,
     private readonly grid: GridConfig,
   ) {
     this.wallGraphics = wallGraphics;
+    this.baseTintGraphics = this.scene.add.graphics();
     this.overlayGraphics = this.scene.add.graphics().setDepth(BULLET_LAYER_DEPTH + 0.75);
     this.darknessTexture = this.scene.add
       .renderTexture(0, 0, this.grid.cols * this.grid.cell, this.grid.rows * this.grid.cell)
@@ -312,6 +323,14 @@ export class SnakeRenderer {
   ): void {
     this.snakeLayer.setVisible(true);
     this.graphics.clear();
+    this.baseTintGraphics
+      .clear()
+      .setDepth(this.graphics.depth - 0.02)
+      .setScale(this.renderScale);
+    for (const layer of this.staticRoomLayers.values()) {
+      layer.floors.setVisible(false);
+      layer.walls.setVisible(false);
+    }
     this.graphics.clearMask();
     this.overlayGraphics.clear();
     this.overlayGraphics.clearMask();
@@ -327,6 +346,7 @@ export class SnakeRenderer {
     );
     this.retainedPresentationTargets.clear();
     this.graphics.setScale(this.renderScale);
+    this.baseTintGraphics.setScale(this.renderScale);
     this.wallGraphics.setScale(this.renderScale);
     this.overlayGraphics.setScale(this.renderScale);
     this.lightGlowGraphics.setScale(this.renderScale);
@@ -372,9 +392,9 @@ export class SnakeRenderer {
     let bulletIndex = 0;
     let animalIndex = 0;
     for (const entry of renderRooms) {
+      this.drawCachedRoom(entry.room, entry.offset);
       this.withRoomOffset(entry.offset, () => {
-        this.drawRoomFloors(entry.room);
-        this.drawRoomWalls(entry.room);
+        this.drawCaveLakeRewards(entry.room);
         this.drawMasonryBlocks(entry.room, (roomId, lx, ly) =>
           this.getMasonryBlockAge(roomId, lx, ly),
         );
@@ -461,6 +481,11 @@ export class SnakeRenderer {
   }
 
   hide(): void {
+    this.baseTintGraphics.clear();
+    for (const layer of this.staticRoomLayers.values()) {
+      layer.floors.setVisible(false);
+      layer.walls.setVisible(false);
+    }
     this.graphics.clear();
     this.graphics.clearMask();
     this.overlayGraphics.clear();
@@ -486,6 +511,8 @@ export class SnakeRenderer {
 
   markStaticRoomDirty(roomId: string): void {
     this.dirtyStaticRooms.add(roomId);
+    const layer = this.staticRoomLayers.get(roomId);
+    if (layer) layer.signature = '';
   }
 
   setDlss5EmissiveBloom(active: boolean): void {
@@ -540,7 +567,7 @@ export class SnakeRenderer {
     }
     const width = this.getRenderSurfaceWidthPx();
     const height = this.getRenderSurfaceHeightPx();
-    this.graphics.fillStyle(view.tint.color, view.tint.alpha).fillRect(0, 0, width, height);
+    this.baseTintGraphics.fillStyle(view.tint.color, view.tint.alpha).fillRect(0, 0, width, height);
   }
 
   private drawDarknessOverlay(
@@ -902,6 +929,11 @@ export class SnakeRenderer {
   }
 
   markAllStaticRoomsDirty(): void {
+    for (const layer of this.staticRoomLayers.values()) {
+      layer.floors.destroy();
+      layer.walls.destroy();
+    }
+    this.staticRoomLayers.clear();
     this.staticRoomSignatures.clear();
     this.dirtyStaticRooms.clear();
   }
@@ -940,6 +972,75 @@ export class SnakeRenderer {
       detailedTreeTileCount: 0,
       cheapForestTileCount: 0,
     };
+  }
+
+  private drawCachedRoom(room: RoomSnapshot, offset: Vector2Like): void {
+    const signature = JSON.stringify([
+      room.layout,
+      room.biomeId,
+      room.backgroundColor,
+      room.wallColor,
+      room.wallOutlineColor,
+      room.portals,
+      Boolean(room.town),
+      room.layer?.kind,
+    ]);
+    let layer = this.staticRoomLayers.get(room.id);
+    if (!layer || layer.signature !== signature) {
+      layer?.floors.destroy();
+      layer?.walls.destroy();
+      const width = (room.layout[0]?.length ?? this.grid.cols) * this.grid.cell;
+      const height = (room.layout.length || this.grid.rows) * this.grid.cell;
+      const floors = this.scene.add.renderTexture(0, 0, width, height).setOrigin(0, 0);
+      const walls = this.scene.add.renderTexture(0, 0, width, height).setOrigin(0, 0);
+      const floorCommands = this.scene.add.graphics().setVisible(false);
+      const wallCommands = this.scene.add.graphics().setVisible(false);
+      const dynamicGraphics = this.graphics;
+      const dynamicWalls = this.wallGraphics;
+      try {
+        this.graphics = floorCommands;
+        this.wallGraphics = wallCommands;
+        this.drawRoomFloors(room);
+        this.drawRoomWalls(room);
+        floors.draw(floorCommands);
+        walls.draw(wallCommands);
+      } finally {
+        this.graphics = dynamicGraphics;
+        this.wallGraphics = dynamicWalls;
+        floorCommands.destroy();
+        wallCommands.destroy();
+      }
+      layer = { signature, floors, walls };
+      this.renderDiagnostics.staticCacheStatus = 'rebuilt';
+    }
+    this.staticRoomLayers.delete(room.id);
+    this.staticRoomLayers.set(room.id, layer);
+    layer.floors
+      .setPosition(
+        offset.x * this.grid.cell * this.renderScale,
+        offset.y * this.grid.cell * this.renderScale,
+      )
+      .setScale(this.renderScale)
+      .setDepth(this.graphics.depth - 0.01)
+      .setVisible(true);
+    layer.walls
+      .setPosition(
+        offset.x * this.grid.cell * this.renderScale,
+        offset.y * this.grid.cell * this.renderScale,
+      )
+      .setScale(this.renderScale)
+      .setDepth(this.wallGraphics.depth - 0.01)
+      .setVisible(true);
+    while (this.staticRoomLayers.size > 9) {
+      const oldest = this.staticRoomLayers.keys().next().value;
+      if (oldest === undefined) break;
+      const evicted = this.staticRoomLayers.get(oldest);
+      evicted?.floors.destroy();
+      evicted?.walls.destroy();
+      this.staticRoomLayers.delete(oldest);
+      this.staticRoomSignatures.delete(oldest);
+      this.dirtyStaticRooms.delete(oldest);
+    }
   }
 
   private drawRoomFloors(room: RoomSnapshot): void {
@@ -1211,7 +1312,6 @@ export class SnakeRenderer {
         }
       }
     }
-    this.drawCaveLakeRewards(room);
   }
 
   private drawRoomWalls(room: RoomSnapshot): void {
@@ -1437,37 +1537,23 @@ export class SnakeRenderer {
    * Returns undefined if the block doesn't exist or has expired.
    */
   private getMasonryBlockAge(roomId: string, localX: number, localY: number): number | undefined {
-    const key = `${roomId}:${localX},${localY}`;
-    const created = this.masonryBlockAges.get(key);
-    if (created === undefined) {
-      return undefined;
-    }
     const now = (this.wallGraphics.scene as Phaser.Scene).time?.now ?? performance.now();
-    const age = now - created;
-    const lifetimeMs = 4000;
-    if (age >= lifetimeMs) {
-      // Block has expired
-      this.masonryBlockAges.delete(key);
-      return undefined;
-    }
-    return age;
+    return this.masonryExpiry.age(roomId, localX, localY, now);
   }
 
   /**
    * Registers a new masonry block at the given position with the current timestamp.
    */
   registerMasonryBlock(roomId: string, localX: number, localY: number): void {
-    const key = `${roomId}:${localX},${localY}`;
     const now = (this.wallGraphics.scene as Phaser.Scene).time?.now ?? performance.now();
-    this.masonryBlockAges.set(key, now);
+    this.masonryExpiry.register(roomId, localX, localY, now);
   }
 
   /**
    * Removes a masonry block from tracking (e.g., when it's removed from the room layout).
    */
   unregisterMasonryBlock(roomId: string, localX: number, localY: number): void {
-    const key = `${roomId}:${localX},${localY}`;
-    this.masonryBlockAges.delete(key);
+    this.masonryExpiry.remove(roomId, localX, localY);
   }
 
   private drawCaveEntranceTile(rectX: number, rectY: number, collapsed: boolean): void {
@@ -4222,12 +4308,8 @@ export class SnakeRenderer {
     return next >>> 0;
   }
 
-  /**
-   * Returns an iterable of masonry block age entries for cleanup.
-   * Each entry is [key, createdTimestamp] where key is "roomId:localX,localY".
-   */
-  getMasonryBlockAgesEntries(): IterableIterator<[string, number]> {
-    return this.masonryBlockAges.entries();
+  consumeExpiredMasonryBlocks(now: number): MasonryBlock[] {
+    return this.masonryExpiry.consumeExpired(now);
   }
 
   /**

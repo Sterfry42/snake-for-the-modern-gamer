@@ -101,7 +101,7 @@ export class RadioFeature extends Feature {
       .setDepth(40);
   }
 
-  override onTick(scene: SnakeScene): void {
+  override onActionStep(scene: SnakeScene): void {
     const tunedStation = scene.getFlag<RadioStationId>('radio.tunedStation') ?? 'static';
     const stationIndex = scene.getFlag<number>('radio.stationIndex') ?? 0;
     this.currentStation = tunedStation;

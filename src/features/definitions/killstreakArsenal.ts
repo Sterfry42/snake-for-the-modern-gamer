@@ -113,7 +113,7 @@ class KillstreakArsenalFeature extends Feature {
     this.updateHud(scene);
   }
 
-  override onTick(scene: SnakeScene): void {
+  override onActionStep(scene: SnakeScene): void {
     let changed = false;
 
     if (this.state.streak > 0) {

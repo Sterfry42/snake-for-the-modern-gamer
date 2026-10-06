@@ -84,8 +84,11 @@ export class SimulationScheduler {
     if (!clock) {
       return;
     }
-    clock.intervalMs = Math.max(1, intervalMs);
-    clock.accumulatorMs = Math.min(clock.accumulatorMs, clock.intervalMs);
+    const nextIntervalMs = Math.max(1, intervalMs);
+    if (clock.intervalMs === nextIntervalMs) {
+      return;
+    }
+    clock.intervalMs = nextIntervalMs;
   }
 
   resetClock(id: string): void {
@@ -121,8 +124,9 @@ export class SimulationScheduler {
     clock.accumulatorMs += deltaMs;
     const maxSteps = Math.max(1, Math.floor(clock.maxStepsPerUpdate ?? 8));
     while (clock.accumulatorMs >= clock.intervalMs && clock.stepsLastUpdate < maxSteps) {
-      clock.step(clock.intervalMs);
-      clock.accumulatorMs -= clock.intervalMs;
+      const stepIntervalMs = clock.intervalMs;
+      clock.step(stepIntervalMs);
+      clock.accumulatorMs -= stepIntervalMs;
       clock.stepsLastUpdate += 1;
     }
     if (clock.accumulatorMs >= clock.intervalMs) {

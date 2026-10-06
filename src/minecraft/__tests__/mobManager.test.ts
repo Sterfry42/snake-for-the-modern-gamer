@@ -2,6 +2,22 @@ import { describe, it, expect } from 'vitest';
 import { MobManager } from '../mobManager.js';
 
 describe('Mob Manager', () => {
+  it('restores mobs in every room with their identities and allocates distinct new ids', () => {
+    const manager = new MobManager();
+    manager.spawnMob('stale-room', 'cow', 0, 0);
+    manager.restoreMobs([
+      { id: 'mc_mob_2', type: 'zombie', roomId: 'room1', x: 2, y: 3, health: 7 },
+      { id: 'mc_mob_1', type: 'cow', roomId: 'room2', x: 4, y: 5, health: 6 },
+    ]);
+    expect(manager.getMobsInRoom('stale-room')).toHaveLength(0);
+    expect(manager.getAllMobs()).toHaveLength(2);
+    expect(manager.getMobsInRoom('room1')[0]).toMatchObject({ id: 'mc_mob_2', health: 7 });
+    expect(manager.getMobsInRoom('room2')[0]).toMatchObject({ id: 'mc_mob_1', health: 6 });
+    const spawned = manager.spawnMob('room3', 'skeleton', 0, 0);
+    expect(spawned.id).not.toBe('mc_mob_1');
+    expect(spawned.id).not.toBe('mc_mob_2');
+    expect(manager.getAllMobs()).toHaveLength(3);
+  });
   it('should spawn a zombie mob', () => {
     const manager = new MobManager();
     manager.init();

@@ -67,7 +67,7 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
   }
 
   actionStep(paused: boolean): StepResult {
-    const previousRoomId = this.getSnapshot().players[this.localPlayerId]?.roomId;
+    const previousRoomId = this.game.getPlayer(this.localPlayerId)?.snake.currentRoomId;
     const result = this.game.actionStep(paused);
     if (!paused) {
       const debugResult = this.game.stepDebugPlayers();
@@ -85,8 +85,8 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
         });
       }
     }
-    this.emitSnapshot();
-    this.emitStepEvents(previousRoomId, result);
+    const snapshot = this.emitSnapshot();
+    this.emitStepEvents(previousRoomId, result, snapshot);
     return result;
   }
 
@@ -208,11 +208,12 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
     return snapshot;
   }
 
-  private emitSnapshot(): void {
+  private emitSnapshot(): GameSnapshot {
     const snapshot = this.getSnapshot();
     for (const handler of this.snapshotHandlers) {
       handler(snapshot);
     }
+    return snapshot;
   }
 
   private emit(event: GameEvent): void {
@@ -222,11 +223,11 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
   }
 
   private runClockStep(step: () => StepResult | null): StepResult | null {
-    const previousRoomId = this.getSnapshot().players[this.localPlayerId]?.roomId;
+    const previousRoomId = this.game.getPlayer(this.localPlayerId)?.snake.currentRoomId;
     const result = step();
-    this.emitSnapshot();
+    const snapshot = this.emitSnapshot();
     if (result) {
-      this.emitStepEvents(previousRoomId, result);
+      this.emitStepEvents(previousRoomId, result, snapshot);
     }
     return result;
   }
@@ -234,17 +235,21 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
   private async runAsyncClockStep(
     step: () => Promise<StepResult | null>,
   ): Promise<StepResult | null> {
-    const previousRoomId = this.getSnapshot().players[this.localPlayerId]?.roomId;
+    const previousRoomId = this.game.getPlayer(this.localPlayerId)?.snake.currentRoomId;
     const result = await step();
-    this.emitSnapshot();
+    const snapshot = this.emitSnapshot();
     if (result) {
-      this.emitStepEvents(previousRoomId, result);
+      this.emitStepEvents(previousRoomId, result, snapshot);
     }
     return result;
   }
 
-  private emitStepEvents(previousRoomId: string | undefined, result: StepResult): void {
-    const player = this.getSnapshot().players[this.localPlayerId];
+  private emitStepEvents(
+    previousRoomId: string | undefined,
+    result: StepResult,
+    snapshot: GameSnapshot,
+  ): void {
+    const player = snapshot.players[this.localPlayerId];
     if (!player) {
       return;
     }
