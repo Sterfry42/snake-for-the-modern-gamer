@@ -70,6 +70,22 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   fishingFishCaught: 'Pez Atrapado',
   fishingSellOffer: 'Vender Pez',
   fishingInventoryFull: '\u00a1Inventario lleno!',
+
+  // Béisbol
+  baseballNoBat: 'Necesitas un bate de béisbol equipado.',
+  baseballAlreadyPlaying: 'Ya estás en el plato.',
+  baseballReady: 'El lanzador se prepara. ¡Ajusta tu tiempo de bateo!',
+  baseballSwingHint: 'Pulsa ESPACIO para batear!   ESC: Irse',
+  baseballSwingHintController: 'Pulsa A para batear   B: Irse',
+  baseballSwingHintMobile: '¡Toca el botón INTERACTUAR para batear!',
+  baseballDistanceLabel: 'Distancia',
+  baseballWalkedAway: 'Te fuiste de la placa.',
+  baseballHomeRun: 'CAÑON',
+  baseballTriple: 'TRIPLE',
+  baseballDouble: 'DOBLE',
+  baseballSingle: 'SINGLE',
+  baseballFoul: 'BALLE FUERA',
+  baseballStrike: 'STRIKE',
   fishingSellOrDiscard: 'Vende el pez por {price} puntos, o desecha para hacer espacio.',
   fishingQuestFishTitle: 'Atrapar Peces',
   fishingQuestFishDesc:

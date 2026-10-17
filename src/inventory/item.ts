@@ -66,6 +66,10 @@ export interface EquipmentModifiers {
   fishingEnabled?: boolean;
   // Multiplies fish sell prices and score when fishing.
   fishingMod?: number;
+  // Enables the baseball minigame overlay.
+  baseballEnabled?: boolean;
+  // Multiplies baseball score payouts when hitting.
+  baseballMod?: number;
   // Adds a player-centered light radius in dark rooms.
   lightRadiusTiles?: number;
   // Enables first-person presentation without changing simulation.
