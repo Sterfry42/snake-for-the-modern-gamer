@@ -61,15 +61,15 @@ for index, (artifact_id, artifact_name) in enumerate(ARTIFACT_DEFINITIONS):
     }
 
 bundle_and_trap_items = [
-    ("score_bundle_25", "Score Bundle +25", 71, {"kind": "score-bundle", "amount": 25}),
-    ("score_bundle_100", "Score Bundle +100", 72, {"kind": "score-bundle", "amount": 100}),
-    ("score_bundle_500", "Score Bundle +500", 73, {"kind": "score-bundle", "amount": 500}),
+    ("score_bundle_25", "Score Bundle +25", 71, {"kind": "score-bundle", "amount": 25, "classification": "filler"}),
+    ("score_bundle_100", "Score Bundle +100", 72, {"kind": "score-bundle", "amount": 100, "classification": "filler"}),
+    ("score_bundle_500", "Score Bundle +500", 73, {"kind": "score-bundle", "amount": 500, "classification": "filler"}),
     ("length_bundle_1", "Length Bundle +1", 74, {"kind": "length-bundle", "amount": 1}),
     ("length_bundle_3", "Length Bundle +3", 75, {"kind": "length-bundle", "amount": 3}),
     ("length_bundle_10", "Length Bundle +10", 76, {"kind": "length-bundle", "amount": 10}),
     ("healing_bundle", "Healing Bundle", 77, {"kind": "inventory-item", "item_id": "healing-potion"}),
-    ("apple_bundle", "Apple Bundle", 78, {"kind": "inventory-item", "item_id": "apple-normal"}),
-    ("food_bundle", "Food Bundle", 79, {"kind": "inventory-item", "item_id": "ramen"}),
+    ("apple_bundle", "Apple Bundle", 78, {"kind": "inventory-item", "item_id": "apple-normal", "classification": "filler"}),
+    ("food_bundle", "Food Bundle", 79, {"kind": "inventory-item", "item_id": "ramen", "classification": "filler"}),
     ("ofuda_bundle", "Ofuda Bundle", 80, {"kind": "inventory-item", "item_id": "ofuda"}),
     ("freak_dennis_trap", "Freak Dennis Trap", 81, {"kind": "trap", "trap_id": "freak-dennis"}),
     ("freaker_dennis_trap", "Freaker Dennis Trap", 82, {"kind": "trap", "trap_id": "freaker-dennis"}),

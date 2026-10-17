@@ -179,8 +179,8 @@ ACHIEVEMENT_LOCATIONS = [
     ("achievement_relationships_firstDate", "First Date"),
     ("achievement_relationships_married", "Till Death"),
     ("achievement_relationships_child", "Family Expansion"),
-    ("achievement_relationships_divorced", "Record Closed"),
     ("achievement_relationships_motherLove", "Knowing a Mother's Love"),
+    ("achievement_relationships_divorced", "Record Closed"),
     ("achievement_fishing_firstCatch", "Gone Fishin'"),
     ("achievement_fishing_rare", "Rare Bite"),
     ("achievement_fishing_legendary", "Legend of the Lake"),
@@ -221,6 +221,10 @@ ACHIEVEMENT_LOCATIONS = [
     ("achievement_arcade_blueScreen", "Blue Snake of Death"),
     ("achievement_stats_special10", "Perfectly S.P.E.C.I.A.L."),
     ("achievement_exploration_trainSixZones", "Express Across the Map"),
+    ("achievement_streaming_followers20", "SnakeTube Regular"),
+    ("achievement_maneuvers_firstLearned", "Fancy Driving"),
+    ("achievement_maneuvers_allLearned", "Full Maneuver Menu"),
+    ("achievement_vehicles_runOverEnemy", "Two Tons of Nope"),
     ("achievement_divine_snakeOutOfHell", "Like a Snake Out of Hell"),
 ]
 

@@ -53,7 +53,9 @@ export const AP_PHASE_1_LOCATION_BASE_ID = 912000000;
 export const AP_PHASE_1_ITEM_BASE_ID = 913000000;
 export const AP_PHASE_1_GAME_NAME = 'Snaked. Revised. Revamped.';
 export const AP_PHASE_1_GOAL_CHECK_KEY: ArchipelagoPhase1CheckKey = 'score_10';
-export const AP_PHASE_2_GOAL_CHECK_KEY = 'score_1000';
+// The Archipelago world always sends 'achievement_goal' in slot data; this fallback
+// only matters if a server ever omits the field.
+export const AP_PHASE_2_GOAL_CHECK_KEY = 'achievement_goal';
 
 export const AP_PHASE_1_LOCATIONS = {
   score1: {

@@ -15,4 +15,4 @@ Received AP rewards remain score/length bundles, inventory items, cards, artifac
 
 Soft DeathLink sends only on local game over. Incoming DeathLink consumes an extra life when available, otherwise it ends the run. Incoming deaths are never echoed.
 
-When changing the AP achievement catalog, keep `src/achievements/achievementDefinitions.ts`, `src/archipelago/archipelagoCheckManifest.ts`, and `apworld/snaked_revised_revamped/locations.py` synchronized. The AP mapping tests enforce unique browser keys and IDs.
+When changing the AP achievement catalog, keep `src/achievements/achievementDefinitions.ts`, `src/archipelago/archipelagoCheckManifest.ts`, and `apworld/snaked_revised_revamped/locations.py` synchronized. The AP mapping tests enforce unique browser keys and IDs. `npm run validate:ap` enforces that the Python `ACHIEVEMENT_LOCATIONS` order, names, goal ID, and bundle/trap item classifications match the browser manifest exactly, and `npm run build:apworld` regenerates the canonical `apworld/snaked_revised_revamped.apworld` package from the world source.
