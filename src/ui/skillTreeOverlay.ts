@@ -3418,6 +3418,17 @@ export class SkillTreeOverlay {
         uiColors.accentWorld,
       );
     }
+    if (modifiers.baseballEnabled) {
+      push('Baseball Bat', 'ON', 'Enables the baseball minigame action.', uiColors.accentWorld);
+    }
+    if (typeof modifiers.baseballMod === 'number') {
+      push(
+        'Baseball Value',
+        this.formatModifierPercent(modifiers.baseballMod - 1),
+        'Improves baseball score payouts when hitting.',
+        uiColors.accentWorld,
+      );
+    }
 
     return rows;
   }

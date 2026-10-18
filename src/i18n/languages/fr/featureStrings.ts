@@ -70,6 +70,22 @@ export const FEATURE_STRINGS_FR: FeatureStringsType = {
   fishingFishCaught: 'Poisson Attrapé',
   fishingSellOffer: 'Vendre Poisson',
   fishingInventoryFull: 'Inventaire plein !',
+
+  // Baseball
+  baseballNoBat: "Vous avez besoin d'une batte de base-ball.",
+  baseballAlreadyPlaying: 'Vous êtes déjà au marbre.',
+  baseballReady: 'Le lanceur se prépare. Bien jouer votre temps !',
+  baseballSwingHint: 'Appuyez sur ESPACE pour frapper !   ÉCHAP : abandonner',
+  baseballSwingHintController: 'Appuyez sur A pour frapper   B : abandonner',
+  baseballSwingHintMobile: 'Touchez le bouton INTERAGIR pour frapper !',
+  baseballDistanceLabel: 'Distance',
+  baseballWalkedAway: 'Vous avez quitté la plaque.',
+  baseballHomeRun: 'CIRCUIT',
+  baseballTriple: 'TRIPLE',
+  baseballDouble: 'DOUBLE',
+  baseballSingle: 'SINGLE',
+  baseballFoul: 'BALLE FAUTE',
+  baseballStrike: 'STRIKE',
   fishingSellOrDiscard: "Vendez le poisson pour {price} points, ou jetez pour faire de l'espace.",
   fishingQuestFishTitle: 'Attraper des Poissons',
   fishingQuestFishDesc:

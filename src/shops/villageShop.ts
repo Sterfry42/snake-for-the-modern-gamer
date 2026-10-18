@@ -167,6 +167,27 @@ export const VILLAGE_SHOP_EQUIPMENT: readonly VillageShopEquipmentOffer[] = [
     slot: 'gloves',
     note: 'The finest fishing rod in the realm. Legendary fish know its approach.',
   },
+  {
+    id: 'baseball-bat',
+    itemId: 'baseball-bat',
+    price: 30,
+    slot: 'gloves',
+    note: 'A well-used ash bat. Time your swing and send it to the outfield.',
+  },
+  {
+    id: 'baseball-bat-alder',
+    itemId: 'baseball-bat-alder',
+    price: 55,
+    slot: 'gloves',
+    note: 'A balanced alder barrel with extra carry on every hit.',
+  },
+  {
+    id: 'baseball-bat-champion',
+    itemId: 'baseball-bat-champion',
+    price: 85,
+    slot: 'gloves',
+    note: 'The finest bat in the realm. Champions keep the receipts.',
+  },
 ];
 
 export const BLACK_MARKET_EQUIPMENT: readonly VillageShopEquipmentOffer[] = [

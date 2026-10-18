@@ -116,6 +116,21 @@ export interface FeatureStrings {
   fishingFishCaught: string;
   fishingSellOffer: string;
   fishingInventoryFull: string;
+  // Baseball
+  baseballNoBat: string;
+  baseballAlreadyPlaying: string;
+  baseballReady: string;
+  baseballSwingHint: string;
+  baseballSwingHintController: string;
+  baseballSwingHintMobile: string;
+  baseballDistanceLabel: string;
+  baseballWalkedAway: string;
+  baseballHomeRun: string;
+  baseballTriple: string;
+  baseballDouble: string;
+  baseballSingle: string;
+  baseballFoul: string;
+  baseballStrike: string;
   fishingSellOrDiscard: string;
   fishingQuestFishTitle: string;
   fishingQuestFishDesc: string;
