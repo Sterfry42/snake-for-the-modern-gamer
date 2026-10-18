@@ -2,6 +2,7 @@ import type { GridConfig, WorldConfig } from '../config/gameConfig.js';
 import type { Vector2Like } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 import { RoomGenerator } from './roomGenerator.js';
+import { RoomSnapshotCache } from './roomSnapshotCache.js';
 import type { PortalConfig, RoomSnapshot } from './types.js';
 import {
   cloneTownForRoom,
@@ -54,7 +55,7 @@ interface PortalIndexEntry {
 }
 
 export class WorldService {
-  private readonly rooms = new Map<string, RoomSnapshot>();
+  private readonly rooms = new RoomSnapshotCache();
   private readonly generator: RoomGenerator;
   private readonly rng: RandomGenerator;
   private readonly worldGenerationIdentity: WorldGenerationIdentity;
@@ -102,6 +103,10 @@ export class WorldService {
     return this.rooms.has(roomId);
   }
 
+  peekCachedRoom(roomId: string): RoomSnapshot | undefined {
+    return this.rooms.get(roomId);
+  }
+
   getCachedRoomIds(): string[] {
     return [...this.rooms.keys()];
   }
@@ -130,7 +135,7 @@ export class WorldService {
             `Unknown layer room "${roomId}". Layer rooms must be entered through a registered LayerEntrance.`,
           );
         }
-        const room = this.createLayerRoom(instance);
+        const room = this.rooms.prepare(this.createLayerRoom(instance));
         this.rooms.set(roomId, room);
         this.registerRoomIndexes(room);
         this.emitRoomGeneratedDebug(room, performance.now() - generationStartedAt);
@@ -148,12 +153,13 @@ export class WorldService {
           returnPosition: { x: Math.floor(this.grid.cols / 2), y: this.grid.rows - 3 },
           save,
         });
-        this.rooms.set(roomId, generated.room);
-        this.registerRoomIndexes(generated.room);
-        this.emitRoomGeneratedDebug(generated.room, performance.now() - generationStartedAt);
-        return generated.room;
+        const room = this.rooms.prepare(generated.room);
+        this.rooms.set(roomId, room);
+        this.registerRoomIndexes(room);
+        this.emitRoomGeneratedDebug(room, performance.now() - generationStartedAt);
+        return room;
       }
-      const room = this.generator.generate(roomId);
+      const room = this.rooms.prepare(this.generator.generate(roomId));
       for (const entrance of room.layerEntrances ?? []) {
         this.registerLayerEntrance(entrance);
       }

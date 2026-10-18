@@ -17,6 +17,46 @@ import type { Actor } from '../actorTypes.js';
 import type { AtmosphereState } from '../../world/atmosphereTypes.js';
 
 describe('actor presence simulation', () => {
+  it('compresses disposable dead enemies to tombstones without resurrecting them after load', () => {
+    const registry = new ActorRegistry();
+    const args = { enemyId: 'enemy:disposable', roomId: '0,0,0', currentHearts: 0 };
+    const dead = registry.ensureEnemyActor(args);
+    expect(registry.pruneDisposableDeadActors()).toBe(1);
+    expect(registry.get(dead.id)).toBeUndefined();
+    const saved = registry.toSaveData();
+    expect(saved.deadActorIds).toContain(dead.id);
+    expect(saved.actors[dead.id]).toBeUndefined();
+    const restored = new ActorRegistry();
+    restored.loadSaveData(saved);
+    expect(restored.ensureEnemyActor({ ...args, currentHearts: 3 }).health?.state).toBe('dead');
+    expect(restored.getSize()).toBe(0);
+    const named = registry.ensureEnemyActor({ ...args, enemyId: 'enemy:named' });
+    registry.update(named.id, (current) => ({ ...current, knownToPlayer: true }));
+    expect(registry.pruneDisposableDeadActors()).toBe(0);
+    expect(registry.get(named.id)).toBeDefined();
+  });
+  it('updates actor work indexes through updates, death, removal, and save hydration', () => {
+    const registry = new ActorRegistry();
+    const source = actor('actor:worker', 'hearthbound-remnant');
+    source.speech = { text: 'Hello', expiresAtMs: 100 };
+    source.goal = { kind: 'travelToRoom', roomId: '1,0,0', priority: 1 };
+    source.flags.sleepInterrupted = true;
+    registry.upsert(source);
+    expect(registry.getForWork('speech')).toHaveLength(1);
+    expect(registry.getForWork('travel')).toHaveLength(1);
+    expect(registry.getForWork('sleep-interruption')).toHaveLength(1);
+    expect(registry.getActiveCount()).toBe(1);
+    registry.update(source.id, (current) => ({ ...current, speech: undefined, hostility: 'dead' }));
+    expect(registry.getForWork('speech')).toHaveLength(0);
+    expect(registry.getForWork('travel')).toHaveLength(0);
+    expect(registry.getActiveCount()).toBe(0);
+    const loaded = new ActorRegistry();
+    loaded.loadSaveData(registry.toSaveData());
+    expect(loaded.getForWork('sleep-interruption')).toHaveLength(1);
+    loaded.remove(source.id);
+    expect(loaded.getForWork('sleep-interruption')).toHaveLength(0);
+    expect(loaded.getSize()).toBe(0);
+  });
   it('prevents two materialized actors from reserving the same tile', () => {
     const resolver = new ActorOccupancyResolver([
       { id: 'actor:a', position: { x: 2, y: 2 }, blocksMovement: true },
@@ -77,6 +117,25 @@ describe('actor presence simulation', () => {
       reason: 'faction-conflict',
       source: 'faction',
     });
+  });
+
+  it('keeps ActorRegistry room lookups indexed as actors move and disappear', () => {
+    const registry = new ActorRegistry();
+    const merchant = registry.upsert(actor('actor:merchant', 'hearthbound-remnant'));
+
+    expect(registry.getByRoom('0,0,0').map((entry) => entry.id)).toEqual([merchant.id]);
+
+    registry.setPresence(
+      merchant.id,
+      createActorPresence({ roomId: '1,0,0', position: { x: 4, y: 4 } }),
+    );
+
+    expect(registry.getByRoom('0,0,0')).toEqual([]);
+    expect(registry.getByRoom('1,0,0').map((entry) => entry.id)).toEqual([merchant.id]);
+
+    registry.remove(merchant.id);
+
+    expect(registry.getByRoom('1,0,0')).toEqual([]);
   });
 
   it('selects day and night schedule goals without moving actors directly', () => {

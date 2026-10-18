@@ -7,50 +7,52 @@ import type SnakeScene from '../../scenes/snakeScene.js';
 import { pickRandom } from '../../core/math.js';
 
 interface BlessingState {
-  shrineTimer: number;
-  shrineCooldown: number;
-  buffSpeedTicks: number;
-  buffWallSenseTicks: number;
-  buffHungerTicks: number;
+  shrineTimerMs: number;
+  lastUpdateMs: number | null;
+  shrineCooldownMs: number;
+  buffSpeedUntilMs: number;
+  buffWallSenseUntilMs: number;
+  buffHungerUntilMs: number;
 }
 
-const SHRINE_COOLDOWN_TICKS = 60;
+const SHRINE_COOLDOWN_MS = 1000;
 const BLESSING_LABEL = 'Shrine Blessing';
 
 const BLESSING_TYPES = [
   {
     name: 'Swift Winds',
-    durationTicks: 120,
+    durationMs: 2000,
     description: 'Speed +2s',
-    apply: (state: BlessingState) => {
-      state.buffSpeedTicks = 120;
+    apply: (state: BlessingState, nowMs: number) => {
+      state.buffSpeedUntilMs = nowMs + 2000;
     },
   },
   {
     name: 'Mist Veil',
-    durationTicks: 10,
-    description: 'Wall sense +1 for 10 ticks',
-    apply: (state: BlessingState) => {
-      state.buffWallSenseTicks = 10;
+    durationMs: 1000 / 6,
+    description: 'Wall sense +1 briefly',
+    apply: (state: BlessingState, nowMs: number) => {
+      state.buffWallSenseUntilMs = nowMs + 1000 / 6;
     },
   },
   {
     name: 'Sacred Nourishment',
-    durationTicks: 300,
+    durationMs: 5000,
     description: 'Hunger resistance +5s',
-    apply: (state: BlessingState) => {
-      state.buffHungerTicks = 300;
+    apply: (state: BlessingState, nowMs: number) => {
+      state.buffHungerUntilMs = nowMs + 5000;
     },
   },
 ];
 
 class KamiBlessingFeature extends Feature {
   private state: BlessingState = {
-    shrineTimer: 0,
-    shrineCooldown: SHRINE_COOLDOWN_TICKS,
-    buffSpeedTicks: 0,
-    buffWallSenseTicks: 0,
-    buffHungerTicks: 0,
+    shrineTimerMs: 0,
+    lastUpdateMs: null,
+    shrineCooldownMs: SHRINE_COOLDOWN_MS,
+    buffSpeedUntilMs: 0,
+    buffWallSenseUntilMs: 0,
+    buffHungerUntilMs: 0,
   };
   private callout?: Phaser.GameObjects.Text;
 
@@ -61,47 +63,40 @@ class KamiBlessingFeature extends Feature {
   override onRegister(scene: SnakeScene): void {
     void scene;
     this.state = {
-      shrineTimer: 0,
-      shrineCooldown: SHRINE_COOLDOWN_TICKS,
-      buffSpeedTicks: 0,
-      buffWallSenseTicks: 0,
-      buffHungerTicks: 0,
+      shrineTimerMs: 0,
+      lastUpdateMs: null,
+      shrineCooldownMs: SHRINE_COOLDOWN_MS,
+      buffSpeedUntilMs: 0,
+      buffWallSenseUntilMs: 0,
+      buffHungerUntilMs: 0,
     };
   }
 
-  override onTick(scene: SnakeScene): void {
+  override onActionStep(scene: SnakeScene): void {
     if (!this.hasShrineBlessing(scene)) {
       return;
     }
 
+    const nowMs = Number(scene.getFlag<number>('timeMs') ?? 0);
+    const elapsedMs = Math.max(0, nowMs - (this.state.lastUpdateMs ?? nowMs));
+    this.state.lastUpdateMs = nowMs;
     let changed = false;
 
-    if (this.state.buffSpeedTicks > 0) {
-      this.state.buffSpeedTicks -= 1;
-      if (this.state.buffSpeedTicks <= 0) changed = true;
-    }
+    changed ||= expireBuff(nowMs, this.state.buffSpeedUntilMs, (value) => {
+      this.state.buffSpeedUntilMs = value;
+    });
+    changed ||= expireBuff(nowMs, this.state.buffWallSenseUntilMs, (value) => {
+      this.state.buffWallSenseUntilMs = value;
+    });
+    changed ||= expireBuff(nowMs, this.state.buffHungerUntilMs, (value) => {
+      this.state.buffHungerUntilMs = value;
+    });
 
-    if (this.state.buffWallSenseTicks > 0) {
-      this.state.buffWallSenseTicks -= 1;
-      if (this.state.buffWallSenseTicks <= 0) changed = true;
-    }
-
-    if (this.state.buffHungerTicks > 0) {
-      this.state.buffHungerTicks -= 1;
-      if (this.state.buffHungerTicks <= 0) changed = true;
-    }
-
-    if (
-      this.state.buffSpeedTicks > 0 ||
-      this.state.buffWallSenseTicks > 0 ||
-      this.state.buffHungerTicks > 0
-    ) {
-      this.state.shrineTimer += 1;
-      if (this.state.shrineTimer >= this.state.shrineCooldown) {
-        this.state.shrineTimer = 0;
-        this.grantBlessing(scene);
-        changed = true;
-      }
+    this.state.shrineTimerMs += elapsedMs;
+    if (this.state.shrineTimerMs >= this.state.shrineCooldownMs) {
+      this.state.shrineTimerMs %= this.state.shrineCooldownMs;
+      this.grantBlessing(scene, nowMs);
+      changed = true;
     }
 
     if (changed) {
@@ -111,9 +106,9 @@ class KamiBlessingFeature extends Feature {
 
   override onGameOver(scene: SnakeScene): void {
     if (this.hasShrineBlessing(scene)) {
-      this.state.buffSpeedTicks = 0;
-      this.state.buffWallSenseTicks = 0;
-      this.state.buffHungerTicks = 0;
+      this.state.buffSpeedUntilMs = 0;
+      this.state.buffWallSenseUntilMs = 0;
+      this.state.buffHungerUntilMs = 0;
       this.applyBuffs(scene);
     }
     this.destroyCallout(scene);
@@ -124,11 +119,11 @@ class KamiBlessingFeature extends Feature {
     return !!mods?.shrineBlessing;
   }
 
-  private grantBlessing(scene: SnakeScene): void {
+  private grantBlessing(scene: SnakeScene, nowMs: number): void {
     const rng = scene.random?.bind(scene) ?? Math.random;
     const blessing = pickRandom(rng, BLESSING_TYPES);
 
-    blessing.apply(this.state);
+    blessing.apply(this.state, nowMs);
 
     this.spawnCallout(scene, `${BLESSING_LABEL}: ${blessing.name}`, blessing.description);
   }
@@ -142,13 +137,15 @@ class KamiBlessingFeature extends Feature {
     let newSpeed = baseSpeed;
     let newHunger = baseHunger;
 
-    if (this.state.buffWallSenseTicks > 0) {
+    const nowMs = Number(scene.getFlag<number>('timeMs') ?? 0);
+
+    if (this.state.buffWallSenseUntilMs > nowMs) {
       newWallSense += 1;
     }
-    if (this.state.buffSpeedTicks > 0) {
+    if (this.state.buffSpeedUntilMs > nowMs) {
       newSpeed += 2;
     }
-    if (this.state.buffHungerTicks > 0) {
+    if (this.state.buffHungerUntilMs > nowMs) {
       newHunger += 5;
     }
 
@@ -200,6 +197,14 @@ class KamiBlessingFeature extends Feature {
       this.callout = undefined;
     }
   }
+}
+
+function expireBuff(nowMs: number, untilMs: number, setUntilMs: (value: number) => void): boolean {
+  if (untilMs <= 0 || untilMs > nowMs) {
+    return false;
+  }
+  setUntilMs(0);
+  return true;
 }
 
 export default new KamiBlessingFeature();

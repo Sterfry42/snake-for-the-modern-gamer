@@ -8,6 +8,21 @@ import { createWorldGenerationIdentity } from '../generation/worldGenerationIden
 
 type RoomCoord = { x: number; y: number; z: number };
 
+it('observes cached rooms without generating unseen neighbors', () => {
+  const service = new WorldService(
+    defaultGameConfig.grid,
+    defaultGameConfig.world,
+    createRng('peek'),
+  );
+  expect(service.peekCachedRoom('1,0,0')).toBeUndefined();
+  expect(service.getCachedRoomCount()).toBe(0);
+  const room = service.getRoom('0,0,0');
+  const count = service.getCachedRoomCount();
+  expect(service.peekCachedRoom('0,0,0')).toBe(room);
+  expect(service.peekCachedRoom('100,0,0')).toBeUndefined();
+  expect(service.getCachedRoomCount()).toBe(count);
+});
+
 function roomId(coord: RoomCoord): string {
   return `${coord.x},${coord.y},${coord.z}`;
 }

@@ -23,6 +23,25 @@ function scene(x: number): WorldRenderScene {
   };
 }
 
+function sprite(
+  id: string,
+  kind: WorldRenderScene['sprites'][number]['kind'],
+  x: number,
+): WorldRenderScene['sprites'][number] {
+  return {
+    id,
+    kind,
+    x,
+    y: 1,
+    width: 1,
+    height: 1,
+    anchorY: 1,
+    color: 0xffffff,
+    visual: { defaultTextureKey: kind },
+    roomId: '0,0,0',
+  };
+}
+
 describe('DLSS 5 presentation processor', () => {
   it('does not reset interpolation phase for freshly rebuilt identical scenes', () => {
     const processor = new Dlss5PresentationProcessor();
@@ -86,5 +105,59 @@ describe('DLSS 5 presentation processor', () => {
     expect(retained.find((sprite) => sprite.id === 'actor-npc:villager-1')).toMatchObject({
       x: 4,
     });
+  });
+
+  it('filters retained interpolation to moving entity kinds', () => {
+    const processor = new Dlss5PresentationProcessor();
+    const previous: WorldRenderScene = {
+      rooms: [],
+      effects: [],
+      sprites: [
+        sprite('snake:0', 'snake', 0.5),
+        sprite('furniture:chair', 'furniture', 2.5),
+        sprite('vegetation:grass', 'vegetation', 3.5),
+      ],
+    };
+    const current: WorldRenderScene = {
+      ...previous,
+      sprites: [
+        sprite('snake:0', 'snake', 1.5),
+        sprite('furniture:chair', 'furniture', 2.5),
+        sprite('vegetation:grass', 'vegetation', 3.5),
+      ],
+    };
+
+    processor.acceptAuthoritativeScene(previous, 0);
+    processor.acceptAuthoritativeScene(current, 100);
+
+    expect(
+      processor.getInterpolatedSprites([{ id: 'action', intervalMs: 100, accumulatorMs: 50 }]),
+    ).toEqual([{ id: 'snake:0', kind: 'snake', x: 1, y: 1 }]);
+  });
+
+  it('routes footballs and bombs through the bullet clock', () => {
+    const processor = new Dlss5PresentationProcessor();
+    const previous: WorldRenderScene = {
+      rooms: [],
+      effects: [],
+      sprites: [sprite('football:1', 'football', 0.5), sprite('bomb:1', 'bomb', 1.5)],
+    };
+    const current: WorldRenderScene = {
+      ...previous,
+      sprites: [sprite('football:1', 'football', 1.5), sprite('bomb:1', 'bomb', 2.5)],
+    };
+
+    processor.acceptAuthoritativeScene(previous, 0);
+    processor.acceptAuthoritativeScene(current, 100);
+
+    const retained = processor.getInterpolatedSprites([
+      { id: 'action', intervalMs: 100, accumulatorMs: 0 },
+      { id: 'bullet', intervalMs: 100, accumulatorMs: 25 },
+    ]);
+
+    expect(retained).toEqual([
+      { id: 'football:1', kind: 'football', x: 0.75, y: 1 },
+      { id: 'bomb:1', kind: 'bomb', x: 1.75, y: 1 },
+    ]);
   });
 });

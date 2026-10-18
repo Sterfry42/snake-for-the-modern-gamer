@@ -11,10 +11,10 @@ export abstract class Feature {
   onRegister(context: FeatureContext): void {
     void context;
   }
-  onActionStep(context: FeatureContext): void {
-    this.onTick(context);
+  onRunStarted(context: FeatureContext): void {
+    void context;
   }
-  onTick(context: FeatureContext): void {
+  onActionStep(context: FeatureContext): void {
     void context;
   }
   onRender(context: FeatureContext): void {

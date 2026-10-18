@@ -1,7 +1,24 @@
 import { describe, it, expect } from 'vitest';
 import { ChunkManager, chunkSeed, generateChunk } from '../chunk.js';
+import { MAX_WORLD_CHUNKS } from '../config.js';
 
 describe('Chunk Manager', () => {
+  it('merges block save entries sharing a chunk and preserves them through exploration', () => {
+    const manager = new ChunkManager();
+    manager.deserialize([
+      { roomId: 'saved-room', chunkX: 0, chunkY: 0, blocks: [{ x: 1, y: 1, blockType: 'stone' }] },
+      {
+        roomId: 'saved-room',
+        chunkX: 0,
+        chunkY: 0,
+        blocks: [{ x: 2, y: 1, blockType: 'diamond_ore' }],
+      },
+    ]);
+    for (let index = 0; index < MAX_WORLD_CHUNKS + 2; index++)
+      manager.loadChunk('other-room', index, 0);
+    expect(manager.getBlock('saved-room', 0, 0, 1, 1)).toBe('stone');
+    expect(manager.getBlock('saved-room', 0, 0, 2, 1)).toBe('diamond_ore');
+  });
   it('should generate chunks deterministically', () => {
     const seed1 = chunkSeed('test-room', 0, 0);
     const seed2 = chunkSeed('test-room', 0, 0);
@@ -66,6 +83,36 @@ describe('Chunk Manager', () => {
     expect(dirty).toHaveLength(1);
     expect(dirty[0]!.chunkX).toBe(0);
     expect(dirty[0]!.chunkY).toBe(0);
+
+    manager.destroy();
+  });
+
+  it('reports dirty chunks across all edited rooms', () => {
+    const manager = new ChunkManager();
+
+    manager.setBlock('room1', 0, 0, 0, 0, 'dirt');
+    manager.setBlock('room2', 1, 0, 0, 0, 'stone');
+
+    expect(manager.getDirtyChunks()).toEqual(
+      expect.arrayContaining([
+        { roomId: 'room1', chunkX: 0, chunkY: 0 },
+        { roomId: 'room2', chunkX: 1, chunkY: 0 },
+      ]),
+    );
+    expect(manager.getDirtyChunks('room1')).toEqual([{ roomId: 'room1', chunkX: 0, chunkY: 0 }]);
+
+    manager.destroy();
+  });
+
+  it('does not evict dirty chunks under cache pressure', () => {
+    const manager = new ChunkManager();
+
+    manager.setBlock('edited-room', 0, 0, 0, 0, 'diamond_ore');
+    for (let index = 0; index < MAX_WORLD_CHUNKS + 2; index += 1) {
+      manager.loadChunk('clean-room', index, 0);
+    }
+
+    expect(manager.getBlock('edited-room', 0, 0, 0, 0)).toBe('diamond_ore');
 
     manager.destroy();
   });

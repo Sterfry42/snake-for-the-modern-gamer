@@ -528,7 +528,7 @@ export class ActorSystem {
       }
       return;
     }
-    for (const actor of this.registry.getAll()) {
+    for (const actor of this.registry.getForWork('schedule')) {
       if (actor.schedule) {
         this.scheduleDirtyActors.add(actor.id);
       }
@@ -579,14 +579,12 @@ export class ActorSystem {
       (loadedWork.combatInteractions ?? 0) + this.resolveFactionConflicts(context.loadedRoomId);
     const offscreenMoves = context.advanceOffscreenActors?.() ?? 0;
     this.expireSpeech(context.nowMs, context.roomNumber);
-    const allActors = this.registry.getAll();
+    this.registry.pruneDisposableDeadActors();
     const loadedRoomActors = this.getActorsInRoom(context.loadedRoomId).length;
     const metrics: ActorTickMetrics = {
       durationMs: Math.max(0, performance.now() - startedAt),
-      totalActors: allActors.length,
-      activeActors: allActors.filter(
-        (actor) => actor.health?.state !== 'dead' && actor.hostility !== 'dead',
-      ).length,
+      totalActors: this.registry.getSize(),
+      activeActors: this.registry.getActiveCount(),
       loadedRoomActors,
       brainsProcessed: loadedWork.brainsProcessed ?? loadedRoomActors,
       schedulesEvaluated,
@@ -754,7 +752,7 @@ export class ActorSystem {
   }
 
   private expireSpeech(nowMs: number, roomNumber: number): void {
-    for (const actor of this.registry.getAll()) {
+    for (const actor of this.registry.getForWork('speech')) {
       const expiredByTime =
         actor.speech?.expiresAtMs !== undefined && actor.speech.expiresAtMs <= nowMs;
       const expiredByRoom =
@@ -785,6 +783,7 @@ export class ActorSystem {
   }
 
   toSaveData(): ActorSystemSaveData {
+    this.registry.pruneDisposableDeadActors();
     return {
       actors: this.registry.toSaveData(),
       events: this.events.toSaveData(),

@@ -249,11 +249,12 @@ export function getDatingPortraitAsset(
 function getBaseDatingPortraitAsset(
   profile: RelationshipCandidateProfile,
 ): DatingPortraitAsset | null {
+  const identityId = profile.actorId ?? profile.id;
   if (profile.species === 'goblin') {
-    return pick(profile.id, portraitKeysForGoblin(profile.portraitId));
+    return pick(identityId, portraitKeysForGoblin(profile.portraitId));
   }
   if (profile.species === 'angel') {
-    return pick(profile.id, ['dating-portrait-angel', 'dating-portrait-angel-crimson']);
+    return pick(identityId, ['dating-portrait-angel', 'dating-portrait-angel-crimson']);
   }
   if (profile.species === 'goblin-angel') return getAsset('dating-portrait-goblin-angel');
   if (profile.species === 'moleman') {
@@ -261,7 +262,7 @@ function getBaseDatingPortraitAsset(
       ? getAsset('dating-portrait-moleman-date')
       : getAsset('dating-portrait-moleman');
   }
-  return pick(profile.id, portraitKeysForHuman(profile.portraitId));
+  return pick(identityId, portraitKeysForHuman(profile.portraitId));
 }
 
 function getMoodVariant(

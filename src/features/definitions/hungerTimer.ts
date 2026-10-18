@@ -13,7 +13,7 @@ class HungerTimerFeature extends Feature {
     scene.setFlag('timeSinceEat', 0);
   }
 
-  override onTick(scene: SnakeScene): void {
+  override onActionStep(scene: SnakeScene): void {
     const current = scene.getFlag<number>('timeSinceEat') ?? 0;
     scene.setFlag('timeSinceEat', current + 1);
   }

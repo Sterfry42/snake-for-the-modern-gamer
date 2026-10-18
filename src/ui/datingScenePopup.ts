@@ -252,7 +252,8 @@ export class DatingScenePopup {
     }
 
     const identity = resolveDlss5PortraitIdentity({
-      id: profile.id,
+      id: profile.actorId ?? profile.id,
+      actorId: profile.actorId,
       portraitId: profile.portraitId,
       species: profile.species,
     });

@@ -21,29 +21,20 @@ class ReligionChoiceFeature extends Feature {
   override onRegister(scene: SnakeScene): void {
     if ((scene as unknown as { chosenReligionId: string | null }).chosenReligionId) return;
     this.popup = new ChoicePopup(scene);
-    this.scheduleChoiceFlow(scene);
   }
 
   override onGameOver(scene: SnakeScene): void {
     this.flowActive = false;
     this.popup?.hide();
     scene.resetStartingChoices();
-    this.scheduleChoiceFlow(scene);
   }
 
-  private scheduleChoiceFlow(scene: SnakeScene): void {
-    scene.time.delayedCall(30, () => {
-      if (
-        (scene as unknown as { titleVisible: boolean }).titleVisible ||
-        !scene.getFlag<boolean>('run.startChoicesReady')
-      ) {
-        this.scheduleChoiceFlow(scene);
-        return;
-      }
-      scene.paused = true;
-      scene.skillTree.hideOverlay();
-      this.showChoiceFlow(scene);
-    });
+  override onRunStarted(scene: SnakeScene): void {
+    this.flowActive = false;
+    this.popup?.hide();
+    scene.paused = true;
+    scene.skillTree.hideOverlay();
+    this.showChoiceFlow(scene);
   }
 
   private showChoiceFlow(scene: SnakeScene): void {

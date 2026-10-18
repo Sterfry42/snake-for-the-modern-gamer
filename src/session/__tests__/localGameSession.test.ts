@@ -34,6 +34,18 @@ describe('LocalGameSession', () => {
     expect(snapshot.ui.health).toEqual(game.getPlayerHealth());
   });
 
+  it('constructs only one snapshot per action or hazard publish boundary', () => {
+    const game = createGame();
+    game.reset({ preserveRunSeed: true });
+    const session = new LocalGameSession({ game });
+    const build = vi.spyOn(game, 'getSnapshot');
+    session.actionStep(false);
+    expect(build).toHaveBeenCalledTimes(1);
+    build.mockClear();
+    session.hazardClockStep();
+    expect(build).toHaveBeenCalledTimes(1);
+  });
+
   it('copies player body data instead of exposing the snake array directly', () => {
     const game = createGame();
     game.reset({ preserveRunSeed: true });

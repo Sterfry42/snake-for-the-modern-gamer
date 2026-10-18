@@ -1,4 +1,4 @@
-import { LocalStorageSaveStore } from '../LocalStorageSaveStore.js';
+import { LocalStorageQuotaExceededError, LocalStorageSaveStore } from '../LocalStorageSaveStore.js';
 import { LocalStorageStringSaveStore } from '../LocalStorageStringSaveStore.js';
 
 describe('LocalStorageSaveStore', () => {
@@ -27,6 +27,24 @@ describe('LocalStorageSaveStore', () => {
 
     expect(await store.load('slot-a')).toBeNull();
     expect(await store.has('slot-a')).toBe(false);
+  });
+
+  it('reports localStorage quota failures with payload size', async () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => null,
+      setItem: () => {
+        throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+      },
+      removeItem: () => undefined,
+      clear: () => undefined,
+    });
+    const store = new LocalStorageSaveStore<{ score: number }>('snake-test');
+
+    await expect(store.save('slot-a', { score: 42 })).rejects.toMatchObject({
+      name: 'LocalStorageQuotaExceededError',
+      key: 'snake-test:slot-a',
+      attemptedChars: JSON.stringify({ score: 42 }).length,
+    } satisfies Partial<LocalStorageQuotaExceededError>);
   });
 });
 

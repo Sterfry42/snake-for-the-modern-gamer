@@ -10,6 +10,7 @@ export interface Dlss5PortraitIdentity {
 
 export interface Dlss5PortraitCandidate {
   id: string;
+  actorId?: string;
   species?: string;
   portraitId?: string;
 }
@@ -58,9 +59,14 @@ export function resolveDlss5PortraitIdentity(
     return null;
   }
 
-  const index = stableStringHashPositive(candidate.id) % SYNTHETIC_PORTRAIT_COUNT;
+  const canonicalId = canonicalDlss5PortraitIdentityId(candidate);
+  const index = stableStringHashPositive(canonicalId) % SYNTHETIC_PORTRAIT_COUNT;
   return {
     key: `dlss5-portrait:${index}`,
     index,
   };
+}
+
+export function canonicalDlss5PortraitIdentityId(candidate: Dlss5PortraitCandidate): string {
+  return candidate.actorId ?? candidate.id;
 }

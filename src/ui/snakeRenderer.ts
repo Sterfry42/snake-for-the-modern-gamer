@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { MasonryExpiry, type MasonryBlock } from './masonryExpiry.js';
 import { paletteConfig, darkenColor } from '../config/palette.js';
 import { positiveMod } from '../world/generation/worldHash.js';
 import type { GridConfig } from '../config/gameConfig.js';
@@ -158,10 +159,20 @@ export class SnakeRenderer {
   private readonly darknessTexture: Phaser.GameObjects.RenderTexture;
   private readonly darknessRevealGraphics: Phaser.GameObjects.Graphics;
   private readonly lightGlowGraphics: Phaser.GameObjects.Graphics;
+  private dlss5LightGlowFx: Phaser.FX.Glow | null = null;
   private readonly snakeSprites: Phaser.GameObjects.Image[] = [];
   private readonly snakeLayer: Phaser.GameObjects.Container;
   private readonly hatSprite: Phaser.GameObjects.Image;
-  private readonly wallGraphics: Phaser.GameObjects.Graphics;
+  private wallGraphics: Phaser.GameObjects.Graphics;
+  private readonly baseTintGraphics: Phaser.GameObjects.Graphics;
+  private readonly staticRoomLayers = new Map<
+    string,
+    {
+      signature: string;
+      floors: Phaser.GameObjects.RenderTexture;
+      walls: Phaser.GameObjects.RenderTexture;
+    }
+  >();
   private readonly defaultSnakeTextureKeys: Record<SnakeSpriteVariant, string>;
   private readonly appleTextureKeys: Record<AppleSpriteVariant, string>;
   private readonly appleSprites: Phaser.GameObjects.Image[] = [];
@@ -176,11 +187,15 @@ export class SnakeRenderer {
   private readonly enemyTextureKeys: Record<EnemySpriteVariant, string>;
   private readonly enemySprites: Phaser.GameObjects.Image[] = [];
   private readonly bulletSprites: Phaser.GameObjects.Image[] = [];
+  private readonly footballSprites: Phaser.GameObjects.Image[] = [];
+  private readonly bombSprites: Phaser.GameObjects.Image[] = [];
   private readonly furnitureTextureKeys: Record<FurnitureSpriteVariant, string>;
   private readonly furnitureSprites: Phaser.GameObjects.Image[] = [];
   private readonly vegetationTextureKeys: Record<VegetationSpriteVariant, string>;
   private readonly vegetationSprites: Phaser.GameObjects.Image[] = [];
   private readonly powerupTextureKeys: Record<PowerupKind, string>;
+  private readonly footballTextureKey: string;
+  private readonly bombTextureKey: string;
   private readonly powerupSprites: Phaser.GameObjects.Image[] = [];
   private readonly staticRoomSignatures = new Map<string, string>();
   private readonly dirtyStaticRooms = new Set<string>();
@@ -190,7 +205,7 @@ export class SnakeRenderer {
     new Map();
   private readonly retainedPresentationTargets = new Map<string, RetainedPresentationTarget[]>();
   // Tracks masonry block creation timestamps for crumbling animation
-  private readonly masonryBlockAges = new Map<string, number>();
+  private readonly masonryExpiry = new MasonryExpiry();
   private renderDiagnostics: RenderDiagnostics = {
     staticCacheStatus: 'disabled',
     staticTileCount: 0,
@@ -202,11 +217,12 @@ export class SnakeRenderer {
 
   constructor(
     private readonly scene: Phaser.Scene,
-    private readonly graphics: Phaser.GameObjects.Graphics,
+    private graphics: Phaser.GameObjects.Graphics,
     wallGraphics: Phaser.GameObjects.Graphics,
     private readonly grid: GridConfig,
   ) {
     this.wallGraphics = wallGraphics;
+    this.baseTintGraphics = this.scene.add.graphics();
     this.overlayGraphics = this.scene.add.graphics().setDepth(BULLET_LAYER_DEPTH + 0.75);
     this.darknessTexture = this.scene.add
       .renderTexture(0, 0, this.grid.cols * this.grid.cell, this.grid.rows * this.grid.cell)
@@ -256,6 +272,13 @@ export class SnakeRenderer {
       this.buildAnimalPalette(),
     );
     this.powerupTextureKeys = this.ensurePowerupOrbTextures();
+    this.footballTextureKey = this.ensureDynamicOrbTexture(
+      'football',
+      0x8b4a24,
+      0xf3eee2,
+      'football',
+    );
+    this.bombTextureKey = this.ensureDynamicOrbTexture('bomb', 0x20232a, 0xffd166, 'bomb');
     this.powerupSprites.push(this.createPowerupSprite());
     this.snakeLayer = this.scene.add.container(0, 0).setDepth(SNAKE_LAYER_DEPTH);
     this.hatSprite = this.scene.add
@@ -300,6 +323,14 @@ export class SnakeRenderer {
   ): void {
     this.snakeLayer.setVisible(true);
     this.graphics.clear();
+    this.baseTintGraphics
+      .clear()
+      .setDepth(this.graphics.depth - 0.02)
+      .setScale(this.renderScale);
+    for (const layer of this.staticRoomLayers.values()) {
+      layer.floors.setVisible(false);
+      layer.walls.setVisible(false);
+    }
     this.graphics.clearMask();
     this.overlayGraphics.clear();
     this.overlayGraphics.clearMask();
@@ -315,6 +346,7 @@ export class SnakeRenderer {
     );
     this.retainedPresentationTargets.clear();
     this.graphics.setScale(this.renderScale);
+    this.baseTintGraphics.setScale(this.renderScale);
     this.wallGraphics.setScale(this.renderScale);
     this.overlayGraphics.setScale(this.renderScale);
     this.lightGlowGraphics.setScale(this.renderScale);
@@ -346,6 +378,8 @@ export class SnakeRenderer {
     this.appleSprites.forEach((sprite) => sprite.setVisible(false));
     this.enemySprites.forEach((sprite) => sprite.setVisible(false));
     this.bulletSprites.forEach((sprite) => sprite.setVisible(false));
+    this.footballSprites.forEach((sprite) => sprite.setVisible(false));
+    this.bombSprites.forEach((sprite) => sprite.setVisible(false));
     this.animalSprites.forEach((sprite) => sprite.setVisible(false));
     this.powerupSprites.forEach((sprite) => sprite.setVisible(false));
 
@@ -358,9 +392,9 @@ export class SnakeRenderer {
     let bulletIndex = 0;
     let animalIndex = 0;
     for (const entry of renderRooms) {
+      this.drawCachedRoom(entry.room, entry.offset);
       this.withRoomOffset(entry.offset, () => {
-        this.drawRoomFloors(entry.room);
-        this.drawRoomWalls(entry.room);
+        this.drawCaveLakeRewards(entry.room);
         this.drawMasonryBlocks(entry.room, (roomId, lx, ly) =>
           this.getMasonryBlockAge(roomId, lx, ly),
         );
@@ -447,6 +481,11 @@ export class SnakeRenderer {
   }
 
   hide(): void {
+    this.baseTintGraphics.clear();
+    for (const layer of this.staticRoomLayers.values()) {
+      layer.floors.setVisible(false);
+      layer.walls.setVisible(false);
+    }
     this.graphics.clear();
     this.graphics.clearMask();
     this.overlayGraphics.clear();
@@ -464,12 +503,35 @@ export class SnakeRenderer {
     this.appleSprites.forEach((sprite) => sprite.setVisible(false));
     this.enemySprites.forEach((sprite) => sprite.setVisible(false));
     this.bulletSprites.forEach((sprite) => sprite.setVisible(false));
+    this.footballSprites.forEach((sprite) => sprite.setVisible(false));
+    this.bombSprites.forEach((sprite) => sprite.setVisible(false));
     this.animalSprites.forEach((sprite) => sprite.setVisible(false));
     this.powerupSprites.forEach((sprite) => sprite.setVisible(false));
   }
 
   markStaticRoomDirty(roomId: string): void {
     this.dirtyStaticRooms.add(roomId);
+    const layer = this.staticRoomLayers.get(roomId);
+    if (layer) layer.signature = '';
+  }
+
+  setDlss5EmissiveBloom(active: boolean): void {
+    const postFx = this.lightGlowGraphics.postFX;
+    if (!active) {
+      if (this.dlss5LightGlowFx) {
+        (
+          postFx as Phaser.GameObjects.Components.FX & {
+            remove(fx: Phaser.FX.Glow): Phaser.GameObjects.Components.FX;
+          }
+        ).remove(this.dlss5LightGlowFx);
+        this.dlss5LightGlowFx = null;
+      }
+      return;
+    }
+    if (this.dlss5LightGlowFx || this.scene.game.renderer.type !== Phaser.WEBGL) {
+      return;
+    }
+    this.dlss5LightGlowFx = postFx.addGlow(0x9ad1ff, 0.85, 0.18, false, 0.08, 8);
   }
 
   private withRoomOffset(offset: Vector2Like, draw: () => void): void {
@@ -505,7 +567,7 @@ export class SnakeRenderer {
     }
     const width = this.getRenderSurfaceWidthPx();
     const height = this.getRenderSurfaceHeightPx();
-    this.graphics.fillStyle(view.tint.color, view.tint.alpha).fillRect(0, 0, width, height);
+    this.baseTintGraphics.fillStyle(view.tint.color, view.tint.alpha).fillRect(0, 0, width, height);
   }
 
   private drawDarknessOverlay(
@@ -867,6 +929,11 @@ export class SnakeRenderer {
   }
 
   markAllStaticRoomsDirty(): void {
+    for (const layer of this.staticRoomLayers.values()) {
+      layer.floors.destroy();
+      layer.walls.destroy();
+    }
+    this.staticRoomLayers.clear();
     this.staticRoomSignatures.clear();
     this.dirtyStaticRooms.clear();
   }
@@ -905,6 +972,75 @@ export class SnakeRenderer {
       detailedTreeTileCount: 0,
       cheapForestTileCount: 0,
     };
+  }
+
+  private drawCachedRoom(room: RoomSnapshot, offset: Vector2Like): void {
+    const signature = JSON.stringify([
+      room.layout,
+      room.biomeId,
+      room.backgroundColor,
+      room.wallColor,
+      room.wallOutlineColor,
+      room.portals,
+      Boolean(room.town),
+      room.layer?.kind,
+    ]);
+    let layer = this.staticRoomLayers.get(room.id);
+    if (!layer || layer.signature !== signature) {
+      layer?.floors.destroy();
+      layer?.walls.destroy();
+      const width = (room.layout[0]?.length ?? this.grid.cols) * this.grid.cell;
+      const height = (room.layout.length || this.grid.rows) * this.grid.cell;
+      const floors = this.scene.add.renderTexture(0, 0, width, height).setOrigin(0, 0);
+      const walls = this.scene.add.renderTexture(0, 0, width, height).setOrigin(0, 0);
+      const floorCommands = this.scene.add.graphics().setVisible(false);
+      const wallCommands = this.scene.add.graphics().setVisible(false);
+      const dynamicGraphics = this.graphics;
+      const dynamicWalls = this.wallGraphics;
+      try {
+        this.graphics = floorCommands;
+        this.wallGraphics = wallCommands;
+        this.drawRoomFloors(room);
+        this.drawRoomWalls(room);
+        floors.draw(floorCommands);
+        walls.draw(wallCommands);
+      } finally {
+        this.graphics = dynamicGraphics;
+        this.wallGraphics = dynamicWalls;
+        floorCommands.destroy();
+        wallCommands.destroy();
+      }
+      layer = { signature, floors, walls };
+      this.renderDiagnostics.staticCacheStatus = 'rebuilt';
+    }
+    this.staticRoomLayers.delete(room.id);
+    this.staticRoomLayers.set(room.id, layer);
+    layer.floors
+      .setPosition(
+        offset.x * this.grid.cell * this.renderScale,
+        offset.y * this.grid.cell * this.renderScale,
+      )
+      .setScale(this.renderScale)
+      .setDepth(this.graphics.depth - 0.01)
+      .setVisible(true);
+    layer.walls
+      .setPosition(
+        offset.x * this.grid.cell * this.renderScale,
+        offset.y * this.grid.cell * this.renderScale,
+      )
+      .setScale(this.renderScale)
+      .setDepth(this.wallGraphics.depth - 0.01)
+      .setVisible(true);
+    while (this.staticRoomLayers.size > 9) {
+      const oldest = this.staticRoomLayers.keys().next().value;
+      if (oldest === undefined) break;
+      const evicted = this.staticRoomLayers.get(oldest);
+      evicted?.floors.destroy();
+      evicted?.walls.destroy();
+      this.staticRoomLayers.delete(oldest);
+      this.staticRoomSignatures.delete(oldest);
+      this.dirtyStaticRooms.delete(oldest);
+    }
   }
 
   private drawRoomFloors(room: RoomSnapshot): void {
@@ -1176,7 +1312,6 @@ export class SnakeRenderer {
         }
       }
     }
-    this.drawCaveLakeRewards(room);
   }
 
   private drawRoomWalls(room: RoomSnapshot): void {
@@ -1402,37 +1537,23 @@ export class SnakeRenderer {
    * Returns undefined if the block doesn't exist or has expired.
    */
   private getMasonryBlockAge(roomId: string, localX: number, localY: number): number | undefined {
-    const key = `${roomId}:${localX},${localY}`;
-    const created = this.masonryBlockAges.get(key);
-    if (created === undefined) {
-      return undefined;
-    }
     const now = (this.wallGraphics.scene as Phaser.Scene).time?.now ?? performance.now();
-    const age = now - created;
-    const lifetimeMs = 4000;
-    if (age >= lifetimeMs) {
-      // Block has expired
-      this.masonryBlockAges.delete(key);
-      return undefined;
-    }
-    return age;
+    return this.masonryExpiry.age(roomId, localX, localY, now);
   }
 
   /**
    * Registers a new masonry block at the given position with the current timestamp.
    */
   registerMasonryBlock(roomId: string, localX: number, localY: number): void {
-    const key = `${roomId}:${localX},${localY}`;
     const now = (this.wallGraphics.scene as Phaser.Scene).time?.now ?? performance.now();
-    this.masonryBlockAges.set(key, now);
+    this.masonryExpiry.register(roomId, localX, localY, now);
   }
 
   /**
    * Removes a masonry block from tracking (e.g., when it's removed from the room layout).
    */
   unregisterMasonryBlock(roomId: string, localX: number, localY: number): void {
-    const key = `${roomId}:${localX},${localY}`;
-    this.masonryBlockAges.delete(key);
+    this.masonryExpiry.remove(roomId, localX, localY);
   }
 
   private drawCaveEntranceTile(rectX: number, rectY: number, collapsed: boolean): void {
@@ -2573,6 +2694,15 @@ export class SnakeRenderer {
   }
 
   private ensurePowerupOrbTexture(kind: PowerupKind, color: number, shine: number): string {
+    return this.ensureDynamicOrbTexture(kind, color, shine, kind);
+  }
+
+  private ensureDynamicOrbTexture(
+    kind: string,
+    color: number,
+    shine: number,
+    shape: 'phase' | 'smite' | 'gun' | 'football' | 'bomb',
+  ): string {
     const key = `powerup-orb-${kind}-${this.grid.cell}`;
     if (this.scene.textures.exists(key)) {
       return key;
@@ -2593,7 +2723,29 @@ export class SnakeRenderer {
     g.strokeCircle(center, center, radius * 0.94);
     g.lineStyle(Math.max(1, Math.floor(size * 0.025)), 0xffffff, 0.38);
     g.strokeCircle(center, center, radius * 1.22);
-    if (kind === 'gun') {
+    if (shape === 'football') {
+      g.scaleCanvas(1, 0.68);
+      g.lineStyle(Math.max(2, Math.floor(size * 0.035)), shine, 0.9);
+      g.lineBetween(center - radius * 0.42, center, center + radius * 0.42, center);
+      for (let i = -1; i <= 1; i += 1) {
+        g.lineBetween(
+          center + i * radius * 0.18,
+          center - radius * 0.22,
+          center + i * radius * 0.18,
+          center + radius * 0.22,
+        );
+      }
+    } else if (shape === 'bomb') {
+      g.lineStyle(Math.max(2, Math.floor(size * 0.04)), shine, 0.9);
+      g.lineBetween(
+        center + radius * 0.36,
+        center - radius * 0.38,
+        center + radius * 0.68,
+        center - radius * 0.74,
+      );
+      g.fillStyle(shine, 0.95);
+      g.fillCircle(center + radius * 0.74, center - radius * 0.8, radius * 0.16);
+    } else if (shape === 'gun') {
       g.lineStyle(Math.max(2, Math.floor(size * 0.045)), 0x4d3315, 0.82);
       g.lineBetween(
         center - radius * 0.42,
@@ -2603,7 +2755,7 @@ export class SnakeRenderer {
       );
       g.fillStyle(0x4d3315, 0.85);
       g.fillRect(center - radius * 0.05, center + radius * 0.06, radius * 0.2, radius * 0.32);
-    } else if (kind === 'smite') {
+    } else if (shape === 'smite') {
       g.fillStyle(shine, 0.92);
       g.fillTriangle(
         center + radius * 0.12,
@@ -3483,30 +3635,23 @@ export class SnakeRenderer {
 
   private drawFootballs(footballs: readonly FootballInstance[], offset: Vector2Like): void {
     const cell = this.grid.cell;
-    footballs.forEach((football) => {
+    footballs.forEach((football, index) => {
+      const sprite = this.ensureFootballSprite(index);
       const presentationPosition = this.getPresentationTilePosition(`football:${football.id}`);
       const cx = (presentationPosition?.x ?? offset.x + football.position.x) * cell + cell / 2;
       const cy = (presentationPosition?.y ?? offset.y + football.position.y) * cell + cell / 2;
       const grounded = football.state === 'grounded';
       const angle = football.direction.x !== 0 ? 0 : Math.PI / 2;
-      const radiusX = grounded ? cell * 0.28 : cell * 0.34;
-      const radiusY = grounded ? cell * 0.18 : cell * 0.22;
-      this.graphics.fillStyle(0x8b4a24, 1);
-      this.graphics.fillEllipse(cx, cy, radiusX * 2, radiusY * 2);
-      this.graphics.lineStyle(1, 0x3d1f10, 0.9);
-      this.graphics.strokeEllipse(cx, cy, radiusX * 2, radiusY * 2);
-      this.graphics.lineStyle(1, 0xf3eee2, 0.95);
-      if (angle === 0) {
-        this.graphics.lineBetween(cx - radiusX * 0.35, cy, cx + radiusX * 0.35, cy);
-        for (let i = -1; i <= 1; i += 1) {
-          this.graphics.lineBetween(cx + i * 3, cy - 3, cx + i * 3, cy + 3);
-        }
-      } else {
-        this.graphics.lineBetween(cx, cy - radiusX * 0.35, cx, cy + radiusX * 0.35);
-        for (let i = -1; i <= 1; i += 1) {
-          this.graphics.lineBetween(cx - 3, cy + i * 3, cx + 3, cy + i * 3);
-        }
-      }
+      const spriteSize = grounded ? cell * 0.66 : cell * 0.76;
+      sprite
+        .setTexture(
+          this.getPresentationTextureKey(`football:${football.id}`, this.footballTextureKey),
+        )
+        .setPosition(this.scaledPx(cx), this.scaledPx(cy))
+        .setRotation(angle)
+        .setDisplaySize(this.scaledPx(spriteSize), this.scaledPx(spriteSize * 0.72))
+        .setVisible(true);
+      this.registerRetainedPresentationTarget(`football:${football.id}`, sprite);
       if (football.state === 'returning') {
         this.graphics.lineStyle(1, 0xf3eee2, 0.28);
         this.graphics.strokeCircle(cx, cy, cell * 0.42);
@@ -3516,17 +3661,22 @@ export class SnakeRenderer {
 
   private drawBombs(bombs: readonly BombInstance[], offset: Vector2Like): void {
     const cell = this.grid.cell;
-    bombs.forEach((bomb) => {
+    bombs.forEach((bomb, index) => {
+      const sprite = this.ensureBombSprite(index);
       const presentationPosition = this.getPresentationTilePosition(`bomb:${bomb.id}`);
       const cx = (presentationPosition?.x ?? offset.x + bomb.position.x) * cell + cell / 2;
       const cy = (presentationPosition?.y ?? offset.y + bomb.position.y) * cell + cell / 2;
       const fuseRatio = Math.max(0, Math.min(1, bomb.fuseTicks / 30));
+      const spriteSize = cell * 0.78;
+      sprite
+        .setTexture(this.getPresentationTextureKey(`bomb:${bomb.id}`, this.bombTextureKey))
+        .setPosition(this.scaledPx(cx), this.scaledPx(cy))
+        .setRotation(0)
+        .setDisplaySize(this.scaledPx(spriteSize), this.scaledPx(spriteSize))
+        .setVisible(true);
+      this.registerRetainedPresentationTarget(`bomb:${bomb.id}`, sprite);
       this.graphics.lineStyle(1, 0xffd166, 0.24 + (1 - fuseRatio) * 0.3);
       this.graphics.strokeCircle(cx, cy, bomb.radius * cell);
-      this.graphics.fillStyle(0x20232a, 1);
-      this.graphics.fillCircle(cx, cy, cell * 0.34);
-      this.graphics.lineStyle(2, 0xf2f4f8, 0.85);
-      this.graphics.strokeCircle(cx, cy, cell * 0.34);
       this.graphics.lineStyle(2, fuseRatio > 0.35 ? 0xffd166 : 0xff5a5f, 0.95);
       this.graphics.strokeCircle(cx, cy, Math.max(cell * 0.1, cell * 0.48 * fuseRatio));
       this.graphics.lineStyle(2, 0xffd166, 1);
@@ -3566,6 +3716,34 @@ export class SnakeRenderer {
       .setVisible(false)
       .setOrigin(0.5, 0.5);
     this.bulletSprites[index] = sprite;
+    return sprite;
+  }
+
+  private ensureFootballSprite(index: number): Phaser.GameObjects.Image {
+    let sprite = this.footballSprites[index];
+    if (sprite) {
+      return sprite;
+    }
+    sprite = this.scene.add
+      .image(0, 0, this.footballTextureKey)
+      .setDepth(BULLET_LAYER_DEPTH - 0.2)
+      .setVisible(false)
+      .setOrigin(0.5, 0.5);
+    this.footballSprites[index] = sprite;
+    return sprite;
+  }
+
+  private ensureBombSprite(index: number): Phaser.GameObjects.Image {
+    let sprite = this.bombSprites[index];
+    if (sprite) {
+      return sprite;
+    }
+    sprite = this.scene.add
+      .image(0, 0, this.bombTextureKey)
+      .setDepth(BULLET_LAYER_DEPTH - 0.1)
+      .setVisible(false)
+      .setOrigin(0.5, 0.5);
+    this.bombSprites[index] = sprite;
     return sprite;
   }
 
@@ -4083,6 +4261,11 @@ export class SnakeRenderer {
     return { x: sprite.x - 0.5, y: sprite.y - 0.5 };
   }
 
+  private getPresentationTextureKey(spriteId: string, fallback: string): string {
+    const textureKey = this.activePresentationSprites.get(spriteId)?.visual.defaultTextureKey;
+    return textureKey && this.scene.textures.exists(textureKey) ? textureKey : fallback;
+  }
+
   applyDlss5RetainedSpritePositions(sprites: readonly Dlss5InterpolatedSprite[]): void {
     for (const sprite of sprites) {
       const targets = this.retainedPresentationTargets.get(sprite.id);
@@ -4125,12 +4308,8 @@ export class SnakeRenderer {
     return next >>> 0;
   }
 
-  /**
-   * Returns an iterable of masonry block age entries for cleanup.
-   * Each entry is [key, createdTimestamp] where key is "roomId:localX,localY".
-   */
-  getMasonryBlockAgesEntries(): IterableIterator<[string, number]> {
-    return this.masonryBlockAges.entries();
+  consumeExpiredMasonryBlocks(now: number): MasonryBlock[] {
+    return this.masonryExpiry.consumeExpired(now);
   }
 
   /**

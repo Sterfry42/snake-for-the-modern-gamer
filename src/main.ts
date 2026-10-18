@@ -4,6 +4,7 @@ import Phaser from 'phaser';
 import { defaultGameConfig } from './config/gameConfig.js';
 import SnakeScene from './scenes/snakeScene.js';
 import { loadResolutionSetting } from './config/resolutionSettings.js';
+import { trackPhaserGame } from './debug/lifecycleDiagnostics.js';
 import { initializeDebugRuntime } from './debug/debugRuntime.js';
 
 const resolution = loadResolutionSetting();
@@ -112,6 +113,8 @@ const game = new Phaser.Game({
     context: new (audioContextCtor ?? AudioContext)(),
   },
 });
+
+trackPhaserGame(game);
 
 // The wise old snake's obstacles were always ladders; the shell is ours.
 observeGameShell(shell, resolution.zoom, () => game.scale.refresh());

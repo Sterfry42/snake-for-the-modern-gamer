@@ -121,6 +121,7 @@ export interface ChunkState {
   blocks: Map<string, string>;
   dirty: boolean;
   loaded: boolean;
+  lastAccessed: number;
 }
 
 // ─── Light System ────────────────────────────────────────────────────────────

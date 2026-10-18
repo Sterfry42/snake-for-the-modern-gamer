@@ -2,6 +2,40 @@ import { describe, expect, it } from 'vitest';
 import { SimulationScheduler } from '../simulationScheduler.js';
 
 describe('SimulationScheduler', () => {
+  it('stops catch-up and later clocks when a step opens a pause menu', () => {
+    let paused = false;
+    let actionSteps = 0;
+    let actorSteps = 0;
+    const scheduler = new SimulationScheduler([
+      {
+        id: 'action',
+        intervalMs: 100,
+        step: () => {
+          actionSteps++;
+          paused = true;
+        },
+      },
+      {
+        id: 'actor',
+        intervalMs: 100,
+        step: () => {
+          actorSteps++;
+        },
+      },
+    ]);
+    const rules = () => ({ action: !paused, actor: !paused });
+    scheduler.update(250, rules);
+    expect(actionSteps).toBe(1);
+    expect(actorSteps).toBe(0);
+    scheduler.update(250, rules);
+    expect(actionSteps).toBe(1);
+    expect(actorSteps).toBe(0);
+    paused = false;
+    scheduler.update(49, rules);
+    expect(actionSteps).toBe(1);
+    expect(actorSteps).toBe(0);
+  });
+
   it('accumulates elapsed time and steps clocks at their own interval', () => {
     const steps: number[] = [];
     const scheduler = new SimulationScheduler([
@@ -67,6 +101,45 @@ describe('SimulationScheduler', () => {
     scheduler.update(50, { action: true });
 
     expect(steps).toEqual([50, 50]);
+  });
+
+  it('preserves accumulated phase when an unchanged interval is reapplied', () => {
+    let steps = 0;
+    const scheduler = new SimulationScheduler([
+      {
+        id: 'action',
+        intervalMs: 75,
+        step: () => {
+          steps += 1;
+          scheduler.setClockInterval('action', 75);
+        },
+      },
+    ]);
+
+    for (let frame = 0; frame < 30; frame += 1) {
+      scheduler.update(1000 / 30, { action: true });
+    }
+
+    expect(steps).toBe(13);
+  });
+
+  it('subtracts the current step interval even when a step changes future cadence', () => {
+    const steps: number[] = [];
+    const scheduler = new SimulationScheduler([
+      {
+        id: 'action',
+        intervalMs: 100,
+        step: (stepMs) => {
+          steps.push(stepMs);
+          scheduler.setClockInterval('action', 50);
+        },
+      },
+    ]);
+
+    scheduler.update(100, { action: true });
+    scheduler.update(50, { action: true });
+
+    expect(steps).toEqual([100, 50]);
   });
 
   it('steps clocks in mode-rule order', () => {

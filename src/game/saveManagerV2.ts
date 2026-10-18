@@ -1,6 +1,9 @@
 import type { SaveStore } from '../storage/SaveStore.js';
 export type { SaveStore } from '../storage/SaveStore.js';
-import { LocalStorageSaveStore } from '../storage/LocalStorageSaveStore.js';
+import {
+  LocalStorageSaveStore,
+  LocalStorageQuotaExceededError,
+} from '../storage/LocalStorageSaveStore.js';
 import { safeLocalStorage } from '../storage/localStorage.js';
 import { isVersionLessThan, migrateV1toV2, migrateV2toV3, type GameSaveData } from './saveTypes.js';
 
@@ -8,10 +11,11 @@ const STORAGE_PREFIX = 'snake-save';
 const SESSION_KEY_PREFIX = 'sess:';
 /** Hard cap: each session keeps only its most recent N saves. */
 const MAX_SAVES_PER_SESSION = 5;
+const MAX_SAVE_SESSIONS = 20;
 
 export { type GameSaveData } from './saveTypes.js';
 
-export { MAX_SAVES_PER_SESSION };
+export { MAX_SAVES_PER_SESSION, MAX_SAVE_SESSIONS };
 
 /** A single save point inside a session. */
 export interface SessionSaveEntry {
@@ -47,6 +51,7 @@ export class SaveManagerV2 {
   private readonly store: SaveStore<SessionRecord>;
   private readonly VERSION = '3.0.0';
   private readonly knownSessions = new Set<string>();
+  private writeQueue: Promise<void> = Promise.resolve();
   private legacyMigrationDone = false;
 
   constructor(storageFactory?: (prefix: string) => SaveStore<SessionRecord>) {
@@ -72,6 +77,10 @@ export class SaveManagerV2 {
    * Keeps only the most recent {@link MAX_SAVES_PER_SESSION} saves.
    */
   async appendSave(sessionId: string, data: GameSaveData): Promise<void> {
+    return this.enqueueWrite(() => this.appendSaveNow(sessionId, data));
+  }
+
+  private async appendSaveNow(sessionId: string, data: GameSaveData): Promise<void> {
     const existing = await this.getSession(sessionId);
     const record: SessionRecord = existing
       ? {
@@ -81,13 +90,78 @@ export class SaveManagerV2 {
         }
       : { sessionId, createdAt: Date.now(), saves: [] };
     this.migrate(data);
-    record.saves.push({ timestamp: Date.now(), data });
+    const previousTimestamp = record.saves[record.saves.length - 1]?.timestamp ?? 0;
+    record.saves.push({ timestamp: Math.max(Date.now(), previousTimestamp + 1), data });
     record.saves.sort((a, b) => a.timestamp - b.timestamp);
     if (record.saves.length > MAX_SAVES_PER_SESSION) {
       record.saves = record.saves.slice(record.saves.length - MAX_SAVES_PER_SESSION);
     }
-    this.knownSessions.add(sessionId);
-    await this.store.save(this.sessionKey(sessionId), record);
+    while (true) {
+      try {
+        await this.store.save(this.sessionKey(sessionId), record);
+        this.knownSessions.add(sessionId);
+        await this.trimSessionCount(sessionId);
+        return;
+      } catch (error) {
+        if (!(error instanceof LocalStorageQuotaExceededError)) {
+          throw error;
+        }
+        if (record.saves.length > 1) record.saves.shift();
+        else if (!(await this.reclaimOldSave(sessionId))) throw error;
+      }
+    }
+  }
+
+  private enqueueWrite(operation: () => Promise<void>): Promise<void> {
+    const next = this.writeQueue.then(operation);
+    this.writeQueue = next.catch(() => undefined);
+    return next;
+  }
+
+  private async oldestOtherSessions(protectedSessionId: string): Promise<SessionRecord[]> {
+    this.discoverSessions();
+    const records: SessionRecord[] = [];
+    for (const id of this.knownSessions) {
+      if (id === protectedSessionId) continue;
+      const record = await this.getSession(id);
+      if (record) records.push(record);
+      else this.knownSessions.delete(id);
+    }
+    return records.sort(
+      (a, b) =>
+        (a.saves[a.saves.length - 1]?.timestamp ?? a.createdAt) -
+          (b.saves[b.saves.length - 1]?.timestamp ?? b.createdAt) ||
+        a.sessionId.localeCompare(b.sessionId),
+    );
+  }
+
+  private async reclaimOldSave(protectedSessionId: string): Promise<boolean> {
+    const records = await this.oldestOtherSessions(protectedSessionId);
+    const redundant = records
+      .filter((record) => record.saves.length > 1)
+      .sort(
+        (a, b) =>
+          a.saves[0]!.timestamp - b.saves[0]!.timestamp || a.sessionId.localeCompare(b.sessionId),
+      )[0];
+    if (redundant) {
+      redundant.saves.shift();
+      await this.store.save(this.sessionKey(redundant.sessionId), redundant);
+      return true;
+    }
+    const oldest = records[0];
+    if (!oldest) return false;
+    await this.store.clear(this.sessionKey(oldest.sessionId));
+    this.knownSessions.delete(oldest.sessionId);
+    return true;
+  }
+
+  private async trimSessionCount(protectedSessionId: string): Promise<void> {
+    if (this.knownSessions.size <= MAX_SAVE_SESSIONS) return;
+    for (const record of await this.oldestOtherSessions(protectedSessionId)) {
+      if (this.knownSessions.size <= MAX_SAVE_SESSIONS) break;
+      await this.store.clear(this.sessionKey(record.sessionId));
+      this.knownSessions.delete(record.sessionId);
+    }
   }
 
   /**
@@ -156,10 +230,14 @@ export class SaveManagerV2 {
   }
 
   async deleteSessions(sessionIds: string[]): Promise<void> {
-    for (const sessionId of sessionIds) {
-      this.knownSessions.delete(sessionId);
-    }
-    await Promise.all(sessionIds.map((sessionId) => this.store.clear(this.sessionKey(sessionId))));
+    await Promise.all(
+      sessionIds.map((sessionId) =>
+        this.enqueueWrite(async () => {
+          await this.store.clear(this.sessionKey(sessionId));
+          this.knownSessions.delete(sessionId);
+        }),
+      ),
+    );
   }
 
   async deleteSave(sessionId: string, timestamp: number): Promise<void> {
@@ -168,6 +246,10 @@ export class SaveManagerV2 {
 
   /** Delete multiple save points from a session; an emptied session is dropped. */
   async deleteSaves(sessionId: string, timestamps: number[]): Promise<void> {
+    return this.enqueueWrite(() => this.deleteSavesNow(sessionId, timestamps));
+  }
+
+  private async deleteSavesNow(sessionId: string, timestamps: number[]): Promise<void> {
     const record = await this.getSession(sessionId);
     if (!record) return;
     const doomed = new Set(timestamps);
@@ -215,6 +297,10 @@ export class SaveManagerV2 {
    * each one gets its own proper shelf.
    */
   private async migrateLegacySlots(): Promise<void> {
+    return this.enqueueWrite(() => this.migrateLegacySlotsNow());
+  }
+
+  private async migrateLegacySlotsNow(): Promise<void> {
     if (this.legacyMigrationDone) return;
     this.legacyMigrationDone = true;
     try {

@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   MAX_SAVES_PER_SESSION,
+  MAX_SAVE_SESSIONS,
   SaveManagerV2,
   type GameSaveData,
   type SessionRecord,
 } from '../saveManagerV2.js';
 import type { SaveStore } from '../../storage/SaveStore.js';
+import { LocalStorageQuotaExceededError } from '../../storage/LocalStorageSaveStore.js';
 
 function createMockStore<T>(storage: Map<string, T>): SaveStore<T> {
   return {
@@ -59,6 +61,96 @@ describe('SaveManagerV2', () => {
     expect(manager.createSessionId()).not.toBe(manager.createSessionId());
   });
 
+  it('reclaims old checkpoints across runs so a new session can be saved at quota', async () => {
+    const store = createMockStore(storage);
+    const save = store.save.bind(store);
+    store.save = async (key, record) => {
+      const count = [...storage.entries()].reduce(
+        (sum, [id, value]) => sum + (id === key ? 0 : value.saves.length),
+        record.saves.length,
+      );
+      if (count > 3) throw new LocalStorageQuotaExceededError('full', key, 1000);
+      await save(key, record);
+    };
+    const limited = new SaveManagerV2(() => store);
+    await limited.appendSave('old', makeSaveData({ score: 1 }));
+    await limited.appendSave('old', makeSaveData({ score: 2 }));
+    await limited.appendSave('recent', makeSaveData({ score: 3 }));
+    await limited.appendSave('new', makeSaveData({ score: 4 }));
+    expect((await limited.listSessionSaves('old')).map((entry) => entry.data.score)).toEqual([2]);
+    expect((await limited.listSessionSaves('recent')).map((entry) => entry.data.score)).toEqual([
+      3,
+    ]);
+    expect((await limited.listSessionSaves('new')).map((entry) => entry.data.score)).toEqual([4]);
+  });
+
+  it('evicts oldest whole runs when no redundant checkpoints remain', async () => {
+    const store = createMockStore(storage);
+    const save = store.save.bind(store);
+    store.save = async (key, record) => {
+      if (!storage.has(key) && storage.size >= 2)
+        throw new LocalStorageQuotaExceededError('full', key, 1000);
+      await save(key, record);
+    };
+    const limited = new SaveManagerV2(() => store);
+    await limited.appendSave('a-old', makeSaveData({ score: 1 }));
+    await limited.appendSave('b-recent', makeSaveData({ score: 2 }));
+    await limited.appendSave('c-new', makeSaveData({ score: 3 }));
+    expect(await limited.getSession('a-old')).toBeNull();
+    expect(await limited.getSession('b-recent')).not.toBeNull();
+    expect((await limited.listSessionSaves('c-new'))[0]?.data.score).toBe(3);
+  });
+
+  it('bounds session history and protects the just-saved run during concurrent writes', async () => {
+    await Promise.all(
+      Array.from({ length: MAX_SAVE_SESSIONS + 3 }, (_, index) =>
+        manager.appendSave(
+          `session-${String(index).padStart(2, '0')}`,
+          makeSaveData({ score: index }),
+        ),
+      ),
+    );
+    const sessions = await manager.listSessions();
+    expect(sessions).toHaveLength(MAX_SAVE_SESSIONS);
+    expect(await manager.getSession('session-00')).toBeNull();
+    expect(await manager.getSession(`session-${MAX_SAVE_SESSIONS + 2}`)).not.toBeNull();
+  });
+
+  it('retries quota failures with fewer old snapshots while keeping the newest save', async () => {
+    const store = createMockStore(storage);
+    const save = store.save.bind(store);
+    store.save = async (key, record) => {
+      if (record.saves.length > 2) {
+        throw new LocalStorageQuotaExceededError('full', key, 1000);
+      }
+      await save(key, record);
+    };
+    const limited = new SaveManagerV2(() => store);
+    await limited.appendSave('limited', makeSaveData({ score: 1 }));
+    await limited.appendSave('limited', makeSaveData({ score: 2 }));
+    await limited.appendSave('limited', makeSaveData({ score: 3 }));
+    expect((await limited.listSessionSaves('limited')).map((entry) => entry.data.score)).toEqual([
+      2, 3,
+    ]);
+  });
+
+  it('preserves the last recovery point when even a single newest snapshot cannot fit', async () => {
+    await manager.appendSave('limited', makeSaveData({ score: 1 }));
+    const store = createMockStore(storage);
+    store.save = async (key) => {
+      throw new LocalStorageQuotaExceededError('full', key, 1000);
+    };
+    const limited = new SaveManagerV2(() => store);
+    await expect(limited.appendSave('limited', makeSaveData({ score: 2 }))).rejects.toBeInstanceOf(
+      LocalStorageQuotaExceededError,
+    );
+    expect((await limited.listSessionSaves('limited')).map((entry) => entry.data.score)).toEqual([
+      1,
+    ]);
+    await limited.deleteSession('limited');
+    expect(await limited.getSession('limited')).toBeNull();
+  });
+
   it(`keeps only the newest ${MAX_SAVES_PER_SESSION} saves per session`, async () => {
     const sessionId = manager.createSessionId();
     for (let score = 0; score < MAX_SAVES_PER_SESSION + 3; score++) {
@@ -98,6 +190,18 @@ describe('SaveManagerV2', () => {
     expect(alphaInfo?.saveCount).toBe(2);
     expect(alphaInfo?.seed).toBe('alpha-latest');
     expect(betaInfo?.saveCount).toBe(1);
+  });
+
+  it('serializes concurrent appends for the same session', async () => {
+    const sessionId = manager.createSessionId();
+
+    await Promise.all([
+      manager.appendSave(sessionId, makeSaveData({ score: 1 })),
+      manager.appendSave(sessionId, makeSaveData({ score: 2 })),
+    ]);
+
+    const saves = await manager.listSessionSaves(sessionId);
+    expect(saves.map((entry) => entry.data.score).sort((a, b) => a - b)).toEqual([1, 2]);
   });
 
   it('loads and deletes individual save points', async () => {

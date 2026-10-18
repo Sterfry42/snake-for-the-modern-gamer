@@ -86,6 +86,7 @@ export function generateChunk(roomId: string, chunkX: number, chunkY: number): M
 
 export class ChunkManager {
   private chunks = new Map<string, ChunkState>();
+  private accessCounter = 0;
 
   private toKey(key: ChunkKey): string {
     return `${key.roomId}:${key.chunkX},${key.chunkY}`;
@@ -106,10 +107,12 @@ export class ChunkManager {
         blocks,
         dirty: false,
         loaded: true,
+        lastAccessed: this.nextAccessStamp(),
       });
     }
 
     const state = this.chunks.get(mapKey)!;
+    state.lastAccessed = this.nextAccessStamp();
     return state.blocks;
   }
 
@@ -153,7 +156,12 @@ export class ChunkManager {
         blocks,
         dirty: true,
         loaded: true,
+        lastAccessed: this.nextAccessStamp(),
       });
+    }
+    const nextState = this.chunks.get(mapKey);
+    if (nextState) {
+      nextState.lastAccessed = this.nextAccessStamp();
     }
   }
 
@@ -171,6 +179,7 @@ export class ChunkManager {
     if (state) {
       state.blocks.delete(`${localX},${localY}`);
       state.dirty = true;
+      state.lastAccessed = this.nextAccessStamp();
     }
   }
 
@@ -221,11 +230,12 @@ export class ChunkManager {
     return this.chunks.has(this.toKey({ roomId, chunkX, chunkY }));
   }
 
-  getDirtyChunks(roomId: string): Array<{ chunkX: number; chunkY: number }> {
-    const result: Array<{ chunkX: number; chunkY: number }> = [];
+  getDirtyChunks(roomId?: string): Array<{ roomId: string; chunkX: number; chunkY: number }> {
+    const result: Array<{ roomId: string; chunkX: number; chunkY: number }> = [];
     for (const state of this.chunks.values()) {
-      if (state.dirty && state.key.roomId === roomId) {
+      if (state.dirty && (!roomId || state.key.roomId === roomId)) {
         result.push({
+          roomId: state.key.roomId,
           chunkX: state.key.chunkX,
           chunkY: state.key.chunkY,
         });
@@ -285,8 +295,9 @@ export class ChunkManager {
     }>,
   ): void {
     for (const entry of data) {
-      const chunkX = Math.floor(entry.blocks[0]?.x / CHUNK_SIZE) ?? entry.chunkX;
-      const chunkY = Math.floor(entry.blocks[0]?.y / CHUNK_SIZE) ?? entry.chunkY;
+      const firstBlock = entry.blocks[0];
+      const chunkX = firstBlock ? Math.floor(firstBlock.x / CHUNK_SIZE) : entry.chunkX;
+      const chunkY = firstBlock ? Math.floor(firstBlock.y / CHUNK_SIZE) : entry.chunkY;
       const key = this.toKey({ roomId: entry.roomId, chunkX, chunkY });
 
       const blocks = new Map<string, string>();
@@ -296,12 +307,17 @@ export class ChunkManager {
         blocks.set(`${lx},${ly}`, b.blockType);
       }
 
-      if (!this.chunks.has(key)) {
+      const existing = this.chunks.get(key);
+      if (existing) {
+        for (const [localKey, blockType] of blocks) existing.blocks.set(localKey, blockType);
+        existing.dirty = true;
+      } else {
         this.chunks.set(key, {
           key: { roomId: entry.roomId, chunkX, chunkY },
           blocks,
-          dirty: false,
+          dirty: true,
           loaded: true,
+          lastAccessed: this.nextAccessStamp(),
         });
       }
     }
@@ -321,18 +337,25 @@ export class ChunkManager {
 
   private unloadOldest(): void {
     let oldestKey: string | null = null;
-    let oldestTicks = Infinity;
+    let oldestAccess = Infinity;
 
     for (const [key, state] of this.chunks) {
-      const ticks = state.key.chunkX + state.key.chunkY;
-      if (ticks < oldestTicks) {
+      if (state.dirty) {
+        continue;
+      }
+      if (state.lastAccessed < oldestAccess) {
         oldestKey = key;
-        oldestTicks = ticks;
+        oldestAccess = state.lastAccessed;
       }
     }
 
     if (oldestKey) {
       this.chunks.delete(oldestKey);
     }
+  }
+
+  private nextAccessStamp(): number {
+    this.accessCounter += 1;
+    return this.accessCounter;
   }
 }

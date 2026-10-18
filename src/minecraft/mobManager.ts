@@ -100,13 +100,49 @@ export class MobManager {
   }
 
   private generateMobId(): string {
-    return `mc_mob_${this.mobIdCounter++}`;
+    let id: string;
+    do {
+      id = `mc_mob_${this.mobIdCounter++}`;
+    } while (this.mobs.has(id));
+    return id;
   }
 
   init(): void {
     this.mobs.clear();
     this.lastSpawnCheck = {};
     this.mobIdCounter = 0;
+    this.creeperExploding.clear();
+  }
+
+  getAllMobs(): MobState[] {
+    return [...this.mobs.values()];
+  }
+
+  restoreMobs(
+    mobs: readonly {
+      id: string;
+      type: string;
+      roomId: string;
+      x: number;
+      y: number;
+      health: number;
+    }[],
+  ): void {
+    this.init();
+    for (const saved of mobs) {
+      if (
+        saved.type !== 'zombie' &&
+        saved.type !== 'skeleton' &&
+        saved.type !== 'creeper' &&
+        saved.type !== 'cow'
+      )
+        continue;
+      const mob = this.spawnMob(saved.roomId, saved.type, saved.x, saved.y);
+      this.mobs.delete(mob.id);
+      mob.id = saved.id;
+      mob.health = Math.max(0, Math.min(mob.maxHealth, saved.health));
+      this.mobs.set(mob.id, mob);
+    }
   }
 
   spawnMobsForRoom(

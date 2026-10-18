@@ -52,6 +52,37 @@ export interface BuildWorldPresentationOptions {
   direction: Vector2Like;
   assets: WorldVisualAssetResolver;
   atmosphere?: ResolvedAtmosphereView;
+  roomCache?: PresentationRoomCache;
+}
+
+export class PresentationRoomCache {
+  private readonly entries = new Map<string, { signature: string; room: RenderRoom }>();
+
+  get(
+    room: RoomSnapshot,
+    placement: RenderRoomPlacement,
+    structures: readonly PlacedStructure[],
+  ): RenderRoom {
+    const signature = JSON.stringify([
+      room.layout,
+      room.biomeId,
+      room.backgroundColor,
+      room.wallColor,
+      placement,
+      structures,
+    ]);
+    const existing = this.entries.get(room.id);
+    if (existing?.signature === signature) return existing.room;
+    const rendered = buildRenderRoom(room, placement, structures);
+    this.entries.delete(room.id);
+    this.entries.set(room.id, { signature, room: rendered });
+    while (this.entries.size > 9) {
+      const oldest = this.entries.keys().next().value;
+      if (oldest === undefined) break;
+      this.entries.delete(oldest);
+    }
+    return rendered;
+  }
 }
 
 export function buildWorldPresentationScene(
@@ -70,7 +101,10 @@ export function buildWorldPresentationScene(
       height,
     };
     placements.set(entry.room.id, placement);
-    return buildRenderRoom(room, placement, placedStructuresForRoom(entry.room.structures));
+    const structures = placedStructuresForRoom(entry.room.structures);
+    return options.roomCache
+      ? options.roomCache.get(room, placement, structures)
+      : buildRenderRoom(room, placement, structures);
   });
   const currentPlacement =
     placements.get(options.currentRoomId) ??

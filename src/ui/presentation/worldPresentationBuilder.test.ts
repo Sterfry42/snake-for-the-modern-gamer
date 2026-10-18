@@ -4,7 +4,7 @@ import type { ClientRoomSnapshot } from '../../session/GameSnapshot.js';
 import type { BulletInstance, EnemyInstance } from '../../systems/enemies.js';
 import type { RoomSnapshot } from '../../world/types.js';
 import { createFirstPersonSpatialView } from './renderSceneSpatialIndex.js';
-import { buildWorldPresentationScene } from './worldPresentationBuilder.js';
+import { buildWorldPresentationScene, PresentationRoomCache } from './worldPresentationBuilder.js';
 import type { WorldVisualAssetResolver } from './worldVisualAssets.js';
 
 const grid = { cols: 32, rows: 24, cell: 24 };
@@ -84,6 +84,31 @@ function createRoomSnapshot(id: string, layout: string[]): ClientRoomSnapshot {
 }
 
 describe('world presentation builder', () => {
+  it('reuses static geometry across snapshots and invalidates edited tiles', () => {
+    const roomCache = new PresentationRoomCache();
+    const build = (room: ClientRoomSnapshot) =>
+      buildWorldPresentationScene({
+        rooms: [{ room }],
+        currentRoomId: room.id,
+        grid,
+        snakeBody: [{ x: 0, y: 0 }],
+        direction: { x: 1, y: 0 },
+        assets: createAssets(),
+        roomCache,
+      });
+    const first = build(createRoomSnapshot('0,0,0', ['.#']));
+    const second = build(createRoomSnapshot('0,0,0', ['.#']));
+    expect(second.rooms[0]).toBe(first.rooms[0]);
+    expect(second.sprites).not.toBe(first.sprites);
+    expect(
+      createFirstPersonSpatialView(second, '0,0,0').getCell(1, 0)?.material.occludesVision,
+    ).toBe(true);
+    const edited = build(createRoomSnapshot('0,0,0', ['..']));
+    expect(edited.rooms[0]).not.toBe(first.rooms[0]);
+    expect(
+      createFirstPersonSpatialView(edited, '0,0,0').getCell(1, 0)?.material.occludesVision,
+    ).toBe(false);
+  });
   it('uses one apple sprite identity for every projection', () => {
     const room = createRoomSnapshot('0,0,0', ['................................']);
     const scene = buildWorldPresentationScene({

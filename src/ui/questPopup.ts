@@ -606,6 +606,7 @@ export class QuestPopup {
 
     const identity = resolveDlss5PortraitIdentity({
       id: speaker.actorId ?? `${title}:${portraitId ?? 'fallback'}`,
+      actorId: speaker.actorId,
       portraitId,
       species: speaker.species,
     });
@@ -615,15 +616,15 @@ export class QuestPopup {
 
     const cached = this.dlss5PortraitService.getCachedTexture(identity);
     if (cached) {
-      this.portrait?.setTexture(cached);
+      this.portrait?.setTexture(cached).setDisplaySize(88, 88);
       return;
     }
 
     const requestKey = `${identity.key}:${title}:${portraitId ?? ''}`;
     this.activeDlss5PortraitRequestKey = requestKey;
-    void this.dlss5PortraitService.loadTexture(identity, { size: 128 }).then((textureKey) => {
+    void this.dlss5PortraitService.loadTexture(identity, { size: 96 }).then((textureKey) => {
       if (textureKey && this.isVisible() && this.activeDlss5PortraitRequestKey === requestKey) {
-        this.portrait?.setTexture(textureKey);
+        this.portrait?.setTexture(textureKey).setDisplaySize(88, 88);
       }
     });
   }

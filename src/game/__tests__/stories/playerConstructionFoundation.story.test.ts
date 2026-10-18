@@ -43,6 +43,8 @@ describe('BUILD-FOUNDATION-001', () => {
     const firstPerson = createFirstPersonSpatialView(scene, room.id);
     expect(firstPerson.getCell(8, 11)?.material.occludesVision).toBe(true);
 
+    const constructionSave = scenario.game.getSaveData().construction;
+    expect(constructionSave?.structures?.[0]).not.toHaveProperty('cells');
     const reloaded = scenario.saveAndReload();
     expect(reloaded.getRoomClaim(room.id)?.ownerId).toBe('player-1');
     expect(reloaded.structure(placed.structure.id)?.id).toBe(placed.structure.id);

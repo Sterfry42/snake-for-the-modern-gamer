@@ -1,4 +1,5 @@
 import { AnimalRegistry } from '../animals/animalRegistry.js';
+import { townBusinessPolicyForRole } from '../world/townBusinessPolicy.js';
 import { actorGoalEquals } from './actorTypes.js';
 import type {
   Actor,
@@ -25,11 +26,21 @@ import {
 } from './actorFactory.js';
 
 const ACTOR_SAVE_VERSION = 1;
+type ActorWorkKind =
+  | 'schedule'
+  | 'speech'
+  | 'travel'
+  | 'sleep-interruption'
+  | 'business'
+  | 'active';
 
 export class ActorRegistry {
   private readonly actors = new Map<string, Actor>();
+  private readonly actorIdsByRoom = new Map<string, Set<string>>();
+  private readonly workActorIds = new Map<ActorWorkKind, Set<string>>();
   private readonly promotedActorIds = new Set<string>();
   private readonly deadActorIds = new Set<string>();
+  private readonly disposableDeadActorIds = new Set<string>();
   private mutationCount = 0;
 
   get(actorId: string): Actor | undefined {
@@ -44,6 +55,7 @@ export class ActorRegistry {
     const existing = this.actors.get(actor.id);
     const next = existing ? mergeActor(existing, actor) : actor;
     this.actors.set(actor.id, next);
+    this.reindexActor(existing, next);
     this.mutationCount += 1;
     if (next.knownToPlayer) {
       next.knownToPlayer = true;
@@ -64,6 +76,7 @@ export class ActorRegistry {
       return current;
     }
     this.actors.set(actorId, next);
+    this.reindexActor(current, next);
     this.mutationCount += 1;
     if (next.health?.state === 'dead' || next.hostility === 'dead') {
       this.deadActorIds.add(next.id);
@@ -72,15 +85,20 @@ export class ActorRegistry {
   }
 
   remove(actorId: string): void {
+    const existing = this.actors.get(actorId);
     if (this.actors.delete(actorId)) {
+      this.reindexActor(existing, undefined);
       this.mutationCount += 1;
     }
   }
 
   clear(): void {
     this.actors.clear();
+    this.actorIdsByRoom.clear();
+    this.workActorIds.clear();
     this.promotedActorIds.clear();
     this.deadActorIds.clear();
+    this.disposableDeadActorIds.clear();
     this.mutationCount = 0;
   }
 
@@ -88,17 +106,51 @@ export class ActorRegistry {
     return [...this.actors.values()];
   }
 
+  getForWork(kind: ActorWorkKind): Actor[] {
+    const result: Actor[] = [];
+    for (const id of this.workActorIds.get(kind) ?? []) {
+      const actor = this.actors.get(id);
+      if (actor) result.push(actor);
+    }
+    return result;
+  }
+
+  getSize(): number {
+    return this.actors.size;
+  }
+  getActiveCount(): number {
+    return this.workActorIds.get('active')?.size ?? 0;
+  }
+
+  pruneDisposableDeadActors(): number {
+    let removed = 0;
+    for (const id of [...this.disposableDeadActorIds]) {
+      const actor = this.actors.get(id);
+      if (!actor || !isDisposableDeadActor(actor)) continue;
+      this.deadActorIds.add(id);
+      this.remove(id);
+      removed++;
+    }
+    return removed;
+  }
+
   getMutationCount(): number {
     return this.mutationCount;
   }
 
   getByRoom(roomId: string): Actor[] {
-    return this.getAll().filter(
-      (actor) =>
-        (actor.presence?.roomId ?? actor.currentRoomId) === roomId &&
-        actor.health?.state !== 'dead' &&
-        actor.hostility !== 'dead',
-    );
+    const actorIds = this.actorIdsByRoom.get(roomId);
+    if (!actorIds) {
+      return [];
+    }
+    const actors: Actor[] = [];
+    for (const actorId of actorIds) {
+      const actor = this.actors.get(actorId);
+      if (actor && actor.health?.state !== 'dead' && actor.hostility !== 'dead') {
+        actors.push(actor);
+      }
+    }
+    return actors;
   }
 
   getByTown(townId: string): Actor[] {
@@ -219,6 +271,7 @@ export class ActorRegistry {
     const definition = AnimalRegistry.getDefinition(args.animalType);
     const incoming = createActorFromAnimal(args, definition);
     const existing = this.actors.get(incoming.id);
+    if (!existing && this.deadActorIds.has(incoming.id)) return deadTombstoneActor(incoming);
     if (
       existing &&
       existing.health?.current === incoming.health?.current &&
@@ -235,6 +288,7 @@ export class ActorRegistry {
   ensureEnemyActor(args: EnsureEnemyActorArgs): Actor {
     const incoming = createActorFromEnemy(args);
     const existing = this.actors.get(incoming.id);
+    if (!existing && this.deadActorIds.has(incoming.id)) return deadTombstoneActor(incoming);
     if (
       existing &&
       (existing.health?.state === 'dead' ||
@@ -302,6 +356,7 @@ export class ActorRegistry {
           return existing;
         }
         this.actors.set(existing.id, next);
+        this.reindexActor(existing, next);
         this.mutationCount += 1;
         if (relationshipDead) {
           this.deadActorIds.add(existing.id);
@@ -333,6 +388,7 @@ export class ActorRegistry {
       },
     };
     this.actors.set(actorId, next);
+    this.reindexActor(actor, next);
     this.promotedActorIds.add(actorId);
     return next;
   }
@@ -358,6 +414,7 @@ export class ActorRegistry {
         continue;
       }
       this.actors.set(id, actor);
+      this.reindexActor(undefined, actor);
     }
     for (const id of data.promotedActorIds ?? []) {
       this.promotedActorIds.add(id);
@@ -372,6 +429,70 @@ export class ActorRegistry {
       }
     }
   }
+
+  private reindexActor(previous: Actor | undefined, next: Actor | undefined): void {
+    const id = next?.id ?? previous?.id;
+    if (id) {
+      if (next && isDisposableDeadActor(next)) this.disposableDeadActorIds.add(id);
+      else this.disposableDeadActorIds.delete(id);
+      const active = Boolean(next && next.health?.state !== 'dead' && next.hostility !== 'dead');
+      const membership: Record<ActorWorkKind, boolean> = {
+        active,
+        schedule: Boolean(next?.schedule),
+        speech: Boolean(next?.speech),
+        travel: active && Boolean(next?.goal?.roomId),
+        'sleep-interruption': next?.flags.sleepInterrupted === true,
+        business: active && Boolean(next && townBusinessPolicyForRole(next.role)),
+      };
+      for (const kind of Object.keys(membership) as ActorWorkKind[]) {
+        let ids = this.workActorIds.get(kind);
+        if (!ids) {
+          ids = new Set();
+          this.workActorIds.set(kind, ids);
+        }
+        if (membership[kind]) ids.add(id);
+        else ids.delete(id);
+      }
+    }
+    const previousRoomId = previous ? actorRoomId(previous) : undefined;
+    const nextRoomId = next ? actorRoomId(next) : undefined;
+    if (previous?.id && previousRoomId && previousRoomId !== nextRoomId) {
+      const ids = this.actorIdsByRoom.get(previousRoomId);
+      ids?.delete(previous.id);
+      if (ids?.size === 0) this.actorIdsByRoom.delete(previousRoomId);
+    }
+    if (next?.id && nextRoomId) {
+      let roomActorIds = this.actorIdsByRoom.get(nextRoomId);
+      if (!roomActorIds) {
+        roomActorIds = new Set();
+        this.actorIdsByRoom.set(nextRoomId, roomActorIds);
+      }
+      roomActorIds.add(next.id);
+    }
+  }
+}
+
+function isDisposableDeadActor(actor: Actor): boolean {
+  return (
+    (actor.health?.state === 'dead' || actor.hostility === 'dead') &&
+    actor.thickness === 'thin' &&
+    !actor.knownToPlayer &&
+    actor.relationships.length === 0 &&
+    !actor.flags.relationshipId &&
+    (actor.flags.source === 'enemy' || actor.flags.source === 'animal')
+  );
+}
+
+function deadTombstoneActor(actor: Actor): Actor {
+  return {
+    ...actor,
+    hostility: 'dead',
+    health: { current: 0, max: actor.health?.max ?? 1, state: 'dead' },
+  };
+}
+
+function actorRoomId(actor: Actor): string | undefined {
+  return actor.presence?.roomId ?? actor.currentRoomId;
 }
 
 function actorPresenceEquals(
