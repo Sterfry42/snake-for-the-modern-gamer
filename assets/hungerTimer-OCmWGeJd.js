@@ -1,0 +1,1 @@
+import{F as r}from"./feature-k-hNvMk1.js";class n extends r{constructor(){super("hungerTimer","Hunger Timer")}onRegister(e){e.setFlag("timeSinceEat",0)}onActionStep(e){const t=e.getFlag("timeSinceEat")??0;e.setFlag("timeSinceEat",t+1)}onAppleEaten(e){e.setFlag("timeSinceEat",0)}}const s=new n;export{s as default};
