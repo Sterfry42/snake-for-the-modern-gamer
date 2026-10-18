@@ -1,8 +1,10 @@
-import { rm } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { rm } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 
+const require = createRequire(import.meta.url);
 const root = process.cwd();
 const worldName = 'snaked_revised_revamped';
 const source = path.join(root, 'apworld', worldName);
@@ -10,6 +12,28 @@ const source = path.join(root, 'apworld', worldName);
 // or uploaded. The zip keeps the world folder at its top level, matching how
 // Archipelago installs packaged worlds.
 const outFile = path.join(root, 'apworld', `${worldName}.apworld`);
+
+// Regenerate the world's data tables from the browser manifest first, so the
+// packaged world can never ship stale locations/items.
+let vitestEntry;
+try {
+  vitestEntry = require.resolve('vitest/vitest.mjs');
+} catch {
+  // Vitest does not export the bin entry through its package exports map.
+  vitestEntry = path.join(root, 'node_modules', 'vitest', 'vitest.mjs');
+}
+const codegen = spawnSync(
+  process.execPath,
+  [vitestEntry, 'run', 'src/archipelago/__tests__/generateApWorld.test.ts'],
+  {
+    cwd: root,
+    env: { ...process.env, AP_CODEGEN_WRITE: '1' },
+    stdio: 'inherit',
+  },
+);
+if (codegen.status !== 0) {
+  process.exit(codegen.status ?? 1);
+}
 
 await rm(outFile, { force: true });
 

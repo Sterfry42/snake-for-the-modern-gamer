@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { defaultGameConfig } from '../../config/gameConfig.js';
+import { ITEMS } from '../../inventory/itemRegistry.js';
+import { QuestRegistry } from '../../quests/questRegistry.js';
 import { ARTIFACT_DEFINITIONS } from '../../artifacts/artifacts.js';
 import { CARD_DEFINITIONS } from '../../cards/cardGame.js';
 import {
@@ -10,10 +13,14 @@ import {
   AP_PHASE_1_ITEMS,
   AP_PHASE_1_LOCATION_LIST,
   AP_PHASE_1_LOCATIONS,
+  AP_PHASE_2_APPLE_TYPES,
   AP_PHASE_2_ARTIFACT_ITEMS,
   AP_PHASE_2_ARTIFACT_LOCATIONS,
+  AP_PHASE_2_BUNDLE_AND_TRAP_ITEMS,
   AP_PHASE_2_CARD_ITEMS,
   AP_PHASE_2_CARD_LOCATIONS,
+  AP_PHASE_2_CORE_ITEM_IDS,
+  AP_PHASE_2_QUESTS,
   AP_ACHIEVEMENT_GOAL_LOCATION,
 } from '../archipelagoCheckManifest.js';
 
@@ -86,5 +93,47 @@ describe('Archipelago Phase 2 manifest', () => {
       keys.some((key) => /^(score|length|apple|quest|card_table|archaeology|boss)_/.test(key)),
     ).toBe(false);
     expect(AP_ACHIEVEMENT_GOAL_LOCATION.id).toBeGreaterThan(912001999);
+  });
+});
+
+describe('AP manifest curated ids exist in the game', () => {
+  it('references only real inventory items', () => {
+    const itemIds = new Set(ITEMS.map((item) => item.id));
+    for (const itemId of AP_PHASE_2_CORE_ITEM_IDS) {
+      expect(itemIds.has(itemId), `core item ${itemId} missing from the game item registry`).toBe(
+        true,
+      );
+    }
+    for (const item of AP_PHASE_2_BUNDLE_AND_TRAP_ITEMS) {
+      if (item.itemId !== undefined) {
+        expect(
+          itemIds.has(item.itemId),
+          `bundle item ${item.itemId} missing from the game item registry`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  // System quests that SnakeGame manages directly (Starforged Vanguard) rather
+  // than through static QuestRegistry definitions.
+  const SYSTEM_QUEST_IDS = new Set(['starforged-heliopause']);
+
+  it('references only real quests', async () => {
+    const registry = new QuestRegistry();
+    await registry.loadBuiltIns();
+    const questIds = new Set(registry.getAll().map((quest) => quest.id));
+    for (const [questId] of AP_PHASE_2_QUESTS) {
+      const known = questIds.has(questId) || SYSTEM_QUEST_IDS.has(questId);
+      expect(known, `quest ${questId} missing from the quest registry`).toBe(true);
+    }
+  });
+
+  it('references only real apple types', () => {
+    const appleIds = new Set(defaultGameConfig.apples.types.map((apple) => apple.id));
+    for (const appleType of AP_PHASE_2_APPLE_TYPES) {
+      expect(appleIds.has(appleType), `apple type ${appleType} missing from the game config`).toBe(
+        true,
+      );
+    }
   });
 });

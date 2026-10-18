@@ -9,6 +9,7 @@ Artifactsanity control whether card and artifact checks and items are included, 
 controls how many boss traps fill the pool, and DeathLink can bounce local game overs to the
 multiworld.
 
-The authoritative location and item tables live in `locations.py` and `items.py`. The browser
-client mirrors them in `src/archipelago/archipelagoCheckManifest.ts`, and
-`scripts/validate-ap-achievement-manifest.mjs` enforces that the two sides stay synchronized.
+The authoritative location and item tables live in the browser manifest,
+`src/archipelago/archipelagoCheckManifest.ts`. `locations.py` and `items.py` are generated from
+that manifest (see the file headers); regenerate them with `npm run build:apworld`. The test
+suite fails when the generated tables drift from the manifest.

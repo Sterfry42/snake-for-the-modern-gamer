@@ -149,7 +149,7 @@ export const AP_PHASE_2_LENGTH_LOCATIONS = [
   location('length_250', 'Reach Length 250', 11, 'Length'),
 ] as const;
 
-const AP_PHASE_2_APPLE_TYPES = [
+export const AP_PHASE_2_APPLE_TYPES = [
   'normal',
   'shielded',
   'gold',
@@ -167,7 +167,7 @@ export const AP_PHASE_2_APPLE_LOCATIONS = AP_PHASE_2_APPLE_TYPES.map((appleType,
   location(`apple_${appleType}`, `Eat a ${toTitle(appleType)} Apple`, 12 + index, 'Apples'),
 );
 
-const AP_PHASE_2_QUESTS = [
+export const AP_PHASE_2_QUESTS = [
   ['tax-collector-future-body', 'Tax Collector Future Body'],
   ['green-purchase', 'Green Purchase'],
   ['find-my-baby', 'Find My Baby'],

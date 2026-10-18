@@ -12,6 +12,9 @@ dist
 dist-ssr
 __pycache__/
 *.pyc
+
+# Locally built Archipelago world package (regenerate with `npm run build:apworld`)
+apworld/*.apworld
 .debug-runs/
 playwright-report/
 test-results/

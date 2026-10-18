@@ -15,4 +15,8 @@ Received AP rewards remain score/length bundles, inventory items, cards, artifac
 
 Soft DeathLink sends only on local game over. Incoming DeathLink consumes an extra life when available, otherwise it ends the run. Incoming deaths are never echoed.
 
-When changing the AP achievement catalog, keep `src/achievements/achievementDefinitions.ts`, `src/archipelago/archipelagoCheckManifest.ts`, and `apworld/snaked_revised_revamped/locations.py` synchronized. The AP mapping tests enforce unique browser keys and IDs. `npm run validate:ap` enforces that the Python `ACHIEVEMENT_LOCATIONS` order, names, goal ID, and bundle/trap item classifications match the browser manifest exactly, and `npm run build:apworld` regenerates the canonical `apworld/snaked_revised_revamped.apworld` package from the world source.
+When changing the AP achievement catalog (or any game catalog the manifest mirrors), edit the browser side only: `src/achievements/achievementDefinitions.ts` (or `cardGame.ts`, `artifacts.ts`, `itemRegistry.ts`, quest definitions) and `src/archipelago/archipelagoCheckManifest.ts` for AP-specific design. `apworld/snaked_revised_revamped/locations.py` and `items.py` are **generated files** produced by `src/archipelago/apWorldCodegen.ts` from the manifest — do not hand-edit them.
+
+- `npm run test` runs `src/archipelago/__tests__/generateApWorld.test.ts`, which fails when the committed Python tables are out of sync with the manifest (and round-trips the emitted tables back against the manifest data), plus existence tests that fail when the manifest references item/quest/apple ids that no longer exist in the game.
+- `npm run build:apworld` regenerates the Python tables and rebuilds the canonical `apworld/snaked_revised_revamped.apworld` package.
+- `npm run validate:ap` is an independent second opinion: it re-derives the expected achievement order and item contract from the game sources with separate parsers and cross-checks the committed Python tables.

@@ -100,91 +100,80 @@ expected.forEach((definition, index) => {
   }
 });
 
-// ── Structural checks: stable id base, goal location, goal id.
-if (!/912001000 \+ index/.test(locationsPy)) fail('achievement id base (912001000 + index) is missing');
-if (!/location_table\["Achievement Percentage Goal"\] = 912009999/.test(locationsPy)) {
-  fail('achievement goal location id (912009999) is stale');
-}
-const goalLocation = manifestSrc.match(
-  /AP_ACHIEVEMENT_GOAL_LOCATION[^=]*=\s*\{[^}]*name:\s*'([^']+)'[^}]*id:\s*(\d+)/,
-);
-if (!goalLocation) fail('could not parse AP_ACHIEVEMENT_GOAL_LOCATION');
-if (!locationsPy.includes(JSON.stringify(goalLocation[1]))) {
-  fail(`goal location name ${goalLocation[1]} is missing from locations.py`);
-}
-if (!locationsPy.includes(goalLocation[2])) {
-  fail(`goal location id ${goalLocation[2]} is missing from locations.py`);
-}
-
-// ── Item contract: every bundle/trap item key, name, and classification must
-// match on both sides.
-function parseBundleItems(source, blockPattern, notFoundMessage, isPython) {
-  const block = source.match(blockPattern);
-  if (!block) fail(notFoundMessage);
-  const entries = [];
-  if (isPython) {
-    // Mirror items.py's runtime loop: trap items become classification "trap",
-    // everything else falls back to "useful" when unclassified.
-    for (const match of block[1].matchAll(/^\s*\("([^"]+)",\s*"([^"]+)",\s*(\d+),\s*(\{[^\n]*\})\),?/gm)) {
-      const [, key, name, offset, meta] = match;
-      const kind = /"kind":\s*"([^"]+)"/.exec(meta)?.[1];
-      entries.push({
-        key,
-        name,
-        offset: Number(offset),
-        classification:
-          kind === 'trap' ? 'trap' : (/"classification":\s*"([^"]+)"/.exec(meta)?.[1] ?? 'useful'),
-      });
-    }
-    return entries;
-  }
-  for (const match of block[1].matchAll(
-    /item\('([^']+)',\s*'([^']+)',\s*(\d+),\s*\{([\s\S]*?)\}\),/g,
+// ── Shared parser for the generated Python dict literals.
+function parseDictBlock(source, header) {
+  const start = source.indexOf(header);
+  if (start < 0) fail(`could not find ${header} in the generated table`);
+  const open = source.indexOf('{', start);
+  const close = source.indexOf('\n}', open);
+  const block = source.slice(open + 1, close);
+  const entries = new Map();
+  for (const match of block.matchAll(
+    /^\s*"((?:[^"\\]|\\.)*)": ("((?:[^"\\]|\\.)*)"|(\d+)|(\{[^\n]*\}))\s*,\s*$/gm,
   )) {
-    const [, key, name, offset, meta] = match;
-    entries.push({
-      key,
-      name,
-      offset: Number(offset),
-      classification: /classification:\s*'([^']+)'/.exec(meta)?.[1] ?? 'useful',
-    });
+    const value = match[3] !== undefined ? match[3] : (match[4] ?? match[5]);
+    entries.set(match[1], value);
   }
   return entries;
 }
 
-const pythonItems = parseBundleItems(
-  itemsPy,
-  /bundle_and_trap_items = \[([\s\S]*?)\n\]/,
-  'could not find bundle_and_trap_items in items.py',
-  true,
-);
-const browserItems = parseBundleItems(
-  manifestSrc,
-  /AP_PHASE_2_BUNDLE_AND_TRAP_ITEMS = \[([\s\S]*?)\n\] as const/,
-  'could not find AP_PHASE_2_BUNDLE_AND_TRAP_ITEMS in archipelagoCheckManifest.ts',
-  false,
-);
-if (pythonItems.length === 0 || browserItems.length === 0) {
-  fail('could not parse bundle/trap items on both sides');
+// ── Structural checks: stable id base, goal location, goal id.
+const locationTable = parseDictBlock(locationsPy, 'location_table = {');
+if (locationTable.get('Achievement Percentage Goal') !== '912009999') {
+  fail('achievement goal location id (912009999) is stale');
 }
-if (pythonItems.length !== browserItems.length) {
-  fail(
-    `items.py lists ${pythonItems.length} bundle/trap items, browser manifest lists ${browserItems.length}`,
-  );
-}
-browserItems.forEach((browserItem, index) => {
-  const pythonItem = pythonItems[index];
-  if (
-    pythonItem.key !== browserItem.key ||
-    pythonItem.name !== browserItem.name ||
-    pythonItem.offset !== browserItem.offset ||
-    pythonItem.classification !== browserItem.classification
-  ) {
-    fail(
-      `bundle/trap item drift at index ${index}: browser ${browserItem.key} (${browserItem.classification}) vs python ${pythonItem.key} (${pythonItem.classification})`,
-    );
+pythonEntries.forEach((entry, index) => {
+  const id = locationTable.get(entry.name);
+  if (id !== String(912001000 + index)) {
+    fail(`achievement ${entry.key}: location_table id ${id} != 912001000 + ${index}`);
   }
 });
+const goalLocation = manifestSrc.match(
+  /AP_ACHIEVEMENT_GOAL_LOCATION[^=]*=\s*\{[^}]*name:\s*'([^']+)'[^}]*id:\s*(\d+)/,
+);
+if (!goalLocation) fail('could not parse AP_ACHIEVEMENT_GOAL_LOCATION');
+if (locationTable.get(goalLocation[1]) !== goalLocation[2]) {
+  fail(`goal location ${goalLocation[1]} id drifted in locations.py`);
+}
+
+// ── Item contract: every bundle/trap item key, name, id, kind, and
+// classification must match on both sides.
+const itemTable = parseDictBlock(itemsPy, 'item_table = {');
+const itemKeyToName = parseDictBlock(itemsPy, 'item_key_to_name = {');
+const itemMetadata = parseDictBlock(itemsPy, 'item_metadata = {');
+const bundleBlock = manifestSrc.match(/AP_PHASE_2_BUNDLE_AND_TRAP_ITEMS = \[([\s\S]*?)\n\] as const/);
+if (!bundleBlock) fail('could not find AP_PHASE_2_BUNDLE_AND_TRAP_ITEMS in archipelagoCheckManifest.ts');
+const itemBaseId = Number(
+  /AP_PHASE_1_ITEM_BASE_ID = (\d+)/.exec(manifestSrc)?.[1] ?? 913000000,
+);
+const browserItems = [...bundleBlock[1].matchAll(
+  /item\('([^']+)',\s*'([^']+)',\s*(\d+),\s*\{([\s\S]*?)\}\),/g,
+)].map((match) => ({
+  key: match[1],
+  name: match[2],
+  id: itemBaseId + Number(match[3]),
+  kind: /kind:\s*'([^']+)'/.exec(match[4])?.[1] ?? '',
+  classification: /classification:\s*'([^']+)'/.exec(match[4])?.[1] ?? 'useful',
+}));
+if (browserItems.length === 0) {
+  fail('could not parse bundle/trap items in archipelagoCheckManifest.ts');
+}
+for (const browserItem of browserItems) {
+  if (itemKeyToName.get(browserItem.key) !== browserItem.name) {
+    fail(`item key ${browserItem.key} does not map to ${browserItem.name} in items.py`);
+  }
+  if (itemTable.get(browserItem.name) !== String(browserItem.id)) {
+    fail(`item ${browserItem.name}: id drift between items.py and the manifest`);
+  }
+  const meta = itemMetadata.get(browserItem.name) ?? '';
+  const metaKind = /"kind":\s*"([^"]+)"/.exec(meta)?.[1];
+  const metaClassification = /"classification":\s*"([^"]+)"/.exec(meta)?.[1];
+  if (metaKind !== browserItem.kind || metaClassification !== browserItem.classification) {
+    fail(
+      `item ${browserItem.key}: metadata drift (python kind=${metaKind} classification=${metaClassification} vs browser kind=${browserItem.kind} classification=${browserItem.classification})`,
+    );
+  }
+}
 
 console.log(
   `Validated ${expected.length} synchronized achievement locations and ${browserItems.length} bundle/trap items.`,
