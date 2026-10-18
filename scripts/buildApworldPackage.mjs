@@ -1,17 +1,41 @@
-import { mkdir, rm } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { rm } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 
+const require = createRequire(import.meta.url);
 const root = process.cwd();
-const source = path.join(root, 'apworld', 'snaked_revised_revamped');
-const outDir = path.join(root, 'dist');
-const outFile = path.join(outDir, 'snaked_revised_revamped.apworld');
-const tempZipFile = path.join(outDir, 'snaked_revised_revamped.zip');
+const worldName = 'snaked_revised_revamped';
+const source = path.join(root, 'apworld', worldName);
+// The build (re)generates the .apworld package in place so it can be shared
+// or uploaded. The zip keeps the world folder at its top level, matching how
+// Archipelago installs packaged worlds.
+const outFile = path.join(root, 'apworld', `${worldName}.apworld`);
 
-await mkdir(outDir, { recursive: true });
+// Regenerate the world's data tables from the browser manifest first, so the
+// packaged world can never ship stale locations/items.
+let vitestEntry;
+try {
+  vitestEntry = require.resolve('vitest/vitest.mjs');
+} catch {
+  // Vitest does not export the bin entry through its package exports map.
+  vitestEntry = path.join(root, 'node_modules', 'vitest', 'vitest.mjs');
+}
+const codegen = spawnSync(
+  process.execPath,
+  [vitestEntry, 'run', 'src/archipelago/__tests__/generateApWorld.test.ts'],
+  {
+    cwd: root,
+    env: { ...process.env, AP_CODEGEN_WRITE: '1' },
+    stdio: 'inherit',
+  },
+);
+if (codegen.status !== 0) {
+  process.exit(codegen.status ?? 1);
+}
+
 await rm(outFile, { force: true });
-await rm(tempZipFile, { force: true });
 
 const command = process.platform === 'win32' ? 'powershell' : 'python3';
 const args =
@@ -21,11 +45,9 @@ const args =
         '-Command',
         [
           '$ErrorActionPreference = "Stop"',
-          `$source = ${JSON.stringify(source)}`,
-          `$outFile = ${JSON.stringify(outFile)}`,
-          `$tempZipFile = ${JSON.stringify(tempZipFile)}`,
-          'Compress-Archive -Path $source -DestinationPath $tempZipFile -Force',
-          'Move-Item -LiteralPath $tempZipFile -Destination $outFile -Force',
+          '$tempZipFile = [System.IO.Path]::ChangeExtension([System.IO.Path]::GetTempFileName(), ".zip")',
+          'Compress-Archive -Path ' + JSON.stringify(source) + ' -DestinationPath $tempZipFile -Force',
+          `Move-Item -LiteralPath $tempZipFile -Destination ${JSON.stringify(outFile)} -Force`,
         ].join('; '),
       ]
     : [
@@ -35,11 +57,11 @@ const args =
           `source = pathlib.Path(${JSON.stringify(source)})`,
           `out_file = pathlib.Path(${JSON.stringify(outFile)})`,
           'with zipfile.ZipFile(out_file, "w", zipfile.ZIP_DEFLATED) as zf:',
-          '    for path in source.rglob("*"):',
-          '        if "__pycache__" in path.parts or path.suffix == ".pyc":',
+          '    for path_ in sorted(source.rglob("*")):',
+          '        if "__pycache__" in path_.parts or path_.suffix == ".pyc":',
           '            continue',
-          '        if path.is_file():',
-          '            zf.write(path, path.relative_to(source.parent))',
+          '        if path_.is_file():',
+          '            zf.write(path_, path_.relative_to(source.parent))',
         ].join('\n'),
       ];
 

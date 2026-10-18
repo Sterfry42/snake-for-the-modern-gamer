@@ -809,6 +809,41 @@ export const ITEMS: readonly Item[] = [
       fishingMod: 1.5,
     },
   },
+  // ===== BASEBALL ITEMS =====
+  {
+    id: 'baseball-bat',
+    name: 'Ash Baseball Bat',
+    description:
+      'A well-used ash bat. Equip it in your gloves slot to take your licks at the plate.',
+    kind: 'equipment',
+    slot: 'gloves',
+    modifiers: {
+      baseballEnabled: true,
+      baseballMod: 1.0,
+    },
+  },
+  {
+    id: 'baseball-bat-alder',
+    name: 'Alder Showball Bat',
+    description: 'A balanced alder barrel with a wider sweet spot. Extra carry on every hit.',
+    kind: 'equipment',
+    slot: 'gloves',
+    modifiers: {
+      baseballEnabled: true,
+      baseballMod: 1.25,
+    },
+  },
+  {
+    id: 'baseball-bat-champion',
+    name: "Champion's Diamond Bat",
+    description: 'The finest bat in the realm. Even the wise old snake approves of the swing.',
+    kind: 'equipment',
+    slot: 'gloves',
+    modifiers: {
+      baseballEnabled: true,
+      baseballMod: 1.5,
+    },
+  },
   // Verdigris Basin
   {
     id: 'fish-minnow',

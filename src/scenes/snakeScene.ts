@@ -352,6 +352,9 @@ const ARCHAEOLOGY_ASCII_LEGEND = Object.fromEntries(
 ) as Record<string, { tileId: string; labelKey: string }>;
 
 import { catchJournal, setPersistence } from '../fishing/catchJournal.js';
+import { BaseballRegistry } from '../baseball/baseballRegistry.js';
+import { BaseballMinigame } from '../baseball/baseballMinigame.js';
+import type { BaseballSessionResult, BaseballStats } from '../baseball/types.js';
 import {
   ACHIEVEMENT_DEFINITIONS,
   DISCOVERABLE_BIOME_IDS,
@@ -1769,6 +1772,7 @@ type GameMode =
   | 'archaeology'
   | 'death-cutscene'
   | 'fishing'
+  | 'baseball'
   | 'paused';
 
 const SIMULATION_MODE_RULES: Record<GameMode, Record<string, ClockRule>> = {
@@ -1869,6 +1873,14 @@ const SIMULATION_MODE_RULES: Record<GameMode, Record<string, ClockRule>> = {
     'manual-world': false,
   },
   fishing: {
+    boss: false,
+    action: false,
+    actor: false,
+    bullet: false,
+    hazard: false,
+    'manual-world': false,
+  },
+  baseball: {
     boss: false,
     action: false,
     actor: false,
@@ -2262,6 +2274,10 @@ export default class SnakeScene extends Phaser.Scene {
   private fishingActive = false;
   private fishingGameState: FishingGameState | null = null;
   private fishingMinigame!: FishingMinigame;
+  // Baseball state
+  private baseballRegistry!: BaseballRegistry;
+  private baseballActive = false;
+  private baseballMinigame!: BaseballMinigame;
 
   constructor() {
     super('SnakeScene');
@@ -2434,6 +2450,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.pauseUI?.setInputMode(mode);
       this.arcadeSnakeRenderer?.setInputMode(mode);
       this.fishingMinigame?.setInputMode(mode);
+      this.baseballMinigame?.setInputMode(mode);
       this.refreshCardControllerFocus();
       this.refreshTitleControllerSelection();
     });
@@ -2601,6 +2618,16 @@ export default class SnakeScene extends Phaser.Scene {
       },
     });
 
+    // Initialize baseball registry and minigame
+    this.baseballRegistry = new BaseballRegistry({ rng: () => this.random() });
+    this.baseballMinigame = new BaseballMinigame({
+      scene: this,
+      baseballRegistry: this.baseballRegistry,
+      onComplete: (result) => {
+        this.endBaseball(result);
+      },
+    });
+
     // Set up catchJournal persistence — syncs with snakeGame's flags
     setPersistence({
       get: () => {
@@ -2731,6 +2758,19 @@ export default class SnakeScene extends Phaser.Scene {
         if (cardCommand) {
           this.cardKeyboardFocus = true;
           this.handleCardControllerCommand(cardCommand);
+          event.preventDefault();
+        }
+        return;
+      }
+      if (this.baseballActive) {
+        const baseballCommandByKey: Partial<Record<string, ControllerNavCommand>> = {
+          ' ': 'confirm',
+          enter: 'confirm',
+          escape: 'cancel',
+        };
+        const baseballCommand = baseballCommandByKey[key];
+        if (baseballCommand) {
+          this.baseballMinigame.handleControllerCommand(baseballCommand);
           event.preventDefault();
         }
         return;
@@ -2867,6 +2907,15 @@ export default class SnakeScene extends Phaser.Scene {
       // Fishing input (F key in action mode)
       if (key === 'f' && !this.fishingActive && !this.paused && !this.titleVisible) {
         const result = this.startFishing();
+        if (!result.ok) {
+          this.showQuestHintPopup(result.message, '#ff6b6b');
+        }
+        return;
+      }
+
+      // Baseball input (B key in action mode)
+      if (key === 'b' && !this.baseballActive && !this.paused && !this.titleVisible) {
+        const result = this.startBaseball();
         if (!result.ok) {
           this.showQuestHintPopup(result.message, '#ff6b6b');
         }
@@ -5401,8 +5450,9 @@ export default class SnakeScene extends Phaser.Scene {
     options: { reviveOnComplete?: boolean; slainByAngel?: boolean; rescuer?: DeathRescuer } = {},
   ): void {
     getDebugBus()?.setRunPhase('death-resolution');
-    // Auto-escape from fishing before death
+    // Auto-escape from fishing/baseball before death
     this.autoEscapeFromFishing();
+    this.autoEscapeFromBaseball();
 
     if (reason === 'water') {
       this.playDrowningAnimation(() => this.startDeathCutscene(mode, reason, options));
@@ -6500,8 +6550,9 @@ export default class SnakeScene extends Phaser.Scene {
     this.sceneReady = false;
     this.game.events.off(Phaser.Core.Events.PRE_RENDER, this.resetRenderCount);
     this.events.off(Phaser.Scenes.Events.RENDER, this.countRenderCall);
-    // Auto-escape from fishing
+    // Auto-escape from fishing/baseball
     this.autoEscapeFromFishing();
+    this.autoEscapeFromBaseball();
     setDebugSnapshotProvider(null);
 
     this.unsubscribeSnapshot?.();
@@ -7821,8 +7872,9 @@ export default class SnakeScene extends Phaser.Scene {
     void _religionChoice;
     void _classChoice;
     void _backgroundChoice;
-    // Auto-escape from fishing before saving
+    // Auto-escape from fishing/baseball before saving
     this.autoEscapeFromFishing();
+    this.autoEscapeFromBaseball();
     this.prepareCharacterSave();
 
     const data = this.snakeGame.getSaveData();
@@ -11064,6 +11116,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.archaeologySession ||
       this.arcadeSnakeRenderer?.isOpen() ||
       this.fishingActive ||
+      this.baseballActive ||
       this.datingScenePopup?.isVisible() ||
       this.villageShopPopup?.isVisible() ||
       this.questPopup?.isVisible() ||
@@ -11135,6 +11188,9 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (this.fishingActive) {
       return this.fishingMinigame.handleControllerCommand(command);
+    }
+    if (this.baseballActive) {
+      return this.baseballMinigame.handleControllerCommand(command);
     }
     if (this.cardGameContainer) {
       return this.handleCardControllerCommand(command);
@@ -11273,6 +11329,9 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (this.fishingActive) {
       return 'fishing';
+    }
+    if (this.baseballActive) {
+      return 'baseball';
     }
     if (this.paused || this.skillTree?.isOverlayVisible() || this.saveLoadMenu) {
       return 'paused';
@@ -13855,6 +13914,125 @@ export default class SnakeScene extends Phaser.Scene {
     this.fishingGameState = null;
 
     // Don't show message during death - it will be handled by death sequence
+  }
+
+  autoEscapeFromBaseball(): void {
+    if (!this.baseballActive) return;
+
+    this.baseballMinigame?.stop();
+    this.baseballActive = false;
+
+    // Don't show message during death - it will be handled by death sequence
+  }
+
+  // ===== BASEBALL =====
+
+  /** Start baseball if conditions are met */
+  startBaseball(): { ok: boolean; message: string; color: string } {
+    // Check if player has a baseball bat equipped
+    const bat = this.snakeGame.getInventory().getEquipped('gloves');
+    if (!bat) {
+      return {
+        ok: false,
+        message: i18n.getFeatureString('baseballNoBat'),
+        color: '#ff6b6b',
+      };
+    }
+    const batItem = getItem(bat);
+    if (!batItem || batItem.kind !== 'equipment' || !batItem.modifiers?.baseballEnabled) {
+      return {
+        ok: false,
+        message: i18n.getFeatureString('baseballNoBat'),
+        color: '#ff6b6b',
+      };
+    }
+
+    // Check if we are already at the plate
+    if (this.baseballActive) {
+      return {
+        ok: false,
+        message: i18n.getFeatureString('baseballAlreadyPlaying'),
+        color: '#ff6b6b',
+      };
+    }
+
+    // Create initial pitch state
+    const pitch = this.baseballRegistry.pickRandomPitch();
+    const state = this.baseballRegistry.startPitch(pitch);
+    this.baseballActive = true;
+
+    // Start the minigame
+    this.baseballMinigame?.setInputMode(this.inputModeManager.getMode());
+    this.baseballMinigame?.start(state);
+
+    return {
+      ok: true,
+      message: i18n.getFeatureString('baseballReady'),
+      color: '#aef7c0',
+    };
+  }
+
+  /** End the baseball minigame and process the result */
+  endBaseball(result: BaseballSessionResult): void {
+    this.baseballActive = false;
+    this.baseballMinigame?.stop();
+
+    if (!result.hit && result.reason === 'playerAbort') {
+      return;
+    }
+
+    this.trackBaseballStats(result);
+
+    if (result.hit) {
+      const batMod = this.getEquippedBaseballMod();
+      const score = this.baseballRegistry.calculateScore(result.distance, batMod);
+      if (score > 0) {
+        this.addScoreDirect(score);
+      }
+      const label = this.baseballOutcomeLabel(result.outcome);
+      this.showQuestHintPopup(
+        result.outcome === 'home-run'
+          ? `${label}! ${result.distance} ft (+${score} score)`
+          : `${label}: ${result.distance} ft (+${score} score)`,
+        result.outcome === 'home-run' ? '#ffd700' : '#aef7c0',
+      );
+    } else {
+      const label = this.baseballOutcomeLabel(result.outcome);
+      this.showQuestHintPopup(label, '#ff6b6b');
+    }
+  }
+
+  /** Get the baseballMod from the equipped bat (default 1.0) */
+  private getEquippedBaseballMod(): number {
+    const batId = this.snakeGame.getInventory().getEquipped('gloves');
+    const batItem = batId ? ((getItem(batId) as Item | undefined) ?? null) : null;
+    return (batItem as EquipableItem | null)?.modifiers?.baseballMod ?? 1.0;
+  }
+
+  /** Localized outcome label for toasts */
+  private baseballOutcomeLabel(outcome: BaseballSessionResult['outcome']): string {
+    const key = `baseball${outcome.charAt(0).toUpperCase() + outcome.slice(1)}`;
+    const resolved = i18n.getFeatureString(key);
+    return resolved !== key ? resolved : outcome.toUpperCase();
+  }
+
+  /** Update cumulative baseball stats stored in a game flag */
+  private trackBaseballStats(result: BaseballSessionResult): void {
+    const stats = this.snakeGame.getFlag<BaseballStats>('baseball.stats') ?? {
+      swings: 0,
+      hits: 0,
+      homeRuns: 0,
+      totalDistance: 0,
+      bestDistance: 0,
+    };
+    stats.swings += 1;
+    if (result.hit) {
+      stats.hits += 1;
+      if (result.outcome === 'home-run') stats.homeRuns += 1;
+      stats.totalDistance += result.distance;
+      stats.bestDistance = Math.max(stats.bestDistance, result.distance);
+    }
+    this.snakeGame.setFlag('baseball.stats', stats);
   }
 
   purchaseVillageSupply(itemId: string): { ok: boolean; message: string; color: string } {
