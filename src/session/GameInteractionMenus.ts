@@ -2,6 +2,9 @@ import type { SnakeGame } from '../game/snakeGame.js';
 import { getQuestDialogue } from '../quests/questDialogue.js';
 import type { PlayerId } from '../players/playerTypes.js';
 import type { CommandResult } from './ClientCommand.js';
+import { relationshipVoiceRole, type ActorOutcome } from './ActorIntent.js';
+import type { SceneActionCommand } from './SceneActionCommand.js';
+import { DatingScenarioDirector } from '../relationships/datingScenarioDirector.js';
 import type { GameInteractionOption, GameInteractionView } from './GameInteraction.js';
 
 type MenuState = {
@@ -54,8 +57,160 @@ const close: GameInteractionOption = {
 export class GameInteractionMenus {
   private readonly states = new Map<PlayerId, MenuState>();
   private nextId = 0;
+  private readonly datingDirector: DatingScenarioDirector;
+  private readonly datingSequences = new Map<
+    PlayerId,
+    {
+      actorId: string;
+      kind: 'talk' | 'flirt' | 'date';
+      event: ReturnType<DatingScenarioDirector['createDatingSequenceEvent']>;
+    }
+  >();
 
-  constructor(private readonly game: SnakeGame) {}
+  constructor(private readonly game: SnakeGame) {
+    this.datingDirector = new DatingScenarioDirector(game);
+  }
+
+  date(
+    playerId: PlayerId,
+    command: Extract<SceneActionCommand, { type: 'datingAction' }>,
+  ): CommandResult {
+    const state = this.states.get(playerId);
+    const profile = this.profile(command.actorId);
+    if (
+      !state ||
+      state.id !== command.revision ||
+      state.actorId !== command.actorId ||
+      !this.getView(playerId) ||
+      !profile
+    )
+      return { ok: false, reason: 'That interaction is no longer current.' };
+    const outcome: ActorOutcome = { revision: state.id };
+    if (command.action === 'start') {
+      if (!this.game.getRelationshipActions(profile).includes(command.kind))
+        return { ok: false, reason: 'That relationship action is unavailable.' };
+      const event = this.datingDirector.createDatingSequenceEvent(profile, command.kind);
+      this.datingSequences.set(playerId, { actorId: command.actorId, kind: command.kind, event });
+      outcome.sequence = event;
+    } else if (command.action === 'choose') {
+      const sequence = this.datingSequences.get(playerId);
+      if (!sequence || sequence.actorId !== command.actorId)
+        return { ok: false, reason: 'That date is no longer current.' };
+      const branch = command.branchId ? sequence.event.branchResults[command.branchId] : undefined;
+      if (command.branchId && !branch)
+        return { ok: false, reason: 'That response was not offered.' };
+      outcome.relationship = command.branchId
+        ? this.game.applyRelationshipBranchChoice(
+            profile,
+            this.datingDirector.normalizeDatingBranchChoice(command.branchId, branch),
+            sequence.kind,
+          )
+        : this.game.applyRelationshipChoice(profile, sequence.kind);
+      this.datingSequences.delete(playerId);
+    } else if (command.action === 'gift')
+      outcome.relationship = this.game.giveRelationshipGift(profile, command.itemId);
+    else outcome.relationship = this.game.applyRelationshipArrangement(profile, command.choice);
+    return { ok: outcome.relationship?.ok ?? true, actorOutcome: outcome };
+  }
+
+  async act(
+    playerId: PlayerId,
+    command: Extract<SceneActionCommand, { type: 'actorAction' }>,
+  ): Promise<CommandResult> {
+    if (command.action === 'begin') {
+      const opened = this.open(playerId, command.actorId);
+      if (!opened.ok) return opened;
+      const state = this.states.get(playerId)!;
+      const profile = this.profile(command.actorId);
+      if (profile) this.game.ensureRelationshipCandidate(profile);
+      return {
+        ok: true,
+        actorOutcome: {
+          revision: state.id,
+          bark:
+            command.includeBark && profile
+              ? this.game.getNpcBark(relationshipVoiceRole(profile), command.actorId)
+              : undefined,
+        },
+      };
+    }
+    const state = this.states.get(playerId);
+    if (
+      !state ||
+      state.actorId !== command.actorId ||
+      state.id !== command.revision ||
+      !this.getView(playerId)
+    )
+      return { ok: false, reason: 'That interaction is no longer current.' };
+    if (command.action === 'close') return this.close(playerId, state.id);
+    const action = command.action;
+    const menu = this.game.getActorInteractionMenu(command.actorId);
+    const derived = ['accept-quest', 'reject-quest', 'dating', 'complete-wedding'];
+    if (
+      !derived.includes(action) &&
+      !menu?.options.some((option) => option.id === action && option.enabled)
+    )
+      return { ok: false, reason: 'That action is unavailable.' };
+    const outcome: ActorOutcome = { revision: state.id };
+    const profile = this.profile(command.actorId);
+    if (action === 'talk' || action === 'ask-rumor' || action === 'ask-personal') {
+      const conversation = this.game.getActorConversation(
+        command.actorId,
+        action === 'ask-rumor' ? 'ask-around' : action,
+      );
+      outcome.pages = this.game.formatActorConversationPages(conversation) ?? [
+        'They watch you with careful uncertainty.',
+      ];
+    } else if (action === 'wake') outcome.pages = this.game.wakeActor(command.actorId).pages;
+    else if (action === 'apologize' || action === 'threaten' || action === 'parley')
+      outcome.pages = [
+        action === 'apologize'
+          ? (this.game.apologizeToActor(command.actorId) ?? 'Not now.')
+          : action === 'threaten'
+            ? (this.game.threatenActor(command.actorId) ?? 'Not now.')
+            : (this.game.parleyWithActor(command.actorId) ?? 'Not now.'),
+      ];
+    else if (action === 'shop') {
+      const result = await this.game.chooseActorInteraction(command.actorId, 'shop');
+      if (!result.ok || result.action !== 'shop') return { ok: false, reason: result.message };
+      outcome.shop = result.shop;
+    } else if (action === 'take-quest') {
+      const large = this.game.isCurrentTownLargeQuestGiverActor(command.actorId);
+      const request = large
+        ? { quest: this.game.getTownLargeQuestForActor(command.actorId), state: 'available' }
+        : this.game.requestQuestFromGiver(this.game.getCurrentRoom().id);
+      if (!request.quest) return { ok: false, reason: 'No work is available here right now.' };
+      outcome.quest = {
+        id: request.quest.id,
+        label: request.quest.label,
+        description: request.quest.description,
+        pages: getQuestDialogue(request.quest).pages,
+        large,
+        state: request.state,
+      };
+    } else if (action === 'accept-quest' || action === 'reject-quest') {
+      if (this.game.isCurrentTownLargeQuestGiverActor(command.actorId)) {
+        if (action === 'accept-quest') {
+          const result = this.game.acceptTownLargeQuest(command.actorId);
+          if (!result.ok) return { ok: false, reason: result.message };
+        }
+      } else if (action === 'accept-quest') {
+        if (!this.game.acceptOfferedQuest())
+          return { ok: false, reason: 'That quest is no longer offered.' };
+      } else this.game.rejectOfferedQuest();
+    } else if (action === 'dating' && profile) {
+      const cutscene = this.game.popRelationshipCutscene(profile.id);
+      outcome.dating = { talk: this.game.getRelationshipTalk(profile), cutscene: cutscene?.pages };
+    } else if (action === 'pickpocket' && profile)
+      outcome.relationship = this.game.pickpocketRelationshipNpc(profile);
+    else if (action === 'complete-wedding' && profile)
+      outcome.relationship = this.game.completeWeddingWithProfile(profile);
+    else {
+      const result = await this.game.chooseActorInteraction(command.actorId, action);
+      return { ok: result.ok, message: result.message, actorOutcome: outcome };
+    }
+    return { ok: true, actorOutcome: outcome };
+  }
 
   open(playerId: PlayerId, actorId: string): CommandResult {
     if (!this.game.canInteractWithActor(actorId))
@@ -66,10 +221,12 @@ export class GameInteractionMenus {
   }
 
   remove(playerId: PlayerId): void {
+    this.datingSequences.delete(playerId);
     this.states.delete(playerId);
   }
 
   reset(): void {
+    this.datingSequences.clear();
     this.states.clear();
   }
 
@@ -366,6 +523,7 @@ export class GameInteractionMenus {
   }
 
   private clear(playerId: PlayerId): void {
+    this.datingSequences.delete(playerId);
     const state = this.states.get(playerId);
     if (
       state?.kind === 'quest' &&

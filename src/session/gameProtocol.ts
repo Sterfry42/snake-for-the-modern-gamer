@@ -1,4 +1,5 @@
 import { isRecord } from '../core/saveNormalize.js';
+import { ACTOR_INTENTS } from './ActorIntent.js';
 import type { ClientCommand, CommandResult } from './ClientCommand.js';
 import type { GameEvent } from './GameEvent.js';
 import type { GameSnapshot } from './GameSnapshot.js';
@@ -29,6 +30,62 @@ export type ServerMessage =
 export function isClientCommand(value: unknown): value is ClientCommand {
   if (!isRecord(value) || typeof value.playerId !== 'string') return false;
   switch (value.type) {
+    case 'worldInteraction':
+      return (
+        [
+          'garden',
+          'town-door',
+          'town-grate',
+          'open-gate',
+          'quest-giver',
+          'cave-gift',
+          'insult',
+          'trainer-equip',
+          'trainer-learn',
+        ].some((action) => action === value.action) ||
+        ((value.action === 'alchemy' || value.action === 'quest-target') &&
+          (value.optionId === undefined || validIdentifier(value.optionId)))
+      );
+    case 'datingAction':
+      if (
+        !validIdentifier(value.actorId) ||
+        !Number.isSafeInteger(value.revision) ||
+        typeof value.revision !== 'number' ||
+        value.revision <= 0
+      )
+        return false;
+      if (value.action === 'start')
+        return ['talk', 'flirt', 'date'].some((kind) => kind === value.kind);
+      if (value.action === 'choose')
+        return value.branchId === undefined || validIdentifier(value.branchId);
+      if (value.action === 'gift') return validIdentifier(value.itemId);
+      return (
+        value.action === 'arrangement' &&
+        ['monogamy', 'open-honesty', 'transactional', 'reassure'].some(
+          (choice) => choice === value.choice,
+        )
+      );
+    case 'actorAction':
+      return (
+        validIdentifier(value.actorId) &&
+        ACTOR_INTENTS.some((action) => action === value.action) &&
+        (value.action === 'begin'
+          ? value.includeBark === undefined || typeof value.includeBark === 'boolean'
+          : Number.isSafeInteger(value.revision) &&
+            typeof value.revision === 'number' &&
+            value.revision > 0)
+      );
+    case 'randomEncounterAction':
+      return (
+        (value.action === 'accept' || value.action === 'reject') &&
+        Number.isSafeInteger(value.token) &&
+        typeof value.token === 'number' &&
+        value.token > 0
+      );
+    case 'questDecision':
+      return (
+        (value.action === 'accept' || value.action === 'reject') && validIdentifier(value.questId)
+      );
     case 'playerInteraction':
       return (
         typeof value.mode === 'string' &&

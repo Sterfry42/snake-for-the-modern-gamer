@@ -53,9 +53,10 @@ export function createGameServer(session: AuthoritativeGameSession) {
         (snapshot) => publish(socket, { type: 'snapshot', snapshot }),
         playerId,
       );
-      const eventSubscription = session.onEvent((event) =>
-        publish(socket, { type: 'event', event }),
-      );
+      const eventSubscription = session.onEvent((event) => {
+        if ('playerId' in event && event.playerId !== playerId) return;
+        publish(socket, { type: 'event', event });
+      });
       session.refreshSnapshot();
       socket.once('close', () => {
         snapshotSubscription();

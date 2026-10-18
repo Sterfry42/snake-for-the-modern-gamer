@@ -1,7 +1,18 @@
+import type {
+  DatingSequencePage,
+  DatingBranchResult,
+} from '../relationships/datingScenarioDirector.js';
 /**
  * Snake Scene
  */
 import Phaser from 'phaser';
+import type { ActorIntent } from '../session/ActorIntent.js';
+import {
+  describeActionOutcome,
+  isGameplayFeedbackKey,
+  type GameplayOutcome,
+  type ActionOutcome,
+} from '../session/GameplayOutcome.js';
 import {
   getPhaserLifecycleDiagnostics,
   recordSnakeSceneCreate,
@@ -71,7 +82,6 @@ import { SceneReadReplica } from '../session/SceneReadReplica.js';
 import { RemoteCheckpointBrowser } from '../session/RemoteCheckpointBrowser.js';
 import { RemoteSceneSession } from '../session/RemoteSceneSession.js';
 import { WebSocketGameConnection } from '../session/WebSocketGameConnection.js';
-import type { GameInteractionView } from '../session/GameInteraction.js';
 import type { ClientCommand, CommandResult } from '../session/ClientCommand.js';
 import { ServerConnectionMenu } from '../ui/serverConnectionMenu.js';
 import { FeatureManager } from '../systems/features.js';
@@ -120,7 +130,6 @@ import { PauseUI } from '../ui/pauseUI.js';
 import { SaveLoadMenu } from '../ui/saveLoadMenu.js';
 import { saveManagerV2, type GameSaveData } from '../game/saveManagerV2.js';
 import { AtmosphereAudioManager } from './atmosphereAudioManager.js';
-import { isTownCriminalRole, isTownShopRole } from '../world/townRoles.js';
 import {
   DatingScenePopup,
   type DatingSceneAction,
@@ -231,7 +240,6 @@ import {
 import { getItem, ITEMS } from '../inventory/itemRegistry.js';
 import type { Item, EquipableItem } from '../inventory/item.js';
 import type { SnakeSpritePalette } from '../ui/spriteRecipes/snakeRecipe.js';
-import type { WandererEncounter } from '../npcs/encounters.js';
 import {
   VILLAGE_SHOP_EQUIPMENT,
   VILLAGE_SHOP_SOLD_HATS,
@@ -265,19 +273,13 @@ import type { FactionCardView } from '../factions/factions.js';
 import type { KarmaView } from '../stats/karma.js';
 import type {
   DatingCandidateView,
-  DatingBranchChoice,
   RelationshipCandidateProfile,
   RelationshipChoice,
   RelationshipEventResult,
-  RelationshipOutcomeTier,
-  RelationshipPersonality,
   RelationshipReward,
   RelationshipState,
   RelationshipSpecies,
-  RelationshipTag,
 } from '../relationships/relationshipTypes.js';
-import { createPersonalityDatingScenario } from '../relationships/datingScenarioLibrary.js';
-import { shuffleDatingBranchActions } from '../relationships/datingActionOrder.js';
 import { getLibertyNpcLine, type LibertyNpcRole } from '../world/libertyBadlandsFlavor.js';
 import { DATING_PORTRAIT_ASSETS } from '../relationships/datingPortraitManifest.js';
 import {
@@ -542,14 +544,6 @@ const RACCOON_WEIGHT_THRESHOLD_ASSET = 'assets/raccoon_pics/Gf6Vx1MWIAAkUrs.jpg'
 
 type LocalRect = { left: number; top: number; width: number; height: number };
 
-type DatingSequencePage = {
-  line: string;
-  result?: string;
-  lineIsNarration?: boolean;
-  actions?: readonly DatingSceneButton[];
-  juiceTier?: RelationshipOutcomeTier;
-};
-
 type DatingSequence = {
   profile: RelationshipCandidateProfile;
   kind: Extract<RelationshipChoice, 'talk' | 'flirt' | 'date'>;
@@ -557,735 +551,8 @@ type DatingSequence = {
   index: number;
   branchOutcome?: RelationshipChoice;
   branchText?: string;
-  branchChoice?: DatingBranchChoice;
+  branchId?: string;
   branchResults: Record<string, DatingBranchResult>;
-};
-
-type DatingBranchResult = {
-  text: string;
-  outcome?: RelationshipChoice;
-  tags?: DatingBranchChoice['tags'];
-  targetTier?: RelationshipOutcomeTier;
-  label?: string;
-  followUpPages?: DatingSequencePage[];
-};
-
-type DatingReactionReason =
-  | 'pineapple'
-  | 'dangerous-compliment'
-  | 'sincere-compliment'
-  | 'protective'
-  | 'abandonment'
-  | 'honesty'
-  | 'clever'
-  | 'comfort'
-  | 'public-affection'
-  | 'avoidance'
-  | 'violence'
-  | 'pragmatic'
-  | 'dramatic'
-  | 'love-in-eyes'
-  | 'generic';
-
-const DATING_PERSONALITY_TAG_WEIGHTS: Record<
-  RelationshipPersonality,
-  Partial<Record<RelationshipTag, number>>
-> = {
-  poetic: {
-    dramatic: 3,
-    honesty: 4,
-    privateAffection: 3,
-    commitment: 4,
-    bravery: 2,
-    food: -1,
-    selfPreserving: -2,
-    avoidance: -4,
-    betrayal: -8,
-    violence: -3,
-  },
-  deadpan: {
-    honesty: 4,
-    competence: 3,
-    pragmatic: 4,
-    clever: 2,
-    restraint: 3,
-    dramatic: -3,
-    neediness: -2,
-    publicAffection: -1,
-    selfPreserving: 2,
-  },
-  hungry: {
-    food: 6,
-    comfort: 4,
-    protective: 3,
-    loyalty: 4,
-    family: 4,
-    dramatic: 1,
-    neglect: -5,
-    betrayal: -8,
-    selfPreserving: -1,
-  },
-  regal: {
-    bravery: 4,
-    protective: 4,
-    ritual: 5,
-    commitment: 5,
-    humility: 3,
-    publicAffection: 2,
-    clever: 1,
-    avoidance: -4,
-    betrayal: -10,
-    secrecy: -6,
-  },
-  sharp: {
-    clever: 5,
-    pragmatic: 5,
-    selfPreserving: 3,
-    transaction: 4,
-    contract: 5,
-    competence: 4,
-    ledger: 4,
-    goblin: 3,
-    dramatic: -1,
-    neediness: -3,
-    betrayal: -7,
-  },
-};
-
-const DATING_REACTION_LINES: Record<
-  RelationshipPersonality,
-  Partial<Record<DatingReactionReason, Partial<Record<RelationshipOutcomeTier, readonly string[]>>>>
-> = {
-  poetic: {
-    pineapple: {
-      loved: [
-        'Pineapple. A sunlit crime. How adventurous, snake. Such a spirit makes one like me swoon against my better omens.',
-      ],
-      liked: [
-        'Pineapple? Strange little sunrise. I respect a sweetness willing to be argued over.',
-      ],
-      neutral: ['Pineapple. A bright answer, but brightness alone is not intimacy.'],
-      disliked: [
-        'Pineapple? You brought a carnival to a confession and expected me to call it depth.',
-      ],
-      hated: ['Pineapple? No. Some fruits belong in poems, not on the altar of dinner.'],
-    },
-    'dangerous-compliment': {
-      loved: ['{choice}. There it is: flirtation with a storm pulse. I should run. I will not.'],
-      liked: ['{choice}. Reckless, theatrical, and irritatingly alive. I can forgive alive.'],
-      neutral: ['{choice}. A dramatic answer. I need to know whether the drama has roots.'],
-      disliked: ['{choice}. You reached for danger before tenderness had a chair.'],
-      hated: ['{choice}. That was not romance. That was a blade asking to be called moonlight.'],
-    },
-    'sincere-compliment': {
-      loved: ['{choice}. Softly aimed, deeply unfair. You found the door without rattling it.'],
-      liked: ['{choice}. Sincere enough to bruise me gently. I may allow it.'],
-      neutral: ['{choice}. Kind, but still waiting for the secret underneath.'],
-      disliked: ['{choice}. Too polished. I do not trust tenderness with no fingerprints.'],
-      hated: ['{choice}. You used sweetness like stage makeup. I hate the smell of it.'],
-    },
-    protective: {
-      loved: [
-        'You stood beside me, not in front of me. That distinction matters more than the wound.',
-      ],
-      liked: ['Protection, then room to breathe. Good. I dislike cages, even golden ones.'],
-      neutral: ['You meant protection. I am still deciding whether you meant trust.'],
-      disliked: ['You protected the idea of me and forgot the person holding it.'],
-      hated: ['Do not make me small and call it safety. I have survived worse than your concern.'],
-    },
-    abandonment: {
-      loved: ['Leaving can be mercy, but only when you leave a lamp. This almost did.'],
-      liked: ['You retreated without making the wound bigger. Not brave, but not cruel.'],
-      neutral: ['You left space. I cannot tell yet whether it was respect or fear.'],
-      disliked: ['You vanished when the moment asked for a spine. I heard the door close.'],
-      hated: ['You abandoned me and expected the silence to explain you kindly. It will not.'],
-    },
-    honesty: {
-      loved: ['Truth, naked and shivering. I love that you did not dress it in excuses.'],
-      liked: ['Honesty with a pulse. Good. I prefer wounds that introduce themselves.'],
-      neutral: ['Truth offered, but not yet trusted. Continue breathing near it.'],
-      disliked: ['You named truth after it was already cornered. That is not courage yet.'],
-      hated: ['You used honesty as a mop after spilling betrayal. No.'],
-    },
-    clever: {
-      loved: ['Clever, but not hollow. A rare spell. I hate how much I like it.'],
-      liked: ['A bright answer. It cut without making me bleed. That is skill.'],
-      neutral: ['Clever enough to notice. Not tender enough to keep.'],
-      disliked: ['You hid behind wit and called the hiding a flourish.'],
-      hated: ['A joke with no mercy is just a small cruelty wearing bells.'],
-    },
-    comfort: {
-      loved: ['Comfort without conquest. Oh. That is more dangerous than thunder.'],
-      liked: ['Warm answer. Simple, but simple can be a hand held correctly.'],
-      neutral: ['Comfortable, yes. I am waiting to see if it can become brave.'],
-      disliked: ['You offered comfort like a blanket thrown over a locked door.'],
-      hated: ['Do not soothe what you refuse to understand. That is only quieter neglect.'],
-    },
-    'public-affection': {
-      loved: ['You let the room see us without feeding us to it. Beautifully done.'],
-      liked: ['Public, bold, almost foolish. I may treasure the foolish part.'],
-      neutral: ['The room saw something. I am undecided about what it was allowed to own.'],
-      disliked: ['You turned tenderness into theater before asking if I wanted an audience.'],
-      hated: ['You sold the private moment for applause. I heard every coin drop.'],
-    },
-    avoidance: {
-      loved: ['Restraint can be love when it leaves a candle burning. This nearly did.'],
-      liked: ['You stepped back before stepping wrong. I can respect a held tongue.'],
-      neutral: ['You avoided the edge. Wise, maybe. Empty, maybe.'],
-      disliked: ['You dodged the question and left me holding its teeth.'],
-      hated: ['Cowardice in a velvet coat is still cowardice, snake.'],
-    },
-    violence: {
-      loved: ['You used force like a locked door key, not a hymn. I can live with that.'],
-      liked: ['Danger controlled is different from danger worshipped. You nearly understood.'],
-      neutral: ['Violence answers quickly. I prefer knowing who taught it to speak.'],
-      disliked: ['You reached for force before listening for the smaller door.'],
-      hated: ['You brought thunder to a room that needed hands. I hate that noise.'],
-    },
-    pragmatic: {
-      loved: ['Practical, but somehow tender at the hinge. I did not expect that.'],
-      liked: ['A useful answer with a living center. Good.'],
-      neutral: ['Practical. The heart survived, but did not sing.'],
-      disliked: ['You made the moment useful and forgot to make it kind.'],
-      hated: ['You reduced feeling to inventory. Do not shelve me, snake.'],
-    },
-    dramatic: {
-      loved: ['Drama with truth underneath. Ah. My favorite kind of weather.'],
-      liked: ['Excessive, but the excess knew my name.'],
-      neutral: ['Large answer. I am checking whether anything lives inside it.'],
-      disliked: ['You made a bonfire of a candle and called the smoke intimacy.'],
-      hated: ['You performed at me. Never mistake my heart for a stage.'],
-    },
-    'love-in-eyes': {
-      loved: [
-        "Love in my woman's eyes. Oh. That is the kind of warmth that makes a heart reckless.",
-        'You looked at me and I forgot how to be careful. That is what love does.',
-        "Love in my woman's eyes. Dangerous. Beautiful. I hate how much I want it.",
-      ],
-      liked: [
-        "Love in my woman's eyes. Sweet enough to be dangerous. I am looking.",
-        'You showed me love and I did not look away. That counts for something.',
-      ],
-      neutral: [
-        "Love in my woman's eyes. I see it. I am not ready to name it yet.",
-        'The look is there. Whether it is love or just hope, I cannot tell.',
-      ],
-      disliked: [
-        "Love in my woman's eyes. Too bright. I need to know what it is asking of me.",
-        'You offered love and I am not sure I can afford it.',
-      ],
-      hated: [
-        "Love in my woman's eyes. You cannot buy devotion with a glance. I will not be charmed.",
-        'That look is a contract I did not sign. Put it away.',
-      ],
-    },
-    generic: {
-      loved: ['That answer knew me better than it should. I am furious and pleased.'],
-      liked: ['I liked that. Do not become smug; it would ruin the evidence.'],
-      neutral: ['Interesting. Not enough to move me, but enough to make me look twice.'],
-      disliked: ['No. That missed the part of me it needed to find.'],
-      hated: ['Absolutely not. That answer stepped on something living.'],
-    },
-  },
-  deadpan: {
-    pineapple: {
-      loved: ['Pineapple. Statistically divisive. Emotionally bold. Annoyingly effective.'],
-      liked: ['Pineapple. Chaotic, but clearly intentional. I respect intentional chaos.'],
-      neutral: ['Pineapple. Data point received. Romance remains inconclusive.'],
-      disliked: ['Pineapple. Loud fruit. Poor evidence.'],
-      hated: ['Pineapple. No. The topping has failed the audit.'],
-    },
-    'dangerous-compliment': {
-      loved: ['{choice}. Dangerous phrasing, clean delivery. I am affected. Do not log that.'],
-      liked: ['{choice}. Risky, but not incompetent. Mild approval.'],
-      neutral: ['{choice}. Dramatic input received. Awaiting proof of substance.'],
-      disliked: ['{choice}. Too much theater. Insufficient maintenance value.'],
-      hated: ['{choice}. Threat display mistaken for intimacy. Rejected.'],
-    },
-    'sincere-compliment': {
-      loved: ['{choice}. Direct hit. Minimal waste. Unfortunately charming.'],
-      liked: ['{choice}. Clear, gentle, difficult to object to. I will try anyway.'],
-      neutral: ['{choice}. Acceptable wording. Limited emotional movement.'],
-      disliked: ['{choice}. Generic enough to be preprinted.'],
-      hated: ['{choice}. False warmth detected. Shutting window.'],
-    },
-    protective: {
-      loved: ['You helped without taking over. Correct. Extremely inconvenient for my composure.'],
-      liked: ['Useful protection. Low ego leakage. Good.'],
-      neutral: ['Protective. Possibly kind. Possibly control with better lighting.'],
-      disliked: ['You overrode me and named it help. Incorrect.'],
-      hated: ['Do not protect me from my own agency. That is not safety.'],
-    },
-    abandonment: {
-      loved: ['Strategic retreat with communication. Rare. Acceptable.'],
-      liked: ['You withdrew without making me manage your panic. Good enough.'],
-      neutral: ['Exit noted. Motive unclear.'],
-      disliked: ['You left. The timing was poor. The record is worse.'],
-      hated: ['Abandonment confirmed. Trust reduction severe.'],
-    },
-    honesty: {
-      loved: ['Honest, specific, no ornamental fog. Excellent.'],
-      liked: ['Truth with limited drama. I approve quietly.'],
-      neutral: ['Honesty received. Impact moderate.'],
-      disliked: ['Partial truth presented as full payment. Declined.'],
-      hated: ['Truth used as a loophole. I dislike loopholes with teeth.'],
-    },
-    clever: {
-      loved: ['Clever and applicable. Dangerous combination. I liked it.'],
-      liked: ['Good angle. Better than expected.'],
-      neutral: ['Clever. Not decisive.'],
-      disliked: ['Wit deployed to avoid sincerity. Weak.'],
-      hated: ['You made a joke where a person should have stood. No.'],
-    },
-    comfort: {
-      loved: ['Comfort supplied without noise. Very good.'],
-      liked: ['Warmth, measured correctly. Approved.'],
-      neutral: ['Comfort present. Depth pending.'],
-      disliked: ['Comfort used as a patch over a structural fault.'],
-      hated: ['You tried to soothe me into silence. Failed.'],
-    },
-    'public-affection': {
-      loved: ['Public clarity without public mess. Impressive.'],
-      liked: ['Slightly theatrical. Still acceptable.'],
-      neutral: ['Audience interaction noted. No verdict.'],
-      disliked: ['You made me part of a demonstration. Poor choice.'],
-      hated: ['Public display converted private trust into spectacle. Rejected.'],
-    },
-    avoidance: {
-      loved: ['Restraint applied at the correct point. Good.'],
-      liked: ['You did not force the issue. I appreciate efficient silence.'],
-      neutral: ['Avoidance may be wisdom. May be fear. Insufficient data.'],
-      disliked: ['You dodged. I noticed.'],
-      hated: ['Cowardice filed under romance hazard.'],
-    },
-    violence: {
-      loved: ['Force used precisely. Disturbing, but useful.'],
-      liked: ['Controlled danger. Better than noisy heroics.'],
-      neutral: ['Violence remains an expensive answer.'],
-      disliked: ['Escalation was unnecessary.'],
-      hated: ['You reached for violence because thought was slower. Unacceptable.'],
-    },
-    pragmatic: {
-      loved: ['Practical and attentive. Excellent rare pairing.'],
-      liked: ['Useful answer. I like useful answers when they remember people exist.'],
-      neutral: ['Practical. Emotionally neutral.'],
-      disliked: ['Efficient, cold, and not in the enjoyable way.'],
-      hated: ['You treated the moment as paperwork with skin. No.'],
-    },
-    dramatic: {
-      loved: ['Drama somehow justified itself. Irritating. Effective.'],
-      liked: ['Excessive, but with structure. I can tolerate structured excess.'],
-      neutral: ['Large gesture. Medium result.'],
-      disliked: ['Too theatrical. I came here with limited patience.'],
-      hated: ['Performance failure. Emotional damages pending.'],
-    },
-    'love-in-eyes': {
-      loved: [
-        "Love in my woman's eyes. Fine. I am affected. Do not make me say it again.",
-        'You looked at me like I was worth looking at. I will not pretend that does not land.',
-      ],
-      liked: [
-        "Love in my woman's eyes. Acceptable. I am choosing to let it in.",
-        'That look. I will not deny it moved me.',
-      ],
-      neutral: [
-        "Love in my woman's eyes. Noted. Verdict pending.",
-        'The look is there. I am checking whether it has substance.',
-      ],
-      disliked: [
-        "Love in my woman's eyes. I need more than optics. Show me the record.",
-        'You are looking at me like a promise. I check promises.',
-      ],
-      hated: [
-        "Love in my woman's eyes. Sentiment with no documentation. Rejected.",
-        'Do not confuse a glance with a contract. I am not signing anything.',
-      ],
-    },
-    generic: {
-      loved: ['Correct answer. I will not be normal about that.'],
-      liked: ['I liked it. There. Document that and move on.'],
-      neutral: ['Adequate. Continue at reduced confidence.'],
-      disliked: ['Incorrect enough to matter.'],
-      hated: ['No. Comprehensive no.'],
-    },
-  },
-  hungry: {
-    pineapple: {
-      loved: [
-        'Pineapple? Sweet, bright, trouble at the edges. Yes. I want the slice and the argument.',
-      ],
-      liked: ['Pineapple. Weird snack, brave snack. I am listening.'],
-      neutral: ['Pineapple. I will eat it. That is not the same as devotion.'],
-      disliked: ['Pineapple? On purpose? The mouth is confused and the heart is cautious.'],
-      hated: ['Ewww. Pineapple? Yuck. Romance should not taste like a dare from a fruit cart.'],
-    },
-    'dangerous-compliment': {
-      loved: ['{choice}. Oh, that has bite. I like when sweet things remember teeth.'],
-      liked: ['{choice}. Spicy. Risky. I might ask for seconds.'],
-      neutral: ['{choice}. Strong flavor. I need a better reason to swallow it.'],
-      disliked: ['{choice}. Too sharp. You forgot the warm part.'],
-      hated: ['{choice}. That tasted like a threat wearing sugar. No.'],
-    },
-    'sincere-compliment': {
-      loved: ['{choice}. Warm enough to eat slowly. That is dangerous for me.'],
-      liked: ['{choice}. Sweet. Not cheap sweet, either.'],
-      neutral: ['{choice}. Nice. Needs salt, or courage.'],
-      disliked: ['{choice}. Soft, but stale.'],
-      hated: ['{choice}. You plated flattery and forgot the meal.'],
-    },
-    protective: {
-      loved: ['You kept me safe and still let me stand. That is the good kind of full.'],
-      liked: ['Protection with room in it. I like that.'],
-      neutral: ['You helped. I am checking whether you helped me or your idea of me.'],
-      disliked: ['You fussed over me like I was soup about to boil over.'],
-      hated: ['Do not make a meal of my weakness. I will bite.'],
-    },
-    abandonment: {
-      loved: [
-        'You left only after making sure I had warmth. I can forgive distance with bread in it.',
-      ],
-      liked: ['You backed off without starving the room. Fine.'],
-      neutral: ['You left space. Space is not dinner, but it is not poison.'],
-      disliked: ['You left me hungry for an answer. I hate that particular hunger.'],
-      hated: ['You ran, snake. I was still at the table. I will remember the empty chair.'],
-    },
-    honesty: {
-      loved: ['Truth with marrow in it. Yes. Give me that over pretty air.'],
-      liked: ['Honest enough to chew on. I liked it.'],
-      neutral: ['Truth, but lean. Needs more heart fat.'],
-      disliked: ['You shaved the truth thin and called it a meal.'],
-      hated: ['You served truth cold after hiding the fire. No.'],
-    },
-    clever: {
-      loved: ['Clever and deliciously strange. I want another bite of your mind.'],
-      liked: ['Funny. Sharp. Snackable. Good.'],
-      neutral: ['Clever, yes. I am still hungry.'],
-      disliked: ['Wit is not food when someone needs comfort.'],
-      hated: ['You fed me a joke while the room was bleeding. Absolutely not.'],
-    },
-    comfort: {
-      loved: ['There. Warm. Real. I could live in an answer like that.'],
-      liked: ['Comfortable in the good way. Like bread that forgives you.'],
-      neutral: ['Warm enough. Not memorable enough.'],
-      disliked: ['Comfort with no attention is just a blanket over crumbs.'],
-      hated: ['Do not pat the wound and call it care.'],
-    },
-    'public-affection': {
-      loved: ['You made us visible and still kept us warm. Yes.'],
-      liked: ['A little public sweetness. Fine. I will pretend not to want more.'],
-      neutral: ['The room saw us. I am deciding whether it got fed too much.'],
-      disliked: ['You gave the crowd the first bite. I dislike sharing that way.'],
-      hated: ['You made us a snack for strangers. No. Mine is mine.'],
-    },
-    avoidance: {
-      loved: ['You waited instead of grabbing. Patience can be very tasty.'],
-      liked: ['You held back. Good. Not every hunger needs teeth.'],
-      neutral: ['Avoided, maybe wisely. Still, I am hungry for the real answer.'],
-      disliked: ['You dodged the plate and left me with scraps.'],
-      hated: ['You ran from the feeling and left me to clean the table.'],
-    },
-    violence: {
-      loved: ['You used teeth only when teeth were needed. Good restraint. Good bite.'],
-      liked: ['Sharp move. I liked it because it ended quickly.'],
-      neutral: ['Violence is filling, but not nourishing.'],
-      disliked: ['You bit before smelling the room. Bad habit.'],
-      hated: ['You made the night taste like blood and called it romance. No.'],
-    },
-    pragmatic: {
-      loved: ['Useful, warm, and timed right. That is basically a love language with pockets.'],
-      liked: ['Practical care. My favorite kind when it remembers dinner.'],
-      neutral: ['Useful. I am not swooning, but I am not hungry either.'],
-      disliked: ['You solved the errand and ignored the ache.'],
-      hated: ['You treated care like a chore list. I hate cold kitchens.'],
-    },
-    dramatic: {
-      loved: ['Big, strange, and sweet at the center. Yes, yes, terrible, yes.'],
-      liked: ['Dramatic enough to taste. I liked the seasoning.'],
-      neutral: ['Large flavor. Still missing the meal.'],
-      disliked: ['Too much garnish. Not enough heart.'],
-      hated: ['You set the table on fire and asked if I liked the candles.'],
-    },
-    'love-in-eyes': {
-      loved: [
-        "Love in my woman's eyes. Oh. That is the kind of warmth that makes a heart reckless.",
-        'You looked at me and I forgot how to be careful. That is what love does.',
-        "Love in my woman's eyes. Dangerous. Beautiful. I hate how much I want it.",
-      ],
-      liked: [
-        "Love in my woman's eyes. Sweet enough to be dangerous. I am looking.",
-        'You showed me love and I did not look away. That counts for something.',
-      ],
-      neutral: [
-        "Love in my woman's eyes. I see it. I am not ready to name it yet.",
-        'The look is there. Whether it is love or just hope, I cannot tell.',
-      ],
-      disliked: [
-        "Love in my woman's eyes. Too bright. I need to know what it is asking of me.",
-        'You offered love and I am not sure I can afford it.',
-      ],
-      hated: [
-        "Love in my woman's eyes. You cannot buy devotion with a glance. I will not be charmed.",
-        'That look is a contract I did not sign. Put it away.',
-      ],
-    },
-    generic: {
-      loved: ['Oh. That fed something I did not admit was hungry.'],
-      liked: ['I liked that. It had warmth in the bones.'],
-      neutral: ['Fine. Edible. Not feast-worthy.'],
-      disliked: ['That tasted wrong. Try listening before seasoning.'],
-      hated: ['No. I am too angry to be hungry, and that is serious.'],
-    },
-  },
-  regal: {
-    pineapple: {
-      loved: [
-        'Pineapple. A controversial banner carried without apology. I respect such ceremonial nerve.',
-      ],
-      liked: ['Pineapple. Bold, public, slightly lawless. Acceptable.'],
-      neutral: ['Pineapple. The court notes your confidence and reserves judgment.'],
-      disliked: ['Pineapple. You mistake provocation for taste.'],
-      hated: ['Pineapple? In this court? Absolutely not. Remove the fruit from my sight.'],
-    },
-    'dangerous-compliment': {
-      loved: ['{choice}. You bowed to the danger without begging it to spare you. Good.'],
-      liked: ['{choice}. A daring tribute. Excessive, but not cowardly.'],
-      neutral: ['{choice}. Grand. I am waiting for honor beneath it.'],
-      disliked: ['{choice}. Swagger is not courage, snake.'],
-      hated: ['{choice}. You offered insult in ceremonial clothes. Rejected.'],
-    },
-    'sincere-compliment': {
-      loved: ['{choice}. Respectful, brave, and free of ownership. I value that.'],
-      liked: ['{choice}. A clean compliment. You may keep your head.'],
-      neutral: ['{choice}. Polite. Not yet powerful.'],
-      disliked: ['{choice}. Flattery kneels poorly when it does not mean it.'],
-      hated: ['{choice}. Empty praise is a court offense.'],
-    },
-    protective: {
-      loved: ['You defended my dignity without stealing my sword. That is rare honor.'],
-      liked: ['Protection with respect. Good.'],
-      neutral: ['You guarded the room. I am deciding whether you trusted me in it.'],
-      disliked: ['You shielded me as if I were porcelain. I am not.'],
-      hated: ['You made me smaller to make yourself heroic. Never again.'],
-    },
-    abandonment: {
-      loved: ['You withdrew with respect and returned with purpose. Acceptable restraint.'],
-      liked: ['A retreat can preserve honor when it does not abandon duty.'],
-      neutral: ['You stepped back. The court awaits motive.'],
-      disliked: ['You left your place when courage was summoned.'],
-      hated: ['You abandoned the field and expected the banner to forgive you.'],
-    },
-    honesty: {
-      loved: ['Truth given upright. I honor that more than victory.'],
-      liked: ['Honesty suits you better than decoration.'],
-      neutral: ['Truth spoken. Worth noted.'],
-      disliked: ['You arrived at honesty after the road was blocked. Late tribute.'],
-      hated: ['A partial truth is a servant of betrayal.'],
-    },
-    clever: {
-      loved: ['Wit with discipline. A fine blade, properly carried.'],
-      liked: ['Clever, and not vulgar. Good.'],
-      neutral: ['Clever enough for court, not enough for confidence.'],
-      disliked: ['You hid behind cleverness when respect was required.'],
-      hated: ['A cheap jest at a sacred door. No.'],
-    },
-    comfort: {
-      loved: ['You offered gentleness without pity. That is worthy.'],
-      liked: ['Comfort with manners. I approve.'],
-      neutral: ['Kind, but not yet steadfast.'],
-      disliked: ['You mistook softness for surrender.'],
-      hated: ['Do not soothe me as though I have already fallen.'],
-    },
-    'public-affection': {
-      loved: ['You stood with me publicly and did not make me a trophy. Good.'],
-      liked: ['A bold display. Imperfect, but brave.'],
-      neutral: ['The public saw something. I will decide whether it was ours to show.'],
-      disliked: ['You invited witnesses before earning permission.'],
-      hated: ['You paraded intimacy as conquest. I will not be displayed.'],
-    },
-    avoidance: {
-      loved: ['Restraint, when chosen with honor, can be beautiful.'],
-      liked: ['You held back rather than presume. Good.'],
-      neutral: ['Caution has uses. It also has excuses.'],
-      disliked: ['You avoided the brave answer.'],
-      hated: ['Cowardice dressed as courtesy is still cowardice.'],
-    },
-    violence: {
-      loved: ['Force restrained until duty required it. Honorable.'],
-      liked: ['A hard answer, but not a wild one.'],
-      neutral: ['Violence may serve. It must never rule.'],
-      disliked: ['You reached for force before authority was yours.'],
-      hated: ['Power without discipline is merely noise with a crown.'],
-    },
-    pragmatic: {
-      loved: ['Practical devotion. That is how kingdoms survive winter.'],
-      liked: ['Useful and respectful. A good answer.'],
-      neutral: ['Practical. The court remains unmoved but not displeased.'],
-      disliked: ['You made duty cold when it could have been kind.'],
-      hated: ['You reduced a living vow to an errand. Unworthy.'],
-    },
-    dramatic: {
-      loved: ['Grand, but anchored. I love a gesture that can stand trial.'],
-      liked: ['The gesture was large. Fortunately, so was the courage.'],
-      neutral: ['Ceremony without proof is only costume.'],
-      disliked: ['You performed bravery instead of practicing it.'],
-      hated: ['You made spectacle where honor was required.'],
-    },
-    'love-in-eyes': {
-      loved: [
-        "Love in my woman's eyes. A look that carries its own weight. I honor that.",
-        'You offered devotion without demand. That is a rare kind of nobility.',
-        "Love in my woman's eyes. I see the truth of it. I will not look away.",
-      ],
-      liked: [
-        "Love in my woman's eyes. Respectful. I grant it favor.",
-        'You looked at me with something worth honoring. I acknowledge that.',
-      ],
-      neutral: [
-        "Love in my woman's eyes. The court observes. Judgment reserved.",
-        'The look is present. Whether it is devotion or habit, I cannot yet tell.',
-      ],
-      disliked: [
-        "Love in my woman's eyes. A glance is not a vow. Prove it.",
-        'You offered love without proving you can carry it. Suspicious.',
-      ],
-      hated: [
-        "Love in my woman's eyes. You cannot command loyalty with a look. I will not be moved.",
-        'That gaze is a claim I did not consent to. Remove it.',
-      ],
-    },
-    generic: {
-      loved: ['You answered with dignity and nerve. I am moved.'],
-      liked: ['Respectable. I grant the answer favor.'],
-      neutral: ['Permitted. Not praised.'],
-      disliked: ['You missed the honorable road.'],
-      hated: ['You insulted me and expected ceremony. You are a fool, snake.'],
-    },
-  },
-  sharp: {
-    pineapple: {
-      loved: [
-        'Pineapple. High-risk signal. Polarizing. Memorable. I respect a choice that knows it will be cross-examined.',
-      ],
-      liked: ['Pineapple. Bad for consensus, good for leverage. Interesting.'],
-      neutral: ['Pineapple. Volatile asset. Holding judgment.'],
-      disliked: ['Pineapple. You chose controversy without a plan. Inefficient.'],
-      hated: ['Pineapple. Expensive chaos with juice on it. No.'],
-    },
-    'dangerous-compliment': {
-      loved: ['{choice}. Ah. A compliment with a concealed edge and a declared target. Excellent.'],
-      liked: ['{choice}. Risky, useful, hard to ignore. I like hard to ignore.'],
-      neutral: ['{choice}. Sharp packaging. Contents pending.'],
-      disliked: ['{choice}. You waved a blade and forgot the contract.'],
-      hated: ['{choice}. Threatening me is not flirting unless I profit. I did not.'],
-    },
-    'sincere-compliment': {
-      loved: ['{choice}. Sincerity with precision. Dangerous. Valuable.'],
-      liked: ['{choice}. Clean hit. I will allow the advantage.'],
-      neutral: ['{choice}. Pleasant. Low leverage.'],
-      disliked: ['{choice}. Too soft, too vague, too easy to counterfeit.'],
-      hated: ['{choice}. Cheap sweetness. Bad currency.'],
-    },
-    protective: {
-      loved: ['You covered my back without taking my knife. That is partnership.'],
-      liked: ['Good cover. No ownership stink. I like that.'],
-      neutral: ['Protection offered. Terms still unclear.'],
-      disliked: ['You protected your ego and put my name on the invoice.'],
-      hated: ['Do not buy my safety and call the receipt romance.'],
-    },
-    abandonment: {
-      loved: ['You left only after making the exit useful. Efficient mercy.'],
-      liked: ['Retreat with a plan. Acceptable.'],
-      neutral: ['You exited. I am pricing the reason.'],
-      disliked: ['You left me with the risk and kept the excuse. Bad deal.'],
-      hated: ['You abandoned the table mid-contract. I collect on that.'],
-    },
-    honesty: {
-      loved: ['Truth before pressure. Excellent negotiating position.'],
-      liked: ['Honesty saves time. I like time.'],
-      neutral: ['Truth noted. Value undetermined.'],
-      disliked: ['Late truth. Discounted heavily.'],
-      hated: ['Truth used as liability shielding. Insulting.'],
-    },
-    clever: {
-      loved: ['Clever, clean, and profitable to remember. I am impressed.'],
-      liked: ['Good angle. I dislike that I did not see it first.'],
-      neutral: ['Clever. Not decisive.'],
-      disliked: ['Wit without accountability is cheap camouflage.'],
-      hated: ['A joke that costs me trust is a bad investment.'],
-    },
-    comfort: {
-      loved: ['Comfort with structure. Rare. Worth keeping.'],
-      liked: ['Useful warmth. I can work with that.'],
-      neutral: ['Comfort offered. Terms pending.'],
-      disliked: ['You tried to soften the problem without solving it.'],
-      hated: ['Do not use comfort as a gag order.'],
-    },
-    'public-affection': {
-      loved: ['Public signal, private respect. Strong move.'],
-      liked: ['You spent reputation without wasting mine. Acceptable.'],
-      neutral: ['Public move. Risk unclear.'],
-      disliked: ['You made me visible without calculating who was watching.'],
-      hated: ['You turned me into proof for strangers. Terrible trade.'],
-    },
-    avoidance: {
-      loved: ['You declined the trap instead of pretending it was a door. Smart.'],
-      liked: ['Restraint with a reason. Good.'],
-      neutral: ['Avoidance can be strategy. It can also be fear.'],
-      disliked: ['You dodged and left no plan behind.'],
-      hated: ['Cowardice has terrible margins.'],
-    },
-    violence: {
-      loved: ['Force, timed correctly, is a tool. You used the handle, not the edge.'],
-      liked: ['Controlled escalation. Risky, useful.'],
-      neutral: ['Violence is costly. Show me the return.'],
-      disliked: ['You escalated before checking the ledger.'],
-      hated: ['You made an enemy for free. I hate bad business.'],
-    },
-    pragmatic: {
-      loved: ['Practical, precise, and still personal. Excellent.'],
-      liked: ['Useful answer. I like useful when it remembers I am not merchandise.'],
-      neutral: ['Practical. Balance holds.'],
-      disliked: ['Efficient, but emotionally underfunded.'],
-      hated: ['You itemized me. Never itemize me.'],
-    },
-    dramatic: {
-      loved: ['Drama with leverage. Finally, spectacle that earns rent.'],
-      liked: ['Flashy, but it moved the board. I can respect that.'],
-      neutral: ['Big signal. Limited proof.'],
-      disliked: ['Too much smoke. Not enough transaction.'],
-      hated: ['You performed value instead of having it.'],
-    },
-    'love-in-eyes': {
-      loved: [
-        "Love in my woman's eyes. Ah. Direct, unguarded, and worth more than leverage. I am impressed.",
-        'You looked at me without a plan. That is the most honest transaction I know.',
-        "Love in my woman's eyes. High risk, infinite return. I am all in.",
-      ],
-      liked: [
-        "Love in my woman's eyes. Acceptable terms. I am choosing to accept.",
-        'You showed me something valuable. I will not pretend I did not see it.',
-      ],
-      neutral: [
-        "Love in my woman's eyes. Signal received. Auditing for authenticity.",
-        'The look is there. I am checking whether it has substance behind the optics.',
-      ],
-      disliked: [
-        "Love in my woman's eyes. A glance is not a guarantee. Show me the track record.",
-        'You are looking at me like a good investment. I check investments.',
-      ],
-      hated: [
-        "Love in my woman's eyes. Sentiment without documentation. Rejected.",
-        'Do not confuse a look with a binding offer. I am not signing anything.',
-      ],
-    },
-    generic: {
-      loved: ['That answer cost me composure. Irritating. Valuable.'],
-      liked: ['Useful answer. I like useful answers.'],
-      neutral: ['Fine. It balances. Balance is not profit.'],
-      disliked: ['Careless. I dislike careless.'],
-      hated: ['Absolutely not. Breach of contract and taste.'],
-    },
-  },
 };
 
 const SNAKE_THEME_DEFINITIONS: readonly SnakeThemeDefinition[] = [
@@ -2171,7 +1438,6 @@ export default class SnakeScene extends Phaser.Scene {
   private nextBabyCryAtMs = 0;
   private deathCutscene: DeathCutsceneState | null = null;
   private activeDatingSequence: DatingSequence | null = null;
-  private readonly recentAuthoredDatingScenarioIds: Map<string, string[]> = new Map();
   private titleContainer: Phaser.GameObjects.Container | null = null;
   private titleMainContainer: Phaser.GameObjects.Container | null = null;
   private titleSettingsContainer: Phaser.GameObjects.Container | null = null;
@@ -2726,10 +1992,111 @@ export default class SnakeScene extends Phaser.Scene {
   private sceneClient: SceneGameClient | null = null;
   private readReplica: SceneReadReplica | null = null;
   private stopLocalAuthority: (() => void) | null = null;
-  private remoteInteractionSignature = '';
-  private remoteInteractionPending = false;
   private remoteHold = '';
   private readonly presentationFlags = new Map<string, unknown>();
+  private actorInteractionContext: { actorId: string; revision: number } | null = null;
+  private actorIntentPending = false;
+
+  private async beginActorInteraction(
+    actorId: string,
+    includeBark: boolean,
+  ): Promise<CommandResult> {
+    const result = await this.gameConnection.send({
+      type: 'actorAction',
+      action: 'begin',
+      actorId,
+      includeBark,
+      playerId: this.snakeGame.getLocalPlayerId(),
+    });
+    if (result.actorOutcome)
+      this.actorInteractionContext = { actorId, revision: result.actorOutcome.revision };
+    if (!result.ok) this.showQuestHintPopup(result.reason ?? 'Interaction unavailable.', '#ff6b6b');
+    return result;
+  }
+
+  private async actorIntent(action: Exclude<ActorIntent, 'begin'>): Promise<CommandResult> {
+    const context = this.actorInteractionContext;
+    if (!context || this.actorIntentPending)
+      return { ok: false, reason: 'Interaction unavailable.' };
+    this.actorIntentPending = true;
+    try {
+      const result = await this.gameConnection.send({
+        type: 'actorAction',
+        action,
+        ...context,
+        playerId: this.snakeGame.getLocalPlayerId(),
+      });
+      if (!result.ok)
+        this.showQuestHintPopup(
+          result.reason ?? result.message ?? 'Interaction unavailable.',
+          '#ff6b6b',
+        );
+      return result;
+    } finally {
+      this.actorIntentPending = false;
+    }
+  }
+
+  private async datingIntent(
+    intent:
+      | { action: 'start'; kind: 'talk' | 'flirt' | 'date' }
+      | { action: 'choose'; branchId?: string }
+      | { action: 'gift'; itemId: string }
+      | {
+          action: 'arrangement';
+          choice: 'monogamy' | 'open-honesty' | 'transactional' | 'reassure';
+        },
+  ): Promise<CommandResult> {
+    const context = this.actorInteractionContext;
+    if (!context || this.actorIntentPending)
+      return { ok: false, reason: 'Interaction unavailable.' };
+    this.actorIntentPending = true;
+    try {
+      const result = await this.gameConnection.send({
+        type: 'datingAction',
+        ...context,
+        ...intent,
+        playerId: this.snakeGame.getLocalPlayerId(),
+      });
+      if (!result.ok)
+        this.showQuestHintPopup(
+          result.reason ?? result.actorOutcome?.relationship?.message ?? 'Interaction unavailable.',
+          '#ff6b6b',
+        );
+      return result;
+    } finally {
+      this.actorIntentPending = false;
+    }
+  }
+  private presentationFeedback: Map<string, unknown> | null = null;
+  private localOutcomeSequence = 0;
+  private lastRemoteOutcomeSequence = 0;
+
+  private presentAuthoritativeOutcome(outcome: GameplayOutcome): void {
+    if (outcome.playerId !== this.snakeGame.getLocalPlayerId()) return;
+    if (this.sceneClient) {
+      if (outcome.sequence <= this.lastRemoteOutcomeSequence) return;
+      this.lastRemoteOutcomeSequence = outcome.sequence;
+    }
+    if (outcome.action) this.presentActionOutcome(outcome.action);
+    try {
+      for (const feedback of outcome.feedback) {
+        this.presentationFeedback = new Map([[feedback.key, feedback.value]]);
+        this.presentStepNotifications();
+        this.presentPowerupFeedback();
+        this.handlePredationFeedback();
+      }
+    } finally {
+      this.presentationFeedback = null;
+    }
+    this.isDirty = true;
+  }
+
+  private presentRoomTransition(roomId: string, head?: Vector2Like): void {
+    if (!head) return;
+    const position = this.tileToWorldInRoom(head, roomId);
+    this.juice.roomTransition(position.x, position.y);
+  }
   private readonly presentationFlagInputs = new Map<string, string | undefined>();
   get isMultiplayer(): boolean {
     return this.sceneClient !== null;
@@ -2838,6 +2205,7 @@ export default class SnakeScene extends Phaser.Scene {
         }
         this.drivingCar = this.snakeGame.getFlag<DrivingCarState>('vehicle.active') ?? null;
         this.currentSnapshot = snapshot;
+        this.maybePresentRandomEncounter();
         const minigame = snapshot.minigame;
         this.fishingActive = minigame?.kind === 'fishing';
         this.baseballActive = minigame?.kind === 'baseball';
@@ -2856,9 +2224,12 @@ export default class SnakeScene extends Phaser.Scene {
         if (skillState) this.skillTree.hydrateClientState(skillState);
         this.currentApple = snapshot.viewport.rooms[snapshot.viewport.centerRoomId]?.apples ?? null;
         this.isDirty = true;
-        this.renderAuthoritativeInteraction(snapshot.ui.interaction ?? null);
       });
       this.unsubscribeEvents = connection.onEvent((event) => {
+        if (event.type === 'gameplay.outcome') {
+          this.presentAuthoritativeOutcome(event.outcome);
+          return;
+        }
         if ('playerId' in event && event.playerId !== this.sceneClient?.getLocalPlayerId()) return;
         if (event.type === 'toast') this.showQuestHintPopup(event.message, '#9ad1ff');
         if (event.type === 'sound.play') this.playRuntimeSoundCue(event.soundId);
@@ -2867,13 +2238,9 @@ export default class SnakeScene extends Phaser.Scene {
         if (event.type === 'quest.completed')
           this.showQuestHintPopup(`Quest complete: ${event.label}`, '#fff3a8');
         if (event.type === 'item.picked_up') {
-          const head = this.snakeGame.getSnakeBody()[0];
-          if (head) {
-            const position = this.tileToWorld(head);
-            this.juice.appleChomp(position.x, position.y, 0, event.itemId);
-          }
-          this.playControllerFeedback('reward');
+          return;
         }
+        if (event.type === 'room.changed') this.presentRoomTransition(event.toRoomId, event.head);
         if (event.type === 'player.died') {
           this.paused = true;
           this.showQuestHintPopup('Game over — Enter to respawn', '#ff6b6b');
@@ -2947,85 +2314,6 @@ export default class SnakeScene extends Phaser.Scene {
     });
   }
 
-  private renderAuthoritativeInteraction(view: GameInteractionView | null): void {
-    const signature = JSON.stringify([view, this.remoteInteractionPending]);
-    if (
-      signature === this.remoteInteractionSignature &&
-      (!view || this.villageShopPopup.isVisible() || this.datingScenePopup.isVisible())
-    )
-      return;
-    this.remoteInteractionSignature = signature;
-    if (!view) {
-      if (this.choicePopupVisible) this.villageShopPopup.hide();
-      this.datingScenePopup.hide();
-      this.setChoicePopupVisible(false);
-      this.paused = this.skillTree.isOverlayVisible();
-      return;
-    }
-    this.paused = true;
-    this.setChoicePopupVisible(true);
-    if (view.dating) {
-      this.villageShopPopup.hide();
-      const buttons = view.options.map((option, index) => ({
-        id: option.id === 'close' ? ('leave' as const) : (`branch-${index}` as const),
-        label: option.label,
-        disabled: this.remoteInteractionPending || !option.enabled,
-      }));
-      this.datingScenePopup.show({
-        ...view.dating,
-        line: view.description,
-        lineIsNarration: true,
-        actions: buttons,
-        onAction: (action) => {
-          const index = buttons.findIndex((button) => button.id === action);
-          const option = view.options[index];
-          if (option) this.chooseAuthoritativeInteraction(view, option.id);
-        },
-      });
-      return;
-    }
-    this.datingScenePopup.hide();
-    this.villageShopPopup.show(
-      view.title,
-      [
-        ...(view.description
-          ? [
-              {
-                id: '_description',
-                title: 'Conversation',
-                description: view.description,
-                disabled: true,
-              },
-            ]
-          : []),
-        ...view.options.map((option) => ({
-          id: option.id,
-          title: option.label,
-          description: option.description,
-          disabled: this.remoteInteractionPending || !option.enabled,
-        })),
-      ],
-      (id) => {
-        this.chooseAuthoritativeInteraction(view, id);
-      },
-    );
-  }
-
-  private chooseAuthoritativeInteraction(view: GameInteractionView, optionId: string): void {
-    if (this.remoteInteractionPending) return;
-    this.remoteInteractionPending = true;
-    this.renderAuthoritativeInteraction(view);
-    void this.submitRemote({
-      type: 'selectInteraction',
-      playerId: this.snakeGame.getLocalPlayerId(),
-      menuId: view.id,
-      optionId,
-    }).finally(() => {
-      this.remoteInteractionPending = false;
-      this.renderAuthoritativeInteraction(this.sceneClient?.getSnapshot().ui.interaction ?? null);
-    });
-  }
-
   private connectGameSession(): void {
     if (this.gameSession) return;
     this.gameSession = new LocalGameSession({ game: this.snakeGame, allowDebugCommands: true });
@@ -3034,6 +2322,8 @@ export default class SnakeScene extends Phaser.Scene {
       this.currentSnapshot = snapshot;
     });
     this.unsubscribeEvents = this.gameConnection.onEvent((event) => {
+      if (event.type === 'room.changed' && event.playerId === this.snakeGame.getLocalPlayerId())
+        this.presentRoomTransition(event.toRoomId, event.head);
       if (event.type === 'toast') {
         this.showQuestHintPopup(event.message, '#9ad1ff');
       }
@@ -3390,7 +2680,7 @@ export default class SnakeScene extends Phaser.Scene {
         this.emitInputActionDebug('map.toggle', 'keyboard', event.code);
         const result = this.toggleMinimap();
         if (result) {
-          this.showQuestHintPopup(result.message, result.color);
+          this.showQuestHintPopup(result.message ?? 'Unavailable.', result.color);
         }
       }
 
@@ -3506,7 +2796,7 @@ export default class SnakeScene extends Phaser.Scene {
         this.isDirty = true;
         return;
       }
-      if (this.sceneClient) {
+      {
         const actor = this.snakeGame
           .getActorsInCurrentRoom()
           .find(
@@ -3518,11 +2808,11 @@ export default class SnakeScene extends Phaser.Scene {
                 this.grid.cell / 2,
           );
         if (actor) {
-          void this.submitRemote({
-            type: 'openActor',
-            actorId: actor.id,
-            playerId: this.snakeGame.getLocalPlayerId(),
-          });
+          const profile = this.snakeGame
+            .getPresentRelationshipProfilesForRoom()
+            .find((profile) => profile.actorId === actor.id);
+          if (profile && this.snakeGame.canInteractWithActor(actor.id))
+            void this.showRelationshipRoot(profile);
           return;
         }
       }
@@ -4027,7 +3317,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (actionId === 'map.toggle') {
       const result = this.toggleMinimap();
       if (result) {
-        this.showQuestHintPopup(result.message, result.color);
+        this.showQuestHintPopup(result.message ?? 'Unavailable.', result.color);
       }
       return;
     }
@@ -4049,12 +3339,15 @@ export default class SnakeScene extends Phaser.Scene {
         playerId: this.snakeGame.getLocalPlayerId(),
       }).then((result) => {
         if (result.message)
-          this.showQuestHintPopup(result.message, result.ok ? '#5dd6a2' : '#ffd166');
+          this.showQuestHintPopup(
+            result.message ?? 'Unavailable.',
+            result.ok ? '#5dd6a2' : '#ffd166',
+          );
       });
       return true;
     }
     const result = this.snakeGame.cycleDigestiveMode();
-    this.showQuestHintPopup(result.message, result.ok ? '#5dd6a2' : '#ffd166');
+    this.showQuestHintPopup(result.message ?? 'Unavailable.', result.ok ? '#5dd6a2' : '#ffd166');
     this.skillTree.getOverlay().refresh();
     return result.ok;
   }
@@ -4114,46 +3407,13 @@ export default class SnakeScene extends Phaser.Scene {
     this.juice.maneuverRejected(world.x, world.y);
   }
 
-  private performInteractAction(): void {
-    if (this.sceneClient) {
-      if (this.snakeGame.getStructurePlacement()) {
-        this.confirmStructurePlacement();
-        return;
-      }
-      if (this.drivingCar) {
-        this.exitCar();
-        return;
-      }
-      const car = this.getNearbyCar();
-      if (car) {
-        void this.submitRemote({
-          type: 'vehicleAction',
-          action: 'enter',
-          carId: car.id,
-          playerId: this.snakeGame.getLocalPlayerId(),
-        });
-        return;
-      }
-      const actor = this.snakeGame
-        .getActorsInCurrentRoom()
-        .find((entry) => this.snakeGame.canInteractWithActor(entry.id));
-      void this.submitRemote(
-        actor
-          ? { type: 'openActor', playerId: this.snakeGame.getLocalPlayerId(), actorId: actor.id }
-          : { type: 'interact', playerId: this.snakeGame.getLocalPlayerId() },
-      );
-      return;
-    }
+  private async performInteractAction(): Promise<void> {
     if (this.snakeGame.getStructurePlacement()) {
       this.confirmStructurePlacement();
       return;
     }
-    this.gameConnection.send({
-      type: 'interact',
-      playerId: this.snakeGame.getLocalPlayerId(),
-    });
     if (this.tryEnterCar()) return;
-    if (this.tryInteractHouseGarden()) return;
+    if (await this.tryInteractHouseGarden()) return;
     if (this.tryInteractQuestTarget()) return;
     if (this.tryInteractArcadeCabinet()) return;
     if (this.tryInteractMcDonaldsCashier()) return;
@@ -4161,15 +3421,15 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.tryInteractSnakeCanesCashier()) return;
     if (this.tryInteractAlchemyStation()) return;
     if (this.tryInteractTownQuestBoard()) return;
-    if (this.tryInteractTownBuildingDoor()) return;
-    if (this.tryInteractTownGuildGrate()) return;
+    if (await this.tryInteractTownBuildingDoor()) return;
+    if (await this.tryInteractTownGuildGrate()) return;
     if (this.tryInteractLibertyStructure()) return;
     if (this.tryInteractMolemanDigSite()) return;
     if (this.tryInteractGarageMechanic()) return;
     if (this.tryInteractVillageShopkeeper()) return;
     if (this.tryInteractGoblinShopkeeper()) return;
     if (this.tryInteractRelationshipNpc()) return;
-    if (this.tryInteractQuestGiver()) return;
+    if (await this.tryInteractQuestGiver()) return;
     if (this.tryInteractBulletTrain()) return;
     if (this.tryInteractRollercoaster()) return;
     if (this.isInHouse()) this.openHouseUpgradeMenu();
@@ -4557,14 +3817,40 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.featureManager.call('onActionStep', this);
 
-    this.currentApple = result.apple.current ?? null;
     if (this.archipelagoModeActive && this.archipelagoRunSave) {
       this.archipelagoCheckTracker.processStep(this.snakeGame, result);
       this.drainArchipelagoLocalRewardChecks();
       this.saveArchipelagoRunState();
     }
+    if (result.apple.eaten) {
+      this.featureManager.call('onAppleEaten', this);
+      this.applyJadePeakAppleEffects(result.apple.typeId);
+      if (result.apple.typeId === 'caffeinated') this.activateCaffeinatedAppleBoost();
+      this.applyRaccoonActionStepInterval();
+    }
+    this.skillTree.tick();
+    this.evaluateAchievements();
+    if (this.getFlag('equipment.itemPhoenixConsumed')) this.applyEquipmentEffects();
+    if (result.questsCompleted.length > 0) this.applyPendingQuestCosmeticRewards();
     this.updateBossEncounter();
     this.maybePresentRandomEncounter();
+    this.presentAuthoritativeOutcome({
+      sequence: ++this.localOutcomeSequence,
+      playerId: this.snakeGame.getLocalPlayerId(),
+      action: describeActionOutcome(result, {
+        scoreBefore,
+        lengthBefore,
+        scoreAfter: this.snakeGame.getScore(),
+        lengthAfter: this.snakeGame.getSnakeLength(),
+        head: this.snakeGame.getSnakeBody()[0] ?? null,
+        roomId: this.currentRoomId,
+      }),
+      feedback: this.snakeGame.drainGameplayFeedback(),
+    });
+  }
+
+  private presentActionOutcome(result: ActionOutcome): void {
+    this.currentApple = result.apple.current ?? null;
 
     if (result.apple.eaten) {
       this.playControllerFeedback('reward');
@@ -4572,12 +3858,7 @@ export default class SnakeScene extends Phaser.Scene {
         type: 'apple:eaten',
         appleTypeId: result.apple.typeId ?? 'normal',
       });
-      this.featureManager.call('onAppleEaten', this);
-      this.applyJadePeakAppleEffects(result.apple.typeId);
       this.showSpecialAppleEffectNotification(result.apple.typeId);
-      if (result.apple.typeId === 'caffeinated') {
-        this.activateCaffeinatedAppleBoost();
-      }
       if (result.apple.typeId === 'treat' && result.apple.worldPosition) {
         this.playTreatDance(result.apple.worldPosition);
       }
@@ -4611,15 +3892,78 @@ export default class SnakeScene extends Phaser.Scene {
       if (this.snakeGame.isRaccoonMode()) {
         this.setFlag('ui.raccoonForageFeedback', undefined);
       }
-      this.applyRaccoonActionStepInterval();
     }
 
     this.tickHouseAmbientEffects();
-    this.evaluateAchievements();
 
+    this.tickFreakYouPortalFx();
+
+    // Idle apple sparkle
+    const currentRoomForAppleFx = this.snakeGame.getCurrentRoom();
+    if (
+      this.currentApple &&
+      !result.apple.eaten &&
+      !currentRoomForAppleFx.town &&
+      currentRoomForAppleFx.layer?.kind !== 'townInterior'
+    ) {
+      const world = this.tileToWorld(this.currentApple.position);
+      if (this.random() < 0.06) {
+        this.juice.appleIdle(world.x, world.y);
+      }
+    }
+
+    // Idle treasure sparkle
+    const roomForTreasure = this.snakeGame.getCurrentRoom();
+    if (roomForTreasure.treasure) {
+      const cell = this.grid.cell;
+      const tx = roomForTreasure.treasure.x * cell + cell / 2;
+      const ty = roomForTreasure.treasure.y * cell + cell / 2;
+      if (this.random() < 0.05) {
+        this.juice.treasureSparkle(tx, ty);
+      }
+      if (this.random() < 0.02) {
+        this.juice.treasureBeacon(tx, ty);
+      }
+    }
+
+    if (result.apple.stateChanged || result.roomChanged || result.roomsChanged.length > 0) {
+      this.markStaticRoomsDirty(new Set(result.roomsChanged));
+      this.isDirty = true;
+    }
+
+    // Movement tick juice with optional head world position for trails
+    const head = this.snakeGame.getSnakeBody()[0];
+    if (head) {
+      const world = this.tileToWorld(head);
+      this.juice.movementTick(world.x, world.y);
+    } else {
+      this.juice.movementTick();
+    }
+
+    if (result.questOfferId) {
+      const quest = this.snakeGame.getAllQuests().find((quest) => quest.id === result.questOfferId);
+      if (quest) this.offerQuest(quest);
+    }
+
+    if (result.questsCompleted.length > 0) {
+      this.isDirty = true;
+      this.juice.questCompleted();
+    }
+
+    this.handleRunDeltaFeedback(
+      result.scoreBefore,
+      result.lengthBefore,
+      result.scoreAfter,
+      result.lengthAfter,
+      result.head,
+    );
+
+    this.isDirty = true;
+  }
+
+  private presentStepNotifications(): void {
     const consumedPhoenix = this.getFlag<{ itemId: string }>('equipment.itemPhoenixConsumed');
     if (consumedPhoenix) {
-      this.applyEquipmentEffects();
       const item = getItem(consumedPhoenix.itemId);
       this.showQuestHintPopup(`${item?.name ?? 'Phoenix charm'} burned away.`, '#fff3a8');
       this.setFlag('equipment.itemPhoenixConsumed', undefined);
@@ -4737,41 +4081,9 @@ export default class SnakeScene extends Phaser.Scene {
       this.setFlag('ui.animalTamable', undefined);
       this.showAnimalTamingPopup({ ...animalTamable, animalId: animalTamable.animalId });
     }
-    this.tickFreakYouPortalFx();
+  }
 
-    // Idle apple sparkle
-    const currentRoomForAppleFx = this.snakeGame.getCurrentRoom();
-    if (
-      this.currentApple &&
-      !result.apple.eaten &&
-      !currentRoomForAppleFx.town &&
-      currentRoomForAppleFx.layer?.kind !== 'townInterior'
-    ) {
-      const world = this.tileToWorld(this.currentApple.position);
-      if (this.random() < 0.06) {
-        this.juice.appleIdle(world.x, world.y);
-      }
-    }
-
-    // Idle treasure sparkle
-    const roomForTreasure = this.snakeGame.getCurrentRoom();
-    if (roomForTreasure.treasure) {
-      const cell = this.grid.cell;
-      const tx = roomForTreasure.treasure.x * cell + cell / 2;
-      const ty = roomForTreasure.treasure.y * cell + cell / 2;
-      if (this.random() < 0.05) {
-        this.juice.treasureSparkle(tx, ty);
-      }
-      if (this.random() < 0.02) {
-        this.juice.treasureBeacon(tx, ty);
-      }
-    }
-
-    if (result.apple.stateChanged || result.roomChanged || result.roomsChanged.size > 0) {
-      this.markStaticRoomsDirty(result.roomsChanged);
-      this.isDirty = true;
-    }
-
+  private presentPowerupFeedback(): void {
     // Powerup pickup FX and music start
     const pfx = this.getFlag<{
       x: number;
@@ -4835,52 +4147,6 @@ export default class SnakeScene extends Phaser.Scene {
       this.powerupMusicActive = false;
     }
 
-    // Room transition pulse from snake head
-    if (result.roomChanged) {
-      const currHead = this.getFlag<{ x: number; y: number }>('internal.currentHead');
-      const [roomX, roomY] = this.parseRoomCoordinates(this.currentRoomId);
-      if (currHead) {
-        const localX = currHead.x - roomX * this.grid.cols;
-        const localY = currHead.y - roomY * this.grid.rows;
-        const w = this.grid.cols * this.grid.cell;
-        const h = this.grid.rows * this.grid.cell;
-        let originX = localX * this.grid.cell + this.grid.cell / 2;
-        let originY = localY * this.grid.cell + this.grid.cell / 2;
-
-        // Prefer edges when on boundary; otherwise (e.g., portal), use the tile center
-        if (localX === 0) originX = this.grid.cell / 2;
-        else if (localX === this.grid.cols - 1) originX = w - this.grid.cell / 2;
-
-        if (localY === 0) originY = this.grid.cell / 2;
-        else if (localY === this.grid.rows - 1) originY = h - this.grid.cell / 2;
-
-        this.juice.roomTransition(originX, originY);
-      }
-    }
-
-    // Movement tick juice with optional head world position for trails
-    const head = this.snakeGame.getSnakeBody()[0];
-    if (head) {
-      const world = this.tileToWorld(head);
-      this.juice.movementTick(world.x, world.y);
-    } else {
-      this.juice.movementTick();
-    }
-    this.skillTree.tick();
-
-    if (result.questOffer) {
-      this.offerQuest(result.questOffer);
-    }
-
-    if (result.questsCompleted.length > 0) {
-      this.isDirty = true;
-      this.juice.questCompleted();
-      this.applyPendingQuestCosmeticRewards();
-    }
-
-    this.handlePredationFeedback();
-    this.handleRunDeltaFeedback(scoreBefore, lengthBefore);
-
     // Boss smite FX on collision
     const smite = this.getFlag<{ x: number; y: number; roomId: string }>('ui.bossSmite');
     if (smite) {
@@ -4888,8 +4154,6 @@ export default class SnakeScene extends Phaser.Scene {
       this.juice.bossHit(world.x, world.y);
       this.setFlag('ui.bossSmite', undefined);
     }
-
-    this.isDirty = true;
   }
 
   getSpecialStatsView(): SpecialStatsView {
@@ -5252,26 +4516,36 @@ export default class SnakeScene extends Phaser.Scene {
     });
 
     this.questPopup.show(quest, {
-      onAccept: () => {
+      onAccept: async () => {
         this.emitPopupDebug('popup.button_pressed', 'quest-offer', {
           selectedOption: 'accept',
           questId: quest.id,
         });
-        this.juice.questAccepted();
-        const accepted = this.snakeGame.acceptOfferedQuest();
-        if (accepted) {
+        const result = await this.gameConnection.send({
+          type: 'questDecision',
+          action: 'accept',
+          questId: quest.id,
+          playerId: this.snakeGame.getLocalPlayerId(),
+        });
+        if (result.ok) {
+          this.juice.questAccepted();
           this.isDirty = true;
-          this.applyPendingQuestCosmeticRewards();
+          if (!this.sceneClient) this.applyPendingQuestCosmeticRewards();
         }
         this.closeQuestPopup();
       },
-      onReject: () => {
+      onReject: async () => {
         this.emitPopupDebug('popup.button_pressed', 'quest-offer', {
           selectedOption: 'reject',
           questId: quest.id,
         });
         this.juice.questRejected();
-        this.snakeGame.rejectOfferedQuest();
+        await this.gameConnection.send({
+          type: 'questDecision',
+          action: 'reject',
+          questId: quest.id,
+          playerId: this.snakeGame.getLocalPlayerId(),
+        });
         this.closeQuestPopup();
       },
     });
@@ -8019,6 +7293,10 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   setFlag(key: string, value: unknown): void {
+    if (this.presentationFeedback && isGameplayFeedbackKey(key)) {
+      if (value === undefined) this.presentationFeedback.delete(key);
+      return;
+    }
     if (this.sceneClient) {
       if (key.startsWith('ui.') || value === undefined) {
         this.presentationFlags.set(key, value);
@@ -8039,6 +7317,8 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   getFlag<T = unknown>(key: string): T | undefined {
+    if (this.presentationFeedback && isGameplayFeedbackKey(key))
+      return this.presentationFeedback.get(key) as T | undefined;
     if (this.sceneClient && this.presentationFlags.has(key)) {
       const value = this.presentationFlags.get(key);
       return value as T | undefined;
@@ -8077,7 +7357,7 @@ export default class SnakeScene extends Phaser.Scene {
       message: 'No mercenary to command.',
       color: '#ff6b6b',
     };
-    this.showQuestHintPopup(result.message, result.color);
+    this.showQuestHintPopup(result.message ?? 'Unavailable.', result.color);
     return result;
   }
 
@@ -8087,7 +7367,7 @@ export default class SnakeScene extends Phaser.Scene {
       message: 'No mercenary to recall.',
       color: '#ff6b6b',
     };
-    this.showQuestHintPopup(result.message, result.color);
+    this.showQuestHintPopup(result.message ?? 'Unavailable.', result.color);
     return result;
   }
 
@@ -10898,7 +10178,10 @@ export default class SnakeScene extends Phaser.Scene {
         playerId: this.snakeGame.getLocalPlayerId(),
       }).then((result) => {
         if (result.message)
-          this.showQuestHintPopup(result.message, result.ok ? '#5dd6a2' : '#ff8f8f');
+          this.showQuestHintPopup(
+            result.message ?? 'Unavailable.',
+            result.ok ? '#5dd6a2' : '#ff8f8f',
+          );
       });
       return true;
     }
@@ -10910,7 +10193,7 @@ export default class SnakeScene extends Phaser.Scene {
     } else {
       this.juice.animalHuntFail(head.x, head.y);
     }
-    this.showQuestHintPopup(result.message, result.ok ? '#5dd6a2' : '#ff8f8f');
+    this.showQuestHintPopup(result.message ?? 'Unavailable.', result.ok ? '#5dd6a2' : '#ff8f8f');
     return result.ok;
   }
 
@@ -10929,7 +10212,7 @@ export default class SnakeScene extends Phaser.Scene {
     const result = this.snakeGame.releaseAnimalCompanion(companionId);
     const head = this.tileToWorld(this.snakeGame.getSnakeBody()[0] ?? null);
     if (result.ok) this.juice.animalStartled(head.x, head.y);
-    this.showQuestHintPopup(result.message, result.ok ? '#ffd166' : '#ff8f8f');
+    this.showQuestHintPopup(result.message ?? 'Unavailable.', result.ok ? '#ffd166' : '#ff8f8f');
     return result.ok;
   }
 
@@ -11788,7 +11071,7 @@ export default class SnakeScene extends Phaser.Scene {
         return true;
       case 'map.toggle': {
         const result = this.toggleMinimap();
-        if (result) this.showQuestHintPopup(result.message, result.color);
+        if (result) this.showQuestHintPopup(result.message ?? 'Unavailable.', result.color);
         return true;
       }
       case 'save.quick':
@@ -11931,7 +11214,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (command === 'map') {
       const result = this.toggleMinimap();
       if (result) {
-        this.showQuestHintPopup(result.message, result.color);
+        this.showQuestHintPopup(result.message ?? 'Unavailable.', result.color);
       }
       return true;
     }
@@ -12788,20 +12071,25 @@ export default class SnakeScene extends Phaser.Scene {
       });
       if (
         biomeReveal.biomeId === 'mosaic-coast' &&
-        !this.getFlag<boolean>('mosaicCoast.tutorialShown')
+        !this.getFlag<boolean>('ui.mosaicCoastTutorialShown')
       ) {
         this.showQuestHintPopup(
           'Mosaic Coast: direct sun raises HEAT. Blue shade pauses it. Fountains cool you down.',
           '#9ad1ff',
         );
-        this.setFlag('mosaicCoast.tutorialShown', true);
+        this.setFlag('ui.mosaicCoastTutorialShown', true);
       }
       this.setFlag('ui.biomeReveal', undefined);
     }
   }
 
-  private handleRunDeltaFeedback(scoreBefore: number, lengthBefore: number): void {
-    const head = this.snakeGame.getSnakeBody()[0];
+  private handleRunDeltaFeedback(
+    scoreBefore: number,
+    lengthBefore: number,
+    scoreAfter = this.snakeGame.getScore(),
+    lengthAfter = this.snakeGame.getSnakeLength(),
+    head: Vector2Like | null = this.snakeGame.getSnakeBody()[0] ?? null,
+  ): void {
     if (!head) {
       this.lastJuicedScore = this.snakeGame.getScore();
       this.lastJuicedLength = this.snakeGame.getSnakeLength();
@@ -12809,8 +12097,6 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     const world = this.tileToWorld(head);
-    const scoreAfter = this.snakeGame.getScore();
-    const lengthAfter = this.snakeGame.getSnakeLength();
     const scoreDelta = scoreAfter - scoreBefore;
     const lengthDelta = lengthAfter - lengthBefore;
 
@@ -15160,8 +14446,12 @@ export default class SnakeScene extends Phaser.Scene {
     return `${percent}%`;
   }
 
-  private tryInteractHouseGarden(): boolean {
-    const result = this.snakeGame.interactHouseGarden();
+  private async tryInteractHouseGarden(): Promise<boolean> {
+    const result = await this.gameConnection.send({
+      type: 'worldInteraction',
+      action: 'garden',
+      playerId: this.snakeGame.getLocalPlayerId(),
+    });
     if (!result.ok) {
       return false;
     }
@@ -15543,13 +14833,23 @@ export default class SnakeScene extends Phaser.Scene {
     };
     this.paused = true;
     this.setChoicePopupVisible(true);
-    this.villageShopPopup.show(`${garage.name} SHOP`, [option], (id) => {
+    this.villageShopPopup.show(`${garage.name} SHOP`, [option], async (id) => {
       this.paused = false;
       if (id === 'buy-car') {
-        const result = this.snakeGame.buyGarageCar();
-        this.showQuestHintPopup(result.message, result.ok ? '#5dd6a2' : '#ff6b6b');
-        if (result.ok && result.car) {
-          const world = this.carCenterToWorld(result.car);
+        const result = await this.gameConnection.send({
+          type: 'vehicleAction',
+          action: 'buyGarageCar',
+          playerId: this.snakeGame.getLocalPlayerId(),
+        });
+        const car = this.snakeGame
+          .getCars(room.id)
+          .find((entry) => entry.id === `${garage.id}:car`);
+        this.showQuestHintPopup(
+          result.message ?? 'Unavailable.',
+          result.ok ? '#5dd6a2' : '#ff6b6b',
+        );
+        if (result.ok && car) {
+          const world = this.carCenterToWorld(car);
           this.cameras.main.shake(120, 0.0025);
           this.spawnCarSpark(world.x, world.y, 0x9ad1ff);
         }
@@ -15575,6 +14875,15 @@ export default class SnakeScene extends Phaser.Scene {
     });
     if (!repaired) {
       this.showQuestHintPopup('The car is blocked in.', '#ff6b6b');
+      return true;
+    }
+    if (this.sceneClient) {
+      void this.submitRemote({
+        type: 'vehicleAction',
+        action: 'enter',
+        carId: car.id,
+        playerId: this.snakeGame.getLocalPlayerId(),
+      });
       return true;
     }
     this.snakeGame.removeCar(room.id, car.id);
@@ -16426,7 +15735,7 @@ export default class SnakeScene extends Phaser.Scene {
       }
       const questId = id.replace(/^quest:/, '');
       const result = this.snakeGame.acceptTownQuestBoardQuest(questId);
-      this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
+      this.showQuestHintPopup(result.message ?? 'Unavailable.', result.ok ? '#b6ff6a' : '#ff6b6b');
       this.closeVillageShop();
       if (result.ok) {
         this.isDirty = true;
@@ -16503,13 +15812,21 @@ export default class SnakeScene extends Phaser.Scene {
     }
     options.push({ id: 'leave', title: 'Leave', description: 'Step away from the station.' });
     this.paused = true;
-    this.villageShopPopup.show(station.title, options, (id) => {
+    this.villageShopPopup.show(station.title, options, async (id) => {
       if (id === 'leave' || id === 'empty') {
         this.closeVillageShop();
         return;
       }
-      const result = this.snakeGame.chooseAlchemyStationInteraction(id);
-      this.showQuestHintPopup(result.message, result.ok ? '#5dd6a2' : '#ff6b6b');
+      const result = await this.gameConnection.send({
+        type: 'worldInteraction',
+        action: 'alchemy',
+        optionId: id,
+        playerId: this.snakeGame.getLocalPlayerId(),
+      });
+      this.showQuestHintPopup(
+        result.message ?? result.reason ?? 'Action completed.',
+        result.ok ? '#5dd6a2' : '#ff6b6b',
+      );
       this.skillTree.getOverlay().refresh();
       this.isDirty = true;
       this.paused = false;
@@ -16517,7 +15834,7 @@ export default class SnakeScene extends Phaser.Scene {
     return true;
   }
 
-  private tryInteractTownBuildingDoor(): boolean {
+  private async tryInteractTownBuildingDoor(): Promise<boolean> {
     if (this.paused || this.offeredQuest || this.choicePopupVisible) {
       return false;
     }
@@ -16525,8 +15842,15 @@ export default class SnakeScene extends Phaser.Scene {
     if (!door) {
       return false;
     }
-    const result = this.snakeGame.enterNearbyTownBuildingDoor();
-    this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
+    const result = await this.gameConnection.send({
+      type: 'worldInteraction',
+      action: 'town-door',
+      playerId: this.snakeGame.getLocalPlayerId(),
+    });
+    this.showQuestHintPopup(
+      result.message ?? result.reason ?? 'Action completed.',
+      result.ok ? '#b6ff6a' : '#ff6b6b',
+    );
     this.isDirty = this.isDirty || result.ok;
     return true;
   }
@@ -16570,7 +15894,7 @@ export default class SnakeScene extends Phaser.Scene {
     return false;
   }
 
-  private tryInteractTownGuildGrate(): boolean {
+  private async tryInteractTownGuildGrate(): Promise<boolean> {
     if (this.paused || this.offeredQuest || this.choicePopupVisible) {
       return false;
     }
@@ -16578,8 +15902,15 @@ export default class SnakeScene extends Phaser.Scene {
     if (!town || !this.isNearTownGuildGrate(town)) {
       return false;
     }
-    const result = this.snakeGame.investigateCurrentTownGuildGrate();
-    this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
+    const result = await this.gameConnection.send({
+      type: 'worldInteraction',
+      action: 'town-grate',
+      playerId: this.snakeGame.getLocalPlayerId(),
+    });
+    this.showQuestHintPopup(
+      result.message ?? result.reason ?? 'Action completed.',
+      result.ok ? '#b6ff6a' : '#ff6b6b',
+    );
     return true;
   }
 
@@ -16650,7 +15981,10 @@ export default class SnakeScene extends Phaser.Scene {
       }
       if (id === 'guild-lower-wanted') {
         const result = this.snakeGame.reduceCurrentTownWantedViaGuild();
-        this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
+        this.showQuestHintPopup(
+          result.message ?? 'Unavailable.',
+          result.ok ? '#b6ff6a' : '#ff6b6b',
+        );
         this.showTownGuild(result.town ?? freshTown);
         return;
       }
@@ -16671,7 +16005,10 @@ export default class SnakeScene extends Phaser.Scene {
         const jobId = id.slice('guild-job:'.length);
         const success = this.random() > 0.22;
         const result = this.snakeGame.resolveCurrentTownGuildJob(jobId, success);
-        this.showQuestHintPopup(result.message, result.ok && success ? '#b6ff6a' : '#fff3a8');
+        this.showQuestHintPopup(
+          result.message ?? 'Unavailable.',
+          result.ok && success ? '#b6ff6a' : '#fff3a8',
+        );
         this.showTownGuild(result.town ?? freshTown);
       }
     });
@@ -17077,7 +16414,7 @@ export default class SnakeScene extends Phaser.Scene {
       const [, offerId] = id.split(':');
       if (id.startsWith('style:')) {
         const result = this.purchaseGoblinStyle();
-        this.showQuestHintPopup(result.message, result.color);
+        this.showQuestHintPopup(result.message ?? 'Unavailable.', result.color);
         this.showGoblinShopRoot(shopkeeperName);
         return;
       }
@@ -17087,7 +16424,7 @@ export default class SnakeScene extends Phaser.Scene {
       }
       if (id.startsWith('hire:')) {
         const result = this.snakeGame.hireGoblinMercenary(`${shopkeeperName}'s Cousin`);
-        this.showQuestHintPopup(result.message, result.color);
+        this.showQuestHintPopup(result.message ?? 'Unavailable.', result.color);
         this.showGoblinShopRoot(shopkeeperName);
         return;
       }
@@ -17118,7 +16455,7 @@ export default class SnakeScene extends Phaser.Scene {
         }
       }
       const result = this.purchaseGoblinWard(offerId);
-      this.showQuestHintPopup(result.message, result.color);
+      this.showQuestHintPopup(result.message ?? 'Unavailable.', result.color);
       this.showGoblinShopRoot(shopkeeperName);
     });
   }
@@ -17174,7 +16511,33 @@ export default class SnakeScene extends Phaser.Scene {
     };
   }
 
-  private showVillageShopRoot(shopkeeperName: string, skipBark = false): void {
+  private async showVillageShopRoot(shopkeeperName: string, skipBark = false): Promise<void> {
+    if (!this.archipelagoModeActive) {
+      const profile = this.getNearbyRelationshipProfile();
+      if (!profile?.actorId) return;
+      this.paused = true;
+      const begun = await this.beginActorInteraction(profile.actorId, !skipBark);
+      if (!begun.ok) return;
+      if (!skipBark && begun.actorOutcome?.bark) {
+        const bark = begun.actorOutcome.bark;
+        this.showQuestDialogue(
+          shopkeeperName,
+          [`"${bark.text}"`],
+          {
+            onClose: () => {
+              this.closeQuestPopup();
+              void this.showVillageShopRoot(shopkeeperName, true);
+            },
+          },
+          { closeLabel: 'Shop', nextLabel: 'Listen' },
+          this.speakerForRelationshipProfile(profile, bark.portraitId),
+        );
+      } else {
+        const response = await this.actorIntent('shop');
+        if (response.actorOutcome?.shop) this.showActorShopRoot(response.actorOutcome.shop);
+      }
+      return;
+    }
     this.paused = true;
     this.skillTree.hideOverlay();
     const bark = this.snakeGame.getNpcBark('shopkeeper');
@@ -17278,20 +16641,20 @@ export default class SnakeScene extends Phaser.Scene {
         const result = this.snakeGame.sellSnakeLengthToButcher(
           this.currentShopActorIdForRole('butcher'),
         );
-        this.showQuestHintPopup(result.message, result.color);
+        this.showQuestHintPopup(result.message ?? 'Unavailable.', result.color);
         this.showVillageShopRoot(shopkeeperName, true);
         return;
       }
       if (id === 'stash-apples') {
         const result = this.snakeGame.stashRaccoonApples(undefined);
-        this.showQuestHintPopup(result.message, result.color);
+        this.showQuestHintPopup(result.message ?? 'Unavailable.', result.color);
         this.applyRaccoonActionStepInterval();
         this.showVillageShopRoot(shopkeeperName, true);
         return;
       }
       if (id === 'trim-length') {
         const result = this.snakeGame.trimSnakeLengthAtVillageShop(this.villageTrimServiceKey());
-        this.showQuestHintPopup(result.message, result.color);
+        this.showQuestHintPopup(result.message ?? 'Unavailable.', result.color);
         this.showVillageShopRoot(shopkeeperName, true);
         return;
       }
@@ -17352,15 +16715,25 @@ export default class SnakeScene extends Phaser.Scene {
       });
     }
     options.push({ id: 'leave', title: 'Leave', description: 'Step away from the training mat.' });
-    this.villageShopPopup.show(`${trainerName}'s Maneuver Training`, options, (id) => {
+    this.villageShopPopup.show(`${trainerName}'s Maneuver Training`, options, async (id) => {
       if (id === 'leave') {
         this.closeVillageShop();
         return;
       }
-      const result =
+      const result = await this.gameConnection.send(
         id === 'equip'
-          ? this.snakeGame.equipManeuver(offer.id)
-          : this.snakeGame.buyManeuverFromCurrentTrainer(id === 'buy-equip');
+          ? {
+              type: 'maneuverAction',
+              action: 'equip',
+              id: offer.id,
+              playerId: this.snakeGame.getLocalPlayerId(),
+            }
+          : {
+              type: 'worldInteraction',
+              action: id === 'buy-equip' ? 'trainer-equip' : 'trainer-learn',
+              playerId: this.snakeGame.getLocalPlayerId(),
+            },
+      );
       if (result.ok && id !== 'equip') {
         const nextState = this.snakeGame.getManeuverState();
         this.recordAchievementEvent({
@@ -17377,7 +16750,7 @@ export default class SnakeScene extends Phaser.Scene {
           });
         }
       }
-      this.showQuestHintPopup(result.message, result.color);
+      this.showQuestHintPopup(result.message ?? 'Unavailable.', result.color);
       this.skillTree.getOverlay().refresh();
       this.showManeuverTrainerShop(trainerName);
     });
@@ -17547,7 +16920,7 @@ export default class SnakeScene extends Phaser.Scene {
                       : null;
       if (result) {
         if (result.ok) this.maybeCompleteGeneralShopBuyout();
-        this.showQuestHintPopup(result.message, result.color);
+        this.showQuestHintPopup(result.message ?? 'Unavailable.', result.color);
         this.showVillageShopCategory(shopkeeperName, category, page);
       }
     });
@@ -17575,7 +16948,7 @@ export default class SnakeScene extends Phaser.Scene {
       }
       if (id === 'sell-length') {
         const result = this.snakeGame.sellSnakeLengthToButcher(shop.actorId);
-        this.showQuestHintPopup(result.message, result.color);
+        this.showQuestHintPopup(result.message ?? 'Unavailable.', result.color);
         const updatedShop = this.snakeGame.getActorShopView(shop.actorId);
         if (updatedShop?.open) {
           this.showActorShopRoot(updatedShop);
@@ -17623,7 +16996,7 @@ export default class SnakeScene extends Phaser.Scene {
       });
     }
     options.push({ id: 'back', title: 'Back', description: 'Return to the shop counter.' });
-    this.villageShopPopup.show(shop.title, options, (id) => {
+    this.villageShopPopup.show(shop.title, options, async (id) => {
       if (id === 'back') {
         this.showActorShopRoot(shop);
         return;
@@ -17637,9 +17010,17 @@ export default class SnakeScene extends Phaser.Scene {
         return;
       }
       const offerId = id.slice('actor-offer:'.length);
-      const result = this.snakeGame.purchaseActorShopOffer(actorId, offerId);
+      const result = await this.gameConnection.send({
+        type: 'purchase',
+        actorId,
+        offerId,
+        playerId: this.snakeGame.getLocalPlayerId(),
+      });
       this.isDirty = true;
-      this.showQuestHintPopup(result.message, result.ok ? '#5dd6a2' : '#ff6b6b');
+      this.showQuestHintPopup(
+        result.message ?? result.reason ?? 'Purchased.',
+        result.ok ? '#5dd6a2' : '#ff6b6b',
+      );
       this.skillTree.getOverlay().refresh();
       this.showActorShopCategory(actorId, category, safePage);
     });
@@ -19690,7 +19071,10 @@ export default class SnakeScene extends Phaser.Scene {
           } else {
             this.juice.animalHuntFail(world.x, world.y);
           }
-          this.showQuestHintPopup(result.message, result.ok ? '#5dd6a2' : '#ff8f8f');
+          this.showQuestHintPopup(
+            result.message ?? 'Unavailable.',
+            result.ok ? '#5dd6a2' : '#ff8f8f',
+          );
           this.skillTree.getOverlay().refresh();
         }
         this.resumeGameplayAfterModal();
@@ -19699,6 +19083,15 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private resumeGameplayAfterModal(): void {
+    const context = this.actorInteractionContext;
+    this.actorInteractionContext = null;
+    if (context)
+      void this.gameConnection.send({
+        type: 'actorAction',
+        action: 'close',
+        ...context,
+        playerId: this.snakeGame.getLocalPlayerId(),
+      });
     this.paused = false;
     this.skillTree.hideOverlay();
     this.updateHouseAmbience();
@@ -19772,8 +19165,15 @@ export default class SnakeScene extends Phaser.Scene {
     if (interaction.kind === 'choice') {
       this.paused = true;
       this.setChoicePopupVisible(true);
-      this.villageShopPopup.show(interaction.title, interaction.options, (id) => {
-        const result = this.snakeGame.resolveQuestInteraction(id);
+      this.villageShopPopup.show(interaction.title, interaction.options, async (id) => {
+        const response = await this.gameConnection.send({
+          type: 'worldInteraction',
+          action: 'quest-target',
+          optionId: id,
+          playerId: this.snakeGame.getLocalPlayerId(),
+        });
+        const result = response.questInteractionResult;
+        if (!result) return;
         this.paused = false;
         if (result.message) {
           this.showQuestHintPopup(result.message, result.failed ? '#ff6b6b' : '#9ad1ff');
@@ -19791,8 +19191,14 @@ export default class SnakeScene extends Phaser.Scene {
       interaction.title,
       interaction.pages,
       {
-        onClose: () => {
-          const result = this.snakeGame.resolveQuestInteraction();
+        onClose: async () => {
+          const response = await this.gameConnection.send({
+            type: 'worldInteraction',
+            action: 'quest-target',
+            playerId: this.snakeGame.getLocalPlayerId(),
+          });
+          const result = response.questInteractionResult;
+          if (!result) return;
           if (result.message) {
             this.showQuestHintPopup(result.message, '#9ad1ff');
           }
@@ -19804,7 +19210,7 @@ export default class SnakeScene extends Phaser.Scene {
     return true;
   }
 
-  private tryInteractQuestGiver(): boolean {
+  private async tryInteractQuestGiver(): Promise<boolean> {
     if (this.paused || this.offeredQuest) {
       return false;
     }
@@ -19829,7 +19235,13 @@ export default class SnakeScene extends Phaser.Scene {
     const speaker = { portraitId: giver.portraitId };
 
     if (room.cave?.templateId === 'caveDweller') {
-      const result = this.snakeGame.claimCaveDwellerReward();
+      const response = await this.gameConnection.send({
+        type: 'worldInteraction',
+        action: 'cave-gift',
+        playerId: this.snakeGame.getLocalPlayerId(),
+      });
+      const result = response.caveGift;
+      if (!result) return true;
       this.showQuestDialogue(
         giverName,
         result.pages.length > 0
@@ -19852,28 +19264,45 @@ export default class SnakeScene extends Phaser.Scene {
       return true;
     }
 
-    const request = this.snakeGame.requestQuestFromGiver(room.id);
+    const response = await this.gameConnection.send({
+      type: 'worldInteraction',
+      action: 'quest-giver',
+      playerId: this.snakeGame.getLocalPlayerId(),
+    });
+    const request = response.questRequest;
+    if (!request) return true;
 
     if (request.state === 'available' && request.quest) {
+      const quest = request.quest;
       const dialogue = getQuestDialogue(request.quest);
       this.juice.questOffered();
       this.showQuestDialogue(
         giverName,
         dialogue.pages,
         {
-          onAccept: () => {
-            this.juice.questAccepted();
-            const accepted = this.snakeGame.acceptOfferedQuest();
-            if (accepted) {
+          onAccept: async () => {
+            const accepted = await this.gameConnection.send({
+              type: 'questDecision',
+              action: 'accept',
+              questId: quest.id,
+              playerId: this.snakeGame.getLocalPlayerId(),
+            });
+            if (accepted.ok) this.juice.questAccepted();
+            if (accepted.ok) {
               this.isDirty = true;
-              this.applyPendingQuestCosmeticRewards();
+              if (!this.sceneClient) this.applyPendingQuestCosmeticRewards();
             }
             this.closeQuestPopup();
           },
-          onReject: () => {
+          onReject: async () => {
             this.juice.questRejected();
-            this.snakeGame.rejectOfferedQuest();
-            this.handleNpcInsult(room.id, giverName, speaker.portraitId);
+            await this.gameConnection.send({
+              type: 'questDecision',
+              action: 'reject',
+              questId: quest.id,
+              playerId: this.snakeGame.getLocalPlayerId(),
+            });
+            await this.handleNpcInsult(room.id, giverName, giver.portraitId);
           },
         },
         {
@@ -20397,7 +19826,6 @@ export default class SnakeScene extends Phaser.Scene {
       return false;
     }
     this.snakeGame.getActorsInCurrentRoom();
-    this.snakeGame.ensureRelationshipCandidate(profile);
     this.showRelationshipRoot(profile);
     return true;
   }
@@ -21911,15 +21339,10 @@ export default class SnakeScene extends Phaser.Scene {
     return profile;
   }
 
-  private showRelationshipRoot(profile: RelationshipCandidateProfile, skipBark = false): void {
-    if (this.sceneClient && profile.actorId) {
-      void this.submitRemote({
-        type: 'openActor',
-        playerId: this.snakeGame.getLocalPlayerId(),
-        actorId: profile.actorId,
-      });
-      return;
-    }
+  private async showRelationshipRoot(
+    profile: RelationshipCandidateProfile,
+    skipBark = false,
+  ): Promise<void> {
     this.paused = true;
     this.setChoicePopupVisible(true);
     const currentTown = this.snakeGame.getCurrentTown();
@@ -21933,13 +21356,22 @@ export default class SnakeScene extends Phaser.Scene {
             this.snakeGame.getCurrentRoom().id,
         )),
     );
-    const bark = this.snakeGame.getNpcBark(this.relationshipNpcVoiceRole(profile), profile.actorId);
-    const conversationPortraitId = profile.portraitId ?? bark.portraitId;
+    if (!profile.actorId) {
+      this.paused = false;
+      return;
+    }
+    const begun = await this.beginActorInteraction(profile.actorId, !skipBark);
+    if (!begun.ok) {
+      this.paused = false;
+      return;
+    }
+    const bark = begun.actorOutcome?.bark;
+    const conversationPortraitId = profile.portraitId ?? bark?.portraitId;
     if (!skipBark) {
       this.setChoicePopupVisible(false);
       this.showQuestDialogue(
         profile.displayName,
-        [`"${bark.text}"`],
+        [`"${bark?.text ?? 'They watch you with careful uncertainty.'}"`],
         {
           onClose: () => {
             this.closeQuestPopup();
@@ -21954,7 +21386,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.villageShopPopup.show(
       this.actorInteractionTitle(profile),
       this.actorInteractionOptions(profile, canPickpocket),
-      (id) => {
+      async (id) => {
         this.setChoicePopupVisible(false);
         const actorRole = profile.actorId
           ? this.snakeGame.getActorRole(profile.actorId)
@@ -21963,129 +21395,63 @@ export default class SnakeScene extends Phaser.Scene {
           this.paused = false;
           return;
         }
-        if (id === 'wake') {
-          const result = this.snakeGame.wakeActor(profile.actorId ?? '');
-          this.showQuestDialogue(
-            profile.displayName,
-            result.pages,
-            {
-              onClose: () => {
-                this.closeQuestPopup();
-                this.showRelationshipRoot(profile, true);
-              },
-            },
-            { closeLabel: 'Talk', nextLabel: 'Listen' },
-            this.speakerForRelationshipProfile(profile, conversationPortraitId),
-          );
-          return;
-        }
-        if (id === 'talk') {
-          const conversation = profile.actorId
-            ? this.snakeGame.getActorConversation(profile.actorId, 'talk')
-            : null;
-          const pages = this.snakeGame.formatActorConversationPages(conversation);
-          const talk = pages ? null : this.snakeGame.getRelationshipTalk(profile);
-          this.showQuestDialogue(
-            profile.displayName,
-            pages ?? [`"${talk?.line ?? 'They watch you with careful uncertainty.'}"`],
-            {
-              onClose: () => {
-                this.closeQuestPopup();
-                this.showPendingActorKnownFact();
-                this.skillTree.getOverlay().refresh();
-              },
-            },
-            { closeLabel: 'Leave', nextLabel: 'Listen' },
-            this.speakerForRelationshipProfile(profile, conversationPortraitId),
-          );
-          return;
-        }
         if (
+          id === 'wake' ||
+          id === 'talk' ||
           id === 'ask-rumor' ||
           id === 'ask-personal' ||
           id === 'apologize' ||
           id === 'threaten' ||
           id === 'parley'
         ) {
-          const line =
-            id === 'ask-rumor'
-              ? this.snakeGame.formatActorConversationPages(
-                  profile.actorId
-                    ? this.snakeGame.getActorConversation(profile.actorId, 'ask-around')
-                    : null,
-                )
-              : id === 'apologize'
-                ? this.snakeGame.apologizeToActor(profile.actorId ?? '')
-                : id === 'threaten'
-                  ? this.snakeGame.threatenActor(profile.actorId ?? '')
-                  : id === 'parley'
-                    ? this.snakeGame.parleyWithActor(profile.actorId ?? '')
-                    : this.snakeGame.formatActorConversationPages(
-                        profile.actorId
-                          ? this.snakeGame.getActorConversation(profile.actorId, 'ask-personal')
-                          : null,
-                      );
+          const response = await this.actorIntent(id);
+          if (!response.ok) return;
           this.showQuestDialogue(
             profile.displayName,
-            Array.isArray(line) ? line : [line ?? '"Not now."'],
+            response.actorOutcome?.pages ?? ['Not now.'],
             {
               onClose: () => {
                 this.closeQuestPopup();
-                this.showPendingActorKnownFact();
-                this.skillTree.getOverlay().refresh();
+                if (id === 'wake') void this.showRelationshipRoot(profile, true);
+                else this.showPendingActorKnownFact();
               },
             },
-            { closeLabel: 'Leave', nextLabel: 'Listen' },
+            { closeLabel: id === 'wake' ? 'Talk' : 'Leave', nextLabel: 'Listen' },
             this.speakerForRelationshipProfile(profile, conversationPortraitId),
           );
           return;
         }
         if (id === 'take-quest') {
-          if (
-            profile.actorId &&
-            this.snakeGame.isCurrentTownLargeQuestGiverActor(profile.actorId)
-          ) {
-            const quest = this.snakeGame.getTownLargeQuestForActor(profile.actorId);
-            if (!quest) {
-              this.showQuestHintPopup('No larger work is available here right now.', '#ff6b6b');
-              this.closeVillageShop();
-              this.paused = false;
-              return;
-            }
-            const dialogue = getQuestDialogue(quest);
-            this.paused = false;
-            this.juice.questOffered();
-            this.showQuestDialogue(
-              profile.displayName,
-              dialogue.pages,
-              {
-                onAccept: () => {
+          const response = await this.actorIntent('take-quest');
+          const quest = response.actorOutcome?.quest;
+          if (!response.ok || !quest) return;
+          this.juice.questOffered();
+          this.showQuestDialogue(
+            profile.displayName,
+            quest.pages,
+            {
+              onAccept: async () => {
+                const accepted = await this.actorIntent('accept-quest');
+                if (accepted.ok) {
                   this.juice.questAccepted();
-                  const result = this.snakeGame.acceptTownLargeQuest(profile.actorId);
-                  if (result.ok) {
-                    this.isDirty = true;
-                    this.applyPendingQuestCosmeticRewards();
-                  } else {
-                    this.showQuestHintPopup(result.message, '#ff6b6b');
-                  }
                   this.closeQuestPopup();
-                },
-                onReject: () => {
+                }
+              },
+              onReject: async () => {
+                const rejected = await this.actorIntent('reject-quest');
+                if (rejected.ok) {
                   this.juice.questRejected();
                   this.closeQuestPopup();
-                },
+                }
               },
-              {
-                acceptLabel: i18n.getCommon('quest.accept'),
-                rejectLabel: i18n.getCommon('quest.refuse'),
-                nextLabel: 'Next',
-              },
-              this.speakerForRelationshipProfile(profile, conversationPortraitId),
-            );
-            return;
-          }
-          this.paused = false;
-          this.tryInteractQuestGiver();
+            },
+            {
+              acceptLabel: i18n.getCommon('quest.accept'),
+              rejectLabel: i18n.getCommon('quest.refuse'),
+              nextLabel: 'Next',
+            },
+            this.speakerForRelationshipProfile(profile, conversationPortraitId),
+          );
           return;
         }
         if (id === 'open-gate') {
@@ -22095,7 +21461,10 @@ export default class SnakeScene extends Phaser.Scene {
               type: 'town:gateOpened',
               townId: this.snakeGame.getCurrentTown()?.id ?? 'unknown-town',
             });
-          this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
+          this.showQuestHintPopup(
+            result.message ?? 'Unavailable.',
+            result.ok ? '#b6ff6a' : '#ff6b6b',
+          );
           this.closeVillageShop();
           this.paused = false;
           return;
@@ -22130,8 +21499,11 @@ export default class SnakeScene extends Phaser.Scene {
           return;
         }
         if (id === 'tavern-rest') {
-          void this.snakeGame.chooseActorInteraction(profile.actorId ?? '', id).then((result) => {
-            this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
+          void this.actorIntent(id).then((result) => {
+            this.showQuestHintPopup(
+              result.message ?? result.reason ?? 'Not now.',
+              result.ok ? '#b6ff6a' : '#ff6b6b',
+            );
             this.skillTree.getOverlay().refresh();
             this.paused = false;
           });
@@ -22148,8 +21520,11 @@ export default class SnakeScene extends Phaser.Scene {
           id === 'campaign-buy-round' ||
           id === 'mayor-free-beer'
         ) {
-          void this.snakeGame.chooseActorInteraction(profile.actorId ?? '', id).then((result) => {
-            this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
+          void this.actorIntent(id).then((result) => {
+            this.showQuestHintPopup(
+              result.message ?? result.reason ?? 'Not now.',
+              result.ok ? '#b6ff6a' : '#ff6b6b',
+            );
             this.skillTree.getOverlay().refresh();
             this.paused = false;
           });
@@ -22212,27 +21587,23 @@ export default class SnakeScene extends Phaser.Scene {
             this.showGoblinShopRoot(profile.displayName || 'Goblin Clerk');
             return;
           }
-          void this.snakeGame.chooseActorInteraction(profile.actorId ?? '', id).then((result) => {
-            if (result.ok && result.action === 'shop') {
-              this.showActorShopRoot(result.shop);
+          void this.actorIntent(id).then((result) => {
+            if (result.ok && result.actorOutcome?.shop) {
+              this.showActorShopRoot(result.actorOutcome.shop);
               return;
             }
-            this.showQuestHintPopup(result.message, '#ff6b6b');
+            this.showQuestHintPopup(result.message ?? result.reason ?? 'Not now.', '#ff6b6b');
           });
           return;
         }
-        if (id === 'pickpocket') {
-          const result = this.snakeGame.pickpocketRelationshipNpc(profile);
-          this.showQuestHintPopup(result.message, result.ok ? result.color : '#ff6b6b');
-          this.skillTree.getOverlay().refresh();
-          this.paused = false;
-          return;
-        }
-        if (id === 'complete-wedding') {
-          const result = this.snakeGame.completeWeddingWithProfile(profile);
-          this.showQuestHintPopup(result.message, result.color);
-          this.skillTree.getOverlay().refresh();
-          this.showDatingScene(profile, result);
+        if (id === 'pickpocket' || id === 'complete-wedding') {
+          const response = await this.actorIntent(id);
+          const result = response.actorOutcome?.relationship;
+          if (result) {
+            this.showQuestHintPopup(result.message ?? 'Unavailable.', result.color);
+            if (id === 'complete-wedding') void this.showDatingScene(profile, result);
+          }
+          if (id === 'pickpocket') this.resumeGameplayAfterModal();
           return;
         }
         this.showDatingScene(profile);
@@ -22460,15 +21831,6 @@ export default class SnakeScene extends Phaser.Scene {
     return town
       ? this.townGossipLine(town)
       : `${displayName} says this place has not organized itself enough to gossip properly.`;
-  }
-
-  private relationshipNpcVoiceRole(profile: RelationshipCandidateProfile): string {
-    if (/Guard\b/.test(profile.displayName)) return 'guard';
-    if (/Bartender\b/.test(profile.displayName)) return 'bartender';
-    if (/Guild\b/.test(profile.displayName)) return 'thiefContact';
-    if (profile.species === 'goblin' || profile.species === 'goblin-angel')
-      return 'goblin-merchant';
-    return 'romance';
   }
 
   private getLibertyStructureHint(room: ReturnType<SnakeGame['getCurrentRoom']>): string | null {
@@ -22965,18 +22327,20 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
-  private showDatingScene(
+  private async showDatingScene(
     profile: RelationshipCandidateProfile,
     result?: RelationshipEventResult,
-  ): void {
+  ): Promise<void> {
     this.paused = true;
     this.skillTree.hideOverlay();
-    const cutscene = result ? undefined : this.snakeGame.popRelationshipCutscene(profile.id);
-    if (cutscene) {
-      this.showDatingCutscenePage(profile, cutscene.pages, 0);
+    const response = await this.actorIntent('dating');
+    const facts = response.actorOutcome?.dating;
+    if (!facts) return;
+    if (!result && facts.cutscene) {
+      this.showDatingCutscenePage(profile, facts.cutscene, 0);
       return;
     }
-    const talk = this.snakeGame.getRelationshipTalk(profile);
+    const talk = facts.talk;
     this.datingScenePopup.show({
       profile,
       state: result?.state ?? this.snakeGame.getRelationshipState(profile) ?? talk.state,
@@ -23011,7 +22375,7 @@ export default class SnakeScene extends Phaser.Scene {
       onAction: (action) => {
         if (action === 'leave') {
           this.datingScenePopup.hide();
-          this.paused = false;
+          this.resumeGameplayAfterModal();
           return;
         }
         if (index < pages.length - 1) {
@@ -23092,17 +22456,17 @@ export default class SnakeScene extends Phaser.Scene {
     return [...actions, { id: 'leave', label: 'Leave' }];
   }
 
-  private handleDatingSceneAction(
+  private async handleDatingSceneAction(
     profile: RelationshipCandidateProfile,
     action: DatingSceneAction,
-  ): void {
+  ): Promise<void> {
     if (this.activeDatingSequence) {
       this.handleDatingSequenceAction(action);
       return;
     }
     if (action === 'leave') {
       this.datingScenePopup.hide();
-      this.paused = false;
+      this.resumeGameplayAfterModal();
       this.activeDatingSequence = null;
       this.skillTree.getOverlay().refresh();
       return;
@@ -23119,7 +22483,14 @@ export default class SnakeScene extends Phaser.Scene {
       this.startDatingSequence(profile, action);
       return;
     }
-    const result = this.snakeGame.applyRelationshipChoice(profile, action as RelationshipChoice);
+    const response = await this.gameConnection.send({
+      type: 'relationshipAction',
+      actorId: profile.actorId ?? '',
+      choice: action as RelationshipChoice,
+      playerId: this.snakeGame.getLocalPlayerId(),
+    });
+    const result = response.relationshipResult;
+    if (!result) return;
     if (action === 'divorce')
       this.recordAchievementEvent({ type: 'relationship:divorced', relationshipId: profile.id });
     if (action === 'child-hug' && result.ok) {
@@ -23136,11 +22507,13 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.getOverlay().refresh();
   }
 
-  private startDatingSequence(
+  private async startDatingSequence(
     profile: RelationshipCandidateProfile,
     kind: Extract<RelationshipChoice, 'talk' | 'flirt' | 'date'>,
-  ): void {
-    const event = this.createDatingSequenceEvent(profile, kind);
+  ): Promise<void> {
+    const response = await this.datingIntent({ action: 'start', kind });
+    const event = response.actorOutcome?.sequence;
+    if (!event) return;
     this.activeDatingSequence = {
       profile,
       kind,
@@ -23162,7 +22535,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (String(action).startsWith('branch-')) {
       const result = sequence.branchResults[action];
       sequence.branchOutcome = result?.outcome;
-      sequence.branchChoice = this.normalizeDatingBranchChoice(String(action), result);
+      sequence.branchId = String(action);
       sequence.branchText = undefined;
       if (result?.followUpPages?.length) {
         sequence.pages.splice(sequence.index + 1, 0, ...result.followUpPages);
@@ -23181,25 +22554,12 @@ export default class SnakeScene extends Phaser.Scene {
     const sequence = this.activeDatingSequence;
     if (!sequence) return;
     if (sequence.index >= sequence.pages.length) {
-      const branch = sequence.branchChoice
-        ? this.snakeGame.applyRelationshipBranchChoice(
-            sequence.profile,
-            sequence.branchChoice,
-            sequence.kind,
-          )
-        : null;
-      const main = branch
-        ? null
-        : this.snakeGame.applyRelationshipChoice(sequence.profile, sequence.kind);
-      const fallback = sequence.branchOutcome
-        ? this.snakeGame.applyRelationshipChoice(sequence.profile, sequence.branchOutcome)
-        : null;
       this.activeDatingSequence = null;
-      const result = branch ?? fallback ?? main;
-      if (!result) return;
-      const message = [sequence.branchText, result.message].filter(Boolean).join('\n');
-      this.showDatingScene(sequence.profile, { ...result, message });
-      this.skillTree.getOverlay().refresh();
+      void this.datingIntent({ action: 'choose', branchId: sequence.branchId }).then((response) => {
+        const result = response.actorOutcome?.relationship;
+        if (result) void this.showDatingScene(sequence.profile, result);
+        this.skillTree.getOverlay().refresh();
+      });
       return;
     }
     const page = sequence.pages[sequence.index]!;
@@ -23225,1026 +22585,6 @@ export default class SnakeScene extends Phaser.Scene {
     if (page.juiceTier) {
       this.juice.relationshipChoice(page.juiceTier);
     }
-  }
-
-  private inferRelationshipTags(actionId: string): RelationshipTag[] {
-    const tags: RelationshipTag[] = [];
-    if (/brave|courage|fearless/i.test(actionId)) tags.push('bravery');
-    if (/reckless|crazy|wild/i.test(actionId)) tags.push('recklessness');
-    if (/safe|protect|shield|defend/i.test(actionId)) tags.push('protective');
-    if (/selfless|sacrifice|give.*away/i.test(actionId)) tags.push('selfless');
-    if (/pragmatic|practical|realistic/i.test(actionId)) tags.push('pragmatic');
-    if (/truth|honest|confess|admit/i.test(actionId)) tags.push('honesty');
-    if (/avoid|evade|dodge|retreat|run/i.test(actionId)) tags.push('avoidance');
-    if (/loyal|faithful|stand.*by/i.test(actionId)) tags.push('loyalty');
-    if (/betray|double.*cross|stab.*back/i.test(actionId)) tags.push('betrayal');
-    if (/skill|craft|tactic|strategy|expert/i.test(actionId)) tags.push('competence');
-    if (/cling|needy|depend|attach/i.test(actionId)) tags.push('neediness');
-    if (/restrain|hold.*back|temperate/i.test(actionId)) tags.push('restraint');
-    if (/fight|attack|strike|punch|kick/i.test(actionId)) tags.push('violence');
-    if (/spare|mercy|forgive|pity/i.test(actionId)) tags.push('mercy');
-    if (/ambitious|climb|rise|power|control/i.test(actionId)) tags.push('ambition');
-    if (/humble|honor|respect|bow/i.test(actionId)) tags.push('humility');
-    if (/trade|deal|bargain|exchange|payment/i.test(actionId)) tags.push('transaction');
-    if (/ritual|ceremony|sacred|pray|offer/i.test(actionId)) tags.push('ritual');
-    if (/defy|dare|challenge|risk.*death/i.test(actionId)) tags.push('deathDefiance');
-    if (/accept.*death|embrace.*end|peaceful.*end/i.test(actionId)) tags.push('deathAcceptance');
-    if (/kiss|hug.*public|display.*love/i.test(actionId)) tags.push('publicAffection');
-    if (/whisper|private|secret.*love|intimate/i.test(actionId)) tags.push('privateAffection');
-    if (/gift.*giving|present|surprise.*gift/i.test(actionId)) tags.push('giftGiving');
-    if (/gift.*spam|overwhelming.*gift/i.test(actionId)) tags.push('giftSpamming');
-    if (/neglect|ignore|abandon|forget/i.test(actionId)) tags.push('neglect');
-    if (/rival|compete|jealous|envy/i.test(actionId)) tags.push('rivalAttention');
-    if (/secret|hidden|conceal|spy/i.test(actionId)) tags.push('secrecy');
-    if (/commit|vow|promise|oath|marry/i.test(actionId)) tags.push('commitment');
-    if (/haste|rush|hurry|quick.*tie/i.test(actionId)) tags.push('premature');
-    if (/drama|theatrical|grand.*gesture|scene/i.test(actionId)) tags.push('dramatic');
-    if (/clever|smart|witty|trick|scheme/i.test(actionId)) tags.push('clever');
-    if (/food|meal|cook|eat|dinner|lunch|breakfast/i.test(actionId)) tags.push('food');
-    if (/comfort|soothe|calm|reassure/i.test(actionId)) tags.push('comfort');
-    if (/danger|risk|threat|hazard|peril/i.test(actionId)) tags.push('danger');
-    if (/contract|pact|agreement|deal/i.test(actionId)) tags.push('contract');
-    if (/ledger|score|balance|reckoning/i.test(actionId)) tags.push('ledger');
-    return tags;
-  }
-
-  private normalizeDatingBranchChoice(
-    actionId: string,
-    result?: DatingBranchResult,
-  ): DatingBranchChoice {
-    const label = result?.label ?? actionId.replace(/^branch-/, '').replace(/-/g, ' ');
-    return {
-      id: actionId,
-      label,
-      line: result?.text ?? label,
-      tags: result?.tags ?? this.inferRelationshipTags(actionId),
-      targetTier: result?.targetTier,
-      outcomeLines:
-        result?.targetTier && result.text
-          ? {
-              [result.targetTier]: result.text,
-            }
-          : undefined,
-    };
-  }
-
-  private createDatingSequenceEvent(
-    profile: RelationshipCandidateProfile,
-    kind: Extract<RelationshipChoice, 'talk' | 'flirt' | 'date'>,
-  ): { pages: DatingSequencePage[]; branchResults: Record<string, DatingBranchResult> } {
-    const personality = this.personalityForDatingProfile(profile);
-    const recentKey = `${profile.id}:${kind}`;
-    const recentScenarioIds = this.recentAuthoredDatingScenarioIds.get(recentKey) ?? [];
-    const actorRole = profile.actorId ? this.snakeGame.getActorRole(profile.actorId) : undefined;
-    const scenarioContext = {
-      ...(actorRole ? { actorRole } : {}),
-      contextTags: this.currentDatingContextTags(profile, actorRole),
-    };
-    let authored = createPersonalityDatingScenario(
-      profile,
-      kind,
-      personality,
-      () => this.random(),
-      scenarioContext,
-    );
-    for (
-      let attempt = 0;
-      attempt < 4 && recentScenarioIds.includes(authored.scenarioId);
-      attempt += 1
-    ) {
-      authored = createPersonalityDatingScenario(
-        profile,
-        kind,
-        personality,
-        () => this.random(),
-        scenarioContext,
-      );
-    }
-    if (this.random() < 0.35) {
-      this.rememberAuthoredDatingScenario(recentKey, authored.scenarioId);
-      return this.balanceDatingBranchResults(profile, {
-        pages: authored.pages,
-        branchResults: authored.branchResults,
-      });
-    }
-
-    const voice = (line: string): DatingSequencePage => ({
-      line,
-      result: `${profile.displayName}'s expression changes before their voice does.`,
-    });
-    const speciesLine = (human: string, goblin: string, angel: string): string => {
-      if (profile.species === 'goblin' || profile.species === 'goblin-angel') return goblin;
-      if (profile.species === 'angel') return angel;
-      return human;
-    };
-    const templates: Array<{
-      pages: DatingSequencePage[];
-      branchResults: Record<string, DatingBranchResult>;
-    }> = [];
-    if (kind === 'talk') {
-      templates.push({
-        pages: [
-          {
-            line: `You and ${profile.displayName} step aside where the room noise thins.`,
-            lineIsNarration: true,
-          },
-          voice(
-            this.pickRelationshipLine(profile, [
-              'I was going to make a joke, but then you arrived looking like the punchline had unionized.',
-              'Tell me something true and small. Large truths always arrive overdressed.',
-              'If this is small talk, why does it keep looking at me like a duel?',
-            ]),
-          ),
-          {
-            line: `${profile.displayName} makes a joke that is either flirtation, accusation, or advanced local weather.`,
-            lineIsNarration: true,
-            actions: [
-              { id: 'branch-joke', label: 'Joke Back' },
-              { id: 'branch-honest', label: 'Answer Honestly' },
-              { id: 'leave', label: 'Back', tone: 'quiet' },
-            ],
-          },
-          voice(
-            this.pickRelationshipLine(profile, [
-              'Not terrible. I reserve the right to become fond of this version of you.',
-              'Careful. Competence is dangerously close to charm.',
-            ]),
-          ),
-        ],
-        branchResults: {
-          'branch-joke': {
-            text: `Liked: ${profile.displayName} laughs despite themselves. The joke clearly landed.`,
-          },
-          'branch-honest': {
-            text: `Liked: ${profile.displayName} goes quiet because the honest answer mattered.`,
-          },
-        },
-      });
-      templates.push({
-        pages: [
-          {
-            line: `${profile.displayName} points at a cracked map and asks where you would go if no one needed anything from you.`,
-            lineIsNarration: true,
-          },
-          voice(
-            speciesLine(
-              'Choose carefully. I judge imaginary vacations with real severity.',
-              'Say treasure cave and I may respect you. Say tax office and I may propose immediately.',
-              'Do not say heaven. I have seen the management.',
-            ),
-          ),
-          {
-            line: `The map waits like a tiny, rude oracle.`,
-            lineIsNarration: true,
-            actions: [
-              { id: 'branch-sea', label: 'Sea' },
-              { id: 'branch-mountain', label: 'Mountain' },
-              { id: 'branch-home', label: 'Home' },
-              { id: 'leave', label: 'Back', tone: 'quiet' },
-            ],
-          },
-          voice('Interesting. I can work with that answer. I may also weaponize it.'),
-        ],
-        branchResults: {
-          'branch-sea': {
-            text: `Liked: ${profile.displayName} likes the sea answer and softens at the image.`,
-          },
-          'branch-mountain': {
-            text: `Neutral: ${profile.displayName} respects the mountain answer, but it does not quite reach them.`,
-          },
-          'branch-home': {
-            text: `Loved: ${profile.displayName} liked "home" more than they expected.`,
-          },
-        },
-      });
-      templates.push({
-        pages: [
-          {
-            line: `${profile.displayName} tells you a joke so dry it may technically be kindling.`,
-            lineIsNarration: true,
-          },
-          voice('Laugh if you understand it. Laugh harder if you do not.'),
-          {
-            line: `The joke hangs there with ceremonial arrogance.`,
-            lineIsNarration: true,
-            actions: [
-              { id: 'branch-laugh', label: 'Laugh' },
-              { id: 'branch-groan', label: 'Groan' },
-              { id: 'branch-counterjoke', label: 'Counter' },
-              { id: 'leave', label: 'Back', tone: 'quiet' },
-            ],
-          },
-          voice('Fine. That reaction was acceptable enough to survive the record.'),
-        ],
-        branchResults: {
-          'branch-laugh': { text: `Liked: ${profile.displayName} looks pleased that you laughed.` },
-          'branch-groan': {
-            text: `Neutral: ${profile.displayName} accepts the groan, but wanted a laugh.`,
-          },
-          'branch-counterjoke': {
-            text: `Loved: ${profile.displayName} loves that you answered with a joke of your own.`,
-          },
-        },
-      });
-      templates.push({
-        pages: [
-          {
-            line: `${profile.displayName} asks what rumor about you is closest to true.`,
-            lineIsNarration: true,
-          },
-          voice(
-            speciesLine(
-              'Careful. I prefer truth wearing a dramatic hat.',
-              'If it involves theft, say it proudly. If it involves taxes, lie.',
-              'The universe keeps records. I prefer hearing the annotated version.',
-            ),
-          ),
-          {
-            line: `Three rumors volunteer themselves with terrible posture.`,
-            lineIsNarration: true,
-            actions: [
-              { id: 'branch-rumor-hero', label: 'Secret Hero' },
-              { id: 'branch-rumor-thief', label: 'Thief' },
-              { id: 'branch-rumor-coward', label: 'Coward', tone: 'danger' },
-              { id: 'leave', label: 'Back', tone: 'quiet' },
-            ],
-          },
-          voice('Good. A person without rumors is either boring or dangerously efficient.'),
-        ],
-        branchResults: {
-          'branch-rumor-hero': {
-            text: `Liked: ${profile.displayName} likes the heroic answer, even if they call it suspicious.`,
-          },
-          'branch-rumor-thief': {
-            text: `Liked: ${profile.displayName} finds the thief answer entertaining.`,
-          },
-          'branch-rumor-coward': {
-            text: `Disliked: ${profile.displayName} appreciates the honesty, but cowardice clearly bothers them.`,
-            outcome: 'mean',
-          },
-        },
-      });
-    } else if (kind === 'flirt') {
-      templates.push({
-        pages: [
-          {
-            line: `You lean into the ridiculous tension like someone opening a cursed love letter.`,
-            lineIsNarration: true,
-          },
-          voice(
-            this.pickRelationshipLine(profile, [
-              'That line was indecently confident for someone shaped like consequences.',
-              'Say that again slower. I want to decide whether to reward you or ruin you socially.',
-              'You are flirting like a person trying to negotiate with lightning. Continue.',
-            ]),
-          ),
-          {
-            line: `${profile.displayName} asks, with suspicious gravity: "What is your kind of pizza?"`,
-            lineIsNarration: true,
-            actions: [
-              { id: 'branch-pineapple', label: 'Pineapple' },
-              { id: 'branch-pepperoni', label: 'Pepperoni' },
-              { id: 'branch-mushroom', label: 'Mushroom' },
-              { id: 'leave', label: 'Back', tone: 'quiet' },
-            ],
-          },
-          voice(
-            this.pickRelationshipLine(profile, [
-              'I hate that I asked. I hate more that your answer helps.',
-              'Fine. The flirtation survives cross-examination. Barely.',
-            ]),
-          ),
-        ],
-        branchResults: {
-          'branch-pineapple': { text: `Liked: "pineapple? Bold. I like bold."` },
-          'branch-pepperoni': { text: `Neutral: "pepperoni? Direct. I can respect direct."` },
-          'branch-mushroom': {
-            text: `Liked: "mushroom? Mysterious. I like that more than I should."`,
-          },
-        },
-      });
-      templates.push({
-        pages: [
-          {
-            line: `${profile.displayName} asks what kind of villain you would be in a melodrama.`,
-            lineIsNarration: true,
-          },
-          voice('Do not disappoint me with a humble answer.'),
-          {
-            line: `The question has no innocent exits.`,
-            lineIsNarration: true,
-            actions: [
-              { id: 'branch-rival', label: 'Elegant Rival' },
-              { id: 'branch-mastermind', label: 'Mastermind' },
-              { id: 'branch-betrayer', label: 'Betrayer', tone: 'danger' },
-              { id: 'leave', label: 'Back', tone: 'quiet' },
-            ],
-          },
-          voice('That answer is either attractive or a warning label. Fortunately, I read both.'),
-        ],
-        branchResults: {
-          'branch-rival': {
-            text: `Loved: ${profile.displayName} clearly approves of the elegant rival answer.`,
-          },
-          'branch-mastermind': {
-            text: `Liked: ${profile.displayName} likes the ambition, even while judging your imaginary lair.`,
-          },
-          'branch-betrayer': {
-            text: `Disliked: ${profile.displayName} does not like betrayal jokes. Resentment takes notes.`,
-            outcome: 'mean',
-          },
-        },
-      });
-      templates.push({
-        pages: [
-          {
-            line: `${profile.displayName} dares you to compliment them without using a single normal word.`,
-            lineIsNarration: true,
-          },
-          voice(
-            speciesLine(
-              'Go on. Fail creatively.',
-              'If you compare me to money, it had better be rare money.',
-              'Do not say radiant. I have union restrictions on that word.',
-            ),
-          ),
-          {
-            line: `You have one theatrical compliment and absolutely no dignity.`,
-            lineIsNarration: true,
-            actions: [
-              { id: 'branch-mooncrime', label: 'Moon Crime' },
-              { id: 'branch-knifepoem', label: 'Knife Poem' },
-              { id: 'branch-sincere', label: 'Sincere' },
-              { id: 'leave', label: 'Back', tone: 'quiet' },
-            ],
-          },
-          voice('Infuriating. That was better than it deserved to be.'),
-        ],
-        branchResults: {
-          'branch-mooncrime': {
-            text: `Liked: ${profile.displayName} likes the phrase "moon crime" enough to repeat it.`,
-          },
-          'branch-knifepoem': {
-            text: `Loved: ${profile.displayName} is delighted by the dangerous compliment.`,
-          },
-          'branch-sincere': {
-            text: `Loved: the sincere compliment lands hard. They liked that a lot.`,
-          },
-        },
-      });
-      templates.push({
-        pages: [
-          {
-            line: `${profile.displayName} asks where your eyes are supposed to be during a flirtation this dramatic.`,
-            lineIsNarration: true,
-          },
-          voice(
-            'Answer wrong and I will become insufferable. Answer right and I may become worse.',
-          ),
-          {
-            line: `The bottom third of reality becomes a court of romantic law.`,
-            lineIsNarration: true,
-            actions: [
-              { id: 'branch-eyes', label: 'Their Eyes' },
-              { id: 'branch-smile', label: 'Their Smile' },
-              { id: 'branch-floor', label: 'The Floor' },
-              { id: 'leave', label: 'Back', tone: 'quiet' },
-            ],
-          },
-          voice('I will be unbearable about this later. You have been warned.'),
-        ],
-        branchResults: {
-          'branch-eyes': {
-            text: `Loved: ${profile.displayName} likes the eye contact and does not look away first.`,
-          },
-          'branch-smile': {
-            text: `Liked: ${profile.displayName} liked being told their smile matters.`,
-          },
-          'branch-floor': {
-            text: `Disliked: ${profile.displayName} thinks looking away was cowardly, but not unforgivable.`,
-          },
-        },
-      });
-    } else {
-      templates.push({
-        pages: [
-          {
-            line: `You and ${profile.displayName} go to a tavern. ${profile.displayName} kicks back a drink like it personally offended them.`,
-            lineIsNarration: true,
-          },
-          voice(
-            this.pickRelationshipLine(profile, [
-              'This place is awful. Good. Perfect dates should have one obvious enemy.',
-              'If you planned this, I am impressed. If you improvised it, I am concerned and impressed.',
-              'Do not look so relieved. The date has only survived the opening argument.',
-            ]),
-          ),
-          {
-            line: `A bear crashes through the side wall. The tavern immediately develops opinions about exits.`,
-            lineIsNarration: true,
-            actions: [
-              { id: 'branch-stand-with-them', label: 'Stand With Them' },
-              { id: 'branch-shield-them', label: 'Shield Them' },
-              { id: 'branch-run', label: 'Run Off', tone: 'danger' },
-              { id: 'leave', label: 'Back', tone: 'quiet' },
-            ],
-          },
-          voice(
-            this.pickRelationshipLine(profile, [
-              'I cannot believe the bear was not the strangest part of tonight.',
-              'You are either heroic or wildly committed to the bit. I am not immune to either.',
-            ]),
-          ),
-        ],
-        branchResults: {
-          'branch-stand-with-them': {
-            text: `${profile.displayName} says, "Beside me, not over me. That is the difference."`,
-            tags: ['protective', 'bravery', 'commitment'],
-          },
-          'branch-shield-them': {
-            text: `${profile.displayName} says, "You made me smaller to make your courage prettier."`,
-            tags: ['protective', 'neediness', 'publicAffection'],
-            outcome: 'mean',
-          },
-          'branch-run': {
-            text: `${profile.displayName} says, "You ran, snake. I was still at the table."`,
-            tags: ['avoidance', 'betrayal', 'selfPreserving'],
-            outcome: 'mean',
-          },
-        },
-      });
-      templates.push({
-        pages: [
-          {
-            line: `You and ${profile.displayName} find a night market where every stall sells something probably cursed.`,
-            lineIsNarration: true,
-          },
-          voice('Romance is mostly choosing which obvious trap to enter together.'),
-          {
-            line: `A vendor offers a black rose, a brass knife, and a pastry shaped like a legal document.`,
-            lineIsNarration: true,
-            actions: [
-              { id: 'branch-rose', label: 'Rose' },
-              { id: 'branch-knife', label: 'Knife' },
-              { id: 'branch-pastry', label: 'Pastry' },
-              { id: 'leave', label: 'Back', tone: 'quiet' },
-            ],
-          },
-          voice('A suspicious choice. Naturally, I respect it.'),
-        ],
-        branchResults: {
-          'branch-rose': {
-            text: `Liked: ${profile.displayName} liked the rose, even while pretending it was too obvious.`,
-          },
-          'branch-knife': {
-            text: `Loved: ${profile.displayName} loved the knife choice. That says something about them.`,
-          },
-          'branch-pastry': {
-            text: `Liked: ${profile.displayName} liked the absurd pastry more than expected.`,
-          },
-        },
-      });
-      templates.push({
-        pages: [
-          {
-            line: `Rain traps you and ${profile.displayName} under a collapsing awning. It is extremely dramatic for weather.`,
-            lineIsNarration: true,
-          },
-          voice('If the sky is trying to set a mood, it is overqualified.'),
-          {
-            line: `${profile.displayName} is close enough to hear your heroic lack of plan.`,
-            lineIsNarration: true,
-            actions: [
-              { id: 'branch-sharecloak', label: 'Share Cloak' },
-              { id: 'branch-dance', label: 'Dance' },
-              { id: 'branch-complainrain', label: 'Complain', tone: 'danger' },
-              { id: 'leave', label: 'Back', tone: 'quiet' },
-            ],
-          },
-          voice('Fine. The rain may continue. Briefly.'),
-        ],
-        branchResults: {
-          'branch-sharecloak': {
-            text: `Loved: ${profile.displayName} liked sharing the cloak and moved closer on purpose.`,
-          },
-          'branch-dance': {
-            text: `Liked: ${profile.displayName} calls you absurd, but they liked the dance.`,
-          },
-          'branch-complainrain': {
-            text: `Disliked: ${profile.displayName} did not like you ruining the mood by complaining.`,
-            outcome: 'mean',
-          },
-        },
-      });
-      templates.push({
-        pages: [
-          {
-            line: `The date reaches a quiet bridge. Below it, something large moves through the dark water.`,
-            lineIsNarration: true,
-          },
-          voice('This is either romantic or a monster introduction. Possibly both.'),
-          {
-            line: `A glowing bottle floats near the bank with a note inside.`,
-            lineIsNarration: true,
-            actions: [
-              { id: 'branch-readnote', label: 'Read Note' },
-              { id: 'branch-skipnote', label: 'Ignore It' },
-              { id: 'branch-throwstone', label: 'Throw Stone', tone: 'danger' },
-              { id: 'leave', label: 'Back', tone: 'quiet' },
-            ],
-          },
-          voice('I will remember this as atmospheric. Do not make me revise it.'),
-        ],
-        branchResults: {
-          'branch-readnote': {
-            text: `Loved: the note says, "Kiss the fool or flee the bridge." ${profile.displayName} liked that you read it.`,
-          },
-          'branch-skipnote': {
-            text: `Neutral: ${profile.displayName} respects ignoring the bottle, but wanted curiosity.`,
-          },
-          'branch-throwstone': {
-            text: `Disliked: ${profile.displayName} did not like your survival instincts here.`,
-            outcome: 'mean',
-          },
-        },
-      });
-      templates.push({
-        pages: [
-          {
-            line: `A street musician recognizes ${profile.displayName} and starts playing something violently sentimental.`,
-            lineIsNarration: true,
-          },
-          voice('If you laugh, I will deny everything. If you dance, I may deny less.'),
-          {
-            line: `The song waits, shameless and overproduced.`,
-            lineIsNarration: true,
-            actions: [
-              { id: 'branch-slowdance', label: 'Slow Dance' },
-              { id: 'branch-tipband', label: 'Tip Band' },
-              { id: 'branch-mockmusic', label: 'Mock Song', tone: 'danger' },
-              { id: 'leave', label: 'Back', tone: 'quiet' },
-            ],
-          },
-          voice('No one will speak of this accurately, which is probably mercy.'),
-        ],
-        branchResults: {
-          'branch-slowdance': {
-            text: `Loved: ${profile.displayName} loved the slow dance and is trying to hide it.`,
-          },
-          'branch-tipband': {
-            text: `Liked: ${profile.displayName} liked that you tipped the band.`,
-          },
-          'branch-mockmusic': {
-            text: `Hated: ${profile.displayName} hated that you mocked something sentimental.`,
-            outcome: 'mean',
-          },
-        },
-      });
-      templates.push({
-        pages: [
-          {
-            line: `The date is interrupted by a child asking if you two are married, doomed, or both.`,
-            lineIsNarration: true,
-          },
-          voice('Children should not be allowed to perceive subtext.'),
-          {
-            line: `The child waits with the brutal patience of prophecy.`,
-            lineIsNarration: true,
-            actions: [
-              { id: 'branch-married', label: 'Basically' },
-              { id: 'branch-doomed', label: 'Probably' },
-              { id: 'branch-none', label: 'No Comment' },
-              { id: 'leave', label: 'Back', tone: 'quiet' },
-            ],
-          },
-          voice('I am choosing not to analyze how quickly you answered.'),
-        ],
-        branchResults: {
-          'branch-married': {
-            text: `Loved: ${profile.displayName} is flustered because the answer pleased them.`,
-          },
-          'branch-doomed': {
-            text: `Liked: ${profile.displayName} liked the dramatic answer more than the sensible one.`,
-          },
-          'branch-none': {
-            text: `Neutral: ${profile.displayName} respects the evasion, but wanted a braver answer.`,
-          },
-        },
-      });
-    }
-    return this.balanceDatingBranchResults(
-      profile,
-      templates[Math.floor(this.random() * templates.length)] ?? templates[0]!,
-    );
-  }
-
-  private currentDatingContextTags(
-    profile: RelationshipCandidateProfile,
-    actorRole: ReturnType<SnakeGame['getActorRole']>,
-  ): readonly string[] {
-    const tags: string[] = [];
-    const state = this.snakeGame.getRelationshipState(profile);
-    const town = this.snakeGame.getCurrentTown();
-    if (state?.stage === 'married') tags.push('married');
-    if (Number(state?.resentment ?? 0) > 20) tags.push('hurt');
-    if (Number(state?.jealousy ?? 0) > 20) tags.push('jealous');
-    if (profile.factionId) tags.push(`faction:${profile.factionId}`);
-    if (town) tags.push('town');
-    if ((town?.wantedLevel ?? 0) > 0) tags.push('crime');
-    if ((town?.wantedLevel ?? 0) >= 3 || (town?.suspicion ?? 0) >= 65) tags.push('curfew');
-    if (actorRole && (isTownShopRole(actorRole) || actorRole === 'goblinMerchant')) {
-      tags.push('market', 'food-shortage');
-    }
-    if (actorRole === 'potionMaker') tags.push('healing');
-    if (actorRole === 'butcher') tags.push('food');
-    if (actorRole === 'cardDealer') tags.push('cards', 'rumor');
-    if (actorRole === 'bartender' || actorRole === 'cook') tags.push('rumor');
-    if (actorRole && isTownCriminalRole(actorRole)) {
-      tags.push('guild', 'crime');
-    }
-    if (actorRole === 'questGiver') tags.push('quest');
-    if (this.getFlag<boolean>('ui.healthRevealed')) tags.push('danger');
-    return Array.from(new Set(tags));
-  }
-
-  private rememberAuthoredDatingScenario(key: string, scenarioId: string): void {
-    const previous = this.recentAuthoredDatingScenarioIds.get(key) ?? [];
-    this.recentAuthoredDatingScenarioIds.set(key, [scenarioId, ...previous].slice(0, 3));
-  }
-
-  private balanceDatingBranchResults(
-    profile: RelationshipCandidateProfile,
-    event: {
-      pages: DatingSequencePage[];
-      branchResults: Record<string, DatingBranchResult>;
-    },
-  ): { pages: DatingSequencePage[]; branchResults: Record<string, DatingBranchResult> } {
-    const pages = event.pages.map((page) => ({
-      ...page,
-      actions: page.actions ? [...page.actions] : undefined,
-    }));
-    const branchPage = pages.find((page) =>
-      (page.actions ?? []).some((action) => action.id.startsWith('branch-')),
-    );
-    if (branchPage) {
-      const actions = [...(branchPage.actions ?? [])];
-      const branchCount = actions.filter((action) => action.id.startsWith('branch-')).length;
-      if (branchCount < 3) {
-        const leave = actions.find((action) => action.id === 'leave');
-        const withoutLeave = actions.filter((action) => action.id !== 'leave');
-        branchPage.actions = [
-          ...withoutLeave,
-          { id: 'branch-observe', label: 'Read the Room' },
-          ...(leave ? [leave] : []),
-        ];
-      }
-    }
-    const branchIds = pages
-      .flatMap((page) => page.actions ?? [])
-      .map((action) => action.id)
-      .filter((id) => id.startsWith('branch-'));
-    if (branchIds.length < 3) {
-      this.shuffleDatingBranchPageActions(pages);
-      return { ...event, pages };
-    }
-    const branchResults = { ...event.branchResults };
-    const allBranchesAuthored = branchIds.every((id) => {
-      const branch = branchResults[id];
-      return Boolean(branch?.targetTier && branch?.followUpPages?.length);
-    });
-    if (allBranchesAuthored) {
-      this.shuffleDatingBranchPageActions(pages);
-      return { ...event, pages, branchResults };
-    }
-    const scored = branchIds.map((id) => {
-      const existing = branchResults[id] ?? { text: id.replace(/^branch-/, '') };
-      const tags = existing.tags ?? this.inferRelationshipTags(id);
-      const score = this.scoreDatingTagsForProfile(profile, tags);
-      return { id, score, tags, existing };
-    });
-    const ranked = [...scored].sort((a, b) => b.score - a.score);
-    const high = ranked[0];
-    const low = ranked[ranked.length - 1];
-    const middle = ranked[Math.floor(ranked.length / 2)];
-    for (const entry of scored) {
-      const current = branchResults[entry.id] ?? entry.existing;
-      branchResults[entry.id] = {
-        ...current,
-        tags: entry.tags,
-        targetTier:
-          entry.id === high?.id
-            ? entry.score >= 9
-              ? 'loved'
-              : 'liked'
-            : entry.id === low?.id
-              ? entry.score <= -9
-                ? 'hated'
-                : 'disliked'
-              : entry.id === middle?.id
-                ? 'neutral'
-                : this.tierForDatingScore(entry.score),
-        outcome:
-          entry.id === low?.id || entry.score <= -4 ? (current.outcome ?? 'mean') : current.outcome,
-      };
-    }
-    const tierFor = (id: string): 'positive' | 'neutral' | 'negative' => {
-      if (!branchResults[id]) return 'neutral';
-      const targetTier = branchResults[id]?.targetTier;
-      if (targetTier === 'loved' || targetTier === 'liked') return 'positive';
-      if (targetTier === 'neutral') return 'neutral';
-      if (targetTier === 'disliked' || targetTier === 'hated') return 'negative';
-      const text = branchResults[id]?.text.toLowerCase() ?? '';
-      if (/hated|disliked/.test(text)) return 'negative';
-      if (/neutral/.test(text)) return 'neutral';
-      return 'positive';
-    };
-    const hasPositive = branchIds.some((id) => tierFor(id) === 'positive');
-    const hasNeutral = branchIds.some((id) => tierFor(id) === 'neutral');
-    const hasNegative = branchIds.some((id) => tierFor(id) === 'negative');
-    const setTier = (id: string, tier: 'loved' | 'neutral' | 'disliked'): void => {
-      const current = branchResults[id] ?? { text: id.replace(/^branch-/, '') };
-      const stripped = current.text.replace(/^(Loved|Liked|Neutral|Disliked|Hated):\s*/i, '');
-      branchResults[id] = {
-        ...current,
-        text: `${tier === 'loved' ? 'Loved' : tier === 'neutral' ? 'Neutral' : 'Disliked'}: ${stripped}`,
-        targetTier: tier,
-        tags:
-          tier === 'loved'
-            ? [
-                'honesty',
-                'pragmatic',
-                'clever',
-                'food',
-                'comfort',
-                'bravery',
-                'commitment',
-                'privateAffection',
-                'dramatic',
-              ]
-            : tier === 'neutral'
-              ? []
-              : ['betrayal', 'avoidance', 'neediness'],
-        outcome: tier === 'disliked' ? 'mean' : current.outcome,
-      };
-    };
-    if (!hasPositive) {
-      setTier(branchIds[0]!, 'loved');
-    }
-    if (!hasNeutral) {
-      setTier(branchIds[Math.min(1, branchIds.length - 1)]!, 'neutral');
-    }
-    if (!hasNegative) {
-      setTier(branchIds[branchIds.length - 1]!, 'disliked');
-    }
-    for (const id of branchIds) {
-      const existing = branchResults[id];
-      if (!existing) {
-        branchResults[id] = {
-          text: this.createLegacyDatingBranchReaction(profile, id, {
-            text: id.replace(/^branch-/, ''),
-            targetTier: 'neutral',
-            tags: [],
-          }),
-          targetTier: 'neutral',
-          tags: [],
-        };
-      } else if (!existing.targetTier) {
-        branchResults[id] = {
-          ...existing,
-          targetTier: this.tierForDatingScore(
-            this.scoreDatingTagsForProfile(
-              profile,
-              existing.tags ?? this.inferRelationshipTags(id),
-            ),
-          ),
-        };
-      }
-    }
-    for (const id of branchIds) {
-      const branch = branchResults[id];
-      if (!branch) continue;
-      const reaction = this.createLegacyDatingBranchReaction(profile, id, branch);
-      branchResults[id] = {
-        ...branch,
-        text: reaction,
-        followUpPages: [
-          {
-            line: this.createDatingReactionBeat(profile, branch),
-            lineIsNarration: true,
-          },
-          {
-            line: this.extractNpcLineFromReaction(reaction) ?? reaction,
-            juiceTier: branch.targetTier,
-          },
-        ],
-      };
-    }
-    this.shuffleDatingBranchPageActions(pages);
-    return { ...event, pages, branchResults };
-  }
-
-  private shuffleDatingBranchPageActions(pages: DatingSequencePage[]): void {
-    for (const page of pages) {
-      if (!page.actions?.some((action) => action.id.startsWith('branch-'))) continue;
-      page.actions = shuffleDatingBranchActions(page.actions, () => this.random());
-    }
-  }
-
-  private createDatingReactionBeat(
-    profile: RelationshipCandidateProfile,
-    branch: DatingBranchResult,
-  ): string {
-    const personality = this.personalityForDatingProfile(profile);
-    const tier = branch.targetTier ?? 'neutral';
-    const positive = tier === 'loved' || tier === 'liked';
-    const negative = tier === 'disliked' || tier === 'hated';
-    const beats: Record<RelationshipPersonality, string[]> = {
-      poetic: positive
-        ? [
-            'Their expression softens like a candle remembering it is fire.',
-            'They look away first, which is how a poem admits defeat.',
-          ]
-        : negative
-          ? [
-              'Their smile goes thin, all moonlight and warning.',
-              'They hold the answer like a cracked cup.',
-            ]
-          : [
-              'They turn the answer over and find no immediate wound.',
-              'Their eyes narrow with careful, inconvenient interest.',
-            ],
-      deadpan: positive
-        ? ['They blink once, which is practically applause.', 'Their mouth almost moves. Almost.']
-        : negative
-          ? [
-              'Their face becomes professionally unimpressed.',
-              'They file the answer somewhere cold.',
-            ]
-          : [
-              'They process the answer without visible casualties.',
-              'Their silence becomes procedural.',
-            ],
-      hungry: positive
-        ? [
-            'They brighten like someone just opened a warm kitchen door.',
-            'Their attention leans closer, greedy and pleased.',
-          ]
-        : negative
-          ? [
-              'Their appetite leaves the room before their smile does.',
-              'They look at the answer like burnt bread.',
-            ]
-          : [
-              'They sniff out the meaning before deciding whether to bite.',
-              'They wait for seasoning.',
-            ],
-      regal: positive
-        ? [
-            'They lift their chin as if granting mercy to their own delight.',
-            'The room accidentally becomes a court in your favor.',
-          ]
-        : negative
-          ? [
-              'They straighten, and the air remembers protocol.',
-              'Their approval withdraws with royal efficiency.',
-            ]
-          : [
-              'They consider the answer from a very high balcony of the heart.',
-              'They allow the moment to remain in session.',
-            ],
-      sharp: positive
-        ? [
-            'Their attention snaps into place, bright and dangerous.',
-            'They look pleased in the costly way of someone losing an argument.',
-          ]
-        : negative
-          ? [
-              'Their eyes sharpen as if the answer signed a bad contract.',
-              'They do the math on your mistake and do not like the total.',
-            ]
-          : [
-              'They weigh the answer like coin with a suspicious edge.',
-              'They let the silence audit you.',
-            ],
-    };
-    const pool = beats[personality];
-    return pool[Math.floor(this.random() * pool.length)] ?? pool[0]!;
-  }
-
-  private createLegacyDatingBranchReaction(
-    profile: RelationshipCandidateProfile,
-    actionId: string,
-    branch: DatingBranchResult,
-  ): string {
-    const personality = this.personalityForDatingProfile(profile);
-    const tier = branch.targetTier ?? 'neutral';
-    const tags = new Set(branch.tags ?? this.inferRelationshipTags(actionId));
-    const label = this.humanizeDatingActionLabel(branch.label ?? actionId.replace(/^branch-/, ''));
-    const reason = this.primaryDatingReactionReason(actionId, tags);
-    const line = this.pickDatingReactionLine(personality, tier, reason, label);
-    return `${profile.displayName} says, "${line}"`;
-  }
-
-  private humanizeDatingActionLabel(label: string): string {
-    return label
-      .replace(/^branch-/, '')
-      .replace(/[-_]+/g, ' ')
-      .replace(/\b\w/g, (letter) => letter.toUpperCase());
-  }
-
-  private extractNpcLineFromReaction(reaction: string): string | null {
-    const match = reaction.match(/says,\s*"([^"]+)"/);
-    return match?.[1] ?? null;
-  }
-
-  private primaryDatingReactionReason(
-    actionId: string,
-    tags: ReadonlySet<RelationshipTag>,
-  ): DatingReactionReason {
-    if (/pineapple/i.test(actionId)) return 'pineapple';
-    if (/knife|blade|mooncrime|moon-crime|rival|mastermind/i.test(actionId))
-      return 'dangerous-compliment';
-    if (/sincere|home|eyes|smile|slowdance|sharecloak/i.test(actionId)) return 'sincere-compliment';
-    if (/protect|shield|stand|medicine|vigil/i.test(actionId) || tags.has('protective'))
-      return 'protective';
-    if (/run|leave|abandon|resent/i.test(actionId) || tags.has('betrayal')) return 'abandonment';
-    if (tags.has('honesty') || /honest|truth|own|serious/i.test(actionId)) return 'honesty';
-    if (tags.has('clever') || /joke|counter|mushroom|rumor|read/i.test(actionId)) return 'clever';
-    if (tags.has('comfort') || tags.has('food') || /pepperoni|pastry|tip|cloak/i.test(actionId))
-      return 'comfort';
-    if (tags.has('publicAffection') || /dance|married|perform|crown/i.test(actionId))
-      return 'public-affection';
-    if (tags.has('avoidance') || /ignore|skip|floor|none|forfeit/i.test(actionId))
-      return 'avoidance';
-    if (tags.has('violence') || /threat|stone|knife|monster/i.test(actionId)) return 'violence';
-    if (tags.has('pragmatic') || tags.has('transaction') || /coin|bribe|tax|useful/i.test(actionId))
-      return 'pragmatic';
-    if (tags.has('dramatic') || /doomed|villain|rose|mask/i.test(actionId)) return 'dramatic';
-    return 'generic';
-  }
-
-  private pickDatingReactionLine(
-    personality: RelationshipPersonality,
-    tier: RelationshipOutcomeTier,
-    reason: DatingReactionReason,
-    label: string,
-  ): string {
-    const lines = DATING_REACTION_LINES[personality]?.[reason]?.[tier];
-    if (lines?.length) return this.fillDatingReactionTemplate(lines, label);
-    const fallback = DATING_REACTION_LINES[personality]?.generic?.[tier];
-    if (fallback?.length) return this.fillDatingReactionTemplate(fallback, label);
-    return `${label}. I am deciding what that reveals about you.`;
-  }
-
-  private fillDatingReactionTemplate(lines: readonly string[], label: string): string {
-    const template = lines[Math.floor(this.random() * lines.length)] ?? lines[0]!;
-    return template.replace(/\{choice\}/g, label);
-  }
-
-  private scoreDatingTagsForProfile(
-    profile: RelationshipCandidateProfile,
-    tags: readonly RelationshipTag[],
-  ): number {
-    const personality = this.personalityForDatingProfile(profile);
-    const weights = DATING_PERSONALITY_TAG_WEIGHTS[personality];
-    return tags.reduce((total, tag) => total + (weights[tag] ?? 0), 0);
-  }
-
-  private tierForDatingScore(score: number): RelationshipOutcomeTier {
-    if (score >= 10) return 'loved';
-    if (score >= 4) return 'liked';
-    if (score <= -10) return 'hated';
-    if (score <= -4) return 'disliked';
-    return 'neutral';
-  }
-
-  private personalityForDatingProfile(
-    profile: RelationshipCandidateProfile,
-  ): RelationshipPersonality {
-    if (profile.personality) return profile.personality;
-    if (profile.species === 'goblin' || profile.species === 'goblin-angel') return 'sharp';
-    if (profile.species === 'angel') return 'regal';
-    const options: RelationshipPersonality[] = ['poetic', 'deadpan', 'hungry', 'regal', 'sharp'];
-    let total = 0;
-    for (let i = 0; i < profile.id.length; i += 1) {
-      total = (total * 31 + profile.id.charCodeAt(i)) >>> 0;
-    }
-    return options[total % options.length] ?? 'poetic';
-  }
-
-  private pickRelationshipLine(
-    profile: RelationshipCandidateProfile,
-    lines: readonly string[],
-  ): string {
-    if (profile.species === 'goblin' || profile.species === 'goblin-angel') {
-      return lines[Math.floor(this.random() * lines.length)] ?? lines[0]!;
-    }
-    if (profile.species === 'angel') {
-      return (
-        lines[Math.floor(this.random() * lines.length)]?.replace('date', 'judgment') ?? lines[0]!
-      );
-    }
-    return lines[Math.floor(this.random() * lines.length)] ?? lines[0]!;
   }
 
   private extractFirstQuotedLine(message?: string): string | null {
@@ -24276,13 +22616,15 @@ export default class SnakeScene extends Phaser.Scene {
         })),
         { id: 'cancel', title: 'Cancel', description: 'Do not give a gift.' },
       ],
-      (itemId) => {
+      async (itemId) => {
         this.setChoicePopupVisible(false);
         if (itemId === 'cancel') {
           this.showDatingScene(profile);
           return;
         }
-        const result = this.snakeGame.giveRelationshipGift(profile, itemId);
+        const response = await this.datingIntent({ action: 'gift', itemId });
+        const result = response.actorOutcome?.relationship;
+        if (!result) return;
         this.showDatingScene(profile, result);
         this.skillTree.getOverlay().refresh();
       },
@@ -24317,24 +22659,42 @@ export default class SnakeScene extends Phaser.Scene {
         },
         { id: 'cancel', title: 'Cancel', description: 'Leave the arrangement alone.' },
       ],
-      (choiceId) => {
+      async (choiceId) => {
         this.setChoicePopupVisible(false);
         if (choiceId === 'cancel') {
           this.showDatingScene(profile);
           return;
         }
-        const result = this.snakeGame.applyRelationshipArrangement(
-          profile,
-          choiceId as 'monogamy' | 'open-honesty' | 'transactional' | 'reassure',
+        const choice = ['monogamy', 'open-honesty', 'transactional', 'reassure'].find(
+          (entry) => entry === choiceId,
         );
+        if (
+          choice !== 'monogamy' &&
+          choice !== 'open-honesty' &&
+          choice !== 'transactional' &&
+          choice !== 'reassure'
+        )
+          return;
+        const response = await this.datingIntent({ action: 'arrangement', choice });
+        const result = response.actorOutcome?.relationship;
+        if (!result) return;
         this.showDatingScene(profile, result);
         this.skillTree.getOverlay().refresh();
       },
     );
   }
 
-  private handleNpcInsult(roomId: string, giverName: string, portraitId?: string): void {
-    const insult = this.snakeGame.insultNpc(roomId);
+  private async handleNpcInsult(
+    _roomId: string,
+    giverName: string,
+    portraitId?: string,
+  ): Promise<void> {
+    const response = await this.gameConnection.send({
+      type: 'worldInteraction',
+      action: 'insult',
+      playerId: this.snakeGame.getLocalPlayerId(),
+    });
+    const insult = response.npcDisposition;
     if (!insult) {
       this.closeQuestPopup();
       return;
@@ -24378,56 +22738,48 @@ export default class SnakeScene extends Phaser.Scene {
     this.closeQuestPopup();
   }
 
+  private lastPresentedEncounterToken: number | null = null;
+  private encounterDecisionPending = false;
   private maybePresentRandomEncounter(): void {
-    if (this.paused || this.questPopup.isVisible()) {
+    const forced = this.sceneClient
+      ? this.sceneClient.getSnapshot().forcedEncounter
+      : this.snakeGame.beginAdjacentRandomEncounter();
+    if (!forced) {
+      this.lastPresentedEncounterToken = null;
       return;
     }
-    const encounter = this.getFlag<
-      WandererEncounter & {
-        roomId: string;
-        x: number;
-        y: number;
-        statsNote: string;
-        actorId?: string;
-      }
-    >('npc.randomEncounter');
-    if (!encounter || encounter.roomId !== this.currentRoomId) {
-      return;
-    }
-    if (this.getFlag<boolean>('npc.randomEncounter.prompted')) {
-      return;
-    }
-    const actor = encounter.actorId
-      ? this.snakeGame.getActorSystem().getActor(encounter.actorId)
-      : undefined;
-    const head = this.snakeGame.getSnakeBody()[0];
-    if (!actor?.presence || actor.presence.roomId !== this.currentRoomId || !head) {
-      return;
-    }
-    const [roomX, roomY] = this.parseRoomCoordinates(this.currentRoomId);
-    const headLocal = {
-      x: head.x - roomX * this.grid.cols,
-      y: head.y - roomY * this.grid.rows,
-    };
     if (
-      Math.abs(actor.presence.position.x - headLocal.x) +
-        Math.abs(actor.presence.position.y - headLocal.y) >
-      1
-    ) {
+      this.paused ||
+      this.questPopup.isVisible() ||
+      this.lastPresentedEncounterToken === forced.token
+    )
       return;
-    }
-    this.setFlag('npc.randomEncounter.prompted', true);
+    this.lastPresentedEncounterToken = forced.token;
+    const encounter = forced.encounter;
     this.juice.wandererApproach(
-      this.tileToWorldInRoom(actor.presence.position, encounter.roomId).x,
-      this.tileToWorldInRoom(actor.presence.position, encounter.roomId).y,
+      this.tileToWorldLocalInRoom(forced.position).x,
+      this.tileToWorldLocalInRoom(forced.position).y,
     );
     this.showQuestDialogue(
       encounter.name,
       [...encounter.pages, encounter.statsNote],
       {
-        onAccept: () => {
-          const result = this.snakeGame.resolveRandomEncounter(true);
-          const world = this.tileToWorldInRoom(actor.presence!.position, encounter.roomId);
+        onAccept: async () => {
+          if (this.encounterDecisionPending) return;
+          this.encounterDecisionPending = true;
+          const response = await this.gameConnection.send({
+            type: 'randomEncounterAction',
+            action: 'accept',
+            token: forced.token,
+            playerId: this.snakeGame.getLocalPlayerId(),
+          });
+          this.encounterDecisionPending = false;
+          if (!response.ok || !response.encounterResult) {
+            this.showQuestHintPopup(response.reason ?? 'Encounter unavailable.', '#ff6b6b');
+            return;
+          }
+          const result = response.encounterResult;
+          const world = this.tileToWorldLocalInRoom(forced.position);
           if (result.kind === 'duel' && result.accepted) {
             this.juice.duelAccepted(world.x, world.y);
           }
@@ -24457,9 +22809,17 @@ export default class SnakeScene extends Phaser.Scene {
             }
           }
         },
-        onReject: () => {
-          this.snakeGame.resolveRandomEncounter(false);
-          this.closeQuestPopup();
+        onReject: async () => {
+          if (this.encounterDecisionPending) return;
+          this.encounterDecisionPending = true;
+          const response = await this.gameConnection.send({
+            type: 'randomEncounterAction',
+            action: 'reject',
+            token: forced.token,
+            playerId: this.snakeGame.getLocalPlayerId(),
+          });
+          this.encounterDecisionPending = false;
+          if (response.ok) this.closeQuestPopup();
         },
       },
       {
@@ -24470,7 +22830,7 @@ export default class SnakeScene extends Phaser.Scene {
       {
         portraitId: encounter.portraitId,
         actorId: encounter.actorId,
-        species: actor.species,
+        species: forced.species,
       },
     );
   }

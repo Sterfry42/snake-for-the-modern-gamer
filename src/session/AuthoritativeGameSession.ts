@@ -1,4 +1,9 @@
 import { setSavedGameData } from '../game/saveManager.js';
+import {
+  describeActionOutcome,
+  isGameplayFeedbackKey,
+  type ActionOutcome,
+} from './GameplayOutcome.js';
 import type { ChoiceWithMods, GameSaveData } from '../game/saveTypes.js';
 import type { SnakeGame, StepResult } from '../game/snakeGame.js';
 import type { PlayerId, PlayerRuntime } from '../players/playerTypes.js';
@@ -39,6 +44,7 @@ type EventHandler = (event: GameEvent) => void;
 
 export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   private readonly connections = new Map<string, ConnectionPresence>();
+  private outcomeSequence = 0;
   private readonly playerInteractions = new Map<PlayerId, PlayerInteraction>();
   private readonly progression = new Map<PlayerId, AuthoritativeProgression>();
   private readonly actionElapsed = new Map<PlayerId, number>();
@@ -201,6 +207,17 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   executeCommand(command: ClientCommand): Promise<CommandResult> {
     return this.enqueue(async () => {
       if (!this.game.getPlayer(command.playerId)) return { ok: false, reason: 'unknown-player' };
+      if (command.type === 'actorAction' || command.type === 'datingAction') {
+        const result = await this.game.runForPlayerAsync(command.playerId, () => {
+          if (!this.game.getPlayer(command.playerId)?.alive)
+            return Promise.resolve({ ok: false, reason: 'Respawn before acting.' });
+          return command.type === 'actorAction'
+            ? this.interactions.act(command.playerId, command)
+            : Promise.resolve(this.interactions.date(command.playerId, command));
+        });
+        this.emitSnapshot();
+        return result;
+      }
       if (
         ['saveGame', 'loadGame', 'clearSave'].includes(command.type) &&
         this.connections.size > 0 &&
@@ -408,7 +425,21 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
 
   private enqueue<T>(operation: () => Promise<T>): Promise<T> {
-    const next = this.work.then(operation);
+    const next = this.work.then(async () => {
+      try {
+        return await operation();
+      } finally {
+        if (this.manageBasicFeatures) {
+          const ids = new Set([
+            this.localPlayerId,
+            ...[...this.connections.values()].map((peer) => peer.playerId),
+          ]);
+          for (const id of ids)
+            if (this.game.getPlayer(id))
+              this.game.runForPlayer(id, () => this.publishGameplayOutcome(id));
+        }
+      }
+    });
     this.work = next.then(
       () => {},
       () => {},
@@ -521,6 +552,8 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
 
   private playerHeld(playerId: PlayerId): boolean {
     return (
+      Boolean(this.game.getForcedEncounter()) ||
+      Boolean(this.game.getOfferedQuest()) ||
       Boolean(this.minigames.getView(playerId)) ||
       Boolean(this.interactions.getView(playerId)) ||
       (this.playerInteractions.get(playerId) ?? 'playing') !== 'playing' ||
@@ -565,6 +598,8 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
 
   private stepPlayerAction(paused: boolean, playerId: PlayerId): StepResult {
     const previousRoomId = this.game.getPlayer(playerId)?.snake.currentRoomId;
+    const scoreBefore = this.game.getScore();
+    const lengthBefore = this.game.getSnakeLength();
     const result = this.game.actionStep(paused);
     this.resolvePlayerDeath(result, playerId);
     if (this.manageBasicFeatures && !paused && result.status !== 'dead') {
@@ -604,9 +639,21 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         });
       }
     }
+    this.emitSnapshot();
+    if (this.manageBasicFeatures && !paused)
+      this.publishGameplayOutcome(
+        playerId,
+        describeActionOutcome(result, {
+          scoreBefore,
+          lengthBefore,
+          scoreAfter: this.game.getScore(),
+          lengthAfter: this.game.getSnakeLength(),
+          head: this.game.getSnakeBody()[0] ?? null,
+          roomId: this.game.getCurrentRoom().id,
+        }),
+      );
     if (this.eventHandlers.size > 0)
       this.emitStepEvents(previousRoomId, result, this.buildSnapshot(true, playerId), playerId);
-    this.emitSnapshot();
     return result;
   }
 
@@ -749,6 +796,11 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     }
     const snapshot = this.game.getSnapshot(playerId);
     snapshot.clientState = this.game.getSceneClientState();
+    snapshot.forcedEncounter = this.game.getForcedEncounter();
+    if (this.manageBasicFeatures)
+      snapshot.clientState.flags = Object.fromEntries(
+        Object.entries(snapshot.clientState.flags).filter(([key]) => !isGameplayFeedbackKey(key)),
+      );
     snapshot.minigame = this.minigames.getView(playerId);
     snapshot.persistence = {
       slotId: this.saveSlotId,
@@ -790,6 +842,26 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     for (const handler of this.eventHandlers) {
       handler(event);
     }
+  }
+
+  private publishGameplayOutcome(playerId: PlayerId, action?: ActionOutcome): void {
+    if (
+      this.game.getPlayer(playerId)?.alive &&
+      !this.interactions.getView(playerId) &&
+      !this.minigames.getView(playerId)
+    )
+      this.game.beginAdjacentRandomEncounter();
+    const feedback = this.game.drainGameplayFeedback();
+    if (!action && feedback.length === 0) {
+      this.emitSnapshot();
+      return;
+    }
+    this.emitSnapshot();
+    this.emit({
+      type: 'gameplay.outcome',
+      playerId,
+      outcome: { sequence: ++this.outcomeSequence, playerId, action, feedback },
+    });
   }
 
   private runClockStep(step: () => StepResult | null): StepResult | null {
@@ -864,6 +936,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         playerId,
         fromRoomId: previousRoomId,
         toRoomId: player.roomId,
+        head: player.body[0],
       });
     }
     if (result.status === 'dead') {

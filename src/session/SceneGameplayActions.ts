@@ -15,11 +15,96 @@ export function executeSceneGameplayAction(
         | 'manualStep'
         | 'progressionAction'
         | 'vehicleAction'
-        | 'minigameAction';
+        | 'minigameAction'
+        | 'actorAction'
+        | 'datingAction';
     }
   >,
 ): CommandResult {
   switch (command.type) {
+    case 'worldInteraction': {
+      switch (command.action) {
+        case 'trainer-equip':
+          return game.buyManeuverFromCurrentTrainer(true);
+        case 'trainer-learn':
+          return game.buyManeuverFromCurrentTrainer(false);
+        case 'insult': {
+          const room = game.getCurrentRoom();
+          const giver = room.questGiver;
+          const head = game.getSnakeBody()[0];
+          const position = head && game.resolveRoomPosition(head);
+          if (
+            !giver ||
+            !position ||
+            Math.abs(position.localX - giver.x) + Math.abs(position.localY - giver.y) > 1
+          )
+            return { ok: false, reason: 'No quest giver nearby.' };
+          return { ok: true, npcDisposition: game.insultNpc(room.id) };
+        }
+        case 'garden':
+          return game.interactHouseGarden();
+        case 'alchemy':
+          return command.optionId
+            ? game.chooseAlchemyStationInteraction(command.optionId)
+            : { ok: false, reason: 'Choose a brew.' };
+        case 'town-door':
+          return game.enterNearbyTownBuildingDoor();
+        case 'town-grate':
+          return game.investigateCurrentTownGuildGrate();
+        case 'open-gate':
+          return game.openCurrentTownGate();
+        case 'quest-target': {
+          const result = game.resolveQuestInteraction(command.optionId);
+          return { ok: !result.failed, message: result.message, questInteractionResult: result };
+        }
+        case 'quest-giver': {
+          const room = game.getCurrentRoom();
+          if (!room.questGiver) return { ok: false, reason: 'No quest giver here.' };
+          const head = game.getSnakeBody()[0];
+          const info = head && game.resolveRoomPosition(head);
+          if (
+            !info ||
+            Math.abs(info.localX - room.questGiver.x) + Math.abs(info.localY - room.questGiver.y) >
+              1
+          )
+            return { ok: false, reason: 'Move closer to the quest giver.' };
+          const request = game.requestQuestFromGiver(room.id);
+          return {
+            ok: true,
+            questRequest: {
+              state: request.state,
+              quest: request.quest
+                ? {
+                    id: request.quest.id,
+                    label: request.quest.label,
+                    description: request.quest.description,
+                  }
+                : null,
+            },
+          };
+        }
+        case 'cave-gift':
+          return { ok: true, caveGift: game.claimCaveDwellerReward() };
+      }
+    }
+    case 'questDecision': {
+      if (game.getOfferedQuest()?.id !== command.questId)
+        return { ok: false, reason: 'That quest offer is no longer current.' };
+      if (command.action === 'reject') {
+        game.rejectOfferedQuest();
+        return { ok: true };
+      }
+      return { ok: Boolean(game.acceptOfferedQuest()) };
+    }
+    case 'randomEncounterAction': {
+      const encounter = game.getForcedEncounter();
+      if (!encounter || encounter.token !== command.token)
+        return { ok: false, reason: 'That encounter is no longer current.' };
+      return {
+        ok: true,
+        encounterResult: game.resolveRandomEncounter(command.action === 'accept'),
+      };
+    }
     case 'manualReturn':
       return { ok: game.returnFromManualResumePause() };
     case 'companionAction': {
@@ -60,7 +145,11 @@ export function executeSceneGameplayAction(
       if (!game.canInteractWithActor(command.actorId))
         return { ok: false, reason: 'Move closer to shop.' };
       const result = game.purchaseActorShopOffer(command.actorId, command.offerId);
-      return { ok: result.ok, reason: result.ok ? undefined : result.message };
+      return {
+        ok: result.ok,
+        reason: result.ok ? undefined : result.message,
+        message: result.message,
+      };
     }
     case 'relationshipAction': {
       if (!game.canInteractWithActor(command.actorId))
@@ -72,7 +161,11 @@ export function executeSceneGameplayAction(
       if (!game.getRelationshipActions(profile).includes(command.choice))
         return { ok: false, reason: 'That relationship action is not available.' };
       const result = game.applyRelationshipChoice(profile, command.choice);
-      return { ok: result.ok, reason: result.ok ? undefined : result.message };
+      return {
+        ok: result.ok,
+        reason: result.ok ? undefined : result.message,
+        relationshipResult: result,
+      };
     }
     case 'questAction': {
       const ok = game.setActiveQuestMarkerQuestId(command.questId ?? undefined);

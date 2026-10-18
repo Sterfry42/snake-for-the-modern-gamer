@@ -19,6 +19,7 @@ export interface SceneClientState {
   inventory: Record<string, number>;
   equipment: Partial<Record<EquipmentSlot, string>>;
   quests: {
+    offeredId?: string;
     active: SceneQuestState[];
     accepted: SceneQuestState[];
     completedIds: string[];

@@ -1,6 +1,7 @@
 /**
  * Snake Game Core
  */
+import { isGameplayFeedbackKey } from '../session/GameplayOutcome.js';
 import {
   defaultAtmosphereConfig,
   defaultGameConfig,
@@ -1374,6 +1375,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   reset(options: { preserveRunSeed?: boolean } = {}): void {
+    this.gameplayFeedback.clear();
     if (this.runtimeMode === 'client-replica')
       throw new Error('Client replica cannot reset a game');
     if (!options.preserveRunSeed && !this.config.rng.seed) {
@@ -2076,6 +2078,7 @@ export class SnakeGame implements QuestRuntime {
     for (const [id, count] of Object.entries(state.inventory)) this.inventory.addItem(id, count);
     for (const id of Object.values(state.equipment)) if (id) this.inventory.equip(id);
     this.questController.restoreReplicaQuestIds({
+      offeredId: state.quests.offeredId,
       active: state.quests.active.map((q) => q.id),
       accepted: state.quests.accepted.map((q) => q.id),
       completed: state.quests.completedIds,
@@ -2130,6 +2133,7 @@ export class SnakeGame implements QuestRuntime {
       inventory: Object.fromEntries(this.inventory.getAllItems()),
       equipment: Object.fromEntries(this.inventory.getAllEquipped()),
       quests: {
+        offeredId: this.getOfferedQuest()?.id,
         active: this.getActiveQuests().map(describeQuest),
         accepted: this.getAcceptedQuests().map(describeQuest),
         completedIds: this.getCompletedQuestIds(),
@@ -14065,6 +14069,18 @@ export class SnakeGame implements QuestRuntime {
     return this.snake.flags[key] as T | undefined;
   }
 
+  private readonly gameplayFeedback = new Map<
+    string,
+    import('../session/GameplayOutcome.js').GameplayFeedback[]
+  >();
+
+  drainGameplayFeedback(): import('../session/GameplayOutcome.js').GameplayFeedback[] {
+    const effects = this.gameplayFeedback.get(this.localPlayerId) ?? [];
+    this.gameplayFeedback.delete(this.localPlayerId);
+    for (const effect of effects) delete this.snake.flags[effect.key];
+    return effects;
+  }
+
   setFlag(key: string, value: unknown): void {
     if (this.runtimeMode === 'client-replica')
       throw new Error(`Client replica cannot set flag ${key}`);
@@ -14072,6 +14088,11 @@ export class SnakeGame implements QuestRuntime {
       delete this.snake.flags[key];
     } else {
       this.snake.flags[key] = value;
+      if (isGameplayFeedbackKey(key)) {
+        const feedback = this.gameplayFeedback.get(this.localPlayerId) ?? [];
+        feedback.push({ key, value: structuredClone(value) });
+        this.gameplayFeedback.set(this.localPlayerId, feedback);
+      }
     }
   }
 
@@ -16801,6 +16822,59 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
+  private encounterPromptSequence = 0;
+
+  beginAdjacentRandomEncounter(): import('../session/ForcedEncounter.js').ForcedEncounter | null {
+    const existing = this.getForcedEncounter();
+    if (existing) return existing;
+    const encounter = this.getFlag<
+      WandererEncounter & { roomId: string; statsNote: string; actorId?: string }
+    >('npc.randomEncounter');
+    const actor = encounter?.actorId ? this.actors.getActor(encounter.actorId) : undefined;
+    const head = this.snake.bodySegments[0];
+    if (
+      !encounter ||
+      encounter.roomId !== this.snake.currentRoomId ||
+      !actor?.presence ||
+      actor.presence.roomId !== encounter.roomId ||
+      !head ||
+      !this.canInteractWithActor(actor.id)
+    )
+      return null;
+    const [rx, ry] = this.parseRoomCoordinates(encounter.roomId);
+    if (
+      Math.abs(actor.presence.position.x - (head.x - rx * this.config.grid.cols)) +
+        Math.abs(actor.presence.position.y - (head.y - ry * this.config.grid.rows)) >
+      1
+    )
+      return null;
+    this.setFlag('npc.randomEncounter.prompted', true);
+    this.setFlag('npc.randomEncounter.promptToken', ++this.encounterPromptSequence);
+    return this.getForcedEncounter();
+  }
+
+  getForcedEncounter(): import('../session/ForcedEncounter.js').ForcedEncounter | null {
+    if (!this.getFlag<boolean>('npc.randomEncounter.prompted')) return null;
+    const encounter = this.getFlag<
+      WandererEncounter & { roomId: string; statsNote: string; actorId?: string }
+    >('npc.randomEncounter');
+    const actor = encounter?.actorId ? this.actors.getActor(encounter.actorId) : undefined;
+    if (
+      !encounter ||
+      !actor?.presence ||
+      encounter.roomId !== this.snake.currentRoomId ||
+      actor.presence.roomId !== encounter.roomId ||
+      !this.canInteractWithActor(actor.id)
+    )
+      return null;
+    return {
+      token: this.getFlag<number>('npc.randomEncounter.promptToken') ?? 0,
+      encounter,
+      position: actor.presence.position,
+      species: actor.species,
+    };
+  }
+
   resolveRandomEncounter(accept: boolean): {
     kind: 'quest' | 'duel' | 'flavor' | 'none';
     accepted: boolean;
@@ -16821,6 +16895,7 @@ export class SnakeGame implements QuestRuntime {
     this.creditKarmaConversation(`wanderer:${encounter.id}`);
     this.setFlag('npc.randomEncounter', undefined);
     this.setFlag('npc.randomEncounter.prompted', undefined);
+    this.setFlag('npc.randomEncounter.promptToken', undefined);
     this.setFlag('npc.randomEncounter.revealAtMs', undefined);
     if (encounter.actorId) {
       this.npcBodies.delete(encounter.relationshipId ?? `wanderer:${encounter.id}`);

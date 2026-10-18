@@ -220,7 +220,9 @@ const CUSTOM_DIALOGUES: Record<string, QuestDialogue> = {
   },
 };
 
-export function getQuestDialogue(quest: Quest): QuestDialogue {
+export function getQuestDialogue(
+  quest: Pick<Quest, 'id' | 'label' | 'description'>,
+): QuestDialogue {
   const translation = i18n.getQuestDialogue(quest.id);
 
   if (translation) {
@@ -235,7 +237,7 @@ export function getQuestDialogue(quest: Quest): QuestDialogue {
   );
 }
 
-function buildFallbackQuestPages(quest: Quest): string[] {
+function buildFallbackQuestPages(quest: Pick<Quest, 'id' | 'label' | 'description'>): string[] {
   const description = i18n.getQuestString(quest.id)?.description ?? quest.description;
   const voice = questVoiceFor(quest.id);
   return [voice.opening(description), voice.stakes, voice.ask];

@@ -17,6 +17,45 @@ export type PlayerInteraction =
 /** Intent payloads contain identifiers and input, never prices, rewards, or replacement state. */
 export type SceneActionCommand = { playerId: PlayerId } & (
   | { type: 'playerInteraction'; mode: PlayerInteraction }
+  | {
+      type: 'actorAction';
+      actorId: string;
+      action: import('./ActorIntent.js').ActorIntent;
+      revision?: number;
+      includeBark?: boolean;
+    }
+  | {
+      type: 'datingAction';
+      actorId: string;
+      revision: number;
+      action: 'start';
+      kind: 'talk' | 'flirt' | 'date';
+    }
+  | { type: 'datingAction'; actorId: string; revision: number; action: 'choose'; branchId?: string }
+  | { type: 'datingAction'; actorId: string; revision: number; action: 'gift'; itemId: string }
+  | {
+      type: 'datingAction';
+      actorId: string;
+      revision: number;
+      action: 'arrangement';
+      choice: 'monogamy' | 'open-honesty' | 'transactional' | 'reassure';
+    }
+  | { type: 'randomEncounterAction'; action: 'accept' | 'reject'; token: number }
+  | { type: 'questDecision'; action: 'accept' | 'reject'; questId: string }
+  | {
+      type: 'worldInteraction';
+      action:
+        | 'garden'
+        | 'town-door'
+        | 'town-grate'
+        | 'open-gate'
+        | 'quest-giver'
+        | 'cave-gift'
+        | 'insult'
+        | 'trainer-equip'
+        | 'trainer-learn';
+    }
+  | { type: 'worldInteraction'; action: 'alchemy' | 'quest-target'; optionId?: string }
   | { type: 'purchase'; actorId: string; offerId: string }
   | { type: 'relationshipAction'; actorId: string; choice: RelationshipChoice }
   | { type: 'questAction'; action: 'track'; questId: string | null }
@@ -57,6 +96,11 @@ export type SceneActionCommand = { playerId: PlayerId } & (
 export function isSceneActionCommand(command: ClientCommand): command is SceneActionCommand {
   return (
     command.type === 'playerInteraction' ||
+    command.type === 'actorAction' ||
+    command.type === 'datingAction' ||
+    command.type === 'worldInteraction' ||
+    command.type === 'randomEncounterAction' ||
+    command.type === 'questDecision' ||
     command.type === 'purchase' ||
     command.type === 'relationshipAction' ||
     command.type === 'questAction' ||

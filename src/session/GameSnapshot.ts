@@ -18,6 +18,7 @@ export interface GameSnapshot {
   viewport: ViewportSnapshot;
   players: Record<PlayerId, PlayerSnapshot>;
   ui: UiSnapshot;
+  forcedEncounter?: import('./ForcedEncounter.js').ForcedEncounter | null;
   minigame?: import('./MinigameSnapshot.js').MinigameSnapshot | null;
   /** Player-specific synchronous selectors for the normal scene's menus and HUD. */
   clientState?: SceneClientState;

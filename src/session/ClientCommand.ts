@@ -63,6 +63,18 @@ export type ClientCommand =
 
 export interface CommandResult {
   ok: boolean;
+  actorOutcome?: import('./ActorIntent.js').ActorOutcome;
+  relationshipResult?: import('../relationships/relationshipTypes.js').RelationshipEventResult;
+  npcDisposition?: ReturnType<import('../game/snakeGame.js').SnakeGame['insultNpc']>;
+  questRequest?: {
+    state: string;
+    quest?: { id: string; label: string; description: string } | null;
+  };
+  caveGift?: ReturnType<import('../game/snakeGame.js').SnakeGame['claimCaveDwellerReward']>;
+  questInteractionResult?: ReturnType<
+    import('../game/snakeGame.js').SnakeGame['resolveQuestInteraction']
+  >;
+  encounterResult?: ReturnType<import('../game/snakeGame.js').SnakeGame['resolveRandomEncounter']>;
   loaded?: boolean;
   saved?: boolean;
   cleared?: boolean;
