@@ -1,12 +1,14 @@
 import type { AnimalInstance } from '../animals/types.js';
+import type { Actor } from '../actors/actorTypes.js';
 import type { AppleSnapshot } from '../apples/types.js';
 import type { Vector2Like } from '../core/math.js';
-import type { BombInstance, FootballInstance } from '../game/snakeGame.js';
+import type { BombInstance, FootballInstance, QuestInteraction } from '../game/snakeGame.js';
 import type { PlayerId } from '../players/playerTypes.js';
 import type { Boss } from '../systems/boss.js';
 import type { BulletInstance, EnemyInstance } from '../systems/enemies.js';
 import type { RoomSnapshot } from '../world/types.js';
 import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
+import type { ConnectedInteractionView } from './ConnectedInteraction.js';
 
 export interface GameSnapshot {
   tick: number;
@@ -55,7 +57,7 @@ export interface ClientRoomSnapshot {
   followers?: readonly EnemyInstance[];
   bosses?: readonly Boss[];
   bullets?: readonly BulletInstance[];
-  npcs?: unknown[];
+  npcs?: readonly Actor[];
   pickups?: unknown[];
   animals?: readonly AnimalInstance[];
   footballs?: readonly FootballInstance[];
@@ -74,9 +76,11 @@ export interface PlayerSnapshot {
 }
 
 export interface UiSnapshot {
+  interaction?: ConnectedInteractionView | null;
   paused?: boolean;
   messages?: string[];
-  activeChoice?: unknown;
+  activeChoice?: QuestInteraction | null;
+  inventory?: Record<string, number>;
   activeQuest?: unknown;
   health?: {
     current: number;

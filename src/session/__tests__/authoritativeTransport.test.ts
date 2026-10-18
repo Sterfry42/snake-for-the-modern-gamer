@@ -124,8 +124,11 @@ describe('authoritative transport', () => {
       expect(Object.keys(firstBridge.getSnapshot().connections ?? {})).toHaveLength(2),
     );
     expect(first.connectionId).not.toBe(second.connectionId);
-    expect(first.playerId).toBe(second.playerId);
-    expect(firstBridge.getSnapshot()).toEqual(secondBridge.getSnapshot());
+    expect(first.playerId).not.toBe(second.playerId);
+    expect(firstBridge.getSnapshot().players[first.playerId!].body).not.toEqual(
+      firstBridge.getSnapshot().players[second.playerId!].body,
+    );
+    expect(firstBridge.getSnapshot().viewport).toEqual(secondBridge.getSnapshot().viewport);
     expect(
       Object.values(firstBridge.getSnapshot().connections ?? {})
         .map((peer) => peer.displayName)
@@ -133,7 +136,7 @@ describe('authoritative transport', () => {
     ).toEqual(['Alice', 'Bob']);
     const nextSnapshot = new Promise<GameSnapshot>((resolve) => {
       const unsubscribe = second.onSnapshot((snapshot) => {
-        if (snapshot.players[snapshot.localPlayerId].direction.y === -1) {
+        if (snapshot.players[first.playerId!].direction.y === -1) {
           unsubscribe();
           resolve(snapshot);
         }
@@ -148,7 +151,10 @@ describe('authoritative transport', () => {
     ).toEqual({ ok: true });
     await nextSnapshot;
     expect(firstBridge.getDirection()).toEqual({ x: 0, y: -1 });
-    expect(secondBridge.getSnapshot()).toEqual(firstBridge.getSnapshot());
+    expect(secondBridge.getDirection()).toEqual({ x: 1, y: 0 });
+    expect(secondBridge.getSnapshot().players[first.playerId!].body).toEqual(
+      firstBridge.getSnapshot().players[first.playerId!].body,
+    );
     const tick = firstBridge.getSnapshot().tick;
     await session.advance(100);
     // A subsequent acknowledged command acts as an ordered transport barrier.
@@ -173,6 +179,9 @@ describe('authoritative transport', () => {
     await new Promise<void>((resolve) => socket.on('open', resolve));
     socket.send('{');
     expect(await closed).toBe(1008);
+    const healthy = new WebSocketGameConnection(`ws://127.0.0.1:${port}/game`);
+    cleanups.push(() => healthy.disconnect());
+    await healthy.ready;
     await session.advance(100);
     expect(session.getSnapshot().tick).toBe(100);
   });

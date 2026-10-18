@@ -3,6 +3,10 @@ import type { ChoiceWithMods } from '../game/saveTypes.js';
 import type { PlayerId } from '../players/playerTypes.js';
 
 export type ClientCommand =
+  | { type: 'openActor'; playerId: PlayerId; actorId: string }
+  | { type: 'selectInteraction'; playerId: PlayerId; menuId: number; optionId: string }
+  | { type: 'closeInteraction'; playerId: PlayerId; menuId: number }
+  | { type: 'talkToActor'; playerId: PlayerId; actorId: string }
   | { type: 'restartRun'; playerId: PlayerId }
   | {
       type: 'setDirection';
@@ -65,4 +69,17 @@ export interface CommandResult {
 
 export interface CommandHandler {
   handleCommand(command: ClientCommand): CommandResult;
+}
+
+export type InteractionCommand = Extract<
+  ClientCommand,
+  { type: 'openActor' | 'selectInteraction' | 'closeInteraction' }
+>;
+
+export function isInteractionCommand(command: ClientCommand): command is InteractionCommand {
+  return (
+    command.type === 'openActor' ||
+    command.type === 'selectInteraction' ||
+    command.type === 'closeInteraction'
+  );
 }

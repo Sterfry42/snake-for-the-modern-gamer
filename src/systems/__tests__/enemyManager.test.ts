@@ -21,6 +21,45 @@ function makeRoom(biomeId: BiomeId = 'verdigris-basin'): RoomSnapshot {
 }
 
 describe('EnemyManager', () => {
+  it('advances a bullet once and routes a hit to a player in another room', () => {
+    const manager = new EnemyManager(defaultGameConfig.grid, () => 0.5);
+    const roomId = '1,0,0';
+    const enemy = manager.spawnHostileNpc(roomId, { x: 6, y: 5 }, 'Bandit', 3);
+    enemy.fireCooldown = 0;
+    enemy.moveCooldown = 999;
+    manager.stepEnemies({
+      getRoom: () => makeRoom(),
+      snake: [{ x: defaultGameConfig.grid.cols + 12, y: 5 }],
+      currentRoomId: roomId,
+      snakeDirection: { x: 1, y: 0 },
+    });
+    const bullet = manager.getBulletsInRoom(roomId)[0];
+    expect(bullet).toBeDefined();
+    const hits: string[] = [];
+    const result = manager.stepBullets({
+      getRoom: () => makeRoom(),
+      snake: [{ x: 12, y: 5 }],
+      currentRoomId: '0,0,0',
+      snakeDirection: { x: 1, y: 0 },
+      otherPlayers: [
+        {
+          id: 'bob',
+          roomId,
+          body: [
+            {
+              x: defaultGameConfig.grid.cols + bullet!.position.x + bullet!.direction.x,
+              y: bullet!.position.y + bullet!.direction.y,
+            },
+          ],
+        },
+      ],
+      onOtherPlayerBulletHit: (playerId) => hits.push(playerId),
+    });
+    expect(hits).toEqual(['bob']);
+    expect(result.bulletHits).toBe(0);
+    expect(manager.getBulletsInRoom(roomId)).toHaveLength(0);
+  });
+
   it('preserves supplied actor ids for hostile NPC spawns', () => {
     const manager = new EnemyManager(defaultGameConfig.grid, () => 0.5);
 

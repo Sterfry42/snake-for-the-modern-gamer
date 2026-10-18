@@ -4,15 +4,20 @@ import type { GameConnection } from '../session/GameConnection.js';
 import { LocalGameConnection } from '../session/LocalGameConnection.js';
 import { SceneGameBridge } from '../session/SceneGameBridge.js';
 import { WebSocketGameConnection } from '../session/WebSocketGameConnection.js';
-import type { ClientCommand } from '../session/ClientCommand.js';
+import type { ClientCommand, CommandResult } from '../session/ClientCommand.js';
 import { SnakeRenderer } from '../ui/snakeRenderer.js';
 import { connectionsMenuUrl } from '../session/connectionSettings.js';
 import { parseCoordinateRoomId } from '../world/roomAddress.js';
+import { ConnectedNpcRenderer } from '../ui/ConnectedNpcRenderer.js';
+import { ConnectedInteractionPopup } from '../ui/ConnectedInteractionPopup.js';
 
 /** Opt-in pipe verification using the existing scene and renderer, without scene gameplay hooks. */
 export class ConnectedSceneRuntime {
   private bridge: SceneGameBridge | null = null;
   private readonly renderer: SnakeRenderer;
+  private readonly npcs: ConnectedNpcRenderer;
+  private readonly interactionPopup: ConnectedInteractionPopup;
+  private showInventory = false;
   private readonly status: Phaser.GameObjects.Text;
   private readonly nameplates = new Map<string, Phaser.GameObjects.Text>();
   private dirty = false;
@@ -26,6 +31,16 @@ export class ConnectedSceneRuntime {
   private ready = false;
 
   constructor(private readonly scene: Phaser.Scene) {
+    this.interactionPopup = new ConnectedInteractionPopup(
+      scene,
+      () => this.bridge!.getLocalPlayerId(),
+      (command) => this.send(command),
+    );
+    this.npcs = new ConnectedNpcRenderer(scene, defaultGameConfig.grid.cell, (actorId) => {
+      const bridge = this.bridge;
+      if (bridge && this.ready)
+        void this.send({ type: 'openActor', playerId: bridge.getLocalPlayerId(), actorId });
+    });
     this.renderer = new SnakeRenderer(
       scene,
       scene.add.graphics(),
@@ -41,6 +56,7 @@ export class ConnectedSceneRuntime {
         padding: { x: 6, y: 4 },
       })
       .setDepth(100);
+    this.status.setWordWrapWidth(scene.scale.width - 20);
     scene.add
       .text(10, scene.scale.height - 30, 'Back to connections (Esc)', {
         fontFamily: 'monospace',
@@ -78,11 +94,13 @@ export class ConnectedSceneRuntime {
         return;
       }
       this.bridge ??= new SceneGameBridge(connection);
-      this.unsubscribeSnapshot = connection.onSnapshot(() => {
+      this.unsubscribeSnapshot = connection.onSnapshot((snapshot) => {
         this.dirty = true;
+        this.interactionPopup.render(snapshot.ui.interaction ?? null);
       });
       this.unsubscribeEvent = connection.onEvent((event) => {
-        if (event.type === 'player.died') this.alive = false;
+        if (event.type === 'player.died' && event.playerId === this.bridge?.getLocalPlayerId())
+          this.alive = false;
       });
       this.unsubscribeDisconnect = connection.onDisconnect?.((reason) => {
         this.ready = false;
@@ -104,6 +122,7 @@ export class ConnectedSceneRuntime {
     const player = snapshot.players[snapshot.localPlayerId];
     const room = snapshot.viewport.rooms[player.roomId];
     this.alive = player.alive;
+    this.npcs.render(room.npcs ?? [], snapshot.tick);
     this.renderer.render(room.room, player.body, player.roomId, room.apples ?? null, {
       direction: player.direction,
       enemies: room.enemies,
@@ -164,7 +183,31 @@ export class ConnectedSceneRuntime {
     for (const [id, label] of this.nameplates) if (!visible.has(id)) label.setVisible(false);
     this.status.setText([
       `${snapshot.ui.paused ? 'Paused · ' : ''}${player.alive ? `Score ${player.score} · Length ${player.body.length}` : 'Game over'} · ${player.roomId}`,
-      'Arrows / WASD: move · Space: pause · E: interact · F5: save · F9: load · Enter: restart',
+      ...(snapshot.ui.health
+        ? [
+            `Health ${snapshot.ui.health.current}/${snapshot.ui.health.max}${player.alive ? '' : ' · Enter: respawn'}`,
+          ]
+        : []),
+      'Arrows / WASD: move · Space: pause · E: interact · I: inventory · F5/F9: save/load',
+      ...(snapshot.ui.activeChoice?.kind === 'choice'
+        ? [
+            snapshot.ui.activeChoice.title,
+            ...snapshot.ui.activeChoice.options.map(
+              (option, index) => `${index + 1}: ${option.title}`,
+            ),
+          ]
+        : []),
+      ...(snapshot.ui.activeChoice?.kind === 'dialogue'
+        ? [snapshot.ui.activeChoice.title, ...snapshot.ui.activeChoice.pages]
+        : []),
+      ...(this.showInventory
+        ? [
+            'Inventory (1–9: use item)',
+            ...Object.entries(snapshot.ui.inventory ?? {})
+              .slice(0, 9)
+              .map(([id, count], index) => `${index + 1}: ${id} × ${count}`),
+          ]
+        : []),
       ...(snapshot.ui.messages ?? []),
       ...(this.error ? [this.error] : []),
     ]);
@@ -183,9 +226,12 @@ export class ConnectedSceneRuntime {
     this.renderer.markAllStaticRoomsDirty();
     for (const label of this.nameplates.values()) label.destroy();
     this.nameplates.clear();
+    this.npcs.destroy();
+    this.interactionPopup.destroy();
   }
 
   private readonly onKey = (event: KeyboardEvent): void => {
+    if (this.interactionPopup.handleKey(event)) return;
     if (event.key === 'Escape') {
       event.preventDefault();
       this.leaveWorld();
@@ -205,26 +251,74 @@ export class ConnectedSceneRuntime {
       d: { x: 1, y: 0 },
     };
     const key = event.key.toLowerCase();
+    if (key === 'i') {
+      this.showInventory = !this.showInventory;
+      this.dirty = true;
+      return;
+    }
+    const choiceIndex = Number(key) - 1;
+    const interaction = bridge.getSnapshot().ui.activeChoice;
+    if (/^[1-9]$/u.test(key)) {
+      const itemId = Object.keys(bridge.getSnapshot().ui.inventory ?? {})[choiceIndex];
+      if (this.showInventory && itemId) this.send({ type: 'useItem', playerId, itemId });
+      else if (interaction?.kind === 'choice' && interaction.options[choiceIndex])
+        this.send({
+          type: 'chooseOption',
+          playerId,
+          choiceId: interaction.options[choiceIndex].id,
+        });
+      return;
+    }
     const direction = directions[key];
     let command: ClientCommand;
     if (direction && this.alive) command = { type: 'setDirection', playerId, direction };
     else if (key === ' ')
       command = { type: bridge.getSnapshot().ui.paused ? 'resume' : 'pause', playerId };
-    else if (key === 'e') command = { type: 'interact', playerId };
-    else if (key === 'f5') command = { type: 'saveGame', playerId };
+    else if (key === 'e') {
+      const snapshot = bridge.getSnapshot();
+      const player = snapshot.players[playerId];
+      const room = snapshot.viewport.rooms[player.roomId];
+      const coordinate = parseCoordinateRoomId(player.roomId);
+      const head = player.body[0];
+      const nearby = room.npcs?.find(
+        (actor) =>
+          actor.presence &&
+          Math.abs(
+            actor.presence.position.x -
+              (head.x - (coordinate?.x ?? 0) * defaultGameConfig.grid.cols),
+          ) +
+            Math.abs(
+              actor.presence.position.y -
+                (head.y - (coordinate?.y ?? 0) * defaultGameConfig.grid.rows),
+            ) <=
+            2,
+      );
+      command =
+        !interaction && nearby
+          ? { type: 'openActor', playerId, actorId: nearby.id }
+          : { type: 'interact', playerId };
+    } else if (key === 'f5') command = { type: 'saveGame', playerId };
     else if (key === 'f9') command = { type: 'loadGame', playerId };
     else if (key === 'enter' && !this.alive) command = { type: 'restartRun', playerId };
     else return;
     event.preventDefault();
     if (event.repeat && !direction) return;
-    void bridge
-      .send(command)
-      .then((result) => {
-        this.error = result.ok ? '' : (result.reason ?? 'Command failed');
-        this.dirty = true;
-      })
-      .catch((error: unknown) => this.showError(error));
+    this.send(command);
   };
+
+  private async send(command: ClientCommand): Promise<CommandResult> {
+    const bridge = this.bridge;
+    if (!bridge) return { ok: false, reason: 'Not connected.' };
+    try {
+      const result = await bridge.send(command);
+      this.error = result.ok ? '' : (result.reason ?? 'Command failed');
+      this.dirty = true;
+      return result;
+    } catch (error) {
+      this.showError(error);
+      return { ok: false, reason: error instanceof Error ? error.message : String(error) };
+    }
+  }
 
   private showError(error: unknown): void {
     if (this.disposed) return;

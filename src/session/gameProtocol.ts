@@ -27,6 +27,25 @@ export type ServerMessage =
 export function isClientCommand(value: unknown): value is ClientCommand {
   if (!isRecord(value) || typeof value.playerId !== 'string') return false;
   switch (value.type) {
+    case 'openActor':
+      return (
+        typeof value.actorId === 'string' && value.actorId.length > 0 && value.actorId.length <= 256
+      );
+    case 'selectInteraction':
+      return (
+        Number.isSafeInteger(value.menuId) &&
+        typeof value.menuId === 'number' &&
+        value.menuId > 0 &&
+        typeof value.optionId === 'string' &&
+        value.optionId.length > 0 &&
+        value.optionId.length <= 256
+      );
+    case 'closeInteraction':
+      return (
+        typeof value.menuId === 'number' && Number.isSafeInteger(value.menuId) && value.menuId > 0
+      );
+    case 'talkToActor':
+      return typeof value.actorId === 'string' && value.actorId.length <= 256;
     case 'setDirection':
     case 'forceDirection': {
       const direction = value.direction;

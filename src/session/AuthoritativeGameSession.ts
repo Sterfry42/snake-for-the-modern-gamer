@@ -1,10 +1,12 @@
 import { setSavedGameData } from '../game/saveManager.js';
 import type { ChoiceWithMods, GameSaveData } from '../game/saveTypes.js';
 import type { SnakeGame, StepResult } from '../game/snakeGame.js';
-import type { PlayerId } from '../players/playerTypes.js';
+import type { PlayerId, PlayerRuntime } from '../players/playerTypes.js';
 import type { Boss } from '../systems/boss.js';
 import type { SaveStore } from '../storage/SaveStore.js';
 import type { ClientCommand, CommandResult } from './ClientCommand.js';
+import { isInteractionCommand } from './ClientCommand.js';
+import { ConnectedGameInteractions } from './ConnectedGameInteractions.js';
 import type { GameEvent } from './GameEvent.js';
 import type { LocalAuthoritativeRuntime, LocalAuthoritativeRuntimeArgs } from './GameRuntime.js';
 import type { GameSnapshot, ConnectionPresence } from './GameSnapshot.js';
@@ -31,19 +33,52 @@ type EventHandler = (event: GameEvent) => void;
 export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   private readonly connections = new Map<string, ConnectionPresence>();
 
-  registerConnection(connectionId: string, displayName: string): void {
-    this.connections.set(connectionId, {
-      connectionId,
-      playerId: this.localPlayerId,
-      displayName: normalizeDisplayName(displayName),
+  attachConnection(connectionId: string, name: string): Promise<PlayerId> {
+    return this.enqueue(async () => this.registerConnection(connectionId, name));
+  }
+
+  detachConnection(connectionId: string): Promise<void> {
+    return this.enqueue(async () => {
+      this.unregisterConnection(connectionId);
+      this.refreshSnapshot();
     });
   }
 
+  registerConnection(connectionId: string, displayName: string): PlayerId {
+    const primaryAttached = [...this.connections.values()].some(
+      (peer) => peer.playerId === this.localPlayerId,
+    );
+    const playerId = primaryAttached ? `player-${connectionId}` : this.localPlayerId;
+    this.game.addConnectedPlayer(playerId, normalizeDisplayName(displayName)).alive = true;
+    this.connections.set(connectionId, {
+      connectionId,
+      playerId,
+      displayName: normalizeDisplayName(displayName),
+    });
+    return playerId;
+  }
+
   unregisterConnection(connectionId: string): void {
+    const peer = this.connections.get(connectionId);
     this.connections.delete(connectionId);
+    if (!peer) return;
+    this.interactions.remove(peer.playerId);
+    if (peer.playerId === this.localPlayerId) {
+      const player = this.game.getPlayer(peer.playerId);
+      if (player) player.alive = false;
+    } else this.game.removeConnectedPlayer(peer.playerId);
+  }
+
+  private simulationPlayers() {
+    const ids =
+      this.connections.size > 0
+        ? [...new Set([...this.connections.values()].map((peer) => peer.playerId))]
+        : [this.localPlayerId];
+    return ids
+      .map((id) => this.game.getPlayer(id))
+      .filter((player): player is PlayerRuntime => player !== null && player.alive);
   }
   private paused = false;
-  private dead = false;
   private work: Promise<void> = Promise.resolve();
   private timer: ReturnType<typeof setInterval> | undefined;
   private readonly dueSteps: Array<() => void | Promise<void>> = [];
@@ -87,11 +122,12 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     },
   ]);
   private readonly game: SnakeGame;
+  private readonly interactions: ConnectedGameInteractions;
   private readonly localPlayerId: PlayerId;
   private readonly saveStore?: SaveStore<GameSaveData>;
   private readonly saveSlotId: string;
   private readonly manageBasicFeatures: boolean;
-  private readonly snapshotHandlers = new Set<SnapshotHandler>();
+  private readonly snapshotHandlers = new Map<SnapshotHandler, PlayerId>();
   private readonly eventHandlers = new Set<EventHandler>();
   private lastSnapshot: GameSnapshot;
 
@@ -101,6 +137,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
 
   constructor(args: AuthoritativeGameSessionArgs) {
     this.game = args.game;
+    this.interactions = new ConnectedGameInteractions(this.game);
     this.localPlayerId = args.localPlayerId ?? this.game.getLocalPlayerId();
     this.saveStore = args.saveStore;
     this.saveSlotId = args.saveSlotId ?? 'default';
@@ -121,13 +158,33 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     const game = new Game(options.config ?? defaultGameConfig, registry);
     game.reset();
     if (game.config.features.enabled.includes('wrapWall')) game.enableTeleport(true);
-    return new AuthoritativeGameSession({ ...options, game, manageBasicFeatures: true });
+    return new AuthoritativeGameSession({
+      ...options,
+      game,
+      manageBasicFeatures: true,
+    });
   }
 
   /** Commands, persistence, and asynchronous actor steps share one ordered queue. */
   executeCommand(command: ClientCommand): Promise<CommandResult> {
     return this.enqueue(async () => {
       if (!this.game.getPlayer(command.playerId)) return { ok: false, reason: 'unknown-player' };
+      if (isInteractionCommand(command)) {
+        const result = await this.game.runForPlayerAsync(command.playerId, async () => {
+          if (!this.game.getPlayer(command.playerId)?.alive && command.type !== 'closeInteraction')
+            return { ok: false, reason: 'Respawn before acting.' };
+          switch (command.type) {
+            case 'openActor':
+              return this.interactions.open(command.playerId, command.actorId);
+            case 'closeInteraction':
+              return this.interactions.close(command.playerId, command.menuId);
+            case 'selectInteraction':
+              return this.interactions.select(command.playerId, command.menuId, command.optionId);
+          }
+        });
+        this.emitSnapshot();
+        return result;
+      }
       if (this.saveStore) {
         switch (command.type) {
           case 'saveGame':
@@ -137,7 +194,8 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
             const data = await this.saveStore.load(this.saveSlotId);
             if (!data) return { ok: false, loaded: false };
             if (!this.game.loadFromSaveData(data)) return { ok: false, loaded: false };
-            this.dead = false;
+            this.interactions.reset();
+            this.game.getPlayer(this.localPlayerId)!.alive = true;
             for (const id of ['boss', 'action', 'actor', 'bullet', 'hazard'])
               this.scheduler.resetClock(id);
             this.refreshSnapshot();
@@ -148,19 +206,21 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
             return { ok: true, cleared: true };
         }
       }
-      return this.handleCommand(command);
+      return this.game.runForPlayer(command.playerId, () => this.handleCommand(command));
     });
   }
 
   advance(deltaMs: number): Promise<void> {
     return this.enqueue(async () => {
       if (!Number.isFinite(deltaMs) || deltaMs < 0) throw new Error('Invalid simulation delta');
-      const running = !this.paused && !this.dead;
+      const running = !this.paused && this.simulationPlayers().length > 0;
       if (running) {
         this.game.setFlag(
           'timeMs',
           Number(this.game.getFlag<number>('timeMs') ?? 0) + Math.min(deltaMs, 250),
         );
+        const now = this.game.getFlag<number>('timeMs');
+        for (const player of this.simulationPlayers()) player.snake.flags.timeMs = now;
         this.game.updateAtmosphere(Math.min(deltaMs, 250));
       }
       this.scheduler.update(deltaMs, {
@@ -172,7 +232,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       });
       const steps = this.dueSteps.splice(0);
       for (const step of steps) {
-        if (this.dead || this.paused) break;
+        if (this.paused || this.simulationPlayers().length === 0) break;
         await step();
       }
     });
@@ -215,14 +275,49 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
 
   handleCommand(command: ClientCommand): CommandResult {
+    if (isInteractionCommand(command))
+      return { ok: false, reason: 'Interaction commands require the session queue.' };
+    if (
+      this.game.getLocalPlayerId() !== command.playerId &&
+      this.game.getPlayer(command.playerId)
+    ) {
+      return this.game.runForPlayer(command.playerId, () => this.handleCommand(command));
+    }
     const player = this.game.getPlayer(command.playerId);
     if (!player) {
       return { ok: false, reason: 'unknown-player' };
     }
+    if (
+      !player.alive &&
+      [
+        'setDirection',
+        'forceDirection',
+        'interact',
+        'chooseOption',
+        'talkToActor',
+        'useItem',
+      ].includes(command.type)
+    ) {
+      return { ok: false, reason: 'Respawn before acting.' };
+    }
 
+    if (command.type === 'talkToActor') {
+      const result = this.game.talkToNearbyActor(command.actorId);
+      this.emitSnapshot();
+      return result;
+    }
+
+    if (command.type === 'restartRun' && this.connections.size > 0) {
+      this.interactions.remove(command.playerId);
+      this.game.respawnConnectedPlayer(command.playerId);
+      this.game.getPlayer(command.playerId)!.alive = true;
+      this.emitSnapshot();
+      return { ok: true };
+    }
     if (command.type === 'restartRun') {
+      this.interactions.reset();
       this.game.reset();
-      this.dead = false;
+      this.game.getPlayer(command.playerId)!.alive = true;
       this.paused = false;
       if (this.game.config.features.enabled.includes('wrapWall')) this.game.enableTeleport(true);
       for (const id of ['boss', 'action', 'actor', 'bullet', 'hazard'])
@@ -267,9 +362,22 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
 
   actionStep(paused: boolean): StepResult {
-    const previousRoomId = this.game.getPlayer(this.localPlayerId)?.snake.currentRoomId;
+    let first: StepResult | undefined;
+    for (const player of this.simulationPlayers()) {
+      const result = this.game.runForPlayer(player.id, () =>
+        this.stepPlayerAction(paused || Boolean(this.interactions.getView(player.id)), player.id),
+      );
+      first ??= result;
+    }
+    return first ?? this.game.actionStep(true);
+  }
+
+  private stepPlayerAction(paused: boolean, playerId: PlayerId): StepResult {
+    const previousRoomId = this.game.getPlayer(playerId)?.snake.currentRoomId;
     const result = this.game.actionStep(paused);
-    if (result.status === 'dead') this.dead = true;
+    if (result.status === 'dead') {
+      this.game.getPlayer(playerId)!.alive = false;
+    }
     if (this.manageBasicFeatures && !paused && result.status !== 'dead') {
       const enabled = this.game.config.features.enabled;
       if (enabled.includes('hungerTimer')) stepHungerTimer(this.game);
@@ -280,7 +388,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         if (enabled.includes('hungerTimer')) this.game.setFlag('timeSinceEat', 0);
       }
     }
-    if (!paused) {
+    if (!paused && playerId === this.localPlayerId) {
       const debugResult = this.game.stepDebugPlayers();
       if (debugResult.appleEaten) {
         this.emit({
@@ -296,8 +404,9 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         });
       }
     }
-    const snapshot = this.emitSnapshot();
-    if (this.eventHandlers.size > 0) this.emitStepEvents(previousRoomId, result, snapshot);
+    if (this.eventHandlers.size > 0)
+      this.emitStepEvents(previousRoomId, result, this.buildSnapshot(true, playerId), playerId);
+    this.emitSnapshot();
     return result;
   }
 
@@ -314,15 +423,29 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
 
   hazardClockStep(): StepResult | null {
-    return this.runClockStep(() => this.game.hazardClockStep());
+    let first: StepResult | null = null;
+    for (const player of this.simulationPlayers()) {
+      const result = this.game.runForPlayer(player.id, () => this.game.hazardClockStep());
+      if (result?.status === 'dead') player.alive = false;
+      if (result && this.eventHandlers.size > 0)
+        this.emitStepEvents(
+          player.snake.currentRoomId,
+          result,
+          this.buildSnapshot(true, player.id),
+          player.id,
+        );
+      first ??= result;
+    }
+    this.emitSnapshot();
+    return first;
   }
 
   bulletClockStep(): StepResult | null {
     return this.runClockStep(() => this.game.bulletClockStep());
   }
 
-  getSnapshot(): GameSnapshot {
-    this.lastSnapshot = this.buildSnapshot();
+  getSnapshot(playerId = this.localPlayerId): GameSnapshot {
+    this.lastSnapshot = this.buildSnapshot(true, playerId);
     return this.lastSnapshot;
   }
 
@@ -330,9 +453,9 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     return this.emitSnapshot(true);
   }
 
-  onSnapshot(handler: SnapshotHandler): () => void {
-    this.snapshotHandlers.add(handler);
-    handler(this.getSnapshot());
+  onSnapshot(handler: SnapshotHandler, playerId = this.localPlayerId): () => void {
+    this.snapshotHandlers.set(handler, playerId);
+    handler(this.getSnapshot(playerId));
     return () => {
       this.snapshotHandlers.delete(handler);
     };
@@ -382,7 +505,8 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   ): boolean {
     const loaded = this.game.loadGame(getReligionChoice, getClassChoice, getBackgroundChoice);
     if (loaded) {
-      this.dead = false;
+      this.interactions.reset();
+      this.game.getPlayer(this.localPlayerId)!.alive = true;
       this.emitSnapshot();
     }
     return loaded;
@@ -411,19 +535,22 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     await this.saveStore.clear(this.saveSlotId);
   }
 
-  private buildSnapshot(detach = true): GameSnapshot {
-    const snapshot = this.game.getSnapshot(this.localPlayerId);
+  private buildSnapshot(detach = true, playerId = this.localPlayerId): GameSnapshot {
+    if (this.game.getLocalPlayerId() !== playerId) {
+      return this.game.runForPlayer(playerId, () => this.buildSnapshot(detach, playerId));
+    }
+    const snapshot = this.game.getSnapshot(playerId);
     snapshot.connections = Object.fromEntries(this.connections);
     for (const room of Object.values(snapshot.viewport.rooms)) {
       room.bosses = this.game.getBosses(room.id).map(cloneBossForSnapshot);
     }
     snapshot.ui.paused = this.paused;
+    snapshot.ui.interaction = this.interactions.getView(playerId);
     snapshot.presentation = {
       characterMode: this.game.getCharacterMode(),
       atmosphere: this.game.getAtmosphereForRoom(),
     };
-    if (this.manageBasicFeatures && snapshot.players[this.localPlayerId])
-      snapshot.players[this.localPlayerId].alive = !this.dead;
+
     return detach ? copyGameSnapshot(snapshot) : snapshot;
   }
 
@@ -434,8 +561,12 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     }
     const snapshot = this.buildSnapshot(forceDetach || this.snapshotHandlers.size > 0);
     this.lastSnapshot = snapshot;
-    for (const handler of this.snapshotHandlers) {
-      handler(structuredClone(snapshot));
+    for (const [handler, playerId] of this.snapshotHandlers) {
+      handler(
+        playerId === this.localPlayerId
+          ? structuredClone(snapshot)
+          : this.buildSnapshot(true, playerId),
+      );
     }
     return snapshot;
   }
@@ -449,7 +580,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   private runClockStep(step: () => StepResult | null): StepResult | null {
     const previousRoomId = this.game.getPlayer(this.localPlayerId)?.snake.currentRoomId;
     const result = step();
-    if (result?.status === 'dead') this.dead = true;
+    if (result?.status === 'dead') this.game.getPlayer(this.localPlayerId)!.alive = false;
     const snapshot = this.emitSnapshot();
     if (result && this.eventHandlers.size > 0) {
       this.emitStepEvents(previousRoomId, result, snapshot);
@@ -462,7 +593,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   ): Promise<StepResult | null> {
     const previousRoomId = this.game.getPlayer(this.localPlayerId)?.snake.currentRoomId;
     const result = await step();
-    if (result?.status === 'dead') this.dead = true;
+    if (result?.status === 'dead') this.game.getPlayer(this.localPlayerId)!.alive = false;
     const snapshot = this.emitSnapshot();
     if (result && this.eventHandlers.size > 0) {
       this.emitStepEvents(previousRoomId, result, snapshot);
@@ -474,15 +605,16 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     previousRoomId: string | undefined,
     result: StepResult,
     snapshot: GameSnapshot,
+    playerId = this.localPlayerId,
   ): void {
-    const player = snapshot.players[this.localPlayerId];
+    const player = snapshot.players[playerId];
     if (!player) {
       return;
     }
     if (previousRoomId && previousRoomId !== player.roomId) {
       this.emit({
         type: 'room.changed',
-        playerId: this.localPlayerId,
+        playerId,
         fromRoomId: previousRoomId,
         toRoomId: player.roomId,
       });
@@ -490,7 +622,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     if (result.status === 'dead') {
       this.emit({
         type: 'player.died',
-        playerId: this.localPlayerId,
+        playerId,
         reason: result.deathReason ?? 'unknown',
       });
       this.emit({
@@ -506,7 +638,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     if (result.apple.eaten) {
       this.emit({
         type: 'item.picked_up',
-        playerId: this.localPlayerId,
+        playerId,
         itemId: result.apple.typeId ?? 'apple',
         label: result.apple.typeId ?? 'apple',
       });
@@ -518,7 +650,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     for (const quest of result.questsCompleted) {
       this.emit({
         type: 'quest.completed',
-        playerId: this.localPlayerId,
+        playerId,
         questId: quest.id,
         label: quest.label,
       });

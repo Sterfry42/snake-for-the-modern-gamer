@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import type SnakeScene from '../scenes/snakeScene.js';
 import { i18n } from '../i18n/i18nManager.js';
 import type { ControllerNavCommand } from '../input/controllerNavigation.js';
 import {
@@ -15,6 +14,12 @@ export interface ChoiceOption {
   title: string;
   description: string;
   disabled?: boolean;
+}
+
+interface ChoicePopupScene extends Phaser.Scene {
+  registerChoicePopup?(popup: ChoicePopup): void;
+  setChoicePopupVisible?(visible: boolean): void;
+  snakeGame?: { getCurrentRoom(): { id: string } };
 }
 
 export class ChoicePopup {
@@ -41,14 +46,14 @@ export class ChoicePopup {
   private width = 500;
   private optionMask?: Phaser.Display.Masks.GeometryMask;
 
-  constructor(private readonly scene: SnakeScene) {
+  constructor(private readonly scene: ChoicePopupScene) {
     this.build();
-    this.scene.registerChoicePopup(this);
+    this.scene.registerChoicePopup?.(this);
   }
 
   show(title: string, options: ChoiceOption[], onPick: (id: string) => void): void {
     this.onPick = onPick;
-    this.scene.setChoicePopupVisible(true);
+    this.scene.setChoicePopupVisible?.(true);
     this.titleText?.setText(title.trim() || 'Choose');
     this.options = normalizeChoiceOptions(options);
     this.selectedIndex = Math.max(
@@ -147,7 +152,7 @@ export class ChoicePopup {
 
   hide(): void {
     this.container?.setVisible(false);
-    this.scene.setChoicePopupVisible(false);
+    this.scene.setChoicePopupVisible?.(false);
     this.onPick = undefined;
     this.options = [];
   }
@@ -159,6 +164,24 @@ export class ChoicePopup {
   isVisible(): boolean {
     return Boolean(this.container?.visible);
   }
+
+  destroy(): void {
+    this.hide();
+    this.scene.input.off('wheel', this.onWheel);
+    this.optionMask?.destroy();
+    this.optionMaskGraphics?.destroy();
+    this.container?.destroy(true);
+    this.container = undefined;
+  }
+
+  private readonly onWheel = (
+    _pointer: Phaser.Input.Pointer,
+    _objects: unknown[],
+    _dx: number,
+    dy: number,
+  ): void => {
+    this.scrollBy(dy);
+  };
 
   setControllerMode(active: boolean): void {
     this.controllerMode = active;
@@ -428,11 +451,6 @@ export class ChoicePopup {
         this.controllerHintText,
       ])
       .setVisible(false);
-    this.scene.input.on(
-      'wheel',
-      (_pointer: Phaser.Input.Pointer, _objects: unknown[], _dx: number, dy: number) => {
-        this.scrollBy(dy);
-      },
-    );
+    this.scene.input.on('wheel', this.onWheel);
   }
 }

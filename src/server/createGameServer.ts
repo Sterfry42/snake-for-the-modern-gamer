@@ -8,7 +8,7 @@ import {
   type ServerMessage,
 } from '../session/gameProtocol.js';
 
-/** Transport only. All connected clients currently attach to the singleton player. */
+/** Transport only. The session owns player allocation and gameplay. */
 export function createGameServer(session: AuthoritativeGameSession) {
   const http = createServer((_request, response) => {
     response.writeHead(200, { 'Content-Type': 'application/json' });
@@ -24,49 +24,65 @@ export function createGameServer(session: AuthoritativeGameSession) {
     socket.send(JSON.stringify(message));
   };
   sockets.on('connection', (socket, request) => {
-    const connectionId = randomUUID();
-    const endpoint = new URL(request.url ?? '/game', 'http://localhost');
-    session.registerConnection(connectionId, endpoint.searchParams.get('name') ?? 'Player');
-    const snapshot = session.getSnapshot();
-    const playerId = snapshot.localPlayerId;
-    publish(socket, {
-      type: 'welcome',
-      version: GAME_PROTOCOL_VERSION,
-      connectionId,
-      playerId,
-      snapshot,
-    });
-    const snapshotSubscription = session.onSnapshot((snapshot) =>
-      publish(socket, { type: 'snapshot', snapshot }),
-    );
-    const eventSubscription = session.onEvent((event) => publish(socket, { type: 'event', event }));
-    session.refreshSnapshot();
-    socket.once('close', () => {
-      snapshotSubscription();
-      eventSubscription();
-      session.unregisterConnection(connectionId);
-      session.refreshSnapshot();
-    });
+    socket.pause();
     socket.on('error', () => socket.terminate());
-    socket.on('message', (data, binary) => {
-      const message = binary ? null : parseCommandMessage(data.toString());
-      if (!message) {
-        socket.close(1008, 'Invalid command');
+    void attach().catch((error: unknown) => {
+      console.error('[game-server] Connection failed', error);
+      socket.close(1011, 'Cannot enter world');
+    });
+    async function attach() {
+      const connectionId = randomUUID();
+      const endpoint = new URL(request.url ?? '/game', 'http://localhost');
+      const playerId = await session.attachConnection(
+        connectionId,
+        endpoint.searchParams.get('name') ?? 'Player',
+      );
+      if (socket.readyState !== WebSocket.OPEN) {
+        await session.detachConnection(connectionId);
         return;
       }
-      // A wire payload cannot impersonate another runtime player.
-      void session.executeCommand({ ...message.command, playerId }).then(
-        (result) => publish(socket, { type: 'result', id: message.id, result }),
-        (error: unknown) => {
-          console.error('[game-server] Command failed', error);
-          publish(socket, {
-            type: 'result',
-            id: message.id,
-            result: { ok: false, reason: 'command-failed' },
-          });
-        },
+      const snapshot = session.getSnapshot(playerId);
+      publish(socket, {
+        type: 'welcome',
+        version: GAME_PROTOCOL_VERSION,
+        connectionId,
+        playerId,
+        snapshot,
+      });
+      const snapshotSubscription = session.onSnapshot(
+        (snapshot) => publish(socket, { type: 'snapshot', snapshot }),
+        playerId,
       );
-    });
+      const eventSubscription = session.onEvent((event) =>
+        publish(socket, { type: 'event', event }),
+      );
+      session.refreshSnapshot();
+      socket.once('close', () => {
+        snapshotSubscription();
+        eventSubscription();
+        void session.detachConnection(connectionId);
+      });
+      socket.on('message', (data, binary) => {
+        const message = binary ? null : parseCommandMessage(data.toString());
+        if (!message) {
+          socket.close(1008, 'Invalid command');
+          return;
+        }
+        // A wire payload cannot impersonate another runtime player.
+        void session.executeCommand({ ...message.command, playerId }).then(
+          (result) => publish(socket, { type: 'result', id: message.id, result }),
+          (error: unknown) => {
+            console.error('[game-server] Command failed', error);
+            publish(socket, {
+              type: 'result',
+              id: message.id,
+              result: { ok: false, reason: 'command-failed' },
+            });
+          },
+        );
+      });
+      socket.resume();
+    }
   });
 
   return {

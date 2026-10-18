@@ -1226,7 +1226,7 @@ export class SnakeGame implements QuestRuntime {
   private _rng: RandomGenerator;
   private world: WorldService;
   private apples: AppleService;
-  private readonly snake: SnakeState;
+  private snake: SnakeState;
   public readonly bosses: BossManager;
   get worldSeed(): string {
     return this.worldGenerationIdentity.seed;
@@ -1240,15 +1240,20 @@ export class SnakeGame implements QuestRuntime {
   private readonly rumors: RumorSystem;
   private readonly factionEvents: FactionEventSystem;
   private readonly civic = new CivicService();
-  private readonly inventory: InventorySystem;
+  private inventory: InventorySystem;
   private readonly cavesRuntime: CaveRuntime;
-  private readonly maneuvers = new ManeuverController();
-  private readonly specialStats = new SpecialStatsService();
+  private maneuvers = new ManeuverController();
+  private specialStats = new SpecialStatsService();
   private levelProgression: LevelProgressionState = createDefaultLevelProgressionState();
   private levelUpCallback?: (result: LevelUpResult) => void;
-  private readonly localPlayerId: PlayerId = 'player-1';
+  private readonly primaryPlayerId: PlayerId = 'player-1';
+  private localPlayerId: PlayerId = this.primaryPlayerId;
   private readonly debugSecondPlayerId: PlayerId = 'debug-player-2';
   private readonly players = new Map<PlayerId, PlayerRuntime>();
+  private readonly playerContexts = new Map<
+    PlayerId,
+    ReturnType<SnakeGame['capturePlayerContext']>
+  >();
   private debugSecondSnake: SnakeState | null = null;
   private debugSecondPlayerAlive = false;
   private debugSecondPlayerStepCount = 0;
@@ -1256,7 +1261,7 @@ export class SnakeGame implements QuestRuntime {
   private lethalStepHoldKey: string | null = null;
   private lethalStepHoldTicks = 0;
   private lethalStepHoldGraceTicks = 0;
-  private readonly visitedRooms: Set<string>;
+  private visitedRooms: Set<string>;
   private readonly npcBodies = new Map<string, NpcBodyState>();
   private readonly actorMaterializationDirtyRooms = new Set<string>();
   private readonly actorsTransitionedFromLoadedRoomThisTick = new Set<string>();
@@ -1370,6 +1375,8 @@ export class SnakeGame implements QuestRuntime {
     if (!options.preserveRunSeed && !this.config.rng.seed) {
       this.reseedFreshRun();
     }
+    this.playerContexts.clear();
+    this.players.clear();
     this.world.clear();
     this.atmosphere.reset(this.worldGenerationIdentity.seed);
     this.apples.clearAll();
@@ -1715,6 +1722,214 @@ export class SnakeGame implements QuestRuntime {
     return Array.from(this.players.values());
   }
 
+  /** Selects player state for existing synchronous gameplay methods in one shared world. */
+  private capturePlayerContext() {
+    return {
+      snake: this.snake,
+      inventory: this.inventory,
+      questController: this.questController,
+      maneuvers: this.maneuvers,
+      specialStats: this.specialStats,
+      levelProgression: this.levelProgression,
+      localPlayerId: this.localPlayerId,
+      visitedRooms: this.visitedRooms,
+      lethalStepHoldKey: this.lethalStepHoldKey,
+      lethalStepHoldTicks: this.lethalStepHoldTicks,
+      lethalStepHoldGraceTicks: this.lethalStepHoldGraceTicks,
+      powerupState: this.powerupState,
+      predationConfig: this.predationConfig,
+      predationState: this.predationState,
+      momentumConfig: this.momentumConfig,
+      momentumState: this.momentumState,
+      normalizationState: this.normalizationState,
+      normalizationTick: this.normalizationTick,
+      raccoonWeight: this.raccoonWeight,
+      raccoonHungerTimerMs: this.raccoonHungerTimerMs,
+      raccoonBanditMeter: this.raccoonBanditMeter,
+      raccoonStashedTotal: this.raccoonStashedTotal,
+      constructionPlacement: this.constructionPlacement,
+    };
+  }
+
+  runForPlayer<T>(playerId: PlayerId, operation: () => T): T {
+    if (playerId === this.localPlayerId) return operation();
+    const context = this.playerContexts.get(playerId);
+    if (!context) throw new Error(`Unknown player ${playerId}`);
+    const previous = this.capturePlayerContext();
+    this.playerContexts.set(this.localPlayerId, previous);
+    Object.assign(this, context);
+    try {
+      return operation();
+    } finally {
+      this.syncPlayerMap();
+      this.playerContexts.set(playerId, this.capturePlayerContext());
+      Object.assign(this, previous);
+    }
+  }
+
+  /** Only the authoritative session queue may hold a player context across an await. */
+  async runForPlayerAsync<T>(playerId: PlayerId, operation: () => Promise<T>): Promise<T> {
+    if (playerId === this.localPlayerId) return operation();
+    const context = this.playerContexts.get(playerId);
+    if (!context) throw new Error(`Unknown player ${playerId}`);
+    const previous = this.capturePlayerContext();
+    this.playerContexts.set(this.localPlayerId, previous);
+    Object.assign(this, context);
+    try {
+      return await operation();
+    } finally {
+      this.syncPlayerMap();
+      this.playerContexts.set(playerId, this.capturePlayerContext());
+      Object.assign(this, previous);
+    }
+  }
+
+  addConnectedPlayer(playerId: PlayerId, name: string): PlayerRuntime {
+    const existing = this.getPlayer(playerId);
+    if (existing) {
+      existing.name = name;
+      return existing;
+    }
+    const room = this.getCurrentRoom();
+    const snake = this.createConnectedSnake(room);
+    const questController = new QuestController(this.registry, {
+      ...this.config.quests,
+      rng: this._rng,
+    });
+    this.playerContexts.set(playerId, {
+      ...this.capturePlayerContext(),
+      snake,
+      localPlayerId: playerId,
+      inventory: new InventorySystem(),
+      questController,
+      maneuvers: new ManeuverController(),
+      specialStats: new SpecialStatsService(),
+      levelProgression: createDefaultLevelProgressionState(),
+      visitedRooms: new Set([room.id]),
+      lethalStepHoldKey: null,
+      lethalStepHoldTicks: 0,
+      lethalStepHoldGraceTicks: 0,
+      powerupState: null,
+      predationConfig: createDefaultPredationConfig(),
+      predationState: createDefaultPredationState(),
+      momentumConfig: createDefaultMomentumConfig(),
+      momentumState: createDefaultMomentumState(),
+      normalizationState: createNormalizationState(),
+      normalizationTick: 0,
+      raccoonWeight: 0,
+      raccoonHungerTimerMs: 0,
+      raccoonBanditMeter: 0,
+      raccoonStashedTotal: 0,
+      constructionPlacement: null,
+    });
+    this.runForPlayer(playerId, () => {
+      this.setFlag('player.health', 3);
+      this.setFlag('player.maxHealth', 3);
+      this.questController.reset(this);
+      if (this.config.features.enabled.includes('wrapWall')) this.enableTeleport(true);
+      this.syncPlayerMap();
+    });
+    const player = this.players.get(playerId)!;
+    player.name = name;
+    return player;
+  }
+
+  private createConnectedSnake(room: RoomSnapshot): SnakeState {
+    const snake = new SnakeState(this.config.grid, this.config.snake, room.id);
+    const [roomX, roomY] = this.parseRoomCoordinates(room.id);
+    const anchor = this.worldToLocal(room.id, this.snake.head);
+    const startX = Math.max(3, Math.min(this.config.grid.cols - 3, anchor.x + 6));
+    const startY = Math.max(2, Math.min(this.config.grid.rows - 3, anchor.y));
+    const occupied = new Set(
+      [
+        ...this.collectActorOccupancy(room.id),
+        ...this.getEnemies(room.id).map((enemy) => enemy.position),
+        ...(this.getApple(room.id) ? [this.getApple(room.id)!.position] : []),
+      ].map((position) => vectorKey(position)),
+    );
+    let spawn: Vector2Like | undefined;
+    for (let row = 0; row < this.config.grid.rows - 4 && !spawn; row += 1) {
+      const y = 2 + ((startY - 2 + row) % (this.config.grid.rows - 4));
+      for (let col = 0; col < this.config.grid.cols - 5; col += 1) {
+        const x = 3 + ((startX - 3 + col) % (this.config.grid.cols - 5));
+        const cells = [0, 1, 2].map((offset) => ({ x: x - offset, y }));
+        if (cells.some((cell) => occupied.has(vectorKey(cell)))) continue;
+        if (
+          cells.some((cell) => {
+            const tile = room.layout[cell.y]?.[cell.x];
+            return (
+              !tile ||
+              this.isSolidTile(tile) ||
+              tileHasTag(tile, 'liquid') ||
+              isBlockingTownTile(tile)
+            );
+          })
+        )
+          continue;
+        if (
+          cells.some((cell) =>
+            this.getPlayers().some(
+              (player) =>
+                player.snake.currentRoomId === room.id &&
+                player.snake.bodySegments.some(
+                  (segment) =>
+                    segment.x === cell.x + roomX * this.config.grid.cols &&
+                    segment.y === cell.y + roomY * this.config.grid.rows,
+                ),
+            ),
+          )
+        )
+          continue;
+        spawn = { x: x + roomX * this.config.grid.cols, y: y + roomY * this.config.grid.rows };
+        break;
+      }
+    }
+    if (!spawn) throw new Error('No safe player spawn is available');
+    snake.restoreFromSave(
+      [spawn, { x: spawn.x - 1, y: spawn.y }, { x: spawn.x - 2, y: spawn.y }],
+      { x: 1, y: 0 },
+      room.id,
+      3,
+    );
+    return snake;
+  }
+
+  respawnConnectedPlayer(playerId: PlayerId): void {
+    this.runForPlayer(playerId, () => {
+      const flags = { ...this.snake.flags };
+      const score = this.snake.score;
+      const maxHealth = this.getPlayerHealth().max;
+      this.snake = this.createConnectedSnake(this.world.getRoom(this.config.world.originRoomId));
+      Object.assign(this.snake.flags, flags);
+      this.snake.score = score;
+      for (const key of [
+        'layers.active',
+        'caves.active',
+        'internal.previousSnapshot',
+        'internal.lastRemovedTail',
+        'internal.lastDeathPosition',
+        'internal.lastCollisionEntity',
+        'internal.killedByBossKind',
+      ])
+        this.setFlag(key, undefined);
+      this.maneuvers.reset();
+      this.lethalStepHoldKey = null;
+      this.lethalStepHoldTicks = 0;
+      this.lethalStepHoldGraceTicks = 0;
+      this.setFlag('player.health', maxHealth);
+      this.setFlag('internal.currentHead', { ...this.snake.head });
+      if (this.config.features.enabled.includes('wrapWall')) this.enableTeleport(true);
+    });
+    const player = this.getPlayer(playerId);
+    if (player) player.alive = true;
+  }
+
+  removeConnectedPlayer(playerId: PlayerId): void {
+    if (playerId === this.localPlayerId) return;
+    this.playerContexts.delete(playerId);
+    this.players.delete(playerId);
+  }
+
   handleCommand(command: ClientCommand): void {
     const player = this.getPlayer(command.playerId);
     if (!player) {
@@ -1742,7 +1957,9 @@ export class SnakeGame implements QuestRuntime {
 
   getSnapshot(localPlayerId: PlayerId = this.localPlayerId): GameSnapshot {
     this.syncPlayerMap();
-    const room = this.getCurrentRoom();
+    const room = this.world.getRoom(
+      this.players.get(localPlayerId)?.snake.currentRoomId ?? this.snake.currentRoomId,
+    );
     const roomId = room.id;
     const players = Object.fromEntries(
       Array.from(this.players.values(), (player) => [
@@ -1805,12 +2022,25 @@ export class SnakeGame implements QuestRuntime {
             footballs: this.getFootballs(roomId),
             bombs: this.getBombs(roomId),
             animals: this.getAnimals(roomId),
+            npcs: this.actors
+              .getActorsInRoom(roomId)
+              .filter(
+                (actor) =>
+                  actor.presence?.materialized &&
+                  actor.health?.state !== 'dead' &&
+                  actor.hostility !== 'dead' &&
+                  !actor.flags.dead &&
+                  !actor.flags.eaten &&
+                  !['enemy', 'animal', 'boss', 'follower', 'summon'].includes(actor.kind),
+              ),
           },
         },
       },
       players,
       ui: {
         messages: this.getSnapshotMessages(),
+        activeChoice: this.getNearbyQuestInteraction(),
+        inventory: Object.fromEntries(this.inventory.getAllItems()),
         activeQuest: this.questController.getActive()[0]?.id,
         health: this.getPlayerHealth(),
       },
@@ -1852,6 +2082,7 @@ export class SnakeGame implements QuestRuntime {
 
   setDebugSecondPlayerEnabled(enabled: boolean): void {
     if (!enabled) {
+      this.players.delete(this.debugSecondPlayerId);
       this.debugSecondSnake = null;
       this.debugSecondPlayerAlive = false;
       this.debugSecondPlayerStepCount = 0;
@@ -1930,15 +2161,18 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private syncPlayerMap(): void {
-    this.players.clear();
-    this.players.set(this.localPlayerId, {
-      id: this.localPlayerId,
-      name: 'Player 1',
-      snake: this.snake,
-      inventory: this.inventory,
-      flags: this.snake.flags,
-      alive: true,
-    });
+    const previous = this.players.get(this.localPlayerId);
+    this.players.set(
+      this.localPlayerId,
+      Object.assign(previous ?? {}, {
+        id: this.localPlayerId,
+        name: previous?.name ?? 'Player 1',
+        snake: this.snake,
+        inventory: this.inventory,
+        flags: this.snake.flags,
+        alive: previous?.alive ?? true,
+      }),
+    );
     if (this.debugSecondSnake) {
       this.players.set(this.debugSecondPlayerId, {
         id: this.debugSecondPlayerId,
@@ -3053,20 +3287,45 @@ export class SnakeGame implements QuestRuntime {
   }
 
   bulletClockStep(): StepResult | null {
-    const roomsChanged = new Set<string>();
-    const currentRoom = this.snake.currentRoomId;
-    const appleSnapshot = this.apples.getSnapshot(currentRoom);
+    const otherHits = new Map<string, { count: number; style: BulletInstance['style'] }>();
     const bulletStep = this.enemies.stepBullets({
       getRoom: (roomId: string) => this.world.getRoom(roomId),
       snake: this.snake.bodySegments,
       currentRoomId: this.snake.currentRoomId,
       snakeDirection: this.snake.directionVector,
+      otherPlayers: this.getPlayers()
+        .filter((player) => player.id !== this.localPlayerId && player.alive)
+        .map((player) => ({
+          id: player.id,
+          roomId: player.snake.currentRoomId,
+          body: player.snake.bodySegments,
+        })),
+      onOtherPlayerBulletHit: (playerId, style) => {
+        const previous = otherHits.get(playerId);
+        otherHits.set(playerId, {
+          count: (previous?.count ?? 0) + 1,
+          style: previous?.style ?? style,
+        });
+      },
     });
     this.handlePlayerBulletDefeats(bulletStep.defeatedEnemies ?? []);
-    if (
-      bulletStep.bulletHits <= 0 ||
-      !this.applyBulletDamage(bulletStep.bulletHits, bulletStep.hitStyle)
-    ) {
+    for (const [playerId, hit] of otherHits) {
+      const result = this.runForPlayer(playerId, () =>
+        this.resolveBulletClockDamage(hit.count, hit.style),
+      );
+      if (result?.status === 'dead') this.getPlayer(playerId)!.alive = false;
+    }
+    return this.resolveBulletClockDamage(bulletStep.bulletHits, bulletStep.hitStyle);
+  }
+
+  private resolveBulletClockDamage(
+    hits: number,
+    style: BulletInstance['style'],
+  ): StepResult | null {
+    const roomsChanged = new Set<string>();
+    const currentRoom = this.snake.currentRoomId;
+    const appleSnapshot = this.apples.getSnapshot(currentRoom);
+    if (hits <= 0 || !this.applyBulletDamage(hits, style)) {
       return null;
     }
 
@@ -3854,6 +4113,19 @@ export class SnakeGame implements QuestRuntime {
           Number(this.getFlag<number>('timeMs') ?? 0),
         ),
     });
+    const activeRooms = new Set([room.id]);
+    for (const player of this.getPlayers()) {
+      if (!player.alive || activeRooms.has(player.snake.currentRoomId)) continue;
+      activeRooms.add(player.snake.currentRoomId);
+      this.runForPlayer(player.id, () => {
+        const occupiedRoom = this.getCurrentRoom();
+        this.applyTownRuntimeToRoom(occupiedRoom);
+        this.stampQuestActorsIntoRoom(occupiedRoom);
+        this.ensureActorsFromRoomContent(occupiedRoom);
+        this.materializeDirtyActorsForRoom(occupiedRoom);
+        this.tickNpcBodies(occupiedRoom);
+      });
+    }
     this.recoverOverdueTownBusinessActors(this.getRoomsVisitedCount());
 
     return { enemyStep, animalStep };
@@ -6606,6 +6878,34 @@ export class SnakeGame implements QuestRuntime {
     return this.actors.getActorsInRoom(this.snake.currentRoomId);
   }
 
+  talkToNearbyActor(actorId: string): { ok: boolean; reason?: string } {
+    if (!this.canInteractWithActor(actorId)) return { ok: false, reason: 'Move closer to talk.' };
+    const actor = this.actors.getActor(actorId)!;
+    const conversation = this.getActorConversation(actorId, 'talk');
+    this.setFlag('ui.questInteraction', {
+      message: `${actor.displayName}: ${conversation?.line ?? 'They watch you with careful uncertainty.'}`,
+    });
+    return { ok: true };
+  }
+
+  canInteractWithActor(actorId: string): boolean {
+    const actor = this.actors.getActor(actorId);
+    const presence = actor?.presence;
+    const head = this.worldToLocal(this.snake.currentRoomId, this.snake.head);
+    return Boolean(
+      actor &&
+      presence &&
+      this.getPlayer(this.localPlayerId)?.alive &&
+      presence.materialized &&
+      presence.roomId === this.snake.currentRoomId &&
+      actor.health?.state !== 'dead' &&
+      actor.hostility !== 'dead' &&
+      !actor.flags.dead &&
+      !actor.flags.eaten &&
+      manhattanDistance(head, presence.position) <= 2,
+    );
+  }
+
   getCivicBadgesForActor(actorId: string): string[] {
     const actor = this.actors.getActor(actorId);
     const town = this.findTownById(actor?.townId);
@@ -7118,6 +7418,9 @@ export class SnakeGame implements QuestRuntime {
     if (!offer) {
       return closed('missing-offer', 'That offer is not on the counter.');
     }
+    if (!offer.itemId && !offer.cardId) {
+      return closed('missing-offer', 'That offer is not available.', offer);
+    }
     if (offer.itemId === ALCHEMY_STATION_ITEM_ID && this.getAlchemyStationCount() > 0) {
       return closed(
         'missing-offer',
@@ -7131,6 +7434,9 @@ export class SnakeGame implements QuestRuntime {
     this.addScore(-offer.price);
     if (offer.itemId) {
       this.addItem(offer.itemId, 1);
+    }
+    if (offer.cardId) {
+      this.addCardToCollection(offer.cardId, 1);
     }
     this.decrementActorShopOfferStock(actorId, offer);
     const result = {
@@ -7203,12 +7509,21 @@ export class SnakeGame implements QuestRuntime {
       return;
     }
     const key = this.getActorShopOfferStockFlagKey(actorId, offer.id);
-    this.setFlag(key, Math.max(0, this.getActorShopOfferRemaining(actorId, offer) - 1));
+    const remaining = Math.max(0, this.getActorShopOfferRemaining(actorId, offer) - 1);
+    this.actors.registry.update(actorId, (actor) => ({
+      ...actor,
+      flags: { ...actor.flags, [key]: remaining },
+    }));
+    // Keep the legacy save field while the stock itself belongs to the shared Actor.
+    const primary = this.getPlayer(this.primaryPlayerId);
+    if (primary) primary.flags[key] = remaining;
   }
 
   private getActorShopOfferRemaining(actorId: string, offer: ActorShopOfferView): number {
     const key = this.getActorShopOfferStockFlagKey(actorId, offer.id);
-    return Math.max(0, Math.floor(Number(this.getFlag<number>(key) ?? offer.quantity ?? 0)));
+    const stock =
+      this.actors.getActor(actorId)?.flags[key] ?? this.getPlayer(this.primaryPlayerId)?.flags[key];
+    return Math.max(0, Math.floor(Number(stock ?? offer.quantity ?? 0)));
   }
 
   private getActorShopOfferStockFlagKey(actorId: string, offerId: string): string {
@@ -10458,11 +10773,17 @@ export class SnakeGame implements QuestRuntime {
     nowMs: number,
   ): number {
     let actorsMoved = 0;
+    const occupiedRooms = new Set(
+      this.getPlayers()
+        .filter((player) => player.alive)
+        .map((player) => player.snake.currentRoomId),
+    );
     for (const actor of this.actors.registry.getForWork('travel')) {
       const goalRoomId = actor.goal?.roomId;
       if (
         !goalRoomId ||
         actor.currentRoomId === loadedRoomId ||
+        (actor.currentRoomId && occupiedRooms.has(actor.currentRoomId)) ||
         this.actorsTransitionedFromLoadedRoomThisTick.has(actor.id) ||
         actor.health?.state === 'dead' ||
         actor.hostility === 'dead'
@@ -12200,8 +12521,12 @@ export class SnakeGame implements QuestRuntime {
       return;
     }
     room.town = this.applyTownRuntimeState(room.town);
-    this.resolveDueMayoralElectionForTown(room.town, this.getAtmosphereState());
-    room.town = this.applyTownRuntimeState(room.town);
+    const civic = this.getTownCivicState(room.town);
+    const atmosphere = this.getAtmosphereState();
+    if (this.civic.shouldResolve(civic, atmosphere.worldDay, atmosphere.dayPhase)) {
+      this.resolveDueMayoralElectionForTown(room.town, atmosphere);
+      room.town = this.applyTownRuntimeState(room.town);
+    }
     this.normalizeTownQuestBoardTiles(room);
     this.openTownGateTiles(room);
     if (room.town.discoveredGuild) {
