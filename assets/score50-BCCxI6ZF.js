@@ -1,1 +1,0 @@
-import{ScoreQuest as o}from"./countingQuest-CfkAPdmf.js";import"./quest-Bpr_u20u.js";const s=new o("score-50","Rookie Points","Reach a score of 50",50,15,{type:"style",id:"charcoal-silk"});export{s as default};

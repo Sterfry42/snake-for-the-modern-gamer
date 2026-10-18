@@ -1,0 +1,1 @@
+import{S as o}from"./countingQuest-vLBEI1kT.js";import"./quest-Bpr_u20u.js";const r=new o("score-50","Rookie Points","Reach a score of 50",50,15,{type:"style",id:"charcoal-silk"});export{r as default};
