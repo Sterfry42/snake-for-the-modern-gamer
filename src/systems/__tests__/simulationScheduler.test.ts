@@ -2,6 +2,40 @@ import { describe, expect, it } from 'vitest';
 import { SimulationScheduler } from '../simulationScheduler.js';
 
 describe('SimulationScheduler', () => {
+  it('stops catch-up and later clocks when a step opens a pause menu', () => {
+    let paused = false;
+    let actionSteps = 0;
+    let actorSteps = 0;
+    const scheduler = new SimulationScheduler([
+      {
+        id: 'action',
+        intervalMs: 100,
+        step: () => {
+          actionSteps++;
+          paused = true;
+        },
+      },
+      {
+        id: 'actor',
+        intervalMs: 100,
+        step: () => {
+          actorSteps++;
+        },
+      },
+    ]);
+    const rules = () => ({ action: !paused, actor: !paused });
+    scheduler.update(250, rules);
+    expect(actionSteps).toBe(1);
+    expect(actorSteps).toBe(0);
+    scheduler.update(250, rules);
+    expect(actionSteps).toBe(1);
+    expect(actorSteps).toBe(0);
+    paused = false;
+    scheduler.update(49, rules);
+    expect(actionSteps).toBe(1);
+    expect(actorSteps).toBe(0);
+  });
+
   it('accumulates elapsed time and steps clocks at their own interval', () => {
     const steps: number[] = [];
     const scheduler = new SimulationScheduler([

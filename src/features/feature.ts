@@ -11,6 +11,9 @@ export abstract class Feature {
   onRegister(context: FeatureContext): void {
     void context;
   }
+  onRunStarted(context: FeatureContext): void {
+    void context;
+  }
   onActionStep(context: FeatureContext): void {
     void context;
   }

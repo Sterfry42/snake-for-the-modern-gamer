@@ -1,11 +1,88 @@
 import { expect, test, type Page } from '@playwright/test';
 
 test.describe('Snake for the Modern Gamer smoke tests', () => {
+  test('boots without a world and keeps lifecycle ownership stable across runs', async ({
+    page,
+  }) => {
+    const errors = collectPageErrors(page);
+    await page.goto('?lifecycle=1');
+    await waitForE2EBridge(page);
+    const boot = await page.evaluate(() => window.snakeE2E!.getLifecycle());
+    expect(boot).toMatchObject({
+      phaserGames: 1,
+      snakeSceneCreates: 1,
+      snakeScenesActive: 1,
+      generatedRooms: 0,
+      actorClocks: 0,
+      actorTicks: 0,
+      mode: 'title',
+    });
+    await page.waitForTimeout(350);
+    expect(await page.evaluate(() => window.snakeE2E!.getLifecycle().generatedRooms)).toBe(0);
+
+    const runs = [];
+    for (let index = 0; index < 3; index++) {
+      await page.evaluate(async () => {
+        await window.snakeE2E!.startRun();
+      });
+      await page.waitForTimeout(100);
+      const started = await page.evaluate(() => window.snakeE2E!.getLifecycle());
+      expect(started).toMatchObject({
+        phaserGames: 1,
+        snakeSceneCreates: 1,
+        snakeScenesActive: 1,
+        actorClocks: 1,
+        actorTicks: 0,
+      });
+      expect(started.generatedRooms).toBeGreaterThan(0);
+      runs.push(started);
+      await page.evaluate(() => window.snakeE2E!.showTitle());
+      const before = await page.evaluate(() => window.snakeE2E!.getLifecycle().actorTicks);
+      await page.waitForTimeout(350);
+      expect(await page.evaluate(() => window.snakeE2E!.getLifecycle().actorTicks)).toBe(before);
+    }
+    expect(
+      runs.map(({ updateListeners, postUpdateListeners }) => [
+        updateListeners,
+        postUpdateListeners,
+      ]),
+    ).toEqual(Array(3).fill([runs[0].updateListeners, runs[0].postUpdateListeners]));
+    expect(runs[2].timers).toBeLessThanOrEqual(runs[0].timers);
+    expect(errors).toEqual([]);
+  });
+
+  test('stops Actor ticks in the pause menu and resumes without a catch-up burst', async ({
+    page,
+  }) => {
+    const errors = collectPageErrors(page);
+    await page.goto('');
+    await waitForE2EBridge(page);
+    await page.evaluate(async () => {
+      await window.snakeE2E!.startRun();
+    });
+    for (let choice = 0; choice < 3; choice++) await page.keyboard.press('Enter');
+    await expect
+      .poll(() => page.evaluate(() => window.snakeE2E!.getLifecycle().actorTicks))
+      .toBeGreaterThan(0);
+    await page.keyboard.press('Space');
+    await expect
+      .poll(() => page.evaluate(() => window.snakeE2E!.getLifecycle().mode))
+      .toBe('paused');
+    const pausedTicks = await page.evaluate(() => window.snakeE2E!.getLifecycle().actorTicks);
+    await page.waitForTimeout(500);
+    expect(await page.evaluate(() => window.snakeE2E!.getLifecycle().actorTicks)).toBe(pausedTicks);
+    await page.keyboard.press('Space');
+    await expect
+      .poll(() => page.evaluate(() => window.snakeE2E!.getLifecycle().actorTicks))
+      .toBeGreaterThan(pausedTicks);
+    expect(errors).toEqual([]);
+  });
+
   test('starts a new run when older sessions fill the save quota', async ({ page }) => {
     const errors = collectPageErrors(page);
     await page.goto('');
     await waitForE2EBridge(page);
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
       const data = {
         version: '3.0.0',
         timestamp: 1,
@@ -36,7 +113,7 @@ test.describe('Snake for the Modern Gamer smoke tests', () => {
         }
         originalSetItem.call(this, key, value);
       };
-      window.snakeE2E!.startRun();
+      await window.snakeE2E!.startRun();
     });
     await expect
       .poll(() =>
@@ -96,8 +173,8 @@ test.describe('Snake for the Modern Gamer smoke tests', () => {
     await expect(canvas).toBeVisible({ timeout: 30_000 });
     await waitForE2EBridge(page);
 
-    const learned = await page.evaluate(() => {
-      window.snakeE2E!.startRun();
+    const learned = await page.evaluate(async () => {
+      await window.snakeE2E!.startRun();
       window.snakeE2E!.grantManaBloom();
       window.snakeE2E!.grantItem('spell-tome-arcane-pulse', 1);
       return {
@@ -151,7 +228,21 @@ async function waitForE2EBridge(page: Page): Promise<void> {
 declare global {
   interface Window {
     snakeE2E?: {
-      startRun(): void;
+      startRun(): Promise<void>;
+      showTitle(): void;
+      getLifecycle(): {
+        phaserGames: number;
+        snakeSceneCreates: number;
+        snakeScenesActive: number;
+        updateListeners: number;
+        postUpdateListeners: number;
+        timers: number;
+        actorClocks: number;
+        actorTicks: number;
+        generatedRooms: number;
+        renderCallsPerFrame: number;
+        mode: string;
+      };
       grantManaBloom(): boolean;
       grantItem(itemId: string, count?: number): void;
       useItem(itemId: string): { ok: boolean; message: string; color?: string };

@@ -1,4 +1,5 @@
 export type ClockRule = boolean | 'manual';
+type ClockRules = Readonly<Record<string, ClockRule>>;
 
 export interface SimulationClock {
   id: string;
@@ -30,11 +31,10 @@ export interface SchedulerDiagnostics {
 
 export class SimulationScheduler {
   private readonly clocks = new Map<string, RuntimeClock>();
-  private diagnostics: SchedulerDiagnostics = {
+  private diagnostics: Omit<SchedulerDiagnostics, 'clocks'> = {
     rawDeltaMs: 0,
     clampedDeltaMs: 0,
     wasDeltaClamped: false,
-    clocks: [],
   };
 
   constructor(clocks: readonly SimulationClock[]) {
@@ -53,29 +53,23 @@ export class SimulationScheduler {
     });
   }
 
-  update(deltaMs: number, rules: Readonly<Record<string, ClockRule>>): void {
+  update(deltaMs: number, rules: ClockRules | (() => ClockRules)): void {
+    const currentRules = () => (typeof rules === 'function' ? rules() : rules);
     const clampedDelta = Math.max(0, Math.min(deltaMs, 250));
     for (const clock of this.clocks.values()) {
       clock.droppedStepsLastUpdate = 0;
       clock.stepsLastUpdate = 0;
     }
-    for (const [id, rule] of Object.entries(rules)) {
-      if (rule !== true) {
+    for (const id of Object.keys(currentRules())) {
+      if (currentRules()[id] !== true) {
         continue;
       }
-      this.advanceClock(id, clampedDelta);
+      this.advanceClock(id, clampedDelta, () => currentRules()[id] === true);
     }
     this.diagnostics = {
       rawDeltaMs: deltaMs,
       clampedDeltaMs: clampedDelta,
       wasDeltaClamped: clampedDelta !== deltaMs,
-      clocks: Array.from(this.clocks.values()).map((clock) => ({
-        id: clock.id,
-        intervalMs: clock.intervalMs,
-        accumulatorMs: clock.accumulatorMs,
-        droppedStepsLastUpdate: clock.droppedStepsLastUpdate,
-        stepsLastUpdate: clock.stepsLastUpdate,
-      })),
     };
   }
 
@@ -112,11 +106,17 @@ export class SimulationScheduler {
   getDiagnostics(): SchedulerDiagnostics {
     return {
       ...this.diagnostics,
-      clocks: this.diagnostics.clocks.map((clock) => ({ ...clock })),
+      clocks: Array.from(this.clocks.values()).map((clock) => ({
+        id: clock.id,
+        intervalMs: clock.intervalMs,
+        accumulatorMs: clock.accumulatorMs,
+        droppedStepsLastUpdate: clock.droppedStepsLastUpdate,
+        stepsLastUpdate: clock.stepsLastUpdate,
+      })),
     };
   }
 
-  private advanceClock(id: string, deltaMs: number): void {
+  private advanceClock(id: string, deltaMs: number, enabled: () => boolean): void {
     const clock = this.clocks.get(id);
     if (!clock) {
       return;
@@ -124,6 +124,11 @@ export class SimulationScheduler {
     clock.accumulatorMs += deltaMs;
     const maxSteps = Math.max(1, Math.floor(clock.maxStepsPerUpdate ?? 8));
     while (clock.accumulatorMs >= clock.intervalMs && clock.stepsLastUpdate < maxSteps) {
+      if (!enabled()) {
+        // A preceding step opened a menu. Do not bank catch-up work for resume.
+        clock.accumulatorMs %= clock.intervalMs;
+        return;
+      }
       const stepIntervalMs = clock.intervalMs;
       clock.step(stepIntervalMs);
       clock.accumulatorMs -= stepIntervalMs;
