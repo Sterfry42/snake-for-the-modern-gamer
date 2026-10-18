@@ -10,6 +10,15 @@ import {
 import type { ControllerNavCommand } from '../input/controllerNavigation.js';
 
 export type LoadGameHandler = (sessionId: string, data: GameSaveData) => void;
+export type SaveLoadBackend = Pick<
+  typeof saveManagerV2,
+  | 'listSessions'
+  | 'listSessionSaves'
+  | 'deleteSession'
+  | 'deleteSave'
+  | 'deleteSessions'
+  | 'deleteSaves'
+>;
 
 interface EntryBox {
   container: Phaser.GameObjects.Container;
@@ -66,7 +75,10 @@ export class SaveLoadMenu {
   /** Keys of the entries picked for bulk delete (session IDs or save timestamps). */
   private selectedKeys = new Set<string>();
 
-  constructor(private readonly scene: SnakeScene) {
+  constructor(
+    private readonly scene: SnakeScene,
+    private readonly backend: SaveLoadBackend = saveManagerV2,
+  ) {
     this.build();
   }
 
@@ -77,7 +89,7 @@ export class SaveLoadMenu {
     this.view = 'sessions';
     this.activeSessionId = null;
     this.selectedKeys.clear();
-    this.sessions = await saveManagerV2.listSessions();
+    this.sessions = await this.backend.listSessions();
     this.titleText?.setText(i18n.getFeatureString('loadGameMenuTitle') || 'Load Game');
     this.buildEntries();
     this.layoutPopup();
@@ -199,7 +211,7 @@ export class SaveLoadMenu {
   }
 
   private async openSession(sessionId: string): Promise<void> {
-    const saves = await saveManagerV2.listSessionSaves(sessionId);
+    const saves = await this.backend.listSessionSaves(sessionId);
     if (saves.length === 0) return;
     this.view = 'saves';
     this.activeSessionId = sessionId;
@@ -335,16 +347,16 @@ export class SaveLoadMenu {
   }
 
   private async deleteSession(sessionId: string): Promise<void> {
-    await saveManagerV2.deleteSession(sessionId);
+    await this.backend.deleteSession(sessionId);
     this.selectedKeys.delete(sessionId);
-    this.sessions = await saveManagerV2.listSessions();
+    this.sessions = await this.backend.listSessions();
     await this.refreshView();
   }
 
   private async deleteSave(sessionId: string, timestamp: number): Promise<void> {
-    await saveManagerV2.deleteSave(sessionId, timestamp);
+    await this.backend.deleteSave(sessionId, timestamp);
     this.selectedKeys.delete(String(timestamp));
-    this.saveEntries = await saveManagerV2.listSessionSaves(sessionId);
+    this.saveEntries = await this.backend.listSessionSaves(sessionId);
     await this.refreshView();
   }
 
@@ -359,11 +371,11 @@ export class SaveLoadMenu {
         : i18n.getFeatureString('confirmDeleteSelectedSaves') || 'Delete {count} saves?';
     this.showConfirmDelete(template.replace('{count}', String(count)), async () => {
       if (this.view === 'sessions') {
-        await saveManagerV2.deleteSessions([...this.selectedKeys]);
-        this.sessions = await saveManagerV2.listSessions();
+        await this.backend.deleteSessions([...this.selectedKeys]);
+        this.sessions = await this.backend.listSessions();
       } else if (this.activeSessionId) {
-        await saveManagerV2.deleteSaves(this.activeSessionId, [...this.selectedKeys].map(Number));
-        this.saveEntries = await saveManagerV2.listSessionSaves(this.activeSessionId);
+        await this.backend.deleteSaves(this.activeSessionId, [...this.selectedKeys].map(Number));
+        this.saveEntries = await this.backend.listSessionSaves(this.activeSessionId);
       }
       this.selectedKeys.clear();
       await this.refreshView();
@@ -372,7 +384,7 @@ export class SaveLoadMenu {
 
   private async refreshView(): Promise<void> {
     if (this.view === 'saves' && this.activeSessionId) {
-      const sessions = await saveManagerV2.listSessions();
+      const sessions = await this.backend.listSessions();
       this.sessions = sessions;
       const info = sessions.find((s) => s.sessionId === this.activeSessionId);
       this.activeSessionLabel = info ? saveManagerV2.getSessionLabel(info) : '';

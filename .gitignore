@@ -16,6 +16,7 @@ __pycache__/
 # Locally built Archipelago world package (regenerate with `npm run build:apworld`)
 apworld/*.apworld
 .debug-runs/
+.snake-server-saves/
 playwright-report/
 test-results/
 *.local

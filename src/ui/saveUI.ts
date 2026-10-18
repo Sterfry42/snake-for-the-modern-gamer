@@ -152,7 +152,11 @@ export class SaveUI {
     return width;
   }
 
-  private saveGame(): void {
+  private async saveGame(): Promise<void> {
+    if (this.scene.isMultiplayer) {
+      if (await this.scene.saveRemoteCheckpoint()) this.triggerSaveFlash();
+      return;
+    }
     this.scene.prepareCharacterSave();
     // Save into the current session (keeps its last five saves).
     this.scene.saveGameToSession();

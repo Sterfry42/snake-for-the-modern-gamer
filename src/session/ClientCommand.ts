@@ -1,8 +1,15 @@
 import type { Vector2Like } from '../core/math.js';
 import type { ChoiceWithMods } from '../game/saveTypes.js';
 import type { PlayerId } from '../players/playerTypes.js';
+import type { SceneActionCommand } from './SceneActionCommand.js';
 
 export type ClientCommand =
+  | SceneActionCommand
+  | { type: 'openActor'; playerId: PlayerId; actorId: string }
+  | { type: 'selectInteraction'; playerId: PlayerId; menuId: number; optionId: string }
+  | { type: 'closeInteraction'; playerId: PlayerId; menuId: number }
+  | { type: 'talkToActor'; playerId: PlayerId; actorId: string }
+  | { type: 'restartRun'; playerId: PlayerId }
   | {
       type: 'setDirection';
       playerId: PlayerId;
@@ -56,12 +63,39 @@ export type ClientCommand =
 
 export interface CommandResult {
   ok: boolean;
+  actorOutcome?: import('./ActorIntent.js').ActorOutcome;
+  relationshipResult?: import('../relationships/relationshipTypes.js').RelationshipEventResult;
+  npcDisposition?: ReturnType<import('../game/snakeGame.js').SnakeGame['insultNpc']>;
+  questRequest?: {
+    state: string;
+    quest?: { id: string; label: string; description: string } | null;
+  };
+  caveGift?: ReturnType<import('../game/snakeGame.js').SnakeGame['claimCaveDwellerReward']>;
+  questInteractionResult?: ReturnType<
+    import('../game/snakeGame.js').SnakeGame['resolveQuestInteraction']
+  >;
+  encounterResult?: ReturnType<import('../game/snakeGame.js').SnakeGame['resolveRandomEncounter']>;
   loaded?: boolean;
   saved?: boolean;
   cleared?: boolean;
   reason?: string;
+  message?: string;
+  color?: string;
 }
 
 export interface CommandHandler {
   handleCommand(command: ClientCommand): CommandResult;
+}
+
+export type InteractionCommand = Extract<
+  ClientCommand,
+  { type: 'openActor' | 'selectInteraction' | 'closeInteraction' }
+>;
+
+export function isInteractionCommand(command: ClientCommand): command is InteractionCommand {
+  return (
+    command.type === 'openActor' ||
+    command.type === 'selectInteraction' ||
+    command.type === 'closeInteraction'
+  );
 }

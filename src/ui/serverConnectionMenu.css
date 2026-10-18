@@ -1,0 +1,75 @@
+.server-connection-menu[hidden] {
+  display: none;
+}
+.server-connection-menu {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: #02070bd9;
+  color: #fff4cf;
+  font: 16px monospace;
+}
+.server-connection-menu form {
+  box-sizing: border-box;
+  width: min(440px, 100%);
+  max-height: calc(100dvh - 40px);
+  overflow: auto;
+  padding: 28px;
+  border: 2px solid #5dd6a2;
+  background: #071019;
+  box-shadow: 0 16px 80px #0009;
+}
+.server-connection-menu h2 {
+  margin: 0 0 12px;
+  font:
+    28px Georgia,
+    serif;
+}
+.server-connection-menu p {
+  color: #b8cedb;
+  line-height: 1.5;
+}
+.server-connection-menu label {
+  display: grid;
+  gap: 8px;
+  margin: 20px 0;
+}
+.server-connection-menu input {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #4da3ff;
+  background: #0b1626;
+  color: #fff;
+  font: inherit;
+}
+.server-connection-menu__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+}
+.server-connection-menu button {
+  padding: 12px 20px;
+  border: 1px solid #4da3ff;
+  background: #0b1626;
+  color: #fff4cf;
+  font: inherit;
+  cursor: pointer;
+}
+.server-connection-menu button[type='submit'] {
+  background: #17473a;
+  border-color: #5dd6a2;
+}
+.server-connection-menu :focus {
+  outline: 3px solid #fff3a8;
+  outline-offset: 3px;
+}
+.server-connection-menu .server-connection-menu__error {
+  min-height: 1.5em;
+  color: #ffb3a8;
+}

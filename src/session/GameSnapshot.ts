@@ -1,11 +1,16 @@
 import type { AnimalInstance } from '../animals/types.js';
+import type { Actor } from '../actors/actorTypes.js';
 import type { AppleSnapshot } from '../apples/types.js';
 import type { Vector2Like } from '../core/math.js';
-import type { BombInstance, FootballInstance } from '../game/snakeGame.js';
+import type { BombInstance, FootballInstance, QuestInteraction } from '../game/snakeGame.js';
 import type { PlayerId } from '../players/playerTypes.js';
 import type { Boss } from '../systems/boss.js';
 import type { BulletInstance, EnemyInstance } from '../systems/enemies.js';
 import type { RoomSnapshot } from '../world/types.js';
+import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
+import type { GameInteractionView } from './GameInteraction.js';
+import type { SceneClientState } from './SceneClientState.js';
+import type { PlayerInteraction } from './SceneActionCommand.js';
 
 export interface GameSnapshot {
   tick: number;
@@ -13,6 +18,22 @@ export interface GameSnapshot {
   viewport: ViewportSnapshot;
   players: Record<PlayerId, PlayerSnapshot>;
   ui: UiSnapshot;
+  forcedEncounter?: import('./ForcedEncounter.js').ForcedEncounter | null;
+  minigame?: import('./MinigameSnapshot.js').MinigameSnapshot | null;
+  /** Player-specific synchronous selectors for the normal scene's menus and HUD. */
+  clientState?: SceneClientState;
+  persistence?: { slotId: string; checkpoint: import('../game/saveTypes.js').GameSaveData | null };
+  connections?: Record<string, ConnectionPresence>;
+  presentation?: {
+    characterMode: 'snake' | 'raccoon';
+    atmosphere: ResolvedAtmosphereView;
+  };
+}
+
+export interface ConnectionPresence {
+  connectionId: string;
+  playerId: PlayerId;
+  displayName: string;
 }
 
 export interface ViewportSnapshot {
@@ -43,7 +64,7 @@ export interface ClientRoomSnapshot {
   followers?: readonly EnemyInstance[];
   bosses?: readonly Boss[];
   bullets?: readonly BulletInstance[];
-  npcs?: unknown[];
+  npcs?: readonly Actor[];
   pickups?: unknown[];
   animals?: readonly AnimalInstance[];
   footballs?: readonly FootballInstance[];
@@ -62,9 +83,12 @@ export interface PlayerSnapshot {
 }
 
 export interface UiSnapshot {
+  playerInteraction?: PlayerInteraction;
+  interaction?: GameInteractionView | null;
   paused?: boolean;
   messages?: string[];
-  activeChoice?: unknown;
+  activeChoice?: QuestInteraction | null;
+  inventory?: Record<string, number>;
   activeQuest?: unknown;
   health?: {
     current: number;

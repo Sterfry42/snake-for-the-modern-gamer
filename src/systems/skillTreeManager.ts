@@ -92,6 +92,10 @@ export class SkillTreeManager implements SkillTreeRuntime {
     this.scene.recordAchievementEvent({ type: 'ui:achievementZoomFlurry' });
   }
 
+  hydrateClientState(state: import('./skillTree.js').SkillTreeClientState): void {
+    this.system.hydrateClientState(state);
+  }
+
   reset(startPaused: boolean): void {
     this.system.reset();
     this.achievementZoomTracker.reset();
@@ -247,6 +251,11 @@ export class SkillTreeManager implements SkillTreeRuntime {
   }
 
   private usePrimaryAbility(paused: boolean): boolean {
+    if (this.scene.isMultiplayer) {
+      if (paused) return false;
+      this.scene.requestRemotePrimaryAbility();
+      return true;
+    }
     return dispatchPrimaryAbility(
       {
         useActionSlot: () => this.actionSlots.use('q'),
@@ -528,6 +537,10 @@ export class SkillTreeManager implements SkillTreeRuntime {
 
   // internal helpers
   private handlePerkInteraction(perkId: string, state: SkillPerkState): void {
+    if (this.scene.isMultiplayer) {
+      this.scene.requestRemoteProgression('purchase', perkId);
+      return;
+    }
     if (!this.system) {
       return;
     }
@@ -597,6 +610,10 @@ export class SkillTreeManager implements SkillTreeRuntime {
   }
 
   private bindQSlot(abilityId: string): void {
+    if (this.scene.isMultiplayer) {
+      this.scene.requestRemoteAbilityBinding(abilityId);
+      return;
+    }
     const result = this.actionSlots.bind('q', abilityId);
     if (result.ok === false) {
       this.juice.spellFailed();

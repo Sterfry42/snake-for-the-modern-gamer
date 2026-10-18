@@ -1,4 +1,4 @@
-import { getCardDefinition, CARD_SHOP_OFFERS } from '../cards/cardGame.js';
+import { getCardDefinition, CARD_SHOP_OFFERS, type CardId } from '../cards/cardGame.js';
 import { stableStringHashUnsigned } from '../core/math.js';
 import { getItem } from '../inventory/itemRegistry.js';
 import type { ActorRole } from '../actors/actorTypes.js';
@@ -43,6 +43,7 @@ export interface ShopOfferView {
   price: number;
   note: string;
   itemId?: string;
+  cardId?: CardId;
   quantity?: number;
 }
 
@@ -329,6 +330,7 @@ const DEFAULT_SHOP_OFFER_POOL_LIST: ShopOfferPool[] = [
         return withPriceScalar(
           {
             id: card.id,
+            cardId,
             category: 'services',
             label: card.name,
             price: card.price,

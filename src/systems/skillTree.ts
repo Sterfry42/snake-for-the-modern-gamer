@@ -61,6 +61,33 @@ const HARVEST_PERKS = [
   'ouroboros',
 ] as const;
 export class SkillTreeSystem implements SkillTreeSystemApi {
+  /** Applies authoritative UI data without running perk effects or runtime callbacks. */
+  hydrateClientState(state: SkillTreeClientState): void {
+    this.perkRanks.clear();
+    this.perkOwnership.clear();
+    for (const [id, rank] of Object.entries(state.ranks)) this.perkRanks.set(id, rank);
+    for (const [id, ownership] of Object.entries(state.ownership))
+      this.perkOwnership.set(id, ownership);
+    this.extraLifeCharges = state.stats.extraLives;
+    this.scoreMultiplier = state.stats.scoreMultiplier;
+    this.manaCurrent = state.stats.mana;
+    this.manaMax = state.stats.manaMax;
+    this.manaRegen = state.stats.manaRegen;
+    this.manaEnabled = this.manaMax > 0;
+    this.arcanePulseUnlocked = state.stats.arcanePulseUnlocked;
+    this.arcaneVeilUnlocked = state.stats.arcaneVeilUnlocked;
+    this.derivedStats.clear();
+    for (const source of state.sources) this.derivedStats.setSource(source);
+  }
+
+  exportClientState(): SkillTreeClientState {
+    return {
+      ranks: this.exportRanks(),
+      ownership: this.exportOwnership(),
+      stats: this.getStats(),
+      sources: [...this.derivedModifierSources.values()],
+    };
+  }
   private readonly perkLookup = new Map<string, SkillPerkDefinition>();
   private readonly perkRanks = new Map<string, number>();
   private readonly perkOwnership = new Map<string, OwnedSkillState>();
@@ -697,4 +724,11 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
       }
     }
   }
+}
+
+export interface SkillTreeClientState {
+  ranks: Record<string, number>;
+  ownership: Record<string, OwnedSkillState>;
+  stats: SkillTreeStats;
+  sources: DerivedStatSource[];
 }

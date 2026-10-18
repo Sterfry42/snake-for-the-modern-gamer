@@ -91,10 +91,12 @@ interface SnakeRenderOptions {
   characterMode?: 'snake' | 'raccoon';
   otherPlayers?: readonly {
     id: string;
+    name?: string;
     body: readonly Vector2Like[];
     direction: Vector2Like;
     color?: number;
   }[];
+  localPlayerName?: string;
   snakePalette?: SnakeSpritePalette;
   cowboyHat?: boolean;
   activeHat?: SnakeHatStyle | null;
@@ -154,6 +156,7 @@ export interface RenderDiagnostics {
 }
 
 export class SnakeRenderer {
+  private readonly playerNameplates = new Map<string, Phaser.GameObjects.Text>();
   private readonly spriteFactory: RuntimeSpriteFactory;
   private readonly overlayGraphics: Phaser.GameObjects.Graphics;
   private readonly darknessTexture: Phaser.GameObjects.RenderTexture;
@@ -465,6 +468,12 @@ export class SnakeRenderer {
       );
     }
     this.drawOtherPlayers(room, currentRoomId, opts.otherPlayers ?? [], roomPlacements);
+    this.drawPlayerNameplates(
+      room,
+      currentRoomId,
+      [{ id: 'local', name: opts.localPlayerName, body: snakeBody }, ...(opts.otherPlayers ?? [])],
+      roomPlacements,
+    );
     this.drawDarknessOverlay(opts.atmosphere, opts.renderTimeMs ?? 0);
     this.drawLightningStrikeMarker(opts.lightningStrike ?? null, opts.renderTimeMs ?? 0);
     this.drawSkyEventFlash(opts.atmosphere, opts.renderTimeMs ?? 0);
@@ -481,6 +490,7 @@ export class SnakeRenderer {
   }
 
   hide(): void {
+    for (const label of this.playerNameplates.values()) label.setVisible(false);
     this.baseTintGraphics.clear();
     for (const layer of this.staticRoomLayers.values()) {
       layer.floors.setVisible(false);
@@ -3093,6 +3103,47 @@ export class SnakeRenderer {
     }
     const target = thermalBody.hazard === 'cold' ? 0x79cfff : 0xff9f4f;
     return this.lerpHexColor(baseColor, target, Math.min(0.68, ratio * 0.7));
+  }
+
+  private drawPlayerNameplates(
+    room: RoomSnapshot,
+    roomId: string,
+    players: readonly { id: string; name?: string; body: readonly Vector2Like[] }[],
+    placements?: ReadonlyMap<string, RoomPlacement>,
+  ): void {
+    for (const label of this.playerNameplates.values()) label.setVisible(false);
+    for (const player of players) {
+      const head = player.body[0];
+      const position = head && this.getRenderTilePosition(head, roomId, room, placements);
+      if (!player.name || !position) continue;
+      let label = this.playerNameplates.get(player.id);
+      if (!label) {
+        label = this.scene.add
+          .text(0, 0, '', {
+            fontFamily: 'monospace',
+            fontSize: '11px',
+            color: '#ffffff',
+            backgroundColor: '#142333',
+            padding: { x: 3, y: 2 },
+          })
+          .setOrigin(0.5, 1)
+          .setDepth(39);
+        this.playerNameplates.set(player.id, label);
+      }
+      label
+        .setText(player.name)
+        .setPosition(
+          (position.x + 0.5) * this.grid.cell * this.renderScale,
+          (position.y * this.grid.cell - 6) * this.renderScale,
+        )
+        .setVisible(true);
+    }
+    const ids = new Set(players.map((player) => player.id));
+    for (const [id, label] of this.playerNameplates)
+      if (!ids.has(id)) {
+        label.destroy();
+        this.playerNameplates.delete(id);
+      }
   }
 
   private drawOtherPlayers(

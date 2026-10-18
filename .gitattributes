@@ -3,3 +3,7 @@
 *.webp filter=lfs diff=lfs merge=lfs -text
 *.jpg filter=lfs diff=lfs merge=lfs -text
 *.jpeg filter=lfs diff=lfs merge=lfs -text
+
+# Generated catalogs are compared byte-for-byte with the LF-only generator.
+apworld/snaked_revised_revamped/items.py text eol=lf
+apworld/snaked_revised_revamped/locations.py text eol=lf

@@ -93,6 +93,23 @@ export class QuestController {
     this.offeredByRoomId = undefined;
   }
 
+  /** Presentation hydration deliberately does not run quest acceptance/reward callbacks. */
+  restoreReplicaQuestIds(state: {
+    offeredId?: string;
+    active: string[];
+    completed: string[];
+    accepted: string[];
+  }): void {
+    this.active = state.active.flatMap((id) => {
+      const quest = this.registry.getById(id);
+      return quest ? [quest] : [];
+    });
+    this.completed = [...state.completed];
+    this.accepted = [...state.accepted];
+    this.offered = state.offeredId ? (this.registry.getById(state.offeredId) ?? null) : null;
+    this.offeredByRoomId = undefined;
+  }
+
   acceptOffered(runtime: QuestRuntime): Quest | null {
     if (!this.offered) {
       return null;

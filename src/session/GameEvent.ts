@@ -2,6 +2,12 @@ import type { PlayerId } from '../players/playerTypes.js';
 
 export type GameEvent =
   | {
+      type: 'gameplay.outcome';
+      playerId: PlayerId;
+      outcome: import('./GameplayOutcome.js').GameplayOutcome;
+    }
+  | { type: 'player.revived'; playerId: PlayerId; reason: string }
+  | {
       type: 'sound.play';
       soundId: string;
     }
@@ -36,4 +42,5 @@ export type GameEvent =
       playerId: PlayerId;
       fromRoomId: string;
       toRoomId: string;
+      head?: import('../core/math.js').Vector2Like;
     };

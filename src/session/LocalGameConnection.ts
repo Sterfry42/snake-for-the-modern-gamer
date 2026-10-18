@@ -1,25 +1,52 @@
 import type { ClientCommand, CommandResult } from './ClientCommand.js';
+import { isInteractionCommand } from './ClientCommand.js';
+import { isSceneActionCommand } from './SceneActionCommand.js';
 import type { GameConnection } from './GameConnection.js';
 import type { GameEvent } from './GameEvent.js';
 import type { GameSnapshot } from './GameSnapshot.js';
 import type { LocalAuthoritativeRuntime } from './GameRuntime.js';
 
 export class LocalGameConnection implements GameConnection {
-  constructor(private readonly runtime: LocalAuthoritativeRuntime) {}
+  private readonly subscriptions = new Set<() => void>();
+  private disconnected = false;
 
-  send(command: ClientCommand): CommandResult {
-    return this.runtime.handleCommand(command);
+  constructor(
+    private readonly runtime: LocalAuthoritativeRuntime,
+    private readonly execute?: (command: ClientCommand) => Promise<CommandResult>,
+  ) {}
+
+  send(command: ClientCommand): CommandResult | Promise<CommandResult> {
+    if (this.disconnected) return { ok: false, reason: 'disconnected' };
+    if (
+      !this.execute &&
+      (isInteractionCommand(command) || isSceneActionCommand(command)) &&
+      this.runtime.executeCommand
+    )
+      return this.runtime.executeCommand(command);
+    return this.execute ? this.execute(command) : this.runtime.handleCommand(command);
   }
 
   onSnapshot(handler: (snapshot: GameSnapshot) => void): () => void {
-    return this.runtime.onSnapshot(handler);
+    return this.subscribe(() => this.runtime.onSnapshot(handler));
   }
 
   onEvent(handler: (event: GameEvent) => void): () => void {
-    return this.runtime.onEvent(handler);
+    return this.subscribe(() => this.runtime.onEvent(handler));
   }
 
   disconnect(): void {
-    // Local sessions do not own external resources yet.
+    this.disconnected = true;
+    for (const unsubscribe of this.subscriptions) unsubscribe();
+    this.subscriptions.clear();
+  }
+
+  private subscribe(subscribe: () => () => void): () => void {
+    if (this.disconnected) throw new Error('Game connection closed');
+    const unsubscribe = subscribe();
+    this.subscriptions.add(unsubscribe);
+    return () => {
+      unsubscribe();
+      this.subscriptions.delete(unsubscribe);
+    };
   }
 }

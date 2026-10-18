@@ -2,6 +2,7 @@
  * Quest Registry
  */
 import type { Quest } from './quest.js';
+import { builtInQuestLoaders } from './builtInQuests.js';
 
 export class QuestRegistry {
   private readonly quests = new Map<string, Quest>();
@@ -32,11 +33,10 @@ export class QuestRegistry {
   }
 
   async loadBuiltIns(): Promise<void> {
-    const modules = import.meta.glob('./definitions/*.ts');
-    const entries = Object.entries(modules);
     await Promise.all(
-      entries.map(async ([, loader]) => {
-        const mod = (await loader()) as { default: Quest | Quest[] };
+      builtInQuestLoaders.map(async (loader) => {
+        const mod = await loader();
+        if (!('default' in mod)) return;
         if (Array.isArray(mod.default)) {
           mod.default.forEach((quest) => this.register(quest));
         } else if (mod.default) {

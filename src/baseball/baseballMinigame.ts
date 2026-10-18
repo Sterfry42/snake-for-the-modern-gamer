@@ -10,6 +10,7 @@ export interface BaseballMinigameConfig {
   scene: Phaser.Scene;
   baseballRegistry: BaseballRegistry;
   onComplete: (result: BaseballSessionResult) => void;
+  authority?: { swing: () => void; abort: () => void };
 }
 
 /**
@@ -84,6 +85,17 @@ export class BaseballMinigame {
   /** Check if the minigame is running */
   isRunning(): boolean {
     return this.running;
+  }
+
+  syncAuthority(state: BaseballState | null, result?: BaseballSessionResult): void {
+    if (!state) {
+      this.stop();
+      return;
+    }
+    if (!this.running) this.start(state);
+    this.activeState = state;
+    this.updateField();
+    if (result && !this.pendingResult) this.showResult(result, 1400);
   }
 
   /** Get the pending result after the pitch resolves */
@@ -281,6 +293,7 @@ export class BaseballMinigame {
 
     // Result display countdown
     if (this.pendingResult) {
+      if (this.config.authority) return;
       this.resultTimerMs -= clampedDelta;
       if (this.resultTimerMs <= 0) {
         const result = this.pendingResult;
@@ -307,6 +320,10 @@ export class BaseballMinigame {
     }
 
     // Advance the pitch
+    if (this.config.authority) {
+      this.updateField();
+      return;
+    }
     const tickResult = this.config.baseballRegistry.tickPitching(this.activeState, clampedDelta);
     this.activeState = tickResult.state;
 
@@ -320,6 +337,10 @@ export class BaseballMinigame {
 
   private handleSwing(): void {
     if (!this.running || !this.activeState || this.pendingResult) return;
+    if (this.config.authority) {
+      this.config.authority.swing();
+      return;
+    }
     const swingResult = this.config.baseballRegistry.swing(this.activeState);
     this.activeState = swingResult.state;
     if (swingResult.result) {
@@ -329,6 +350,10 @@ export class BaseballMinigame {
 
   private handleAbort(): void {
     if (!this.running || !this.activeState || this.pendingResult) return;
+    if (this.config.authority) {
+      this.config.authority.abort();
+      return;
+    }
     const result = this.config.baseballRegistry.abortPitch(this.activeState);
     this.showResult(result, 800);
   }

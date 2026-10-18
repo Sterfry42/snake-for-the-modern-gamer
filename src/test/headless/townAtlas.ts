@@ -25,7 +25,8 @@ export function renderTownAtlas(rooms: readonly RoomSnapshot[]): string {
   const maxY = Math.max(...ys);
   const byId = new Map(coordinateRooms.map((entry) => [entry.room.id, entry.room]));
   const roomHeight = coordinateRooms[0]?.room.layout.length ?? 0;
-  const emptyRoom = Array.from({ length: roomHeight }, () => ''.padEnd(roomWidth(rooms), ' '));
+  const emptyRow = ''.padEnd(roomWidth(rooms), ' ');
+  const emptyRoom = Array.from({ length: roomHeight }, () => emptyRow);
   const atlas: string[] = [];
 
   for (let y = minY; y <= maxY; y += 1) {
@@ -47,8 +48,17 @@ export function unreachableTargets(
   targets: readonly ReachabilityTarget[],
   starts: readonly ReachabilityTarget[] = defaultReachabilityStarts(room),
 ): ReachabilityTarget[] {
-  const reachable = reachableCells(room, starts);
-  return targets.filter((target) => !reachable.has(keyOf(target)));
+  const { cells, width, height } = reachableCells(room, starts);
+  return targets.filter(
+    (target) =>
+      !Number.isInteger(target.x) ||
+      !Number.isInteger(target.y) ||
+      target.x < 0 ||
+      target.y < 0 ||
+      target.x >= width ||
+      target.y >= height ||
+      cells[target.y * width + target.x] !== 1,
+  );
 }
 
 export function defaultReachabilityStarts(room: RoomSnapshot): ReachabilityTarget[] {
@@ -83,27 +93,46 @@ export function isTownWalkable(tile: string | undefined): boolean {
 function reachableCells(
   room: RoomSnapshot,
   starts: readonly ReachabilityTarget[],
-): ReadonlySet<string> {
-  const queue = starts.filter((start) => isTownWalkable(room.layout[start.y]?.[start.x]));
-  const seen = new Set(queue.map(keyOf));
-  for (let index = 0; index < queue.length; index += 1) {
-    const current = queue[index]!;
-    for (const direction of [
-      { x: 1, y: 0 },
-      { x: -1, y: 0 },
-      { x: 0, y: 1 },
-      { x: 0, y: -1 },
-    ]) {
-      const next = { x: current.x + direction.x, y: current.y + direction.y };
-      const key = keyOf(next);
-      if (seen.has(key) || !isTownWalkable(room.layout[next.y]?.[next.x])) {
-        continue;
-      }
-      seen.add(key);
-      queue.push({ ...next, label: key });
+): { cells: Uint8Array; width: number; height: number } {
+  // Capture proxy-backed room geometry once instead of re-reading it for every edge.
+  const layout = Array.from(room.layout);
+  const width = Math.max(0, ...layout.map((row) => row.length));
+  const height = layout.length;
+  const walkable = new Uint8Array(width * height);
+  const seen = new Uint8Array(width * height);
+  for (let y = 0; y < height; y += 1) {
+    const row = layout[y];
+    for (let x = 0; x < row.length; x += 1) {
+      if (isTownWalkable(row[x])) walkable[y * width + x] = 1;
     }
   }
-  return seen;
+  const queue: number[] = [];
+  const visit = (key: number): void => {
+    if (walkable[key] !== 1 || seen[key] === 1) return;
+    seen[key] = 1;
+    queue.push(key);
+  };
+  for (const start of starts) {
+    if (
+      Number.isInteger(start.x) &&
+      Number.isInteger(start.y) &&
+      start.x >= 0 &&
+      start.x < width &&
+      start.y >= 0 &&
+      start.y < height
+    ) {
+      visit(start.y * width + start.x);
+    }
+  }
+  for (let index = 0; index < queue.length; index += 1) {
+    const current = queue[index];
+    const x = current % width;
+    if (x > 0) visit(current - 1);
+    if (x + 1 < width) visit(current + 1);
+    if (current >= width) visit(current - width);
+    if (current + width < walkable.length) visit(current + width);
+  }
+  return { cells: seen, width, height };
 }
 
 function pushIfWalkable(
@@ -120,10 +149,6 @@ function pushIfWalkable(
 
 function roomWidth(rooms: readonly RoomSnapshot[]): number {
   return Math.max(0, ...rooms.map((room) => room.layout[0]?.length ?? 0));
-}
-
-function keyOf(point: { x: number; y: number }): string {
-  return `${point.x},${point.y}`;
 }
 
 function parseRoomId(roomId: string): [number, number, number] | undefined {

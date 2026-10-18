@@ -7,11 +7,14 @@ import type { StepResult } from '../game/snakeGame.js';
 import type { PlayerId } from '../players/playerTypes.js';
 import type { SaveStore } from '../storage/SaveStore.js';
 import type { CommandHandler } from './ClientCommand.js';
+import type { ClientCommand, CommandResult } from './ClientCommand.js';
 import type { GameEvent } from './GameEvent.js';
 import type { GameSnapshot } from './GameSnapshot.js';
 
 export interface LocalAuthoritativeRuntime extends CommandHandler {
+  executeCommand?(command: ClientCommand): Promise<CommandResult>;
   readonly rng: RandomGenerator;
+  advanceEnvironment(deltaMs: number): void;
   actionStep(paused: boolean): StepResult;
   bossStep(
     onEvent?: (event: import('../systems/boss.js').BossEvent) => void,

@@ -16,6 +16,7 @@ export class PauseUI {
   private pauseButton?: Phaser.GameObjects.Container;
   private pauseHitArea?: Phaser.GameObjects.Rectangle;
   private pauseLabelText?: Phaser.GameObjects.Text;
+  private leaveButton?: Phaser.GameObjects.Text;
   private scene: SnakeScene;
   private inputMode: InputModeId = 'keyboardMouse';
 
@@ -37,12 +38,9 @@ export class PauseUI {
     const buttonWidth = Math.max(PAUSE_BUTTON_WIDTH, textWidth + PAUSE_BUTTON_PADDING * 2);
     const buttonHeight = PAUSE_BUTTON_HEIGHT;
 
-    // Position to the right of the Save button (which starts at SAVE_MARGIN)
-    // We'll compute the Save button's position from SaveUI's constants
-    const saveButtonWidth = Math.max(110, textWidth + 24);
+    // Keep pause and server controls clear of SaveUI's buttons on the left.
     const saveMargin = 16;
-    const saveGap = 6;
-    const x = saveMargin + saveButtonWidth + saveGap;
+    const x = this.scene.scale.width - buttonWidth - saveMargin;
     const y = this.scene.scale.height - saveMargin - buttonHeight;
 
     // Background rectangle with rounded corners
@@ -81,6 +79,18 @@ export class PauseUI {
     this.pauseButton = container;
     this.pauseHitArea = hitArea;
     this.pauseLabelText = label;
+    this.leaveButton = this.scene.add
+      .text(x - 135, y + 10, 'LEAVE SERVER', {
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        color: '#ffcc7e',
+        backgroundColor: '#2a2a3a',
+        padding: { x: 8, y: 3 },
+      })
+      .setDepth(40)
+      .setInteractive({ useHandCursor: true })
+      .setVisible(false)
+      .on('pointerdown', () => this.scene.leaveServer());
   }
 
   private togglePause(): void {
@@ -97,6 +107,7 @@ export class PauseUI {
       !!(this.scene as unknown as { titleVisible: boolean }).titleVisible;
     this.pauseLabelText?.setText(this.getPauseLabel());
     this.pauseButton?.setVisible(!suppressed);
+    this.leaveButton?.setVisible(!suppressed && this.scene.isMultiplayer);
     this.pauseHitArea?.setInteractive(!suppressed);
   }
 

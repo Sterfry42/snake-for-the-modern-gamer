@@ -5,8 +5,7 @@ import Phaser from 'phaser';
 import { Feature } from '../feature.js';
 import type SnakeScene from '../../scenes/snakeScene.js';
 import { i18n } from '../../i18n/i18nManager.js';
-
-const ACTIVATION_CHANCE = 0.005;
+import { awardBonusApple, stepBonusApple } from '../basicGameplayHooks.js';
 
 class BonusAppleFeature extends Feature {
   private statusText: Phaser.GameObjects.Text | null = null;
@@ -31,16 +30,11 @@ class BonusAppleFeature extends Feature {
   }
 
   override onAppleEaten(scene: SnakeScene): void {
-    if (scene.getFlag<boolean>('bonusActive') && !scene.snakeGame.isRaccoonMode()) {
-      scene.addScore(4);
-    }
-    scene.setFlag('bonusActive', false);
+    awardBonusApple(scene.snakeGame, (amount) => scene.addScore(amount));
   }
 
   override onActionStep(scene: SnakeScene): void {
-    if (!scene.getFlag<boolean>('bonusActive') && scene.random() < ACTIVATION_CHANCE) {
-      scene.setFlag('bonusActive', true);
-    }
+    stepBonusApple(scene.snakeGame, () => scene.random());
   }
 
   override onRender(scene: SnakeScene): void {

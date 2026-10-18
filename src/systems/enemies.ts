@@ -62,6 +62,8 @@ interface EnemyStepParams {
   snake: readonly Vector2Like[];
   currentRoomId: string;
   snakeDirection: Vector2Like;
+  otherPlayers?: readonly { id: string; roomId: string; body: readonly Vector2Like[] }[];
+  onOtherPlayerBulletHit?: (playerId: string, style: BulletInstance['style']) => void;
 }
 
 interface EnemyStepResult {
@@ -728,6 +730,17 @@ export class EnemyManager {
 
         const bulletGlobal = localToGlobal(roomId, nextPosition, this.grid);
         if (bullet.owner === 'enemy') {
+          const otherPlayer = params.otherPlayers?.find(
+            (player) =>
+              player.roomId === roomId &&
+              player.body.some(
+                (segment) => segment.x === bulletGlobal.x && segment.y === bulletGlobal.y,
+              ),
+          );
+          if (otherPlayer) {
+            params.onOtherPlayerBulletHit?.(otherPlayer.id, bullet.style);
+            continue;
+          }
           if (
             roomId === currentRoomId &&
             snake.some((segment) => segment.x === bulletGlobal.x && segment.y === bulletGlobal.y)
