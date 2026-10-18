@@ -3,6 +3,7 @@
  */
 import { Feature } from '../feature.js';
 import type SnakeScene from '../../scenes/snakeScene.js';
+import { stepHungerTimer } from '../basicGameplayHooks.js';
 
 class HungerTimerFeature extends Feature {
   constructor() {
@@ -14,8 +15,7 @@ class HungerTimerFeature extends Feature {
   }
 
   override onActionStep(scene: SnakeScene): void {
-    const current = scene.getFlag<number>('timeSinceEat') ?? 0;
-    scene.setFlag('timeSinceEat', current + 1);
+    stepHungerTimer(scene);
   }
 
   override onAppleEaten(scene: SnakeScene): void {

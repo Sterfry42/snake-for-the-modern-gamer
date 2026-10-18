@@ -6,6 +6,7 @@ import type { PlayerId } from '../players/playerTypes.js';
 import type { Boss } from '../systems/boss.js';
 import type { BulletInstance, EnemyInstance } from '../systems/enemies.js';
 import type { RoomSnapshot } from '../world/types.js';
+import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
 
 export interface GameSnapshot {
   tick: number;
@@ -13,6 +14,17 @@ export interface GameSnapshot {
   viewport: ViewportSnapshot;
   players: Record<PlayerId, PlayerSnapshot>;
   ui: UiSnapshot;
+  connections?: Record<string, ConnectionPresence>;
+  presentation?: {
+    characterMode: 'snake' | 'raccoon';
+    atmosphere: ResolvedAtmosphereView;
+  };
+}
+
+export interface ConnectionPresence {
+  connectionId: string;
+  playerId: PlayerId;
+  displayName: string;
 }
 
 export interface ViewportSnapshot {

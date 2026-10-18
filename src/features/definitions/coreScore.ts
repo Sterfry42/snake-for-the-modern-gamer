@@ -5,6 +5,7 @@ import Phaser from 'phaser';
 import { Feature } from '../feature.js';
 import type SnakeScene from '../../scenes/snakeScene.js';
 import { i18n } from '../../i18n/i18nManager.js';
+import { awardAppleScore } from '../basicGameplayHooks.js';
 
 class ScoreFeature extends Feature {
   private scoreText: Phaser.GameObjects.Text | null = null;
@@ -37,23 +38,7 @@ class ScoreFeature extends Feature {
   }
 
   override onAppleEaten(scene: SnakeScene): void {
-    if (scene.snakeGame.isRaccoonMode()) {
-      const apples = (scene.getFlag<number>('applesEaten') ?? 0) + 1;
-      scene.setFlag('applesEaten', apples);
-      return;
-    }
-    const cheatMultiplier = Math.max(
-      1,
-      Number(scene.getFlag<number>('cheat.appleScoreMultiplier') ?? 1),
-    );
-    const orangeJuiceMultiplier = Math.max(
-      1,
-      Number(scene.getFlag<number>('status.orangeJuiceScoreMult') ?? 1),
-    );
-    const multiplier = cheatMultiplier * orangeJuiceMultiplier;
-    scene.addScore(multiplier);
-    const apples = (scene.getFlag<number>('applesEaten') ?? 0) + 1;
-    scene.setFlag('applesEaten', apples);
+    awardAppleScore(scene.snakeGame, (amount) => scene.addScore(amount));
   }
 
   override onGameOver(scene: SnakeScene): void {

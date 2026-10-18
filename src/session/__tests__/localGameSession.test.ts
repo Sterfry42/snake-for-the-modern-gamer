@@ -38,11 +38,25 @@ describe('LocalGameSession', () => {
     const game = createGame();
     game.reset({ preserveRunSeed: true });
     const session = new LocalGameSession({ game });
+    session.onSnapshot(() => {});
     const build = vi.spyOn(game, 'getSnapshot');
     session.actionStep(false);
     expect(build).toHaveBeenCalledTimes(1);
     build.mockClear();
     session.hazardClockStep();
+    expect(build).toHaveBeenCalledTimes(1);
+  });
+
+  it('advances unobserved simulation without projecting snapshots and refreshes the next public read', async () => {
+    const game = createGame();
+    game.reset({ preserveRunSeed: true });
+    const session = new LocalGameSession({ game });
+    const build = vi.spyOn(game, 'getSnapshot');
+    await session.advance(100);
+    expect(build).not.toHaveBeenCalled();
+    const snapshot = session.getSnapshot();
+    expect(snapshot.tick).toBe(100);
+    expect(snapshot.players[snapshot.localPlayerId]?.body).toEqual(game.getSnakeBody());
     expect(build).toHaveBeenCalledTimes(1);
   });
 

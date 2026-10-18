@@ -3,6 +3,7 @@ import type { ChoiceWithMods } from '../game/saveTypes.js';
 import type { PlayerId } from '../players/playerTypes.js';
 
 export type ClientCommand =
+  | { type: 'restartRun'; playerId: PlayerId }
   | {
       type: 'setDirection';
       playerId: PlayerId;

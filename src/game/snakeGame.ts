@@ -1293,7 +1293,7 @@ export class SnakeGame implements QuestRuntime {
   constructor(
     config: GameConfig = defaultGameConfig,
     private readonly registry: QuestRegistry,
-    private readonly snakeScene: SnakeSceneContract,
+    private readonly snakeScene: SnakeSceneContract = {},
     rng?: RandomGenerator,
   ) {
     validateManeuverCatalog();

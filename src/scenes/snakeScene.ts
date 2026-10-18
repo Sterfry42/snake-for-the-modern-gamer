@@ -66,6 +66,8 @@ import type { ClientRoomSnapshot, GameSnapshot } from '../session/GameSnapshot.j
 import type { LocalAuthoritativeRuntime } from '../session/GameRuntime.js';
 import { LocalGameConnection } from '../session/LocalGameConnection.js';
 import { LocalGameSession } from '../session/LocalGameSession.js';
+import { ConnectedSceneRuntime } from './ConnectedSceneRuntime.js';
+import { ServerConnectionMenu } from '../ui/serverConnectionMenu.js';
 import { FeatureManager } from '../systems/features.js';
 import type { RadioFeature } from '../features/definitions/radio.js';
 import {
@@ -490,7 +492,8 @@ type TitleMenuMode =
   | 'settings-difficulty'
   | 'settings-dlss5'
   | 'credits'
-  | 'multiplayer';
+  | 'multiplayer'
+  | 'archipelago';
 type ArchipelagoTitleField = 'serverUrl' | 'slotName' | 'password';
 type ArchipelagoTitleControl = ArchipelagoTitleField | 'connect' | 'disconnect' | 'back';
 const CHARACTER_MODE_STORAGE_KEY = 'snakeGameCharacterMode';
@@ -2165,6 +2168,8 @@ export default class SnakeScene extends Phaser.Scene {
   private titleDlss5CurrentText: Phaser.GameObjects.Text | null = null;
   private titleDlss5ToggleButton: Phaser.GameObjects.Container | null = null;
   private titleMultiplayerContainer: Phaser.GameObjects.Container | null = null;
+  private titleArchipelagoContainer: Phaser.GameObjects.Container | null = null;
+  private serverConnectionMenu: ServerConnectionMenu | null = null;
   private titleGitHubButton: Phaser.GameObjects.Container | null = null;
   private titleHeadingText: Phaser.GameObjects.Text | null = null;
   private titleMessageText: Phaser.GameObjects.Text | null = null;
@@ -2242,6 +2247,7 @@ export default class SnakeScene extends Phaser.Scene {
    */
   private currentSessionId: string | null = null;
   private titleControllerIndex = 0;
+  private titleKeyboardNavigation = false;
   private creditsTextLines: Phaser.GameObjects.Text[] = [];
   private creditsContainer: Phaser.GameObjects.Container | null = null;
   private creditsScrollContainer: Phaser.GameObjects.Container | null = null;
@@ -2353,6 +2359,19 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   async create() {
+    const connectionParams = new URLSearchParams(window.location.search);
+    const backend =
+      connectionParams.get('server') ??
+      (connectionParams.get('connection') === 'local' ? 'local' : null);
+    if (backend) {
+      this.connectedRuntime = new ConnectedSceneRuntime(this);
+      await this.connectedRuntime.connect(
+        backend,
+        connectionParams.get('playerName') ?? 'Player',
+        connectionParams.get('enter') === '1',
+      );
+      return;
+    }
     this.performanceHudVisible =
       new URLSearchParams(window.location.search).get('lifecycle') === '1';
     recordSnakeSceneCreate(this.game);
@@ -2647,11 +2666,16 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     this.showTitleScreen('main');
+    if (connectionParams.get('multiplayer') === 'server') {
+      this.showTitleScreen('multiplayer');
+      this.showServerConnectionMenu();
+    }
     this.sceneReady = true;
   }
 
   private runtimeInitialization: Promise<void> | null = null;
   private runtimeReady = false;
+  private connectedRuntime: ConnectedSceneRuntime | null = null;
 
   private ensureGameRuntime(): Promise<void> {
     this.runtimeInitialization ??= this.initializeGameRuntime();
@@ -2716,6 +2740,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private setupInputHandlers(): void {
     this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
+      if (this.serverConnectionMenu?.visible) return;
       this.emitRawKeyboardDebug(event, 'down');
       this.inputModeManager.markKeyboardInput();
       const key = event.key.toLowerCase();
@@ -6547,6 +6572,8 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private handleShutdown(): void {
+    this.serverConnectionMenu?.destroy();
+    this.serverConnectionMenu = null;
     this.sceneReady = false;
     this.game.events.off(Phaser.Core.Events.PRE_RENDER, this.resetRenderCount);
     this.events.off(Phaser.Scenes.Events.RENDER, this.countRenderCall);
@@ -7947,11 +7974,11 @@ export default class SnakeScene extends Phaser.Scene {
     return this.gameSession.hasSaveSync();
   }
 
-  loadGameFromSession(
+  async loadGameFromSession(
     getReligionChoice?: () => import('../game/saveManager.js').ChoiceWithMods | undefined,
     getClassChoice?: () => import('../game/saveManager.js').ChoiceWithMods | undefined,
     getBackgroundChoice?: () => import('../game/saveManager.js').ChoiceWithMods | undefined,
-  ): boolean {
+  ): Promise<boolean> {
     const startedAt = performance.now();
     getDebugBus()?.emit({
       type: 'load.started',
@@ -7961,7 +7988,7 @@ export default class SnakeScene extends Phaser.Scene {
       roomId: this.snakeGame.getCurrentRoom().id,
       data: { saveSlot: 'session', saveType: 'manual' },
     });
-    const result = this.gameConnection.send({
+    const result = await this.gameConnection.send({
       type: 'loadGame',
       playerId: this.snakeGame.getLocalPlayerId(),
       religionChoice: getReligionChoice?.(),
@@ -8054,6 +8081,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.titleDifficultySettingsContainer?.setVisible(mode === 'settings-difficulty');
     this.titleDlss5SettingsContainer?.setVisible(mode === 'settings-dlss5');
     this.titleMultiplayerContainer?.setVisible(mode === 'multiplayer');
+    this.titleArchipelagoContainer?.setVisible(mode === 'archipelago');
     const isMain = mode === 'main';
     this.titleGitHubButton?.setVisible(isMain);
     const btn = this.titleGitHubButton;
@@ -8159,7 +8187,7 @@ export default class SnakeScene extends Phaser.Scene {
       'zone.height:',
       zone?.height,
     );
-    if (mode === 'multiplayer') {
+    if (mode === 'archipelago') {
       this.refreshArchipelagoTitleText();
     }
 
@@ -8167,6 +8195,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.showCreditsScreen();
     }
     this.titleControllerIndex = 0;
+    this.titleKeyboardNavigation = false;
     this.refreshTitleControllerSelection();
   }
 
@@ -8239,6 +8268,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.titleDifficultySettingsContainer?.setVisible(false);
     this.titleDlss5SettingsContainer?.setVisible(false);
     this.titleMultiplayerContainer?.setVisible(false);
+    this.titleArchipelagoContainer?.setVisible(false);
 
     if (!this.creditsContainer) {
       this.buildCreditsScreen();
@@ -8756,7 +8786,7 @@ export default class SnakeScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     const onlineDisabled = this.add
-      .text(width / 2, height / 2 - 101, 'Online Multiplayer: under construction', {
+      .text(width / 2, height / 2 - 101, 'Connect an Archipelago multiworld', {
         fontFamily: 'monospace',
         fontSize: '12px',
         color: '#8b939f',
@@ -8843,7 +8873,7 @@ export default class SnakeScene extends Phaser.Scene {
       () => {
         this.archipelagoFocusedControl = 'back';
         this.refreshArchipelagoTitleText();
-        this.showTitleScreen('main');
+        this.showTitleScreen('multiplayer');
       },
     );
     this.refreshArchipelagoTitleText();
@@ -8859,6 +8889,29 @@ export default class SnakeScene extends Phaser.Scene {
       this.archipelagoConnectButton,
       this.archipelagoDisconnectButton,
       this.archipelagoBackButton,
+    ]);
+
+    const multiplayerHub = this.add.container(0, 0).setVisible(false);
+    multiplayerHub.add([
+      this.add
+        .rectangle(width / 2, height / 2 + 25, 430, 330, 0x071019, 0.95)
+        .setStrokeStyle(2, 0x5dd6a2),
+      this.add
+        .text(width / 2, height / 2 - 100, 'Multiplayer', {
+          fontFamily: "Georgia, 'Times New Roman', serif",
+          fontSize: '28px',
+          color: '#fff4cf',
+        })
+        .setOrigin(0.5),
+      this.createTitleButton(width / 2 - 105, height / 2 - 48, 'Server', () =>
+        this.showServerConnectionMenu(),
+      ),
+      this.createTitleButton(width / 2 - 105, height / 2 + 10, 'Archipelago', () =>
+        this.showTitleScreen('archipelago'),
+      ),
+      this.createTitleButton(width / 2 - 105, height / 2 + 90, 'Back', () =>
+        this.showTitleScreen('main'),
+      ),
     ]);
 
     this.titleMessageText = this.add
@@ -8963,6 +9016,7 @@ export default class SnakeScene extends Phaser.Scene {
       difficultySettings,
       dlss5Settings,
       multiplayer,
+      multiplayerHub,
       this.titleMessageText,
     ]);
     this.titleContainer = root;
@@ -8971,7 +9025,8 @@ export default class SnakeScene extends Phaser.Scene {
     this.titleResolutionSettingsContainer = resolutionSettings;
     this.titleDifficultySettingsContainer = difficultySettings;
     this.titleDlss5SettingsContainer = dlss5Settings;
-    this.titleMultiplayerContainer = multiplayer;
+    this.titleMultiplayerContainer = multiplayerHub;
+    this.titleArchipelagoContainer = multiplayer;
     this.refreshTitleCharacterModeText();
     this.startTitleTweens(
       title,
@@ -9141,6 +9196,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.titleDifficultySettingsContainer,
       this.titleDlss5SettingsContainer,
       this.titleMultiplayerContainer,
+      this.titleArchipelagoContainer,
     ];
     const active = containers.find((container) => container?.visible);
     if (!active) return [];
@@ -9153,6 +9209,8 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private handleTitleControllerCommand(command: ControllerNavCommand): boolean {
+    if (this.serverConnectionMenu?.visible)
+      return this.serverConnectionMenu.handleController(command);
     if (this.titleCreditsMode) {
       if (command === 'confirm' || command === 'cancel' || command === 'menu') {
         if (this.creditsCanDismiss) {
@@ -9202,7 +9260,8 @@ export default class SnakeScene extends Phaser.Scene {
     );
     buttons.forEach((button, index) => {
       const focused =
-        this.inputModeManager.getMode() === 'controller' && index === this.titleControllerIndex;
+        (this.inputModeManager.getMode() === 'controller' || this.titleKeyboardNavigation) &&
+        index === this.titleControllerIndex;
       const bg = button.getData('titleButtonBg') as Phaser.GameObjects.Rectangle | undefined;
       bg?.setStrokeStyle(2, focused ? 0xfff3a8 : 0x4da3ff);
       button.setScale(focused ? 1.04 : 1);
@@ -9230,7 +9289,30 @@ export default class SnakeScene extends Phaser.Scene {
     stripe?.setFillStyle(selected ? 0x6b7280 : 0x5dd6a2, 0.58);
   }
 
+  private showServerConnectionMenu(): void {
+    this.serverConnectionMenu ??= new ServerConnectionMenu(() =>
+      this.showTitleScreen('multiplayer'),
+    );
+    this.serverConnectionMenu.show();
+  }
+
   private handleTitleMultiplayerKey(event: KeyboardEvent): boolean {
+    if (this.titleMultiplayerContainer?.visible && !this.serverConnectionMenu?.visible) {
+      const commands: Partial<Record<string, ControllerNavCommand>> = {
+        ArrowUp: 'up',
+        ArrowDown: 'down',
+        ArrowLeft: 'left',
+        ArrowRight: 'right',
+        Enter: 'confirm',
+        Escape: 'cancel',
+      };
+      const command = commands[event.key];
+      if (command) {
+        this.titleKeyboardNavigation = true;
+        return this.handleTitleControllerCommand(command);
+      }
+      return true;
+    }
     if (this.seedFocused) {
       if (event.key === 'Enter' || event.key === 'Escape') {
         this.seedFocused = false;
@@ -9251,7 +9333,7 @@ export default class SnakeScene extends Phaser.Scene {
       return true;
     }
 
-    if (!this.titleMultiplayerContainer?.visible) {
+    if (!this.titleArchipelagoContainer?.visible) {
       return false;
     }
 
@@ -9259,7 +9341,7 @@ export default class SnakeScene extends Phaser.Scene {
       if (this.archipelagoFocusedControl === 'disconnect') {
         this.disconnectArchipelagoFromTitle();
       } else if (this.archipelagoFocusedControl === 'back') {
-        this.showTitleScreen('main');
+        this.showTitleScreen('multiplayer');
       } else {
         this.connectArchipelagoFromTitle();
       }
@@ -9271,7 +9353,7 @@ export default class SnakeScene extends Phaser.Scene {
         this.archipelagoFocusedControl = 'back';
         this.refreshArchipelagoTitleText();
       } else {
-        this.showTitleScreen('main');
+        this.showTitleScreen('multiplayer');
       }
       return true;
     }
@@ -10779,6 +10861,10 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    if (this.connectedRuntime) {
+      this.connectedRuntime.update();
+      return;
+    }
     // Title input stays available before the gameplay runtime is requested.
     if (
       !this.sceneReady ||
