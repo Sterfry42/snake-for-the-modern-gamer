@@ -2,17 +2,17 @@ import type { SnakeGame } from '../game/snakeGame.js';
 import { getQuestDialogue } from '../quests/questDialogue.js';
 import type { PlayerId } from '../players/playerTypes.js';
 import type { CommandResult } from './ClientCommand.js';
-import type {
-  ConnectedInteractionOption,
-  ConnectedInteractionView,
-} from './ConnectedInteraction.js';
+import type { GameInteractionOption, GameInteractionView } from './GameInteraction.js';
 
 type MenuState = {
   id: number;
   actorId: string;
+  dating?: boolean;
 } & (
   | { kind: 'actor' }
   | { kind: 'shop' }
+  | { kind: 'relationship' }
+  | { kind: 'gift' }
   | { kind: 'dialogue'; pages: string[] }
   | { kind: 'quest'; questId: string; large: boolean; title: string; pages: string[] }
 );
@@ -25,15 +25,25 @@ const ACTOR_ACTIONS = new Set([
   'ask-personal',
   'take-quest',
   'shop',
+  'apologize',
+  'threaten',
+  'parley',
+  'pickpocket',
+  'tavern-rest',
+  'campaign-shake-hands',
+  'campaign-button',
+  'campaign-smear',
+  'campaign-buy-round',
+  'mayor-free-beer',
   'leave',
 ]);
-const back: ConnectedInteractionOption = {
+const back: GameInteractionOption = {
   id: 'back',
   label: 'Back',
   description: 'Return to the conversation.',
   enabled: true,
 };
-const close: ConnectedInteractionOption = {
+const close: GameInteractionOption = {
   id: 'close',
   label: 'Leave',
   description: 'Return to the world.',
@@ -41,7 +51,7 @@ const close: ConnectedInteractionOption = {
 };
 
 /** Coordinates existing NPC/quest/commerce APIs. Gameplay rules remain in SnakeGame. */
-export class ConnectedGameInteractions {
+export class GameInteractionMenus {
   private readonly states = new Map<PlayerId, MenuState>();
   private nextId = 0;
 
@@ -63,7 +73,7 @@ export class ConnectedGameInteractions {
     this.states.clear();
   }
 
-  getView(playerId: PlayerId): ConnectedInteractionView | null {
+  getView(playerId: PlayerId): GameInteractionView | null {
     const state = this.states.get(playerId);
     if (!state) return null;
     if (!this.game.canInteractWithActor(state.actorId)) {
@@ -88,6 +98,47 @@ export class ConnectedGameInteractions {
               description: option.reason ?? '',
               enabled: option.enabled,
             })),
+          ...(this.profile(actor.id)
+            ? [
+                {
+                  id: 'relationship',
+                  label: 'Relationship',
+                  description: 'Talk, gifts, dates, and family.',
+                  enabled: true,
+                },
+              ]
+            : []),
+          close,
+        ],
+      };
+    }
+    if (state.kind === 'relationship' || state.kind === 'gift') {
+      const profile = this.profile(state.actorId);
+      if (!profile) return null;
+      const relationship = this.game.getRelationshipState(profile);
+      return {
+        id: state.id,
+        kind: 'actor',
+        title: actor.displayName,
+        dating: state.kind === 'relationship' ? { profile, state: relationship } : undefined,
+        description: relationship
+          ? `${relationship.stage} · Affection ${relationship.affection} · Trust ${relationship.trust}`
+          : '',
+        options: [
+          ...(state.kind === 'gift'
+            ? this.game.getGiftableItems().map((item) => ({
+                id: `gift:${item.itemId}`,
+                label: `${item.name} (${item.count})`,
+                description: '',
+                enabled: true,
+              }))
+            : this.game.getRelationshipActions(profile).map((choice) => ({
+                id: `relationship:${choice}`,
+                label: choice.replace(/-/g, ' '),
+                description: '',
+                enabled: true,
+              }))),
+          back,
           close,
         ],
       };
@@ -127,6 +178,13 @@ export class ConnectedGameInteractions {
       kind: state.kind,
       title: state.kind === 'quest' ? state.title : actor.displayName,
       description: state.pages.join('\n\n'),
+      dating:
+        state.dating && this.profile(actor.id)
+          ? {
+              profile: this.profile(actor.id)!,
+              state: this.game.getRelationshipState(this.profile(actor.id)!),
+            }
+          : undefined,
       options:
         state.kind === 'quest'
           ? [
@@ -154,6 +212,27 @@ export class ConnectedGameInteractions {
     if (!option?.enabled)
       return { ok: false, reason: option?.description || 'That option is not available.' };
     if (optionId === 'close') return this.close(playerId, menuId);
+    if (state.kind === 'relationship' || state.kind === 'gift') {
+      const profile = this.profile(state.actorId);
+      if (!profile) return { ok: false, reason: 'That person is not here.' };
+      if (optionId === 'back') return this.open(playerId, state.actorId);
+      if (optionId === 'relationship:gift') {
+        this.states.set(playerId, { id: ++this.nextId, actorId: state.actorId, kind: 'gift' });
+        return { ok: true };
+      }
+      if (state.kind === 'gift' && optionId.startsWith('gift:')) {
+        const result = this.game.giveRelationshipGift(profile, optionId.slice(5));
+        this.dialogue(playerId, state.actorId, [result.message], true);
+        return { ok: result.ok, reason: result.ok ? undefined : result.message };
+      }
+      const choice = this.game
+        .getRelationshipActions(profile)
+        .find((entry) => entry !== 'gift' && `relationship:${entry}` === optionId);
+      if (!choice || choice === 'gift') return { ok: false, reason: 'That choice is unavailable.' };
+      const result = this.game.applyRelationshipChoice(profile, choice);
+      this.dialogue(playerId, state.actorId, [result.message], true);
+      return { ok: result.ok, reason: result.ok ? undefined : result.message };
+    }
     if (optionId === 'back' || optionId === 'reject') {
       this.clear(playerId);
       return this.open(playerId, state.actorId);
@@ -176,6 +255,17 @@ export class ConnectedGameInteractions {
       return { ok: purchase.ok, reason: purchase.ok ? undefined : purchase.message };
     }
     if (state.kind !== 'actor') return { ok: false, reason: 'That option is not available.' };
+    if (optionId === 'relationship') {
+      const profile = this.profile(state.actorId);
+      if (!profile) return { ok: false, reason: 'That person is not here.' };
+      this.game.ensureRelationshipCandidate(profile);
+      this.states.set(playerId, {
+        id: ++this.nextId,
+        actorId: state.actorId,
+        kind: 'relationship',
+      });
+      return { ok: true };
+    }
     if (optionId === 'shop') {
       const result = await this.game.chooseActorInteraction(state.actorId, 'shop');
       if (!result.ok || result.action !== 'shop') return { ok: false, reason: result.message };
@@ -183,6 +273,32 @@ export class ConnectedGameInteractions {
       return { ok: true };
     }
     if (optionId === 'take-quest') return this.offerQuest(playerId, state.actorId);
+    if (optionId === 'apologize' || optionId === 'threaten' || optionId === 'parley') {
+      const line =
+        optionId === 'apologize'
+          ? this.game.apologizeToActor(state.actorId)
+          : optionId === 'threaten'
+            ? this.game.threatenActor(state.actorId)
+            : this.game.parleyWithActor(state.actorId);
+      this.dialogue(playerId, state.actorId, [line ?? 'Not now.']);
+      return { ok: line !== null };
+    }
+    if (optionId === 'pickpocket') {
+      const profile = this.profile(state.actorId);
+      if (!profile) return { ok: false, reason: 'That person is not here.' };
+      const result = this.game.pickpocketRelationshipNpc(profile);
+      this.dialogue(playerId, state.actorId, [result.message]);
+      return { ok: result.ok, message: result.message, color: result.color };
+    }
+    if (
+      optionId === 'tavern-rest' ||
+      optionId.startsWith('campaign-') ||
+      optionId === 'mayor-free-beer'
+    ) {
+      const result = await this.game.chooseActorInteraction(state.actorId, optionId);
+      this.dialogue(playerId, state.actorId, [result.message]);
+      return { ok: result.ok, message: result.message };
+    }
     if (optionId === 'wake') {
       const result = this.game.wakeActor(state.actorId);
       this.dialogue(playerId, state.actorId, result.pages);
@@ -239,8 +355,14 @@ export class ConnectedGameInteractions {
     return { ok: true };
   }
 
-  private dialogue(playerId: PlayerId, actorId: string, pages: string[]): void {
-    this.states.set(playerId, { id: ++this.nextId, actorId, kind: 'dialogue', pages });
+  private profile(actorId: string) {
+    return this.game
+      .getPresentRelationshipProfilesForRoom()
+      .find((profile) => profile.actorId === actorId);
+  }
+
+  private dialogue(playerId: PlayerId, actorId: string, pages: string[], dating = false): void {
+    this.states.set(playerId, { id: ++this.nextId, actorId, kind: 'dialogue', pages, dating });
   }
 
   private clear(playerId: PlayerId): void {

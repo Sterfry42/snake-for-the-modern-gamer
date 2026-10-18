@@ -10,6 +10,7 @@ export interface FishingMinigameConfig {
   fishingRegistry: FishingRegistry;
   onComplete: (result: FishingSessionResult) => void;
   playSound: (key: string) => void;
+  authority?: { pull: (direction: -1 | 0 | 1) => void; abort: () => void };
 }
 
 /** Fishing minigame overlay manager (not a Phaser plugin, avoids plugin complexity) */
@@ -38,6 +39,7 @@ export class FishingMinigame {
   private spaceKey: Phaser.Input.Keyboard.Key | null = null;
   private controllerPullDirection: -1 | 0 | 1 = 0;
   private gameplayAccumulatorMs = 0;
+  private lastAuthorityPull = 0;
 
   private static readonly GAMEPLAY_STEP_MS = 1000 / 60;
   private static readonly MAX_GAMEPLAY_STEPS_PER_FRAME = 5;
@@ -79,6 +81,18 @@ export class FishingMinigame {
   /** Check if the minigame is running */
   isRunning(): boolean {
     return this.running;
+  }
+
+  syncAuthority(state: FishingState | null, result?: FishingSessionResult): void {
+    if (!state) {
+      this.stop();
+      return;
+    }
+    if (!this.running) this.start(state);
+    this.activeState = state;
+    this.pendingResult = result ?? null;
+    this.updateUI();
+    if (result) this.messageText?.setText(result.caught ? 'Caught!' : 'The fish got away.');
   }
 
   /** Get the pending result after fishing ends */
@@ -288,6 +302,15 @@ export class FishingMinigame {
     if (this.controllerPullDirection !== 0) {
       pullDirection = this.controllerPullDirection;
     }
+    if (this.config.authority) {
+      const direction = pullDirection < 0 ? -1 : pullDirection > 0 ? 1 : 0;
+      if (direction !== this.lastAuthorityPull) {
+        this.lastAuthorityPull = direction;
+        this.config.authority.pull(direction);
+      }
+      this.updateUI();
+      return;
+    }
 
     this.gameplayAccumulatorMs += Math.max(0, Math.min(delta, 250));
     let steps = 0;
@@ -321,6 +344,10 @@ export class FishingMinigame {
 
   private handleAbort(): void {
     if (!this.running || !this.activeState) return;
+    if (this.config.authority) {
+      this.config.authority.abort();
+      return;
+    }
     const result = this.config.fishingRegistry.abortFishing(this.activeState);
     this.pendingResult = result;
     this.config.onComplete(result);

@@ -3,11 +3,11 @@
  *
  * Handles all atmosphere-related audio: weather noise loops, Spanish music,
  * desert music, and thunder effects.  Also manages day-change notifications
- * and weather cycling.
+ * from authoritative state.
  */
 import Phaser from 'phaser';
 import type { SnakeGame } from '../game/snakeGame.js';
-import type { ResolvedAtmosphereView, GlobalWeather } from '../world/atmosphereTypes.js';
+import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
 import {
   resolveSpanishWebAudioFontState as resolveSpanishMusicState,
   SpanishWebAudioFontMusic,
@@ -19,7 +19,9 @@ import {
 } from '../audio/desertWebAudioFontMusic.js';
 
 interface AtmosphereAudioManagerDependencies {
-  snakeGame: SnakeGame;
+  snakeGame: Pick<SnakeGame, 'getCurrentRoom' | 'getAtmosphereState'> & {
+    getFlag(key: string): unknown;
+  };
   getTime: () => number;
   showQuestHintPopup: (message: string, color?: string) => void;
   setIsDirty: (value: boolean) => void;
@@ -28,7 +30,7 @@ interface AtmosphereAudioManagerDependencies {
 }
 
 export class AtmosphereAudioManager {
-  private readonly snakeGame: SnakeGame;
+  private readonly snakeGame: AtmosphereAudioManagerDependencies['snakeGame'];
   private readonly getTime: () => number;
   private readonly showQuestHintPopup: (message: string, color?: string) => void;
   private readonly setIsDirty: (value: boolean) => void;
@@ -58,14 +60,11 @@ export class AtmosphereAudioManager {
   }
 
   /**
-   * Advance atmosphere simulation time.
+   * Observe atmosphere changes without advancing gameplay or consuming its RNG.
    */
-  advance(deltaMs: number): void {
-    const beforeDay = this.snakeGame.getAtmosphereState().worldDay;
-    const atmosphere = this.snakeGame.updateAtmosphere(deltaMs);
-    if (atmosphere.worldDay > beforeDay) {
-      this.notifyDay(atmosphere.worldDay);
-    }
+  refresh(): void {
+    const atmosphere = this.snakeGame.getAtmosphereState();
+    this.notifyDay(atmosphere.worldDay);
     const visualKey = JSON.stringify([
       atmosphere.worldDay,
       atmosphere.season,
@@ -81,25 +80,6 @@ export class AtmosphereAudioManager {
       this.lastVisualKey = visualKey;
       this.setIsDirty(true);
     }
-  }
-
-  /**
-   * Cycle to the next weather state.
-   */
-  cycleWeather(): void {
-    const order: GlobalWeather[] = [
-      'clear',
-      'rain',
-      'storm',
-      'fog',
-      'heatwave',
-      'coldfront',
-      'wind',
-    ];
-    const current = this.snakeGame.getAtmosphereState().globalWeather;
-    const next = order[(order.indexOf(current) + 1 + order.length) % order.length] ?? 'clear';
-    this.snakeGame.forceAtmosphereWeather(next);
-    this.setIsDirty(true);
   }
 
   /**
@@ -185,11 +165,12 @@ export class AtmosphereAudioManager {
     view: ResolvedAtmosphereView,
     room: ReturnType<SnakeGame['getCurrentRoom']>,
   ): SpanishWebAudioFontState | null {
+    const exposure = this.snakeGame.getFlag('mosaicCoast.exposure');
     return resolveSpanishMusicState({
       biomeId: view.biomeId,
       archetypeId: room.archetypeId,
       hasTapas: Boolean(room.mosaicCoast?.tapasBar),
-      exposure: this.snakeGame.getFlag<SpanishWebAudioFontState | string>('mosaicCoast.exposure'),
+      exposure: typeof exposure === 'string' ? exposure : undefined,
     });
   }
 

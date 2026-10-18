@@ -134,7 +134,11 @@ interface OverlayHandlers {
   onApplySpecialChanges?: () => void;
   onResetSpecialPreview?: () => void;
   getManeuverState?: () => ManeuverSaveState;
-  onEquipManeuver?: (id: ManeuverId) => { ok: boolean; message: string; color: string };
+  onEquipManeuver?: (
+    id: ManeuverId,
+  ) =>
+    | { ok: boolean; message: string; color: string }
+    | Promise<{ ok: boolean; message: string; color: string }>;
   getAchievementManager?: () => AchievementManager;
   onAchievementZoomExtreme?: (extreme: AchievementZoomExtreme) => void;
 }
@@ -942,7 +946,7 @@ export class SkillTreeOverlay {
       .setOrigin(1, 0)
       .setVisible(false);
 
-    this.inventoryItemsText.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+    this.inventoryItemsText.on('pointerdown', async (pointer: Phaser.Input.Pointer) => {
       if (!this.visible || this.activeTab !== 'inventory') return;
       const index = this.getTextRowIndex(
         pointer,
@@ -957,7 +961,7 @@ export class SkillTreeOverlay {
       }
       if (itemId.startsWith('unequip:')) {
         const slot = itemId.split(':')[1] as EquipmentSlot;
-        const ok = this.scene.unequipSlot(slot);
+        const ok = await this.scene.unequipSlot(slot);
         if (ok) {
           this.announce(i18n.getFeatureString('skillTreeUnequipped') + ' ' + slot, '#9ad1ff', 1600);
           this.refresh();
@@ -969,7 +973,7 @@ export class SkillTreeOverlay {
       if (item && item.kind === 'equipment') {
         const currentlyEquipped = this.scene.inventory.getEquipped(item.slot as EquipmentSlot);
         if (currentlyEquipped === itemId) {
-          const ok = this.scene.unequipSlot(item.slot as EquipmentSlot);
+          const ok = await this.scene.unequipSlot(item.slot as EquipmentSlot);
           if (ok) {
             this.announce(`${item.name} unequipped.`, '#9ad1ff', 1600);
             this.refresh();
@@ -978,7 +982,7 @@ export class SkillTreeOverlay {
           return;
         }
 
-        const ok = this.scene.equipItem(itemId);
+        const ok = await this.scene.equipItem(itemId);
         if (ok) {
           this.announce(`${item.name} equipped.`, '#5dd6a2', 1600);
           this.refresh();
@@ -4029,7 +4033,7 @@ export class SkillTreeOverlay {
           this.populateManeuverDetails(definition.id, learned, equipped, control);
         },
       );
-      this.addStructuredZone(actionRect, () => {
+      this.addStructuredZone(actionRect, async () => {
         if (!learned) {
           this.populateManeuverDetails(definition.id, learned, equipped, control);
           this.announce(
@@ -4038,7 +4042,7 @@ export class SkillTreeOverlay {
           );
           return;
         }
-        const result = this.handlers.onEquipManeuver?.(definition.id) ?? {
+        const result = (await this.handlers.onEquipManeuver?.(definition.id)) ?? {
           ok: false,
           message: 'Maneuver equipment is unavailable.',
           color: '#ff6b6b',
@@ -5729,9 +5733,9 @@ export class SkillTreeOverlay {
       .setInteractive({ useHandCursor: true })
       .setDepth(36);
     this.structuredContainer.add(zone);
-    zone.on('pointerdown', () => {
+    zone.on('pointerdown', async () => {
       if (!this.selectedInventoryItemId) return;
-      const result = this.scene.useInventoryItem(this.selectedInventoryItemId);
+      const result = await this.scene.useInventoryItem(this.selectedInventoryItemId);
       if (!(result.ok && this.selectedInventoryItemId === 'bomb')) {
         this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
       }
@@ -5800,6 +5804,13 @@ export class SkillTreeOverlay {
   }
 
   toggleSelectedEquipment(): boolean {
+    if (!this.visible || this.activeTab !== 'equipment' || !this.selectedInventoryItemId)
+      return false;
+    void this.toggleSelectedEquipmentAsync();
+    return true;
+  }
+
+  private async toggleSelectedEquipmentAsync(): Promise<boolean> {
     if (!this.visible || this.activeTab !== 'equipment' || !this.selectedInventoryItemId) {
       return false;
     }
@@ -5809,7 +5820,9 @@ export class SkillTreeOverlay {
       return true;
     }
     const equipped = this.scene.inventory.getEquipped(item.slot) === item.id;
-    const ok = equipped ? this.scene.unequipSlot(item.slot) : this.scene.equipItem(item.id);
+    const ok = equipped
+      ? await this.scene.unequipSlot(item.slot)
+      : await this.scene.equipItem(item.id);
     this.announce(
       ok ? `${item.name} ${equipped ? 'unequipped' : 'equipped'}.` : `Cannot equip ${item.name}.`,
       ok ? (equipped ? '#9ad1ff' : '#5dd6a2') : '#ff6b6b',
@@ -5825,10 +5838,21 @@ export class SkillTreeOverlay {
       !this.visible ||
       (this.activeTab !== 'items' && this.activeTab !== 'inventory') ||
       !this.selectedInventoryItemId
+    )
+      return false;
+    void this.useSelectedInventoryItemAsync();
+    return true;
+  }
+
+  private async useSelectedInventoryItemAsync(): Promise<boolean> {
+    if (
+      !this.visible ||
+      (this.activeTab !== 'items' && this.activeTab !== 'inventory') ||
+      !this.selectedInventoryItemId
     ) {
       return false;
     }
-    const result = this.scene.useInventoryItem(this.selectedInventoryItemId);
+    const result = await this.scene.useInventoryItem(this.selectedInventoryItemId);
     if (!(result.ok && this.selectedInventoryItemId === 'bomb')) {
       this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
     }
@@ -5855,10 +5879,11 @@ export class SkillTreeOverlay {
       this.announce('That item does not have a quick cooking recipe.', '#ffd166', 2000);
       return true;
     }
-    const result = this.scene.snakeGame.cookRecipe(recipeId);
-    this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
-    this.refresh();
-    this.showInventoryItemDetails();
+    void this.scene.cookRecipe(recipeId).then((result) => {
+      this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
+      this.refresh();
+      this.showInventoryItemDetails();
+    });
     return true;
   }
 
@@ -8895,6 +8920,16 @@ export class SkillTreeOverlay {
       this.zoomSkillTree(this.skillViewport.zoom - 0.15),
     );
     this.skillTreeChromeObjects.push(zoomLabel, centerButton, zoomIn, zoomOut);
+  }
+
+  getNavigationState() {
+    return {
+      visible: this.visible,
+      activeTab: this.activeTab,
+      availableTabs: TAB_DEFINITIONS.filter((tab) => this.isTabAvailable(tab.id)).map(
+        (tab) => tab.id,
+      ),
+    };
   }
 
   private setActiveTab(tabId: TabId): void {

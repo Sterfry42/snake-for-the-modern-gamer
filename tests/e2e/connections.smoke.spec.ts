@@ -63,8 +63,7 @@ test('Multiplayer offers Server and Archipelago, then enters a named shared worl
     await page.keyboard.press('Enter');
     await expect(page.getByRole('dialog')).toBeHidden();
     await page.screenshot({ path: 'test-results/connections-archipelago.png' });
-    await page.keyboard.press('Escape');
-    await page.keyboard.press('Escape');
+    await clickCanvas(page, 384, 500);
     await page.keyboard.press('Enter');
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByLabel('Server URL').fill('ftp://invalid.test');
@@ -80,7 +79,8 @@ test('Multiplayer offers Server and Archipelago, then enters a named shared worl
       Object.values(alice.snapshot?.connections ?? {}).map((peer) => peer.displayName),
     ).toEqual(['Alice']);
     await page.keyboard.press('Space');
-    await expect.poll(() => alice.snapshot?.ui.paused).toBe(true);
+    await expect.poll(() => alice.snapshot?.ui.playerInteraction).toBe('paused');
+    expect(alice.snapshot?.ui.paused).toBe(false);
     const second = await context.newPage();
     const bob = observeWorld(second);
     await openServerMenu(second);
@@ -95,10 +95,12 @@ test('Multiplayer offers Server and Archipelago, then enters a named shared worl
           .sort(),
       )
       .toEqual(['Alice', 'Bob']);
-    expect(bob.snapshot?.ui.paused).toBe(true);
+    expect(bob.snapshot?.ui.paused).toBe(false);
+    expect(bob.snapshot?.ui.playerInteraction).toBe('playing');
     await expect.poll(() => Object.keys(alice.snapshot?.connections ?? {}).length).toBe(2);
     await page.screenshot({ path: 'test-results/connections-nameplates.png' });
-    await second.keyboard.press('Escape');
+    await expect.poll(() => second.evaluate(() => window.snakeE2E?.getLifecycle().mode)).toMatch(/action|manual-room/);
+    await clickCanvas(second, 530, 548);
     await expect(second.getByRole('dialog', { name: 'Connect to a Server' })).toBeVisible();
     await expect
       .poll(() => Object.values(alice.snapshot?.connections ?? {}).map((peer) => peer.displayName))
@@ -128,7 +130,6 @@ test('a failed server connection returns to the form with its URL and name retai
   await page.getByLabel('Display name').fill('Retry Player');
   await page.getByRole('button', { name: 'Enter World', exact: true }).click();
   await failed;
-  await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog', { name: 'Connect to a Server' })).toBeVisible();
   await expect(page.getByLabel('Server URL')).toHaveValue('ws://127.0.0.1:1/game');
   await expect(page.getByLabel('Display name')).toHaveValue('Retry Player');

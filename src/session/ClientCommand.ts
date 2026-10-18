@@ -1,8 +1,10 @@
 import type { Vector2Like } from '../core/math.js';
 import type { ChoiceWithMods } from '../game/saveTypes.js';
 import type { PlayerId } from '../players/playerTypes.js';
+import type { SceneActionCommand } from './SceneActionCommand.js';
 
 export type ClientCommand =
+  | SceneActionCommand
   | { type: 'openActor'; playerId: PlayerId; actorId: string }
   | { type: 'selectInteraction'; playerId: PlayerId; menuId: number; optionId: string }
   | { type: 'closeInteraction'; playerId: PlayerId; menuId: number }
@@ -65,6 +67,8 @@ export interface CommandResult {
   saved?: boolean;
   cleared?: boolean;
   reason?: string;
+  message?: string;
+  color?: string;
 }
 
 export interface CommandHandler {

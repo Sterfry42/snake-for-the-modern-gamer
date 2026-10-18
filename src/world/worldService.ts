@@ -55,6 +55,13 @@ interface PortalIndexEntry {
 }
 
 export class WorldService {
+  private replicaOnly = false;
+
+  replaceReplicaRooms(rooms: readonly RoomSnapshot[]): void {
+    this.replicaOnly = true;
+    this.rooms.clear();
+    for (const room of rooms) this.rooms.set(room.id, room);
+  }
   private readonly rooms = new RoomSnapshotCache();
   private readonly generator: RoomGenerator;
   private readonly rng: RandomGenerator;
@@ -113,6 +120,8 @@ export class WorldService {
 
   getRoom(roomId: string): RoomSnapshot {
     assertValidRoomId(roomId);
+    if (this.replicaOnly && !this.rooms.has(roomId))
+      throw new Error(`Room ${roomId} is not in the authoritative snapshot`);
     if (!this.rooms.has(roomId)) {
       const debug = getDebugBus();
       debug?.emit({

@@ -6,18 +6,26 @@ import { AuthoritativeGameSession } from '../../src/session/AuthoritativeGameSes
 import { createGameServer } from '../../src/server/createGameServer.js';
 import { defaultGameConfig } from '../../src/config/gameConfig.js';
 import { createBaseActor } from '../../src/actors/actorFactory.js';
-import { parseServerMessage } from '../../src/session/gameProtocol.js';
+import { parseServerMessage, parseCommandMessage } from '../../src/session/gameProtocol.js';
 import type { GameSnapshot } from '../../src/session/GameSnapshot.js';
 
 function observe(page: Page) {
   const state: { snapshot?: GameSnapshot; results: number } = { results: 0 };
   page.on('websocket', (socket) => {
     if (new URL(socket.url()).pathname !== '/game') return;
+    const pending = new Map<number, string>();
+    socket.on('framesent', frame => {
+      const command = parseCommandMessage(frame.payload.toString());
+      if (command) pending.set(command.id, command.command.type);
+    });
     socket.on('framereceived', (frame) => {
       const message = parseServerMessage(frame.payload.toString());
       if (message.type === 'welcome' || message.type === 'snapshot')
         state.snapshot = message.snapshot;
-      if (message.type === 'result') state.results += 1;
+      if (message.type === 'result') {
+        if (pending.get(message.id) !== 'playerInteraction') state.results += 1;
+        pending.delete(message.id);
+      }
     });
   });
   return state;
@@ -89,12 +97,14 @@ test('server NPC menus buy shared stock, accept private quests, and block world 
   const bob = observe(bobPage);
   const errors: string[] = [];
   for (const browser of [page, bobPage])
-    browser.on('pageerror', (error) => errors.push(error.message));
+    browser.on('pageerror', (error) => { errors.push(error.message); console.error(error.stack); });
   try {
     const address = encodeURIComponent(`ws://127.0.0.1:${port}/game`);
     await page.goto(`?server=${address}&playerName=Alice`);
+    await expect.poll(() => page.evaluate(() => window.snakeE2E?.getLifecycle().mode)).toMatch(/action|manual-room|paused/);
     await expect.poll(() => alice.snapshot?.localPlayerId).toBe('player-1');
     await bobPage.goto(`?server=${address}&playerName=Bob`);
+    await expect.poll(() => bobPage.evaluate(() => window.snakeE2E?.getLifecycle().mode)).toMatch(/action|manual-room|paused/);
     await expect.poll(() => Object.keys(bob.snapshot?.players ?? {}).length).toBe(2);
     const aliceId = alice.snapshot!.localPlayerId;
     const bobId = bob.snapshot!.localPlayerId;

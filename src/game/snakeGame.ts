@@ -1294,12 +1294,14 @@ export class SnakeGame implements QuestRuntime {
   private bombIdCounter = 0;
   private readonly construction = new ConstructionState();
   private constructionPlacement: { blueprintId: string; roomId: string } | null = null;
+  private replicaSnapshot: GameSnapshot | null = null;
 
   constructor(
     config: GameConfig = defaultGameConfig,
     private readonly registry: QuestRegistry,
     private readonly snakeScene: SnakeSceneContract = {},
     rng?: RandomGenerator,
+    private readonly runtimeMode: 'authority' | 'client-replica' = 'authority',
   ) {
     validateManeuverCatalog();
     this.config = config;
@@ -1372,6 +1374,8 @@ export class SnakeGame implements QuestRuntime {
   }
 
   reset(options: { preserveRunSeed?: boolean } = {}): void {
+    if (this.runtimeMode === 'client-replica')
+      throw new Error('Client replica cannot reset a game');
     if (!options.preserveRunSeed && !this.config.rng.seed) {
       this.reseedFreshRun();
     }
@@ -1956,6 +1960,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   getSnapshot(localPlayerId: PlayerId = this.localPlayerId): GameSnapshot {
+    if (this.replicaSnapshot) return structuredClone(this.replicaSnapshot);
     this.syncPlayerMap();
     const room = this.world.getRoom(
       this.players.get(localPlayerId)?.snake.currentRoomId ?? this.snake.currentRoomId,
@@ -2044,6 +2049,130 @@ export class SnakeGame implements QuestRuntime {
         activeQuest: this.questController.getActive()[0]?.id,
         health: this.getPlayerHealth(),
       },
+    };
+  }
+
+  /** Hydrates only a declared replica; callers retain the guarded selector view. */
+  hydrateClientSnapshot(snapshot: GameSnapshot): void {
+    if (this.runtimeMode !== 'client-replica')
+      throw new Error('An authority cannot hydrate client state');
+    const state = snapshot.clientState;
+    const player = snapshot.players[snapshot.localPlayerId];
+    if (!state || !player) throw new Error('Snapshot is missing replica state');
+    this.replicaSnapshot = structuredClone(snapshot);
+    this.localPlayerId = player.id;
+    this.worldGenerationIdentity = createWorldGenerationIdentity(state.worldSeed);
+    this.characterMode = snapshot.presentation?.characterMode ?? 'snake';
+    this.world.replaceReplicaRooms(structuredClone(state.worldRooms));
+    this.snake.restoreBodySnapshot({
+      body: player.body,
+      roomId: player.roomId,
+      direction: player.direction,
+    });
+    this.snake.score = player.score;
+    for (const key of Object.keys(this.snake.flags)) delete this.snake.flags[key];
+    Object.assign(this.snake.flags, structuredClone(state.flags));
+    this.inventory.clear();
+    for (const [id, count] of Object.entries(state.inventory)) this.inventory.addItem(id, count);
+    for (const id of Object.values(state.equipment)) if (id) this.inventory.equip(id);
+    this.questController.restoreReplicaQuestIds({
+      active: state.quests.active.map((q) => q.id),
+      accepted: state.quests.accepted.map((q) => q.id),
+      completed: state.quests.completedIds,
+    });
+    this.specialStats.restore(state.specialState);
+    this.levelProgression = structuredClone(state.levelProgression);
+    this.maneuvers.restore(state.flags['maneuvers.state']);
+    this.atmosphere.hydrate(state.atmosphere);
+    this.construction.load({
+      claims: state.construction.claim ? [state.construction.claim] : [],
+      structures: state.construction.structures,
+    });
+    this.constructionPlacement = structuredClone(state.construction.placement);
+    this.raccoonWeight = state.raccoon.weight;
+    this.raccoonHungerTimerMs = state.raccoon.hungerTimerMs;
+    this.raccoonBanditMeter = state.raccoon.banditMeter;
+    this.raccoonStashedTotal = state.raccoon.stashedTotal;
+    this.actors.registry.loadSaveData({
+      version: 1,
+      actors: Object.fromEntries(state.actors.map((actor) => [actor.id, structuredClone(actor)])),
+      knownActorIds: state.actors.map((actor) => actor.id),
+      promotedActorIds: [],
+      deadActorIds: [],
+    });
+    this.visitedRooms = new Set(state.generatedRoomIds);
+    this.players.clear();
+    this.syncPlayerMap();
+  }
+
+  /** Builds presentation data without invoking persistence or scene callbacks. */
+  getSceneClientState(): import('../session/SceneClientState.js').SceneClientState {
+    const relationshipStates = this.relationshipController.getAllStates();
+    const describeQuest = (quest: Quest) => ({
+      id: quest.id,
+      label: quest.label,
+      description: quest.description,
+      objectives: this.getQuestObjectiveSummaries(quest.id),
+      subtasks: this.getQuestSubtasks(quest.id),
+    });
+    return {
+      worldRooms: [...this.world.snapshot().values()],
+      specialState: this.specialStats.exportState(),
+      levelProgression: this.levelProgression,
+      raccoon: {
+        weight: this.raccoonWeight,
+        hungerTimerMs: this.raccoonHungerTimerMs,
+        banditMeter: this.raccoonBanditMeter,
+        stashedTotal: this.raccoonStashedTotal,
+      },
+      worldSeed: this.worldSeed,
+      flags: { ...this.snake.flags },
+      inventory: Object.fromEntries(this.inventory.getAllItems()),
+      equipment: Object.fromEntries(this.inventory.getAllEquipped()),
+      quests: {
+        active: this.getActiveQuests().map(describeQuest),
+        accepted: this.getAcceptedQuests().map(describeQuest),
+        completedIds: this.getCompletedQuestIds(),
+        markerQuestId: this.getActiveQuestMarkerQuestId(),
+        markers: this.getQuestMapMarkers(),
+      },
+      special: this.getSpecialStatsView(),
+      specialModifiers: this.getSpecialGameplayModifiers(),
+      fishingModifiers: this.getFishingSpecialModifiers(),
+      relationships: this.getDatingCandidateViews(),
+      relationshipStates: Object.fromEntries(relationshipStates.map((state) => [state.id, state])),
+      relationshipActions: Object.fromEntries(
+        relationshipStates.map(({ id }) => [
+          id,
+          this.relationshipController.getAvailableChoices(id),
+        ]),
+      ),
+      profiles: this.getPresentRelationshipProfilesForRoom(),
+      atmosphere: this.getAtmosphereState(),
+      atmosphereView: this.getAtmosphereForRoom(),
+      construction: {
+        placement: this.getStructurePlacement(),
+        preview: this.previewStructurePlacement(),
+        structures: this.placedStructures(),
+        claim: this.getRoomClaim(),
+      },
+      actors: this.getActorsInCurrentRoom(),
+      town: this.getCurrentTown(),
+      cars: this.getCars(),
+      followers: this.getFollowers(),
+      animalCompanions: this.getAnimalCompanions(),
+      artifacts: this.getArtifactViews(),
+      maneuver: this.getManeuverState(),
+      temperature: this.getPlayerTemperature(),
+      radiation: this.getRadiationTimer(),
+      karma: this.getKarmaView(),
+      emoticons: this.getEmoticonState(),
+      modernRun: normalizeModernRunState(this.getFlag('modernRun.state')),
+      highlights: normalizeHighlightReelState(this.getFlag('highlightReel.state')),
+      expeditions: normalizeExpeditionBoardState(this.getFlag('expeditionBoard.state')),
+      synergies: normalizeModernSynergyState(this.getFlag('modernSynergy.state')),
+      alchemy: this.getAlchemyState(),
+      generatedRoomIds: this.getGeneratedRoomIds(),
     };
   }
 
@@ -3253,6 +3382,18 @@ export class SnakeGame implements QuestRuntime {
     this.jasonDamageCallback = callback;
   }
 
+  /** Defeat rewards are committed before presentation is notified, including headless play. */
+  private resolveJasonDefeat(bossId: string): number {
+    const boss = this.bosses.getBoss(bossId);
+    if (!boss || boss.kind !== 'jason-statham' || boss.jasonPhase !== 'defeated') return 0;
+    const count = Math.max(0, Number(this.getFlag<number>('boss.jasonDefeatCount') ?? 0)) + 1;
+    const score = Math.max(10, Math.floor(100 * Math.pow(0.6, count - 1)));
+    this.setFlag('boss.jasonDefeatCount', count);
+    this.bosses.deleteBoss(bossId);
+    this.addScore(score);
+    return score;
+  }
+
   async actorClockStep(stepMs = 100): Promise<StepResult | null> {
     const roomsChanged = new Set<string>();
     const currentRoom = this.snake.currentRoomId;
@@ -3517,7 +3658,8 @@ export class SnakeGame implements QuestRuntime {
       getBossManager: () => this.bosses,
       skipSelfCollision: this.isRaccoonMode(),
       onJasonDamage: (bossId, defeated, scoreBonus) => {
-        this.jasonDamageCallback?.(bossId, defeated, scoreBonus);
+        const awardedScore = defeated ? this.resolveJasonDefeat(bossId) : scoreBonus;
+        this.jasonDamageCallback?.(bossId, defeated, awardedScore);
       },
     };
 
@@ -5400,6 +5542,13 @@ export class SnakeGame implements QuestRuntime {
   }
 
   getCurrentRoom(): RoomSnapshot {
+    if (this.replicaSnapshot?.clientState) {
+      const room = this.replicaSnapshot.clientState.worldRooms.find(
+        (room) => room.id === this.snake.currentRoomId,
+      );
+      if (!room) throw new Error('Room is absent from authoritative snapshot');
+      return room;
+    }
     return this.world.getRoom(this.snake.currentRoomId);
   }
 
@@ -6700,10 +6849,17 @@ export class SnakeGame implements QuestRuntime {
   }
 
   getRoom(roomId: string) {
+    if (this.replicaSnapshot?.clientState) {
+      const room = this.replicaSnapshot.clientState.worldRooms.find((room) => room.id === roomId);
+      if (!room) throw new Error('Room is absent from authoritative snapshot');
+      return room;
+    }
     return this.world.getRoom(roomId);
   }
 
   peekCachedRoom(roomId: string): RoomSnapshot | undefined {
+    if (this.replicaSnapshot?.clientState)
+      return this.replicaSnapshot.clientState.worldRooms.find((room) => room.id === roomId);
     return this.world.peekCachedRoom(roomId);
   }
 
@@ -12709,6 +12865,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   getApple(roomId: string): AppleSnapshot | null {
+    if (this.replicaSnapshot) return this.replicaSnapshot.viewport.rooms[roomId]?.apples ?? null;
     return this.apples.getSnapshot(roomId);
   }
 
@@ -12966,6 +13123,8 @@ export class SnakeGame implements QuestRuntime {
   }
 
   getSpecialStatsView(): SpecialStatsView {
+    if (this.replicaSnapshot?.clientState)
+      return structuredClone(this.replicaSnapshot.clientState.special);
     const room = this.getCurrentRoom();
     return this.specialStats.getSpecialStatsView(
       {
@@ -13157,6 +13316,8 @@ export class SnakeGame implements QuestRuntime {
   }
 
   getAtmosphereState(): AtmosphereState {
+    if (this.replicaSnapshot?.clientState)
+      return structuredClone(this.replicaSnapshot.clientState.atmosphere);
     return this.atmosphere.getState();
   }
 
@@ -13343,6 +13504,8 @@ export class SnakeGame implements QuestRuntime {
   }
 
   getAtmosphereForRoom(room: RoomSnapshot = this.getCurrentRoom()): ResolvedAtmosphereView {
+    if (this.replicaSnapshot?.clientState)
+      return structuredClone(this.replicaSnapshot.clientState.atmosphereView);
     const biome = getBiomeDefinition(room.biomeId);
     const shelterMode = this.getShelterModeForRoom(room);
     const shelteredConfig = {
@@ -13903,6 +14066,8 @@ export class SnakeGame implements QuestRuntime {
   }
 
   setFlag(key: string, value: unknown): void {
+    if (this.runtimeMode === 'client-replica')
+      throw new Error(`Client replica cannot set flag ${key}`);
     if (value === undefined) {
       delete this.snake.flags[key];
     } else {
@@ -16202,6 +16367,8 @@ export class SnakeGame implements QuestRuntime {
   }
 
   getBosses(roomId: string) {
+    if (this.replicaSnapshot)
+      return [...(this.replicaSnapshot.viewport.rooms[roomId]?.bosses ?? [])];
     const bosses = this.bosses.getBossesInRoom(roomId);
     const duelBoss = this.enemies.getDuelBossInRoom(roomId);
     return duelBoss ? [...bosses, duelBoss] : bosses;
@@ -16217,10 +16384,14 @@ export class SnakeGame implements QuestRuntime {
   }
 
   getEnemies(roomId: string) {
+    if (this.replicaSnapshot)
+      return [...(this.replicaSnapshot.viewport.rooms[roomId]?.enemies ?? [])];
     return this.enemies.getEnemiesInRoom(roomId);
   }
 
   getAnimals(roomId: string) {
+    if (this.replicaSnapshot)
+      return [...(this.replicaSnapshot.viewport.rooms[roomId]?.animals ?? [])];
     return this.animals.getAnimalsInRoom(roomId);
   }
 
@@ -16376,14 +16547,18 @@ export class SnakeGame implements QuestRuntime {
   }
 
   getEnemyBullets(roomId: string) {
+    if (this.replicaSnapshot)
+      return [...(this.replicaSnapshot.viewport.rooms[roomId]?.bullets ?? [])];
     return this.enemies.getBulletsInRoom(roomId);
   }
 
   getFootballs(roomId: string): readonly FootballInstance[] {
+    if (this.replicaSnapshot) return this.replicaSnapshot.viewport.rooms[roomId]?.footballs ?? [];
     return this.footballs.get(roomId) ?? [];
   }
 
   getBombs(roomId: string): readonly BombInstance[] {
+    if (this.replicaSnapshot) return this.replicaSnapshot.viewport.rooms[roomId]?.bombs ?? [];
     return this.bombs.get(roomId) ?? [];
   }
 
@@ -19007,6 +19182,8 @@ export class SnakeGame implements QuestRuntime {
   getRelationshipActions(
     profile: RelationshipCandidateProfile,
   ): Array<RelationshipChoice | 'gift'> {
+    if (this.replicaSnapshot?.clientState)
+      return [...(this.replicaSnapshot.clientState.relationshipActions[profile.id] ?? [])];
     this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
     return this.relationshipController.getAvailableChoices(profile.id);
   }
@@ -19802,6 +19979,9 @@ export class SnakeGame implements QuestRuntime {
     const characterFlags: Record<string, unknown> = {};
     for (const key of [
       'cards.collection',
+      'boss.jasonDefeatCount',
+      'vehicle.active',
+      'vehicle.driving',
       'factions.alignment',
       'rumors.save',
       'factions.v2.save',
@@ -19813,6 +19993,8 @@ export class SnakeGame implements QuestRuntime {
       'relationships.lastEncountered',
       'skills.ranks',
       'skills.ownership',
+      'skills.clientState',
+      'skills.extraLifeCharges',
       'equipment.wallSenseRadiusBonus',
       'equipment.seismicPulseRadiusBonus',
       'equipment.masonryEnabled',
@@ -19856,6 +20038,9 @@ export class SnakeGame implements QuestRuntime {
       'minecraft.save',
       'fishing.caughtFish',
       'fishing.catchJournal',
+      'fishing.caughtFish',
+      'fishCaught',
+      'baseball.stats',
       'achievement.hotSurvivalMs',
       'achievement.coldSurvivalMs',
       'achievement.cowbellTilesWalked',
@@ -20100,6 +20285,21 @@ export class SnakeGame implements QuestRuntime {
       });
       return false;
     }
+  }
+
+  /** A world checkpoint replaces the host/world, while attached guest characters remain live. */
+  loadConnectedCheckpoint(data: GameSaveData): boolean {
+    const guests = [...this.players.values()].filter((player) => player.id !== this.localPlayerId);
+    const contexts = new Map(this.playerContexts);
+    const loaded = this.loadFromSaveData(data);
+    for (const player of guests) {
+      const context = contexts.get(player.id);
+      if (!context) continue;
+      this.playerContexts.set(player.id, context);
+      this.players.set(player.id, player);
+      this.world.getRoom(player.snake.currentRoomId);
+    }
+    return loaded;
   }
 
   loadFromSaveData(
@@ -21143,7 +21343,7 @@ export class SnakeGame implements QuestRuntime {
 
   getModernRunState(): ModernRunState {
     const state = normalizeModernRunState(this.getFlag<unknown>('modernRun.state'));
-    this.setFlag('modernRun.state', state);
+    if (this.runtimeMode === 'authority') this.setFlag('modernRun.state', state);
     return state;
   }
 
@@ -21153,7 +21353,7 @@ export class SnakeGame implements QuestRuntime {
 
   getHighlightReelState(): HighlightReelState {
     const state = normalizeHighlightReelState(this.getFlag<unknown>('highlightReel.state'));
-    this.setFlag('highlightReel.state', state);
+    if (this.runtimeMode === 'authority') this.setFlag('highlightReel.state', state);
     return state;
   }
 
@@ -21163,7 +21363,7 @@ export class SnakeGame implements QuestRuntime {
 
   getExpeditionBoardState(): ExpeditionBoardState {
     const state = normalizeExpeditionBoardState(this.getFlag<unknown>('expeditionBoard.state'));
-    this.setFlag('expeditionBoard.state', state);
+    if (this.runtimeMode === 'authority') this.setFlag('expeditionBoard.state', state);
     return state;
   }
 
@@ -21173,7 +21373,7 @@ export class SnakeGame implements QuestRuntime {
 
   getModernSynergyState(): ModernSynergyState {
     const state = normalizeModernSynergyState(this.getFlag<unknown>('modernSynergy.state'));
-    this.setFlag('modernSynergy.state', state);
+    if (this.runtimeMode === 'authority') this.setFlag('modernSynergy.state', state);
     return state;
   }
 

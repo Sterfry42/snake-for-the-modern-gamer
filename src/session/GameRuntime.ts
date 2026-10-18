@@ -14,6 +14,7 @@ import type { GameSnapshot } from './GameSnapshot.js';
 export interface LocalAuthoritativeRuntime extends CommandHandler {
   executeCommand?(command: ClientCommand): Promise<CommandResult>;
   readonly rng: RandomGenerator;
+  advanceEnvironment(deltaMs: number): void;
   actionStep(paused: boolean): StepResult;
   bossStep(
     onEvent?: (event: import('../systems/boss.js').BossEvent) => void,

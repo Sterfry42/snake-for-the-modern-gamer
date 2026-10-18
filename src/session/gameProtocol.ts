@@ -2,6 +2,8 @@ import { isRecord } from '../core/saveNormalize.js';
 import type { ClientCommand, CommandResult } from './ClientCommand.js';
 import type { GameEvent } from './GameEvent.js';
 import type { GameSnapshot } from './GameSnapshot.js';
+import { SPECIAL_STAT_IDS } from '../stats/specialTypes.js';
+import { EQUIPMENT_SLOTS } from '../inventory/item.js';
 
 export const GAME_PROTOCOL_VERSION = 1;
 
@@ -27,6 +29,93 @@ export type ServerMessage =
 export function isClientCommand(value: unknown): value is ClientCommand {
   if (!isRecord(value) || typeof value.playerId !== 'string') return false;
   switch (value.type) {
+    case 'playerInteraction':
+      return (
+        typeof value.mode === 'string' &&
+        ['playing', 'manual', 'inventory', 'special', 'dialogue', 'shop', 'paused'].includes(
+          value.mode,
+        )
+      );
+    case 'purchase':
+      return validIdentifier(value.actorId) && validIdentifier(value.offerId);
+    case 'relationshipAction':
+      return (
+        validIdentifier(value.actorId) &&
+        typeof value.choice === 'string' &&
+        RELATIONSHIP_CHOICES.has(value.choice)
+      );
+    case 'questAction':
+      return value.action === 'track' && (value.questId === null || validIdentifier(value.questId));
+    case 'specialAction':
+      return (
+        value.action === 'apply' ||
+        value.action === 'reset' ||
+        (value.action === 'preview' &&
+          SPECIAL_STAT_IDS.some((id) => id === value.statId) &&
+          (value.delta === -1 || value.delta === 1))
+      );
+    case 'construction':
+      switch (value.action) {
+        case 'begin':
+          return validIdentifier(value.blueprintId);
+        case 'demolish':
+          return validIdentifier(value.structureId);
+        case 'step':
+        case 'face':
+          return isCardinalDirection(value.direction);
+        case 'claim':
+        case 'confirm':
+        case 'cancel':
+          return true;
+        default:
+          return false;
+      }
+    case 'vehicleAction':
+      return (
+        value.action === 'buyGarageCar' ||
+        value.action === 'exit' ||
+        (value.action === 'enter' && validIdentifier(value.carId)) ||
+        (value.action === 'input' &&
+          [-1, 0, 1].some((entry) => entry === value.throttle) &&
+          [-1, 0, 1].some((entry) => entry === value.steering))
+      );
+    case 'debugAction':
+      return value.action === 'cycleWeather';
+    case 'manualStep':
+    case 'manualReturn':
+      return true;
+    case 'companionAction':
+      return (
+        (value.action === 'feed' || value.action === 'release') &&
+        validIdentifier(value.companionId)
+      );
+    case 'minigameAction':
+      return value.action === 'start'
+        ? value.kind === 'fishing' || value.kind === 'baseball'
+        : value.action === 'pull'
+          ? [-1, 0, 1].some((direction) => direction === value.direction)
+          : value.action === 'swing' || value.action === 'abort';
+    case 'inventoryAction':
+      if (value.action === 'cook') return validIdentifier(value.recipeId);
+      return value.action === 'equip'
+        ? validIdentifier(value.itemId)
+        : value.action === 'unequip' && EQUIPMENT_SLOTS.some((slot) => slot === value.slot);
+    case 'progressionAction':
+      if (value.action === 'usePrimary') return true;
+      if (value.action === 'bind') return validIdentifier(value.abilityId);
+      return value.action === 'purchase'
+        ? validIdentifier(value.perkId)
+        : value.action === 'cast' && validIdentifier(value.spellId);
+    case 'combatAction':
+      return (
+        (value.action === 'fire' || value.action === 'bomb') && isCardinalDirection(value.direction)
+      );
+    case 'maneuverAction':
+      return value.action === 'equip'
+        ? validIdentifier(value.id)
+        : value.action === 'activate'
+          ? value.direction === undefined || isCardinalDirection(value.direction)
+          : value.action === 'digest';
     case 'openActor':
       return (
         typeof value.actorId === 'string' && value.actorId.length > 0 && value.actorId.length <= 256
@@ -79,6 +168,43 @@ export function isClientCommand(value: unknown): value is ClientCommand {
     default:
       return false;
   }
+}
+
+const RELATIONSHIP_CHOICES = new Set([
+  'talk',
+  'flirt',
+  'ask-out',
+  'date',
+  'apologize',
+  'boundary',
+  'mean',
+  'break-up',
+  'propose',
+  'family',
+  'discuss-arrangement',
+  'divorce',
+  'reassure',
+  'explain',
+  'plead',
+  'fight',
+  'run',
+  'child-hug',
+  'child-catch',
+]);
+
+function validIdentifier(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= 256;
+}
+
+function isCardinalDirection(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.x === 'number' &&
+    typeof value.y === 'number' &&
+    Number.isInteger(value.x) &&
+    Number.isInteger(value.y) &&
+    Math.abs(value.x) + Math.abs(value.y) === 1
+  );
 }
 
 export function parseCommandMessage(raw: string): CommandMessage | null {

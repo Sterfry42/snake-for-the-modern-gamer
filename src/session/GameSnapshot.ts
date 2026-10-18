@@ -8,7 +8,9 @@ import type { Boss } from '../systems/boss.js';
 import type { BulletInstance, EnemyInstance } from '../systems/enemies.js';
 import type { RoomSnapshot } from '../world/types.js';
 import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
-import type { ConnectedInteractionView } from './ConnectedInteraction.js';
+import type { GameInteractionView } from './GameInteraction.js';
+import type { SceneClientState } from './SceneClientState.js';
+import type { PlayerInteraction } from './SceneActionCommand.js';
 
 export interface GameSnapshot {
   tick: number;
@@ -16,6 +18,10 @@ export interface GameSnapshot {
   viewport: ViewportSnapshot;
   players: Record<PlayerId, PlayerSnapshot>;
   ui: UiSnapshot;
+  minigame?: import('./MinigameSnapshot.js').MinigameSnapshot | null;
+  /** Player-specific synchronous selectors for the normal scene's menus and HUD. */
+  clientState?: SceneClientState;
+  persistence?: { slotId: string; checkpoint: import('../game/saveTypes.js').GameSaveData | null };
   connections?: Record<string, ConnectionPresence>;
   presentation?: {
     characterMode: 'snake' | 'raccoon';
@@ -76,7 +82,8 @@ export interface PlayerSnapshot {
 }
 
 export interface UiSnapshot {
-  interaction?: ConnectedInteractionView | null;
+  playerInteraction?: PlayerInteraction;
+  interaction?: GameInteractionView | null;
   paused?: boolean;
   messages?: string[];
   activeChoice?: QuestInteraction | null;

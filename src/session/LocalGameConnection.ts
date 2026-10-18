@@ -1,5 +1,6 @@
 import type { ClientCommand, CommandResult } from './ClientCommand.js';
 import { isInteractionCommand } from './ClientCommand.js';
+import { isSceneActionCommand } from './SceneActionCommand.js';
 import type { GameConnection } from './GameConnection.js';
 import type { GameEvent } from './GameEvent.js';
 import type { GameSnapshot } from './GameSnapshot.js';
@@ -16,7 +17,11 @@ export class LocalGameConnection implements GameConnection {
 
   send(command: ClientCommand): CommandResult | Promise<CommandResult> {
     if (this.disconnected) return { ok: false, reason: 'disconnected' };
-    if (!this.execute && isInteractionCommand(command) && this.runtime.executeCommand)
+    if (
+      !this.execute &&
+      (isInteractionCommand(command) || isSceneActionCommand(command)) &&
+      this.runtime.executeCommand
+    )
       return this.runtime.executeCommand(command);
     return this.execute ? this.execute(command) : this.runtime.handleCommand(command);
   }

@@ -16,7 +16,7 @@ test('browser renders the shared authority and routes keyboard input over WebSoc
   const server = createGameServer(session);
   const port = await server.listen(0);
   const errors: string[] = [];
-  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('pageerror', (error) => { errors.push(error.message); console.error(error.stack); });
   let latest: GameSnapshot | undefined;
   const commands: string[] = [];
   page.on('websocket', (socket) => {
@@ -29,17 +29,27 @@ test('browser renders the shared authority and routes keyboard input over WebSoc
   });
   try {
     await page.goto(`?server=${encodeURIComponent(`ws://127.0.0.1:${port}/game`)}`);
+    await expect.poll(() => page.evaluate(() => window.snakeE2E?.getLifecycle().mode)).toMatch(/action|manual-room|paused/);
     await expect.poll(() => latest?.localPlayerId).toBe('player-1');
     await expect(page.locator('canvas')).toBeVisible();
     const observer = await context.newPage();
     await observer.goto(`?server=${encodeURIComponent(`ws://127.0.0.1:${port}/game`)}`);
+    await expect.poll(() => observer.evaluate(() => window.snakeE2E?.getLifecycle().mode)).toMatch(/action|manual-room|paused/);
     await expect(observer.locator('canvas')).toBeVisible();
     await page.keyboard.press('ArrowUp');
     await expect
       .poll(() => commands.some((command) => command.includes('setDirection')))
       .toBe(true);
     await page.keyboard.press('Space');
-    await expect.poll(() => latest?.ui.paused).toBe(false);
+    await expect.poll(() => latest?.ui.playerInteraction).toBe('paused');
+    expect(latest?.ui.paused).toBe(true);
+    await session.executeCommand({ type: 'resume', playerId: 'player-1' });
+    const heldBody = latest!.players['player-1'].body;
+    await session.advance(100);
+    await expect.poll(() => latest?.tick).toBe(100);
+    expect(latest!.players['player-1'].body).toEqual(heldBody);
+    await page.keyboard.press('Space');
+    await expect.poll(() => latest?.ui.playerInteraction).toBe('playing');
     await session.advance(100);
     await expect.poll(() => latest?.players['player-1'].direction.y).toBe(-1);
     expect(latest?.players['player-1'].body).toEqual(

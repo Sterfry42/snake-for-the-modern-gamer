@@ -1,6 +1,7 @@
 import type { PlayerId } from '../players/playerTypes.js';
 
 export type GameEvent =
+  | { type: 'player.revived'; playerId: PlayerId; reason: string }
   | {
       type: 'sound.play';
       soundId: string;

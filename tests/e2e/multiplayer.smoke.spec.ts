@@ -61,12 +61,14 @@ test('two browsers move independent snakes, render NPCs, talk, and view separate
   const bob = observe(bobPage);
   const errors: string[] = [];
   for (const browser of [page, bobPage])
-    browser.on('pageerror', (error) => errors.push(error.message));
+    browser.on('pageerror', (error) => { errors.push(error.message); console.error(error.stack); });
   try {
     const address = encodeURIComponent(`ws://127.0.0.1:${port}/game`);
     await page.goto(`?server=${address}&playerName=Alice`);
+    await expect.poll(() => page.evaluate(() => window.snakeE2E?.getLifecycle().mode)).toMatch(/action|manual-room|paused/);
     await expect.poll(() => alice.snapshot?.localPlayerId).toBe('player-1');
     await bobPage.goto(`?server=${address}&playerName=Bob`);
+    await expect.poll(() => bobPage.evaluate(() => window.snakeE2E?.getLifecycle().mode)).toMatch(/action|manual-room|paused/);
     await expect.poll(() => Object.keys(bob.snapshot?.players ?? {}).length).toBe(2);
     const bobId = bob.snapshot!.localPlayerId;
     expect(bobId).not.toBe('player-1');
