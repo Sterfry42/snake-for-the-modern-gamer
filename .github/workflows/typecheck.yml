@@ -89,3 +89,20 @@ jobs:
         run: npm ci
       - name: Run tests
         run: npm run test
+
+  audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Audit dependencies
+        # Fail the build on high/critical advisories; moderate/low are tracked, not blocking.
+        run: npm audit --audit-level=high
