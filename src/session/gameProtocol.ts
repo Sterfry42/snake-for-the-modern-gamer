@@ -6,7 +6,7 @@ import type { GameSnapshot } from './GameSnapshot.js';
 import { SPECIAL_STAT_IDS } from '../stats/specialTypes.js';
 import { EQUIPMENT_SLOTS } from '../inventory/item.js';
 
-export const GAME_PROTOCOL_VERSION = 1;
+export const GAME_PROTOCOL_VERSION = 2;
 
 export interface CommandMessage {
   type: 'command';
@@ -20,6 +20,7 @@ export type ServerMessage =
       version: number;
       connectionId: string;
       playerId: string;
+      resumeToken: string;
       snapshot: GameSnapshot;
     }
   | { type: 'snapshot'; snapshot: GameSnapshot }
@@ -30,6 +31,55 @@ export type ServerMessage =
 export function isClientCommand(value: unknown): value is ClientCommand {
   if (!isRecord(value) || typeof value.playerId !== 'string') return false;
   switch (value.type) {
+    case 'emote':
+      return validIdentifier(value.emoticonId);
+    case 'guildAction':
+      return (
+        validIdentifier(value.townId) &&
+        (value.action === 'fence' ||
+          value.action === 'market' ||
+          (value.action === 'purchase' && validIdentifier(value.offerId)) ||
+          value.action === 'lower-wanted' ||
+          (value.action === 'job' && validIdentifier(value.jobId)))
+      );
+    case 'archaeologyAction':
+      return (
+        value.action === 'start' ||
+        (typeof value.id === 'number' &&
+          Number.isSafeInteger(value.id) &&
+          value.id > 0 &&
+          (value.action === 'swap' ||
+            value.action === 'leave' ||
+            value.action === 'close' ||
+            (value.action === 'move' && isCardinalDirection(value.direction))))
+      );
+    case 'cosmeticAction': {
+      const appearance = value.appearance;
+      if (
+        !isRecord(appearance) ||
+        !validIdentifier(appearance.themeId) ||
+        !isRecord(appearance.palette)
+      )
+        return false;
+      const palette = appearance.palette;
+      return (
+        ['baseColor', 'bellyColor', 'patternColor', 'outlineColor', 'eyeColor'].every(
+          (key) => typeof palette[key] === 'string' && /^#[0-9a-f]{6}$/i.test(palette[key]),
+        ) &&
+        (appearance.renderStyle === 'sprite' || appearance.renderStyle === 'retro-grid') &&
+        (appearance.activeHat === null ||
+          [
+            'cowboy',
+            'market-cap',
+            'ember-cowl',
+            'pearl-crown',
+            'dragon-helm',
+            'master-broth',
+            'unicorn-horn',
+            'demon-horns',
+          ].some((hat) => hat === appearance.activeHat))
+      );
+    }
     case 'worldInteraction':
       return (
         [
@@ -92,6 +142,20 @@ export function isClientCommand(value: unknown): value is ClientCommand {
         ['playing', 'manual', 'inventory', 'special', 'dialogue', 'shop', 'paused'].includes(
           value.mode,
         )
+      );
+    case 'specialShopAction':
+      return (
+        [
+          'ward',
+          'goblin-style',
+          'goblin-hire',
+          'goblin-rod',
+          'goblin-quest',
+          'goblin-turnin',
+          'butcher',
+        ].some((action) => action === value.action) &&
+        (value.offerId === undefined || validIdentifier(value.offerId)) &&
+        (value.actorId === undefined || validIdentifier(value.actorId))
       );
     case 'purchase':
       return validIdentifier(value.actorId) && validIdentifier(value.offerId);
@@ -297,6 +361,7 @@ function isServerMessage(value: unknown): value is ServerMessage {
         value.version === GAME_PROTOCOL_VERSION &&
         typeof value.connectionId === 'string' &&
         typeof value.playerId === 'string' &&
+        typeof value.resumeToken === 'string' &&
         isSnapshot(value.snapshot)
       );
     case 'snapshot':

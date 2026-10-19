@@ -5,6 +5,8 @@ import {
   normalizeDisplayName,
   saveServerConnectionSettings,
   serverGameUrl,
+  saveServerCredential,
+  loadServerCredential,
 } from '../session/connectionSettings.js';
 import './serverConnectionMenu.css';
 
@@ -13,6 +15,7 @@ export class ServerConnectionMenu {
   private readonly root = document.createElement('div');
   private readonly form = document.createElement('form');
   private readonly url = document.createElement('input');
+  private readonly hostToken = document.createElement('input');
   private readonly name = document.createElement('input');
   private readonly error = document.createElement('p');
   private readonly enter = document.createElement('button');
@@ -32,7 +35,10 @@ export class ServerConnectionMenu {
     description.textContent = 'Choose your name and enter the world.';
     this.url.type = 'text';
     this.url.name = 'serverUrl';
-    this.url.placeholder = 'ws://localhost:8787/game';
+    this.url.placeholder = 'Invite link or server address';
+    this.hostToken.type = 'password';
+    this.hostToken.autocomplete = 'off';
+    this.hostToken.placeholder = 'Optional server owner key';
     this.url.required = true;
     this.url.autocomplete = 'off';
     this.url.spellcheck = false;
@@ -58,13 +64,17 @@ export class ServerConnectionMenu {
     this.form.append(
       title,
       description,
-      this.field('Server URL', this.url),
+      this.field('Server URL or invite link', this.url),
       this.field('Display name', this.name),
+      this.field('Host key (owner only)', this.hostToken),
       this.error,
       buttons,
     );
     this.root.append(this.form);
     document.body.append(this.root);
+    this.url.addEventListener('input', () => {
+      this.hostToken.value = '';
+    });
     this.form.addEventListener('input', () => {
       this.error.textContent = '';
     });
@@ -87,6 +97,7 @@ export class ServerConnectionMenu {
           displayName: normalizeDisplayName(this.name.value),
         };
         saveServerConnectionSettings(settings);
+        saveServerCredential(settings.serverUrl, 'host', this.hostToken.value);
         this.enter.disabled = true;
         this.enter.textContent = 'Connecting…';
         window.location.assign(serverGameUrl(location.href, settings));
@@ -107,6 +118,7 @@ export class ServerConnectionMenu {
     const settings = loadServerConnectionSettings(location.href);
     this.url.value = settings.serverUrl;
     this.name.value = settings.displayName;
+    this.hostToken.value = loadServerCredential(settings.serverUrl, 'host') ?? '';
     this.error.textContent = '';
     this.enter.disabled = false;
     this.enter.textContent = 'Enter World';
@@ -126,7 +138,7 @@ export class ServerConnectionMenu {
       this.back.click();
       return true;
     }
-    const controls = [this.url, this.name, this.back, this.enter];
+    const controls = [this.url, this.name, this.hostToken, this.back, this.enter];
     const index = controls.findIndex((control) => control === document.activeElement);
     if (['up', 'down', 'left', 'right'].includes(command)) {
       const direction = command === 'up' || command === 'left' ? -1 : 1;

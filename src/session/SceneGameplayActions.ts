@@ -1,3 +1,5 @@
+import { executeGuildAction } from './GuildActions.js';
+import { executeSpecialShopAction } from './SpecialShopActions.js';
 import type { SnakeGame } from '../game/snakeGame.js';
 import type { CommandResult } from './ClientCommand.js';
 import type { SceneActionCommand } from './SceneActionCommand.js';
@@ -17,11 +19,37 @@ export function executeSceneGameplayAction(
         | 'vehicleAction'
         | 'minigameAction'
         | 'actorAction'
-        | 'datingAction';
+        | 'datingAction'
+        | 'archaeologyAction';
     }
   >,
 ): CommandResult {
   switch (command.type) {
+    case 'guildAction':
+      return executeGuildAction(game, command);
+    case 'specialShopAction':
+      return executeSpecialShopAction(game, command);
+    case 'cosmeticAction': {
+      const player = game.getPlayer(command.playerId);
+      if (!player) return { ok: false, reason: 'Unknown player.' };
+      const { themeId, activeHat, renderStyle, palette } = command.appearance;
+      player.cosmetics = {
+        ...player.cosmetics,
+        appearance: {
+          themeId,
+          activeHat,
+          renderStyle,
+          palette: {
+            baseColor: palette.baseColor,
+            bellyColor: palette.bellyColor,
+            patternColor: palette.patternColor,
+            outlineColor: palette.outlineColor,
+            eyeColor: palette.eyeColor,
+          },
+        },
+      };
+      return { ok: true };
+    }
     case 'worldInteraction': {
       switch (command.action) {
         case 'trainer-equip':

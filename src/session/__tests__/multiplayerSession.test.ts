@@ -171,6 +171,8 @@ describe('independent authoritative players', () => {
       isRecord(bobTalk) && typeof bobTalk.message === 'string' ? bobTalk.message : '',
     ).toContain('Ada:');
     expect(talkMessageFor(alice)).toBeUndefined();
+    expect(session.getSnapshot(bob).clientState?.flags['ui.questInteraction']).toBeUndefined();
+    expect(session.getSnapshot().ui.messages?.join(' ')).not.toContain('Ada:');
     expect(
       await session.executeCommand({ type: 'talkToActor', playerId: bob, actorId: 'missing' }),
     ).toEqual({ ok: false, reason: 'Move closer to talk.' });

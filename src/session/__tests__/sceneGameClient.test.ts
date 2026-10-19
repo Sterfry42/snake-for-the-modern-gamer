@@ -322,7 +322,7 @@ describe('scene state mirror and command facade', () => {
         actorId: actor.id,
         offerId: offer.id,
       }),
-    ).toMatchObject({ ok: true, message: expect.stringContaining('Purchased') });
+    ).toMatchObject({ ok: true, message: `Purchased ${offer.label}.` });
     expect(client.getScore()).toBe(10000 - offer.price);
     if (offer.itemId) expect(client.getInventory().getItemCount(offer.itemId)).toBe(1);
     expect(await client.setPlayerInteraction('inventory')).toEqual({ ok: true });

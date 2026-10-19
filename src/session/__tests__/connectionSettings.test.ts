@@ -1,12 +1,40 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   connectionsMenuUrl,
+  loadServerConnectionSettings,
   normalizeDisplayName,
   normalizeServerUrl,
   serverGameUrl,
+  serverInviteUrl,
+  serverCredentialKey,
 } from '../connectionSettings.js';
 
 describe('server connection settings', () => {
+  afterEach(() => vi.unstubAllEnvs());
+  it('offers a configured default server and lets an invite select its own endpoint', () => {
+    vi.stubEnv('VITE_SNAKE_SERVER_URL', 'https://friends.test/game');
+    expect(loadServerConnectionSettings('https://game.test/snake/').serverUrl).toBe(
+      'wss://friends.test/game',
+    );
+    expect(
+      loadServerConnectionSettings('https://game.test/snake/?server=ws%3A%2F%2Fother.test%2Fgame')
+        .serverUrl,
+    ).toBe('ws://other.test/game');
+  });
+  it('shares a credential-free invite and accepts it as a server address', () => {
+    const invite = serverInviteUrl(
+      'https://game.test/snake/?playerName=Owner&enter=1#secret',
+      'wss://server.test/game?resume=private&hostToken=owner&name=Owner',
+    );
+    expect(invite).not.toMatch(/private|owner|Owner|secret|enter/);
+    expect(normalizeServerUrl(invite)).toBe('wss://server.test/game');
+    expect(serverCredentialKey('https://server.test/game?name=Alice')).toBe(
+      serverCredentialKey('wss://server.test/game'),
+    );
+    expect(serverCredentialKey('wss://other.test/game')).not.toBe(
+      serverCredentialKey('wss://server.test/game'),
+    );
+  });
   it('accepts ordinary host addresses and maps HTTP addresses to their WebSocket endpoint', () => {
     expect(normalizeServerUrl(' localhost:8787 ')).toBe('ws://localhost:8787/game');
     expect(normalizeServerUrl('https://example.test/socket')).toBe('wss://example.test/socket');

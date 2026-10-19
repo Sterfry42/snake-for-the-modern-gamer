@@ -92,9 +92,11 @@ interface SnakeRenderOptions {
   otherPlayers?: readonly {
     id: string;
     name?: string;
+    activeEmoticon?: string | null;
     body: readonly Vector2Like[];
     direction: Vector2Like;
     color?: number;
+    appearance?: import('../players/playerTypes.js').PlayerAppearance;
   }[];
   localPlayerName?: string;
   snakePalette?: SnakeSpritePalette;
@@ -156,6 +158,16 @@ export interface RenderDiagnostics {
 }
 
 export class SnakeRenderer {
+  getPlayerPresentation() {
+    return [...this.otherSnakeSprites].map(([id, retained]) => ({
+      id,
+      textures: retained.sprites
+        .filter((sprite) => sprite.visible)
+        .map((sprite) => sprite.texture.key),
+      hat: retained.hat.visible ? retained.hat.texture.key : null,
+    }));
+  }
+
   private readonly playerNameplates = new Map<string, Phaser.GameObjects.Text>();
   private readonly spriteFactory: RuntimeSpriteFactory;
   private readonly overlayGraphics: Phaser.GameObjects.Graphics;
@@ -163,6 +175,10 @@ export class SnakeRenderer {
   private readonly darknessRevealGraphics: Phaser.GameObjects.Graphics;
   private readonly lightGlowGraphics: Phaser.GameObjects.Graphics;
   private dlss5LightGlowFx: Phaser.FX.Glow | null = null;
+  private readonly otherSnakeSprites = new Map<
+    string,
+    { sprites: Phaser.GameObjects.Image[]; hat: Phaser.GameObjects.Image }
+  >();
   private readonly snakeSprites: Phaser.GameObjects.Image[] = [];
   private readonly snakeLayer: Phaser.GameObjects.Container;
   private readonly hatSprite: Phaser.GameObjects.Image;
@@ -202,7 +218,6 @@ export class SnakeRenderer {
   private readonly powerupSprites: Phaser.GameObjects.Image[] = [];
   private readonly staticRoomSignatures = new Map<string, string>();
   private readonly dirtyStaticRooms = new Set<string>();
-  private readonly loggedOtherPlayerRenderIds = new Set<string>();
   private renderScale = 1;
   private activePresentationSprites: ReadonlyMap<string, WorldRenderScene['sprites'][number]> =
     new Map();
@@ -504,6 +519,10 @@ export class SnakeRenderer {
     this.lightGlowGraphics.clearMask();
     this.wallGraphics.clear();
     this.darknessTexture.clear().setVisible(false);
+    this.otherSnakeSprites.forEach((retained) => {
+      retained.sprites.forEach((sprite) => sprite.setVisible(false));
+      retained.hat.setVisible(false);
+    });
     this.snakeLayer.setVisible(false);
     this.hatSprite.setVisible(false);
     this.emoticonBubbleGraphics.clear();
@@ -2830,6 +2849,8 @@ export class SnakeRenderer {
     thermalBody?: SnakeRenderOptions['thermalBody'],
     ghostly: boolean = false,
     roomPlacements?: ReadonlyMap<string, RoomPlacement>,
+    retained = { sprites: this.snakeSprites, hat: this.hatSprite },
+    identity = 'snake',
   ): void {
     const now = (this.graphics.scene as Phaser.Scene).time?.now ?? performance.now();
     const pulse = poweredUp ? 0.85 + 0.15 * Math.sin(now / 180) : 1;
@@ -2844,8 +2865,8 @@ export class SnakeRenderer {
       this.grid.cell,
       paletteOverride ?? this.buildSnakePalette(),
     );
-    this.snakeSprites.forEach((sprite) => sprite.setVisible(false));
-    this.hatSprite.setVisible(false);
+    retained.sprites.forEach((sprite) => sprite.setVisible(false));
+    retained.hat.setVisible(false);
 
     snakeBody.forEach((segment, index) => {
       const renderPosition = this.getRenderTilePosition(
@@ -2861,10 +2882,10 @@ export class SnakeRenderer {
         paletteConfig.snake.minAlpha,
         1 - index * paletteConfig.snake.fadeStep,
       );
-      const presentationPosition = this.getPresentationTilePosition(`snake:${index}`);
+      const presentationPosition = this.getPresentationTilePosition(`${identity}:${index}`);
       const x = (presentationPosition?.x ?? renderPosition.x) * this.grid.cell;
       const y = (presentationPosition?.y ?? renderPosition.y) * this.grid.cell;
-      const sprite = this.ensureSnakeSprite(index);
+      const sprite = this.ensureSnakeSprite(index, retained.sprites);
       const variant = this.resolveVariant(snakeBody, index, direction);
       sprite
         .setTexture(textureKeys[variant])
@@ -2873,11 +2894,11 @@ export class SnakeRenderer {
         .setAlpha(alpha * pulse * ghostAlpha)
         .setTint(tintColor)
         .setVisible(true);
-      this.registerRetainedPresentationTarget(`snake:${index}`, sprite);
+      this.registerRetainedPresentationTarget(`${identity}:${index}`, sprite);
 
       if (activeHat && index === 0) {
         const hatTextures = this.getHatTextureKeys(activeHat);
-        this.hatSprite
+        retained.hat
           .setTexture(hatTextures[this.hatVariantFor(direction)])
           .setPosition(
             this.scaledPx(x + this.grid.cell / 2),
@@ -2886,7 +2907,7 @@ export class SnakeRenderer {
           .setDisplaySize(this.scaledPx(this.grid.cell), this.scaledPx(this.grid.cell))
           .setAlpha(pulse * ghostAlpha)
           .setVisible(true);
-        this.registerRetainedPresentationTarget('snake:0', this.hatSprite, {
+        this.registerRetainedPresentationTarget(`${identity}:0`, retained.hat, {
           x: 0,
           y: -this.grid.cell * 0.12,
         });
@@ -3017,6 +3038,8 @@ export class SnakeRenderer {
     thermalBody?: SnakeRenderOptions['thermalBody'],
     ghostly: boolean = false,
     roomPlacements?: ReadonlyMap<string, RoomPlacement>,
+    retained = { sprites: this.snakeSprites, hat: this.hatSprite },
+    identity = 'snake',
   ): void {
     const now = (this.graphics.scene as Phaser.Scene).time?.now ?? performance.now();
     const pulse = poweredUp ? 0.88 + 0.12 * Math.sin(now / 180) : 1;
@@ -3030,8 +3053,8 @@ export class SnakeRenderer {
     const outlineColor = ghostly
       ? 0xdaf8ff
       : this.resolveThermalRetroSnakeColor(0x1c513a, thermalBody);
-    this.snakeSprites.forEach((sprite) => sprite.setVisible(false));
-    this.hatSprite.setVisible(false);
+    retained.sprites.forEach((sprite) => sprite.setVisible(false));
+    retained.hat.setVisible(false);
 
     snakeBody.forEach((segment, segmentIndex) => {
       const renderPosition = this.getRenderTilePosition(
@@ -3044,7 +3067,7 @@ export class SnakeRenderer {
         return;
       }
 
-      const presentationPosition = this.getPresentationTilePosition(`snake:${segmentIndex}`);
+      const presentationPosition = this.getPresentationTilePosition(`${identity}:${segmentIndex}`);
       const x = (presentationPosition?.x ?? renderPosition.x) * this.grid.cell;
       const y = (presentationPosition?.y ?? renderPosition.y) * this.grid.cell;
       this.graphics.fillStyle(shellColor, 0.96 * pulse * ghostAlpha);
@@ -3062,10 +3085,10 @@ export class SnakeRenderer {
     if (!headPosition) {
       return;
     }
-    const presentedHeadPosition = this.getPresentationTilePosition('snake:0') ?? headPosition;
+    const presentedHeadPosition = this.getPresentationTilePosition(`${identity}:0`) ?? headPosition;
 
     const hatTextures = this.getHatTextureKeys(activeHat);
-    this.hatSprite
+    retained.hat
       .setTexture(hatTextures[this.hatVariantFor(direction)])
       .setPosition(
         this.scaledPx(presentedHeadPosition.x * this.grid.cell + this.grid.cell / 2),
@@ -3108,7 +3131,12 @@ export class SnakeRenderer {
   private drawPlayerNameplates(
     room: RoomSnapshot,
     roomId: string,
-    players: readonly { id: string; name?: string; body: readonly Vector2Like[] }[],
+    players: readonly {
+      id: string;
+      name?: string;
+      activeEmoticon?: string | null;
+      body: readonly Vector2Like[];
+    }[],
     placements?: ReadonlyMap<string, RoomPlacement>,
   ): void {
     for (const label of this.playerNameplates.values()) label.setVisible(false);
@@ -3131,7 +3159,9 @@ export class SnakeRenderer {
         this.playerNameplates.set(player.id, label);
       }
       label
-        .setText(player.name)
+        .setText(
+          `${player.activeEmoticon ? `${getEmoticonDefinition(player.activeEmoticon)?.symbol ?? ''} ` : ''}${player.name}`,
+        )
         .setPosition(
           (position.x + 0.5) * this.grid.cell * this.renderScale,
           (position.y * this.grid.cell - 6) * this.renderScale,
@@ -3149,65 +3179,59 @@ export class SnakeRenderer {
   private drawOtherPlayers(
     room: RoomSnapshot,
     currentRoomId: string,
-    players: readonly {
-      id: string;
-      body: readonly Vector2Like[];
-      direction: Vector2Like;
-      color?: number;
-    }[],
+    players: NonNullable<SnakeRenderOptions['otherPlayers']>,
     roomPlacements?: ReadonlyMap<string, RoomPlacement>,
   ): void {
+    const visible = new Set(players.map((player) => player.id));
+    for (const [id, retained] of this.otherSnakeSprites) {
+      if (visible.has(id)) continue;
+      retained.sprites.forEach((sprite) => sprite.destroy());
+      retained.hat.destroy();
+      this.otherSnakeSprites.delete(id);
+    }
     for (const player of players) {
-      const color = player.color ?? 0x4ecdc4;
-      player.body.forEach((segment, index) => {
-        const renderPosition = this.getRenderTilePosition(
-          segment,
-          currentRoomId,
-          room,
-          roomPlacements,
-        );
-        if (!renderPosition) {
-          return;
-        }
-        const inset = index === 0 ? 2 : 3;
-        const alpha = Math.max(0.35, 0.9 - index * 0.06);
-        this.graphics.fillStyle(color, alpha);
-        this.graphics.fillRoundedRect(
-          renderPosition.x * this.grid.cell + inset,
-          renderPosition.y * this.grid.cell + inset,
-          this.grid.cell - inset * 2,
-          this.grid.cell - inset * 2,
-          3,
-        );
-        if (index === 0) {
-          this.graphics.lineStyle(2, 0xffffff, 0.95);
-          this.graphics.strokeRoundedRect(
-            renderPosition.x * this.grid.cell + inset,
-            renderPosition.y * this.grid.cell + inset,
-            this.grid.cell - inset * 2,
-            this.grid.cell - inset * 2,
-            3,
-          );
-          this.graphics.fillStyle(0xffffff, 0.95);
-          this.graphics.fillTriangle(
-            renderPosition.x * this.grid.cell + this.grid.cell / 2,
-            renderPosition.y * this.grid.cell - 5,
-            renderPosition.x * this.grid.cell + this.grid.cell / 2 - 5,
-            renderPosition.y * this.grid.cell + 2,
-            renderPosition.x * this.grid.cell + this.grid.cell / 2 + 5,
-            renderPosition.y * this.grid.cell + 2,
-          );
-          this.graphics.lineStyle(2, color, 0.95);
-          this.graphics.strokeCircle(
-            renderPosition.x * this.grid.cell + this.grid.cell / 2,
-            renderPosition.y * this.grid.cell + this.grid.cell / 2,
-            this.grid.cell * 0.62,
-          );
-        }
-      });
-      if (!this.loggedOtherPlayerRenderIds.has(player.id)) {
-        this.loggedOtherPlayerRenderIds.add(player.id);
+      let retained = this.otherSnakeSprites.get(player.id);
+      if (!retained) {
+        retained = {
+          sprites: [],
+          hat: this.scene.add
+            .image(0, 0, this.hatTextureKeys['hat-up'])
+            .setDepth(SNAKE_LAYER_DEPTH + 1)
+            .setVisible(false),
+        };
+        this.otherSnakeSprites.set(player.id, retained);
       }
+      if (player.appearance?.renderStyle === 'retro-grid') {
+        this.drawRetroGridSnake(
+          room,
+          player.body,
+          currentRoomId,
+          player.direction,
+          false,
+          player.appearance.activeHat,
+          undefined,
+          false,
+          roomPlacements,
+          retained,
+          `player:${player.id}`,
+        );
+        continue;
+      }
+      this.drawSnake(
+        room,
+        player.body,
+        currentRoomId,
+        player.direction,
+        undefined,
+        false,
+        player.appearance?.palette,
+        player.appearance?.activeHat ?? null,
+        undefined,
+        false,
+        roomPlacements,
+        retained,
+        `player:${player.id}`,
+      );
     }
   }
 
@@ -3388,8 +3412,8 @@ export class SnakeRenderer {
     return (r << 16) | (g << 8) | b;
   }
 
-  private ensureSnakeSprite(index: number): Phaser.GameObjects.Image {
-    let sprite = this.snakeSprites[index];
+  private ensureSnakeSprite(index: number, sprites = this.snakeSprites): Phaser.GameObjects.Image {
+    let sprite = sprites[index];
     if (sprite) {
       return sprite;
     }
@@ -3399,7 +3423,7 @@ export class SnakeRenderer {
       .setVisible(false)
       .setOrigin(0.5, 0.5);
     this.snakeLayer.add(sprite);
-    this.snakeSprites[index] = sprite;
+    sprites[index] = sprite;
     return sprite;
   }
 

@@ -16,6 +16,7 @@ import { executeSceneGameplayAction } from './SceneGameplayActions.js';
 import { AuthoritativeProgression } from './AuthoritativeProgression.js';
 import { isManualMovementArea } from '../world/manualMovementPolicy.js';
 import { AuthoritativeVehicles } from './AuthoritativeVehicles.js';
+import { AuthoritativeArchaeology } from './AuthoritativeArchaeology.js';
 import { AuthoritativeMinigames } from './AuthoritativeMinigames.js';
 import { GameInteractionMenus } from './GameInteractionMenus.js';
 import type { GameEvent } from './GameEvent.js';
@@ -44,15 +45,35 @@ type EventHandler = (event: GameEvent) => void;
 
 export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   private readonly connections = new Map<string, ConnectionPresence>();
+  private hosted = false;
+  private readonly administrators = new Set<PlayerId>();
+  private readonly retainedPlayers = new Map<PlayerId, boolean>();
+  private readonly expressions = new Map<PlayerId, { id: string; remainingMs: number }>();
+
+  configureHosting(): void {
+    this.hosted = true;
+  }
+
+  private canManageWorld(playerId: PlayerId): boolean {
+    return (!this.hosted && this.connections.size === 0) || this.administrators.has(playerId);
+  }
+
   private outcomeSequence = 0;
+  private readonly outcomeStats = new Map<PlayerId, { score: number; length: number }>();
+  private readonly publishedRooms = new Map<PlayerId, string>();
   private readonly playerInteractions = new Map<PlayerId, PlayerInteraction>();
   private readonly progression = new Map<PlayerId, AuthoritativeProgression>();
   private readonly actionElapsed = new Map<PlayerId, number>();
   private readonly vehicles: AuthoritativeVehicles;
+  private readonly archaeology: AuthoritativeArchaeology;
   private readonly minigames: AuthoritativeMinigames;
 
-  attachConnection(connectionId: string, name: string): Promise<PlayerId> {
-    return this.enqueue(async () => this.registerConnection(connectionId, name));
+  attachConnection(
+    connectionId: string,
+    name: string,
+    identity?: { playerId: PlayerId; admin: boolean },
+  ): Promise<PlayerId> {
+    return this.enqueue(async () => this.registerConnection(connectionId, name, identity));
   }
 
   detachConnection(connectionId: string): Promise<void> {
@@ -62,16 +83,39 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     });
   }
 
-  registerConnection(connectionId: string, displayName: string): PlayerId {
+  registerConnection(
+    connectionId: string,
+    displayName: string,
+    identity?: { playerId: PlayerId; admin: boolean },
+  ): PlayerId {
     const primaryAttached = [...this.connections.values()].some(
       (peer) => peer.playerId === this.localPlayerId,
     );
-    const playerId = primaryAttached ? `player-${connectionId}` : this.localPlayerId;
-    this.game.addConnectedPlayer(playerId, normalizeDisplayName(displayName)).alive = true;
+    const playerId =
+      identity?.playerId ?? (primaryAttached ? `player-${connectionId}` : this.localPlayerId);
+    // Superseded sockets cannot detach or act for a replacement connection.
+    for (const [id, peer] of this.connections)
+      if (peer.playerId === playerId) this.connections.delete(id);
+    const returning = this.retainedPlayers.has(playerId);
+    const player = this.game.addConnectedPlayer(playerId, normalizeDisplayName(displayName));
+    player.alive = this.retainedPlayers.get(playerId) ?? (identity ? player.alive : true);
+    this.retainedPlayers.delete(playerId);
+    if (identity?.admin) this.administrators.add(playerId);
+    else if (identity) this.administrators.delete(playerId);
+    const attached = this.game.getPlayer(playerId)!;
+    this.outcomeStats.set(playerId, {
+      score: attached.snake.score,
+      length: attached.snake.bodySegments.length,
+    });
     this.connections.set(connectionId, {
       connectionId,
       playerId,
       displayName: normalizeDisplayName(displayName),
+    });
+    this.emit({
+      type: 'party.presence',
+      name: player.name,
+      status: returning ? 'reconnected' : 'joined',
     });
     return playerId;
   }
@@ -84,9 +128,19 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     this.playerInteractions.delete(peer.playerId);
     this.game.runForPlayer(peer.playerId, () => this.vehicles.abandon());
     this.minigames.reset(peer.playerId);
+    this.archaeology.reset(peer.playerId);
     this.progression.delete(peer.playerId);
     this.actionElapsed.delete(peer.playerId);
-    if (peer.playerId === this.localPlayerId) {
+    this.administrators.delete(peer.playerId);
+    this.expressions.delete(peer.playerId);
+    this.emit({ type: 'party.presence', name: peer.displayName, status: 'left' });
+    if (this.hosted) {
+      const player = this.game.getPlayer(peer.playerId);
+      if (player) {
+        this.retainedPlayers.set(peer.playerId, player.alive);
+        player.alive = false;
+      }
+    } else if (peer.playerId === this.localPlayerId) {
       const player = this.game.getPlayer(peer.playerId);
       if (player) player.alive = false;
     } else this.game.removeConnectedPlayer(peer.playerId);
@@ -96,7 +150,9 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     const ids =
       this.connections.size > 0
         ? [...new Set([...this.connections.values()].map((peer) => peer.playerId))]
-        : [this.localPlayerId];
+        : this.hosted
+          ? []
+          : [this.localPlayerId];
     return ids
       .map((id) => this.game.getPlayer(id))
       .filter((player): player is PlayerRuntime => player !== null && player.alive);
@@ -172,6 +228,10 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     this.game = args.game;
     this.vehicles = new AuthoritativeVehicles(this.game);
     this.minigames = new AuthoritativeMinigames(this.game);
+    this.archaeology = new AuthoritativeArchaeology(this.game, (playerId, outcome) => {
+      this.emitSnapshot();
+      this.emit({ type: 'archaeology.outcome', playerId, outcome });
+    });
     this.interactions = new GameInteractionMenus(this.game);
     this.localPlayerId = args.localPlayerId ?? this.game.getLocalPlayerId();
     this.saveStore = args.saveStore;
@@ -179,6 +239,8 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     this.manageBasicFeatures = args.manageBasicFeatures ?? false;
     this.allowDebugCommands = args.allowDebugCommands ?? false;
     this.lastSnapshot = this.buildSnapshot();
+    for (const player of this.game.getPlayers())
+      this.publishedRooms.set(player.id, player.snake.currentRoomId);
   }
 
   /** Production creation stays behind the same authority for either transport. */
@@ -208,6 +270,11 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     return this.enqueue(async () => {
       if (!this.game.getPlayer(command.playerId)) return { ok: false, reason: 'unknown-player' };
       if (command.type === 'actorAction' || command.type === 'datingAction') {
+        if (
+          this.archaeology.getView(command.playerId) &&
+          !(command.type === 'actorAction' && command.action === 'close')
+        )
+          return { ok: false, reason: 'Finish the excavation first.' };
         const result = await this.game.runForPlayerAsync(command.playerId, () => {
           if (!this.game.getPlayer(command.playerId)?.alive)
             return Promise.resolve({ ok: false, reason: 'Respawn before acting.' });
@@ -219,11 +286,27 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         return result;
       }
       if (
-        ['saveGame', 'loadGame', 'clearSave'].includes(command.type) &&
-        this.connections.size > 0 &&
-        command.playerId !== this.localPlayerId
+        ['saveGame', 'loadGame', 'clearSave', 'pause', 'resume', 'debugAction'].includes(
+          command.type,
+        ) &&
+        !this.canManageWorld(command.playerId)
       )
-        return { ok: false, reason: 'Only the host can manage the world checkpoint.' };
+        return {
+          ok: false,
+          reason: 'Only the server owner can manage world settings and checkpoints.',
+        };
+      if (command.type === 'emote') {
+        return this.game.runForPlayer(command.playerId, () => {
+          if (
+            !this.game.getPlayer(command.playerId)?.alive ||
+            !this.game.getEmoticonState().owned.includes(command.emoticonId)
+          )
+            return { ok: false, reason: 'Emoticon is not available.' };
+          this.expressions.set(command.playerId, { id: command.emoticonId, remainingMs: 5000 });
+          this.emitSnapshot();
+          return { ok: true };
+        });
+      }
       if (isSceneActionCommand(command)) {
         const result = this.game.runForPlayer(command.playerId, () => {
           if (command.type === 'playerInteraction') {
@@ -245,6 +328,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
             if (
               this.interactions.getView(command.playerId) ||
               this.minigames.getView(command.playerId) ||
+              this.archaeology.getView(command.playerId) ||
               this.game.getFlag('vehicle.active') ||
               !['playing', 'manual'].includes(
                 this.playerInteractions.get(command.playerId) ?? 'playing',
@@ -256,6 +340,8 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
             return { ok: true };
           }
           if (command.type === 'vehicleAction') {
+            if (command.action === 'enter' && this.archaeology.getView(command.playerId))
+              return { ok: false, reason: 'Finish the excavation first.' };
             if (command.action === 'enter') return this.vehicles.enter(command.carId);
             if (command.action === 'exit') return this.vehicles.exit();
             if (command.action === 'input')
@@ -263,7 +349,23 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
             const result = this.game.buyGarageCar();
             return { ok: result.ok, message: result.message };
           }
-          if (command.type === 'minigameAction') return this.minigames.command(command);
+          if (command.type === 'archaeologyAction') {
+            if (
+              command.action === 'start' &&
+              (this.minigames.getView(command.playerId) ||
+                this.game.getFlag('vehicle.active') ||
+                this.game.getStructurePlacement() ||
+                this.game.getForcedEncounter() ||
+                this.game.getOfferedQuest())
+            )
+              return { ok: false, reason: 'Finish the current activity first.' };
+            return this.archaeology.command(command);
+          }
+          if (command.type === 'minigameAction') {
+            if (command.action === 'start' && this.archaeology.getView(command.playerId))
+              return { ok: false, reason: 'Finish the excavation first.' };
+            return this.minigames.command(command);
+          }
           if (command.type === 'progressionAction') {
             const progression = this.getProgression(command.playerId);
             if (command.action === 'bind' || command.action === 'usePrimary') {
@@ -326,9 +428,12 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
             this.actionElapsed.clear();
             this.vehicles.reset();
             this.minigames.reset();
+            this.archaeology.reset();
             this.interactions.reset();
             this.playerInteractions.clear();
-            this.game.getPlayer(this.localPlayerId)!.alive = true;
+            this.game.getPlayer(this.localPlayerId)!.alive = !this.retainedPlayers.has(
+              this.localPlayerId,
+            );
             for (const id of ['boss', 'action', 'actor', 'bullet', 'hazard'])
               this.scheduler.resetClock(id);
             this.refreshSnapshot();
@@ -356,6 +461,14 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   advance(deltaMs: number): Promise<void> {
     return this.enqueue(async () => {
       if (!Number.isFinite(deltaMs) || deltaMs < 0) throw new Error('Invalid simulation delta');
+      let expressionExpired = false;
+      for (const [id, expression] of this.expressions) {
+        expression.remainingMs -= deltaMs;
+        if (expression.remainingMs <= 0) {
+          this.expressions.delete(id);
+          expressionExpired = true;
+        }
+      }
       const running = !this.paused && this.simulationPlayers().length > 0;
       if (running) {
         this.advanceEnvironment(deltaMs);
@@ -372,6 +485,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         if (this.paused || this.simulationPlayers().length === 0) break;
         await step();
       }
+      if (expressionExpired) this.emitSnapshot();
     });
   }
 
@@ -388,6 +502,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         this.game.runForPlayer(player.id, () => {
           this.game.tickHouseGarden(elapsed);
           this.minigames.step(elapsed);
+          this.archaeology.step(elapsed);
           this.vehicles.step(
             elapsed,
             (this.playerInteractions.get(player.id) ?? 'playing') !== 'playing' ||
@@ -448,6 +563,14 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
 
   handleCommand(command: ClientCommand): CommandResult {
+    if (
+      ['saveGame', 'loadGame', 'clearSave', 'pause', 'resume'].includes(command.type) &&
+      !this.canManageWorld(command.playerId)
+    )
+      return {
+        ok: false,
+        reason: 'Only the server owner can manage world settings and checkpoints.',
+      };
     if (isInteractionCommand(command) || isSceneActionCommand(command))
       return { ok: false, reason: 'Interaction commands require the session queue.' };
     if (
@@ -487,7 +610,9 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     if (command.type === 'restartRun' && this.connections.size > 0) {
       this.vehicles.abandon();
       this.minigames.reset(command.playerId);
+      this.archaeology.reset(command.playerId);
       this.actionElapsed.delete(command.playerId);
+      this.expressions.delete(command.playerId);
       this.interactions.remove(command.playerId);
       this.playerInteractions.delete(command.playerId);
       this.game.respawnConnectedPlayer(command.playerId);
@@ -498,6 +623,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     if (command.type === 'restartRun') {
       this.vehicles.reset();
       this.minigames.reset();
+      this.archaeology.reset();
       this.progression.clear();
       this.actionElapsed.clear();
       this.interactions.reset();
@@ -559,6 +685,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       Boolean(this.game.getForcedEncounter()) ||
       Boolean(this.game.getOfferedQuest()) ||
       Boolean(this.minigames.getView(playerId)) ||
+      Boolean(this.archaeology.getView(playerId)) ||
       Boolean(this.interactions.getView(playerId)) ||
       (this.playerInteractions.get(playerId) ?? 'playing') !== 'playing' ||
       Boolean(this.game.getFlag('vehicle.active')) ||
@@ -604,7 +731,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     const previousRoomId = this.game.getPlayer(playerId)?.snake.currentRoomId;
     const scoreBefore = this.game.getScore();
     const lengthBefore = this.game.getSnakeLength();
-    const result = this.game.actionStep(paused);
+    const result = this.game.actionStep(paused, { advanceBombs: !this.manageBasicFeatures });
     this.resolvePlayerDeath(result, playerId);
     if (this.manageBasicFeatures && !paused && result.status !== 'dead') {
       const progression = this.getProgression(playerId);
@@ -665,7 +792,13 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     onEvent?: (event: import('../systems/boss.js').BossEvent) => void,
     stepMs?: number,
   ): void {
-    this.game.bossStep(onEvent, stepMs);
+    this.game.bossStep((event) => {
+      onEvent?.(event);
+      if (this.manageBasicFeatures)
+        for (const player of this.simulationPlayers())
+          if (player.snake.currentRoomId === this.game.getCurrentRoom().id)
+            this.emit({ type: 'boss.outcome', playerId: player.id, event });
+    }, stepMs);
     this.emitSnapshot();
   }
 
@@ -674,7 +807,11 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
 
   hazardClockStep(): StepResult | null {
-    let first: StepResult | null = null;
+    let first: StepResult | null = this.manageBasicFeatures ? this.game.bombClockStep() : null;
+    if (first) {
+      this.resolvePlayerDeath(first, this.localPlayerId);
+      if (first.status === 'dead') this.game.getPlayer(this.localPlayerId)!.alive = false;
+    }
     for (const player of this.simulationPlayers()) {
       const result = this.game.runForPlayer(player.id, () => {
         const result = this.game.hazardClockStep();
@@ -705,6 +842,11 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
 
   refreshSnapshot(): GameSnapshot {
+    for (const player of this.game.getPlayers())
+      this.outcomeStats.set(player.id, {
+        score: player.snake.score,
+        length: player.snake.bodySegments.length,
+      });
     return this.emitSnapshot(true);
   }
 
@@ -762,6 +904,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   ): boolean {
     const loaded = this.game.loadGame(getReligionChoice, getClassChoice, getBackgroundChoice);
     if (loaded) {
+      this.archaeology.reset();
       this.interactions.reset();
       this.playerInteractions.clear();
       this.game.getPlayer(this.localPlayerId)!.alive = true;
@@ -806,10 +949,14 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         Object.entries(snapshot.clientState.flags).filter(([key]) => !isGameplayFeedbackKey(key)),
       );
     snapshot.minigame = this.minigames.getView(playerId);
+    snapshot.archaeology = this.archaeology.getView(playerId);
     snapshot.persistence = {
       slotId: this.saveSlotId,
-      checkpoint: playerId === this.localPlayerId ? this.checkpoint : null,
+      checkpoint: this.canManageWorld(playerId) ? this.checkpoint : null,
     };
+    snapshot.permissions = { manageWorld: this.canManageWorld(playerId) };
+    for (const player of Object.values(snapshot.players))
+      player.activeEmoticon = this.expressions.get(player.id)?.id ?? null;
     snapshot.connections = Object.fromEntries(this.connections);
     for (const room of Object.values(snapshot.viewport.rooms)) {
       room.bosses = this.game.getBosses(room.id).map(cloneBossForSnapshot);
@@ -826,8 +973,17 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
 
   private emitSnapshot(forceDetach = false): GameSnapshot {
+    for (const { playerId, result } of this.game.drainCombatResults()) {
+      this.game.runForPlayer(playerId, () => this.resolvePlayerDeath(result, playerId));
+      if (result.status === 'dead') {
+        this.game.getPlayer(playerId)!.alive = false;
+        this.emit({ type: 'player.died', playerId, reason: result.deathReason ?? 'bullet' });
+      }
+    }
     // Unobserved simulation needs no presentation projection. Public reads refresh it.
     if (!forceDetach && this.snapshotHandlers.size === 0 && this.eventHandlers.size === 0) {
+      for (const player of this.game.getPlayers())
+        this.publishedRooms.set(player.id, player.snake.currentRoomId);
       return this.lastSnapshot;
     }
     const snapshot = this.buildSnapshot(forceDetach || this.snapshotHandlers.size > 0);
@@ -839,32 +995,72 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
           : this.buildSnapshot(true, playerId),
       );
     }
+    for (const player of Object.values(snapshot.players)) {
+      const previous = this.publishedRooms.get(player.id);
+      this.publishedRooms.set(player.id, player.roomId);
+      if (previous && previous !== player.roomId)
+        this.emit({
+          type: 'room.changed',
+          playerId: player.id,
+          fromRoomId: previous,
+          toRoomId: player.roomId,
+          head: player.body[0],
+        });
+    }
     return snapshot;
   }
 
+  private readonly announcedDeaths = new Set<PlayerId>();
   private emit(event: GameEvent): void {
+    if (event.type === 'player.died') this.archaeology.reset(event.playerId);
+    if (this.manageBasicFeatures && event.type === 'player.died') {
+      if (this.announcedDeaths.has(event.playerId)) return;
+      this.announcedDeaths.add(event.playerId);
+    }
     for (const handler of this.eventHandlers) {
       handler(event);
     }
   }
 
   private publishGameplayOutcome(playerId: PlayerId, action?: ActionOutcome): void {
+    const previousEncounterToken = this.game.getForcedEncounter()?.token;
+    if (this.game.getPlayer(playerId)?.alive) this.announcedDeaths.delete(playerId);
+    else
+      this.emit({
+        type: 'player.died',
+        playerId,
+        reason: this.game.getFlag<string>('recent.deathReason') ?? 'bullet',
+      });
     if (
       this.game.getPlayer(playerId)?.alive &&
       !this.interactions.getView(playerId) &&
-      !this.minigames.getView(playerId)
+      !this.minigames.getView(playerId) &&
+      !this.archaeology.getView(playerId)
     )
       this.game.beginAdjacentRandomEncounter();
+    const current = { score: this.game.getScore(), length: this.game.getSnakeLength() };
+    const previous = this.outcomeStats.get(playerId) ?? current;
+    this.outcomeStats.set(playerId, current);
+    const delta =
+      !action && (previous.score !== current.score || previous.length !== current.length)
+        ? {
+            scoreBefore: previous.score,
+            lengthBefore: previous.length,
+            scoreAfter: current.score,
+            lengthAfter: current.length,
+            head: this.game.getSnakeBody()[0] ?? null,
+          }
+        : undefined;
     const feedback = this.game.drainGameplayFeedback();
-    if (!action && feedback.length === 0) {
-      this.emitSnapshot();
+    if (!action && !delta && feedback.length === 0) {
+      if (this.game.getForcedEncounter()?.token !== previousEncounterToken) this.emitSnapshot();
       return;
     }
     this.emitSnapshot();
     this.emit({
       type: 'gameplay.outcome',
       playerId,
-      outcome: { sequence: ++this.outcomeSequence, playerId, action, feedback },
+      outcome: { sequence: ++this.outcomeSequence, playerId, action, delta, feedback },
     });
   }
 
@@ -925,7 +1121,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
 
   private emitStepEvents(
-    previousRoomId: string | undefined,
+    _previousRoomId: string | undefined,
     result: StepResult,
     snapshot: GameSnapshot,
     playerId = this.localPlayerId,
@@ -933,15 +1129,6 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     const player = snapshot.players[playerId];
     if (!player) {
       return;
-    }
-    if (previousRoomId && previousRoomId !== player.roomId) {
-      this.emit({
-        type: 'room.changed',
-        playerId,
-        fromRoomId: previousRoomId,
-        toRoomId: player.roomId,
-        head: player.body[0],
-      });
     }
     if (result.status === 'dead') {
       this.emit({
@@ -951,10 +1138,12 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       });
       this.emit({
         type: 'sound.play',
+        playerId,
         soundId: 'death',
       });
       this.emit({
         type: 'screen.shake',
+        playerId,
         intensity: 0.006,
         durationMs: 220,
       });
@@ -968,6 +1157,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       });
       this.emit({
         type: 'sound.play',
+        playerId,
         soundId: 'apple.eat',
       });
     }
@@ -980,6 +1170,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       });
       this.emit({
         type: 'sound.play',
+        playerId,
         soundId: 'quest.completed',
       });
     }

@@ -1,0 +1,34 @@
+.snake-party {
+  position: fixed;
+  left: 12px;
+  top: 58px;
+  z-index: 30;
+  max-width: min(290px, 45vw);
+  max-height: 30vh;
+  overflow: auto;
+  padding: 8px 10px;
+  border: 1px solid #36536b;
+  border-radius: 6px;
+  background: #0b1622ed;
+  color: #e6f3ff;
+  font: 12px monospace;
+}
+.snake-party p {
+  margin: 4px 0;
+}
+.snake-party ul {
+  padding-left: 16px;
+  margin: 6px 0;
+}
+.snake-party button {
+  margin: 3px;
+  cursor: pointer;
+}
+.snake-party input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+}
+.snake-party input[hidden] {
+  display: none;
+}

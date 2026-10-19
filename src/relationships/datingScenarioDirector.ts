@@ -760,7 +760,7 @@ export class DatingScenarioDirector {
     kind: Extract<RelationshipChoice, 'talk' | 'flirt' | 'date'>,
   ): { pages: DatingSequencePage[]; branchResults: Record<string, DatingBranchResult> } {
     const personality = this.personalityForDatingProfile(profile);
-    const recentKey = `${profile.id}:${kind}`;
+    const recentKey = `${this.snakeGame.getLocalPlayerId()}:${profile.id}:${kind}`;
     const recentScenarioIds = this.recentAuthoredDatingScenarioIds.get(recentKey) ?? [];
     const actorRole = profile.actorId ? this.snakeGame.getActorRole(profile.actorId) : undefined;
     const scenarioContext = {

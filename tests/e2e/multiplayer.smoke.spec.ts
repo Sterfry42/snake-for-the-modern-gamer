@@ -56,7 +56,7 @@ test('two browsers move independent snakes, render NPCs, talk, and view separate
   const session = new AuthoritativeGameSession({ game, manageBasicFeatures: true });
   const server = createGameServer(session);
   const port = await server.listen(0);
-  const bobPage = await context.newPage();
+  const bobPage = await context.browser()!.newPage({ baseURL: test.info().project.use.baseURL });
   const alice = observe(page);
   const bob = observe(bobPage);
   const errors: string[] = [];
@@ -90,14 +90,29 @@ test('two browsers move independent snakes, render NPCs, talk, and view separate
       canvas.x + (((head.x + 0.5) * defaultGameConfig.grid.cell) / 768) * canvas.width,
       canvas.y + (((head.y + 1.5) * defaultGameConfig.grid.cell - 2) / 576) * canvas.height,
     );
-    await expect.poll(() => alice.snapshot?.ui.interaction?.kind).toBe('actor');
+    await expect.poll(() => page.evaluate(() => window.snakeE2E!.getPresentation().quest.visible)).toBe(true);
+    expect(await page.evaluate(() => window.snakeE2E!.getPresentation().quest.title)).toBe('Ada');
     await page.keyboard.press('Enter');
-    await expect.poll(() => alice.snapshot?.ui.messages?.join(' ')).toContain('Ada:');
-    expect(bob.snapshot?.ui.messages?.join(' ')).not.toContain('Ada:');
-    await page.keyboard.press('Escape');
-    await expect.poll(() => alice.snapshot?.ui.interaction?.kind).toBe('actor');
-    await page.keyboard.press('Escape');
+    await expect.poll(() => page.evaluate(() => window.snakeE2E!.getPresentation().choice.visible)).toBe(true);
+    const menu = await page.evaluate(() => window.snakeE2E!.getPresentation().choice);
+    const talk = menu.options.findIndex(option => option.id === 'talk');
+    expect(talk).toBeGreaterThanOrEqual(0);
+    for (let i = 0; i < (talk - menu.selectedIndex + menu.options.length) % menu.options.length; i++) await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await expect.poll(() => page.evaluate(() => window.snakeE2E!.getPresentation().quest.visible)).toBe(true);
+    expect(await page.evaluate(() => window.snakeE2E!.getPresentation().quest.text)).not.toBe('');
+    expect(await bobPage.evaluate(() => window.snakeE2E!.getPresentation().quest.visible)).toBe(false);
+    for (let i = 0; i < 10 && await page.evaluate(() => window.snakeE2E!.getPresentation().quest.visible); i++) {
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(60);
+    }
     await expect.poll(() => alice.snapshot?.ui.interaction).toBeNull();
+    await bobPage.evaluate(() => window.snakeE2E!.setAppearance('midnight', 'cowboy'));
+    await expect.poll(() => alice.snapshot?.players[bobId].appearance?.activeHat).toBe('cowboy');
+    await expect.poll(() => page.evaluate(() => window.snakeE2E!.getPresentation().players.find(player => player.hat !== null)?.hat)).toContain('hat');
+    const remote = await page.evaluate(() => window.snakeE2E!.getPresentation().players);
+    expect(remote.find(player => player.id === bobId)?.textures.some(texture => texture.includes('snake'))).toBe(true);
+    expect(alice.snapshot?.players[bobId].appearance?.themeId).toBe('midnight');
     await page.screenshot({ path: 'test-results/multiplayer-npcs.png' });
     game.runForPlayer(bobId, () =>
       game.placeSnakeBodyAtLocal('1,0,0', { x: 10, y: 10 }, { x: 1, y: 0 }),

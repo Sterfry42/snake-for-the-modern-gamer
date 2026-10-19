@@ -23,6 +23,15 @@ interface ChoicePopupScene extends Phaser.Scene {
 }
 
 export class ChoicePopup {
+  getPresentationState() {
+    return {
+      visible: this.isVisible(),
+      title: this.titleText?.text ?? '',
+      selectedIndex: this.selectedIndex,
+      options: this.options.map((option) => ({ ...option })),
+    };
+  }
+
   private container?: Phaser.GameObjects.Container;
   private optionContainer?: Phaser.GameObjects.Container;
   private titleText?: Phaser.GameObjects.Text;

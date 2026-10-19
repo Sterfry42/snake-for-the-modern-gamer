@@ -24,11 +24,14 @@ test('the normal multiplayer pause shell renders every available tab and sends i
     clear: async id => { saves.delete(id); },
     has: async id => saves.has(id),
   } });
-  const server = createGameServer(session);
+  const server = createGameServer(session, { hostToken: 'browser-owner-key-explicit' });
   const port = await server.listen(0);
+  await page.addInitScript(({ key, token }) => localStorage.setItem(key, token), {
+    key: `snake.serverIdentity:ws://127.0.0.1:${port}/game:host`, token: 'browser-owner-key-explicit',
+  });
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.stack ?? error.message));
-  const bobPage = await context.newPage();
+  const bobPage = await context.browser()!.newPage({ baseURL: test.info().project.use.baseURL });
   try {
     const url = `?server=${encodeURIComponent(`ws://127.0.0.1:${port}/game`)}`;
     await page.goto(url);

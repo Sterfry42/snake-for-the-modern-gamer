@@ -11,6 +11,7 @@ type MenuState = {
   id: number;
   actorId: string;
   dating?: boolean;
+  offeredQuest?: { id: string; large: boolean };
 } & (
   | { kind: 'actor' }
   | { kind: 'shop' }
@@ -97,7 +98,10 @@ export class GameInteractionMenus {
       if (!sequence || sequence.actorId !== command.actorId)
         return { ok: false, reason: 'That date is no longer current.' };
       const branch = command.branchId ? sequence.event.branchResults[command.branchId] : undefined;
-      if (command.branchId && !branch)
+      if (
+        (!command.branchId && Object.keys(sequence.event.branchResults).length > 0) ||
+        (command.branchId && !branch)
+      )
         return { ok: false, reason: 'That response was not offered.' };
       outcome.relationship = command.branchId
         ? this.game.applyRelationshipBranchChoice(
@@ -107,9 +111,11 @@ export class GameInteractionMenus {
           )
         : this.game.applyRelationshipChoice(profile, sequence.kind);
       this.datingSequences.delete(playerId);
-    } else if (command.action === 'gift')
+    } else if (command.action === 'gift') {
+      if (!this.game.getGiftableItems().some((item) => item.itemId === command.itemId))
+        return { ok: false, reason: 'That gift is unavailable.' };
       outcome.relationship = this.game.giveRelationshipGift(profile, command.itemId);
-    else outcome.relationship = this.game.applyRelationshipArrangement(profile, command.choice);
+    } else outcome.relationship = this.game.applyRelationshipArrangement(profile, command.choice);
     return { ok: outcome.relationship?.ok ?? true, actorOutcome: outcome };
   }
 
@@ -145,7 +151,14 @@ export class GameInteractionMenus {
     if (command.action === 'close') return this.close(playerId, state.id);
     const action = command.action;
     const menu = this.game.getActorInteractionMenu(command.actorId);
-    const derived = ['accept-quest', 'reject-quest', 'dating', 'complete-wedding'];
+    const derived = [
+      'accept-quest',
+      'reject-quest',
+      'dating',
+      'dating-refresh',
+      'complete-wedding',
+      'pay-fine',
+    ];
     if (
       !derived.includes(action) &&
       !menu?.options.some((option) => option.id === action && option.enabled)
@@ -180,6 +193,8 @@ export class GameInteractionMenus {
         ? { quest: this.game.getTownLargeQuestForActor(command.actorId), state: 'available' }
         : this.game.requestQuestFromGiver(this.game.getCurrentRoom().id);
       if (!request.quest) return { ok: false, reason: 'No work is available here right now.' };
+      state.offeredQuest =
+        request.state === 'available' ? { id: request.quest.id, large } : undefined;
       outcome.quest = {
         id: request.quest.id,
         label: request.quest.label,
@@ -189,6 +204,15 @@ export class GameInteractionMenus {
         state: request.state,
       };
     } else if (action === 'accept-quest' || action === 'reject-quest') {
+      const offered = state.offeredQuest;
+      if (
+        !offered ||
+        (offered.large
+          ? this.game.getTownLargeQuestForActor(command.actorId)?.id
+          : this.game.getOfferedQuest()?.id) !== offered.id
+      )
+        return { ok: false, reason: 'That quest is no longer offered.' };
+      state.offeredQuest = undefined;
       if (this.game.isCurrentTownLargeQuestGiverActor(command.actorId)) {
         if (action === 'accept-quest') {
           const result = this.game.acceptTownLargeQuest(command.actorId);
@@ -198,9 +222,37 @@ export class GameInteractionMenus {
         if (!this.game.acceptOfferedQuest())
           return { ok: false, reason: 'That quest is no longer offered.' };
       } else this.game.rejectOfferedQuest();
-    } else if (action === 'dating' && profile) {
-      const cutscene = this.game.popRelationshipCutscene(profile.id);
+    } else if ((action === 'dating' || action === 'dating-refresh') && profile) {
+      const cutscene = action === 'dating' ? this.game.popRelationshipCutscene(profile.id) : null;
       outcome.dating = { talk: this.game.getRelationshipTalk(profile), cutscene: cutscene?.pages };
+    } else if (action === 'pay-fine') {
+      const town = this.game.getCurrentTown();
+      const role = this.game.getActorRole(command.actorId);
+      if (
+        !town ||
+        town.wantedLevel <= 0 ||
+        (role !== 'guard' && role !== 'gateGuard' && role !== 'resident')
+      )
+        return { ok: false, reason: 'No fine is payable here.' };
+      const cost = 8 + town.wantedLevel * 7;
+      if (this.game.getScore() < cost) return { ok: false, reason: `The fine is ${cost} score.` };
+      const wantedLevel =
+        town.wantedLevel === 1
+          ? 0
+          : town.wantedLevel === 2
+            ? 1
+            : town.wantedLevel === 3
+              ? 2
+              : town.wantedLevel === 4
+                ? 3
+                : 4;
+      this.game.setScore(this.game.getScore() - cost);
+      this.game.updateCurrentTown({ ...town, wantedLevel });
+      return {
+        ok: true,
+        message: `${profile?.displayName ?? 'The clerk'} stamps the fine. Wanted level drops by one.`,
+        actorOutcome: outcome,
+      };
     } else if (action === 'pickpocket' && profile)
       outcome.relationship = this.game.pickpocketRelationshipNpc(profile);
     else if (action === 'complete-wedding' && profile)
@@ -525,11 +577,9 @@ export class GameInteractionMenus {
   private clear(playerId: PlayerId): void {
     this.datingSequences.delete(playerId);
     const state = this.states.get(playerId);
-    if (
-      state?.kind === 'quest' &&
-      !state.large &&
-      this.game.getOfferedQuest()?.id === state.questId
-    )
+    const offered =
+      state?.kind === 'quest' ? { id: state.questId, large: state.large } : state?.offeredQuest;
+    if (offered && !offered.large && this.game.getOfferedQuest()?.id === offered.id)
       this.game.rejectOfferedQuest();
     this.states.delete(playerId);
   }

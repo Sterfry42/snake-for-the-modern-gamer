@@ -41,7 +41,6 @@ test('Multiplayer offers Server and Archipelago, then enters a named shared worl
   const session = await AuthoritativeGameSession.create({
     config: { ...defaultGameConfig, rng: { seed: 'connections-menu' } },
   });
-  await session.executeCommand({ type: 'pause', playerId: session.getSnapshot().localPlayerId });
   const server = createGameServer(session);
   const port = await server.listen(0);
   const errors: string[] = [];
@@ -78,10 +77,13 @@ test('Multiplayer offers Server and Archipelago, then enters a named shared worl
     expect(
       Object.values(alice.snapshot?.connections ?? {}).map((peer) => peer.displayName),
     ).toEqual(['Alice']);
+    await expect.poll(() => page.evaluate(() => window.snakeE2E?.getLifecycle().mode)).toMatch(/action|manual-room/);
     await page.keyboard.press('Space');
     await expect.poll(() => alice.snapshot?.ui.playerInteraction).toBe('paused');
     expect(alice.snapshot?.ui.paused).toBe(false);
-    const second = await context.newPage();
+    const remembered = await context.storageState();
+    for (const origin of remembered.origins) origin.localStorage = origin.localStorage.filter(entry => !entry.name.startsWith('snake.serverIdentity:'));
+    const second = await context.browser()!.newPage({ baseURL: test.info().project.use.baseURL, storageState: remembered });
     const bob = observeWorld(second);
     await openServerMenu(second);
     await expect(second.getByLabel('Server URL')).toHaveValue(`ws://127.0.0.1:${port}/game`);
