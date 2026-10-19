@@ -7,14 +7,43 @@ import {
   parseCommandMessage,
   type ServerMessage,
 } from '../session/gameProtocol.js';
+import { defaultAllowedOrigins, isAllowedGameOrigin } from './originPolicy.js';
+
+export interface GameServerOptions {
+  /**
+   * Browser origins allowed to open game sockets. Defaults to the built-in
+   * list (local development plus SNAKE_ALLOWED_ORIGINS) when omitted.
+   */
+  allowedOrigins?: readonly string[];
+}
 
 /** Transport only. The session owns player allocation and gameplay. */
-export function createGameServer(session: AuthoritativeGameSession) {
+export function createGameServer(
+  session: AuthoritativeGameSession,
+  options: GameServerOptions = {},
+) {
   const http = createServer((_request, response) => {
     response.writeHead(200, { 'Content-Type': 'application/json' });
     response.end(JSON.stringify({ status: 'ok', protocol: GAME_PROTOCOL_VERSION }));
   });
-  const sockets = new WebSocketServer({ server: http, path: '/game', maxPayload: 16384 });
+  const allowedOrigins = options.allowedOrigins ?? defaultAllowedOrigins();
+  const sockets = new WebSocketServer({ noServer: true, maxPayload: 16384 });
+  http.on('upgrade', (request, socket, head) => {
+    const path = new URL(request.url ?? '', 'http://localhost').pathname;
+    if (path !== '/game') {
+      socket.destroy();
+      return;
+    }
+    if (!isAllowedGameOrigin(request.headers.origin, allowedOrigins)) {
+      // Reject before the WebSocket handshake completes.
+      socket.write('HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+    sockets.handleUpgrade(request, socket, head, (ws) => {
+      sockets.emit('connection', ws, request);
+    });
+  });
   const publish = (socket: WebSocket, message: ServerMessage) => {
     if (socket.readyState !== WebSocket.OPEN) return;
     if (socket.bufferedAmount > 4 * 1024 * 1024) {
