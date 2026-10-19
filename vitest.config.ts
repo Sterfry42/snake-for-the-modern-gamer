@@ -6,7 +6,8 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['**/*.test.ts', '**/*.spec.ts'],
-    exclude: ['tests/e2e/**', 'node_modules/**', 'dist/**'],
+    // Nested node_modules (e.g. local tooling trees) must stay excluded too.
+    exclude: ['tests/e2e/**', '**/node_modules/**', 'dist/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html']
