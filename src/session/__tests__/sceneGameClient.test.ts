@@ -227,6 +227,7 @@ describe('scene state mirror and command facade', () => {
     };
     game.getActorSystem().registry.upsert(actor);
     game.placeSnakeBodyAtLocal(room.id, { x: 9, y: 10 }, { x: 0, y: -1 });
+    // The scene consumes relationshipResult to render the outcome.
     expect(await client.applyRelationshipChoice(actor.id, 'talk')).toMatchObject({
       ok: true,
       relationshipResult: { ok: true },

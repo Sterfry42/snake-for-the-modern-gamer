@@ -4,6 +4,8 @@ import { QuestRegistry } from '../../quests/questRegistry.js';
 import { defaultGameConfig } from '../../config/gameConfig.js';
 import { AuthoritativeGameSession } from '../AuthoritativeGameSession.js';
 import { createBaseActor } from '../../actors/actorFactory.js';
+import { isRecord } from '../../core/saveNormalize.js';
+import type { GameEvent } from '../GameEvent.js';
 
 function setup() {
   const game = new SnakeGame(
@@ -123,7 +125,7 @@ describe('independent authoritative players', () => {
   });
 
   it('sends actual materialized actors, detaches client copies, and validates talk proximity', async () => {
-    const { game, room, session, bob } = setup();
+    const { game, room, session, alice, bob } = setup();
     const head = game.getPlayer(bob)!.snake.head;
     const actor = createBaseActor({
       id: 'town-resident',
@@ -148,25 +150,27 @@ describe('independent authoritative players', () => {
       (npc) => npc.id === actor.id,
     )!.presence!.position.x = 999;
     expect(game.getActorSystem().getActor(actor.id)!.presence!.position.x).toBe(head.x);
-    const events: import('../GameEvent.js').GameEvent[] = [];
-    session.onEvent((event) => events.push(event));
+    // Talk lines are transient feedback: each player receives them through
+    // their own gameplay.outcome event, after which the flag is drained.
+    const outcomeEvents: GameEvent[] = [];
+    const unsubscribeEvents = session.onEvent((event) => outcomeEvents.push(event));
     expect(
       await session.executeCommand({ type: 'talkToActor', playerId: bob, actorId: actor.id }),
     ).toEqual({ ok: true });
-    expect(events).toContainEqual(
-      expect.objectContaining({
-        type: 'gameplay.outcome',
-        playerId: bob,
-        outcome: expect.objectContaining({
-          feedback: expect.arrayContaining([
-            expect.objectContaining({
-              key: 'ui.questInteraction',
-              value: expect.objectContaining({ message: expect.stringContaining('Ada:') }),
-            }),
-          ]),
-        }),
-      }),
-    );
+    unsubscribeEvents();
+    const talkMessageFor = (playerId: string) =>
+      outcomeEvents
+        .filter(
+          (event): event is Extract<GameEvent, { type: 'gameplay.outcome' }> =>
+            event.type === 'gameplay.outcome' && event.playerId === playerId,
+        )
+        .flatMap((event) => event.outcome.feedback)
+        .find((entry) => entry.key === 'ui.questInteraction')?.value;
+    const bobTalk = talkMessageFor(bob);
+    expect(
+      isRecord(bobTalk) && typeof bobTalk.message === 'string' ? bobTalk.message : '',
+    ).toContain('Ada:');
+    expect(talkMessageFor(alice)).toBeUndefined();
     expect(session.getSnapshot(bob).clientState?.flags['ui.questInteraction']).toBeUndefined();
     expect(session.getSnapshot().ui.messages?.join(' ')).not.toContain('Ada:');
     expect(

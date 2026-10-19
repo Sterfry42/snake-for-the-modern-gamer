@@ -517,7 +517,11 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     }
 
     if (command.type === 'talkToActor') {
-      const result = this.game.talkToNearbyActor(command.actorId);
+      // Scoped to the talking player: proximity and conversation resolve
+      // against their body and room, and the message lands in their snapshot.
+      const result = this.game.runForPlayer(command.playerId, () =>
+        this.game.talkToNearbyActor(command.actorId),
+      );
       this.emitSnapshot();
       return result;
     }
