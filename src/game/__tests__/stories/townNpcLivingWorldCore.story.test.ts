@@ -737,7 +737,9 @@ describe('Town NPC living-world core stories', () => {
       }
       scenario.assertWorldIntegrity();
     }
-  });
+    // Three seeded town walks with atlas reachability checks run 5-10s under
+    // parallel load; the default 5s test timeout is too tight.
+  }, 30_000);
 
   it('TOWN-LIFE-030 - Mapper stock is deterministic', () => {
     const first = mapperStockScenario('town-life-030-mapper-stock');
