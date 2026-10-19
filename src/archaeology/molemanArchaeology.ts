@@ -345,7 +345,9 @@ export class MolemanArchaeologySession {
   }
 
   private resolveVariantName(v: DigSiteVariant): string {
-    return this.i18nResolveFn ? this.i18nResolveFn(v.i18nNameKey) : v.i18nNameKey;
+    return this.i18nResolveFn
+      ? this.i18nResolveFn(v.i18nNameKey)
+      : i18n.getFeatureString(v.i18nNameKey);
   }
 
   getSnapshot(): ArchaeologySessionSnapshot {

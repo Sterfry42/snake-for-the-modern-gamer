@@ -19,6 +19,7 @@ export interface GameSnapshot {
   players: Record<PlayerId, PlayerSnapshot>;
   ui: UiSnapshot;
   forcedEncounter?: import('./ForcedEncounter.js').ForcedEncounter | null;
+  archaeology?: import('./AuthoritativeArchaeology.js').ArchaeologyView | null;
   minigame?: import('./MinigameSnapshot.js').MinigameSnapshot | null;
   /** Player-specific synchronous selectors for the normal scene's menus and HUD. */
   clientState?: SceneClientState;
@@ -80,6 +81,7 @@ export interface PlayerSnapshot {
   score: number;
   alive: boolean;
   isLocal: boolean;
+  appearance?: import('../players/playerTypes.js').PlayerAppearance;
 }
 
 export interface UiSnapshot {

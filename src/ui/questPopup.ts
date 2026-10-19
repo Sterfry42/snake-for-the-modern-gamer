@@ -65,6 +65,17 @@ const DEFAULT_OPTIONS: Required<QuestPopupOptions> = {
 };
 
 export class QuestPopup {
+  getPresentationState() {
+    return {
+      visible: this.isVisible(),
+      title: this.title?.text ?? '',
+      page: this.pageIndex,
+      pages: this.pages.length,
+      text: this.description?.text ?? '',
+      selectedAction: this.selectedAction,
+    };
+  }
+
   private container?: Phaser.GameObjects.Container;
   private title?: Phaser.GameObjects.Text;
   private description?: Phaser.GameObjects.Text;

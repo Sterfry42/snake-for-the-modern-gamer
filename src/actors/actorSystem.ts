@@ -31,7 +31,7 @@ import type {
   ActorSocialLink,
   ActorTargetThreat,
 } from './actorTypes.js';
-import { actorIdForTownResident } from './actorFactory.js';
+import { actorIdForTownResident, actorIdForRelationship } from './actorFactory.js';
 import {
   selectActorEnvironmentReaction,
   type ActorEnvironmentContext,
@@ -153,6 +153,37 @@ export class ActorSystem {
           roomNumber,
         ),
       );
+    }
+    if (room.molemanDigSite) {
+      const foreman = room.molemanDigSite.foreman;
+      const relationshipId = `moleman:${room.id}:${foreman.id}`;
+      const actorId = actorIdForRelationship(relationshipId);
+      const actor =
+        this.registry.get(actorId) ??
+        this.registry.ensureRelationshipActor({
+          actorId,
+          relationshipId,
+          displayName: foreman.name,
+          species: 'moleman',
+          personality: 'deadpan',
+          factionId: 'hearthbound-remnant',
+          homeRoomId: room.id,
+          portraitId: 'moleman-date',
+          createdAtRoomNumber: roomNumber,
+        });
+      if (!actor.presence)
+        this.setPresence(
+          actor.id,
+          {
+            roomId: room.id,
+            position: { x: foreman.x, y: foreman.y },
+            anchor: { x: foreman.x, y: foreman.y },
+            materialized: true,
+            stationary: true,
+          },
+          'dig-foreman-promoted',
+        );
+      actors.push(this.registry.get(actorId) ?? actor);
     }
     if (room.garage) {
       actors.push(

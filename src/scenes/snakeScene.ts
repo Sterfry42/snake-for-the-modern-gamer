@@ -259,7 +259,6 @@ import {
   GOBLIN_WARD_SCROLLS,
   GOBLIN_SNAKE_STYLE,
   getWardPrice,
-  getWardScrollOffer,
   type WardDeathSource,
 } from '../shops/goblinShop.js';
 import {
@@ -278,7 +277,6 @@ import type {
   RelationshipEventResult,
   RelationshipReward,
   RelationshipState,
-  RelationshipSpecies,
 } from '../relationships/relationshipTypes.js';
 import { getLibertyNpcLine, type LibertyNpcRole } from '../world/libertyBadlandsFlavor.js';
 import { DATING_PORTRAIT_ASSETS } from '../relationships/datingPortraitManifest.js';
@@ -507,6 +505,17 @@ type ArchipelagoTitleControl = ArchipelagoTitleField | 'connect' | 'disconnect' 
 const CHARACTER_MODE_STORAGE_KEY = 'snakeGameCharacterMode';
 
 interface SnakeE2EWindowApi {
+  getJuiceTrace(): Array<{ name: string; args: number[] }>;
+
+  setAppearance(theme: 'classic' | 'midnight', hat: 'cowboy' | null): void;
+
+  getExcavationPresentation(): { visible: boolean; state: ArchaeologySessionSnapshot | null };
+  getPresentation(): {
+    quest: ReturnType<QuestPopup['getPresentationState']>;
+    choice: ReturnType<ChoicePopup['getPresentationState']>;
+    players: ReturnType<SnakeRenderer['getPlayerPresentation']>;
+  };
+
   getPauseState(): ReturnType<ReturnType<SkillTreeManager['getOverlay']>['getNavigationState']>;
   navigatePause(command: ControllerNavCommand): boolean;
   startRun(): Promise<void>;
@@ -1346,7 +1355,11 @@ export default class SnakeScene extends Phaser.Scene {
   private performanceHud: Phaser.GameObjects.Text | null = null;
   private questGiverSprite!: Phaser.GameObjects.Sprite;
   private starforgedEnvoySprite: Phaser.GameObjects.Sprite | null = null;
-  private archaeologySession: MolemanArchaeologySession | null = null;
+  private archaeologySession: Pick<MolemanArchaeologySession, 'getSnapshot'> | null = null;
+  private localArchaeologySession: MolemanArchaeologySession | null = null;
+  private remoteArchaeologyId: number | null = null;
+  private remoteArchaeologyResultId: number | null = null;
+  private remoteArchaeologySequence = 0;
   private archaeologyOverlay: Phaser.GameObjects.Container | null = null;
   private archaeologyBoardGraphics: Phaser.GameObjects.Graphics | null = null;
   private archaeologyText: Phaser.GameObjects.Text | null = null;
@@ -2071,6 +2084,7 @@ export default class SnakeScene extends Phaser.Scene {
   private presentationFeedback: Map<string, unknown> | null = null;
   private localOutcomeSequence = 0;
   private lastRemoteOutcomeSequence = 0;
+  private publishedAppearance = '';
 
   private presentAuthoritativeOutcome(outcome: GameplayOutcome): void {
     if (outcome.playerId !== this.snakeGame.getLocalPlayerId()) return;
@@ -2079,12 +2093,24 @@ export default class SnakeScene extends Phaser.Scene {
       this.lastRemoteOutcomeSequence = outcome.sequence;
     }
     if (outcome.action) this.presentActionOutcome(outcome.action);
+    if (outcome.delta)
+      this.handleRunDeltaFeedback(
+        outcome.delta.scoreBefore,
+        outcome.delta.lengthBefore,
+        outcome.delta.scoreAfter,
+        outcome.delta.lengthAfter,
+        outcome.delta.head,
+      );
     try {
       for (const feedback of outcome.feedback) {
         this.presentationFeedback = new Map([[feedback.key, feedback.value]]);
         this.presentStepNotifications();
         this.presentPowerupFeedback();
         this.handlePredationFeedback();
+      }
+      if (outcome.feedback.length === 0) {
+        this.presentationFeedback = new Map();
+        this.presentStepNotifications();
       }
     } finally {
       this.presentationFeedback = null;
@@ -2205,6 +2231,8 @@ export default class SnakeScene extends Phaser.Scene {
         }
         this.drivingCar = this.snakeGame.getFlag<DrivingCarState>('vehicle.active') ?? null;
         this.currentSnapshot = snapshot;
+        this.syncRemoteArchaeology(snapshot.archaeology ?? null);
+        this.updateBossEncounter();
         this.maybePresentRandomEncounter();
         const minigame = snapshot.minigame;
         this.fishingActive = minigame?.kind === 'fishing';
@@ -2226,11 +2254,27 @@ export default class SnakeScene extends Phaser.Scene {
         this.isDirty = true;
       });
       this.unsubscribeEvents = connection.onEvent((event) => {
+        if (event.type === 'archaeology.outcome') {
+          if (
+            event.playerId === this.snakeGame.getLocalPlayerId() &&
+            event.outcome.id === this.remoteArchaeologyId &&
+            event.outcome.sequence > this.remoteArchaeologySequence
+          ) {
+            this.remoteArchaeologySequence = event.outcome.sequence;
+            this.presentArchaeologyUpdates(
+              event.outcome.state,
+              event.outcome.events,
+              event.outcome.messages,
+            );
+          }
+          return;
+        }
         if (event.type === 'gameplay.outcome') {
           this.presentAuthoritativeOutcome(event.outcome);
           return;
         }
         if ('playerId' in event && event.playerId !== this.sceneClient?.getLocalPlayerId()) return;
+        if (event.type === 'boss.outcome') this.handleBossEvent(event.event);
         if (event.type === 'toast') this.showQuestHintPopup(event.message, '#9ad1ff');
         if (event.type === 'sound.play') this.playRuntimeSoundCue(event.soundId);
         if (event.type === 'screen.shake')
@@ -3526,8 +3570,9 @@ export default class SnakeScene extends Phaser.Scene {
 
   private handleBossEvent(event: BossEvent): void {
     const head = this.snakeGame.getSnakeBody()[0];
-    const worldX = head ? head.x * this.grid.cell + this.grid.cell / 2 : this.scale.width / 2;
-    const worldY = head ? head.y * this.grid.cell + this.grid.cell / 2 : this.scale.height / 2;
+    const world = this.tileToWorld(head);
+    const worldX = world.x;
+    const worldY = world.y;
     if (event.kind === 'jason-statham' && event.phase === 'vulnerable-entered') {
       this.juice.stathamVulnerable(worldX, worldY);
       this.showQuestHintPopup(i18n.getFeatureString('jason_statham_tired')!, '#ff6b6b');
@@ -3574,10 +3619,8 @@ export default class SnakeScene extends Phaser.Scene {
 
     // Juice
     const head = this.snakeGame.getSnakeBody()[0];
-    this.juice.stathamDefeated(
-      head ? head.x * this.grid.cell + this.grid.cell / 2 : this.scale.width / 2,
-      head ? head.y * this.grid.cell + this.grid.cell / 2 : this.scale.height / 2,
-    );
+    const world = this.tileToWorld(head);
+    this.juice.stathamDefeated(world.x, world.y);
 
     // Show defeat announcements
     this.showQuestHintPopup(i18n.getFeatureString('jason_statham_defeated')!, '#ffd166');
@@ -3772,7 +3815,58 @@ export default class SnakeScene extends Phaser.Scene {
 
   private installE2EBridge(): void {
     if (!import.meta.env.DEV) return;
+    const juiceTrace: Array<{ name: string; args: number[] }> = [];
+    const observedEffects = new Set([
+      'movementTick',
+      'appleChomp',
+      'roomTransition',
+      'wandererApproach',
+      'archaeologySwap',
+      'wallChomp',
+      'bombExplosion',
+      'questOffered',
+      'questAccepted',
+      'questCompleted',
+      'playerShot',
+      'playerHit',
+    ]);
+    this.juice = new Proxy(this.juice, {
+      get(target, property, receiver) {
+        const value: unknown = Reflect.get(target, property, receiver);
+        if (typeof value !== 'function') return value;
+        return (...args: unknown[]) => {
+          if (observedEffects.has(String(property))) {
+            juiceTrace.push({
+              name: String(property),
+              args: args.filter((arg): arg is number => typeof arg === 'number'),
+            });
+            if (juiceTrace.length > 200) juiceTrace.shift();
+          }
+          return Reflect.apply(value, target, args);
+        };
+      },
+    });
     window.snakeE2E = {
+      getJuiceTrace: () => structuredClone(juiceTrace),
+      setAppearance: (theme, hat) => {
+        this.snakeCosmetics.unlockedThemes = [
+          ...new Set([...this.snakeCosmetics.unlockedThemes, theme]),
+        ];
+        this.snakeCosmetics.activeTheme = theme;
+        this.snakeCosmetics.activeHat = hat;
+        this.isDirty = true;
+      },
+      getExcavationPresentation: () => ({
+        visible: Boolean(this.archaeologyOverlay?.visible),
+        state: this.archaeologySession
+          ? structuredClone(this.archaeologySession.getSnapshot())
+          : null,
+      }),
+      getPresentation: () => ({
+        quest: this.questPopup.getPresentationState(),
+        choice: this.villageShopPopup.getPresentationState(),
+        players: this.snakeRenderer.getPlayerPresentation(),
+      }),
       getPauseState: () => this.skillTree.getOverlay().getNavigationState(),
       navigatePause: (command) => this.skillTree.getOverlay().handleControllerCommand(command),
       equipItem: (itemId) => this.equipItem(itemId),
@@ -3832,7 +3926,6 @@ export default class SnakeScene extends Phaser.Scene {
     this.evaluateAchievements();
     if (this.getFlag('equipment.itemPhoenixConsumed')) this.applyEquipmentEffects();
     if (result.questsCompleted.length > 0) this.applyPendingQuestCosmeticRewards();
-    this.updateBossEncounter();
     this.maybePresentRandomEncounter();
     this.presentAuthoritativeOutcome({
       sequence: ++this.localOutcomeSequence,
@@ -3850,6 +3943,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private presentActionOutcome(result: ActionOutcome): void {
+    this.updateBossEncounter();
     this.currentApple = result.apple.current ?? null;
 
     if (result.apple.eaten) {
@@ -11621,10 +11715,7 @@ export default class SnakeScene extends Phaser.Scene {
       damage: number;
     }>('ui.bombExplosion');
     if (bombExplosion) {
-      const world = this.tileToWorldInRoom(
-        { x: bombExplosion.x, y: bombExplosion.y },
-        bombExplosion.roomId,
-      );
+      const world = this.tileToWorldLocalInRoom({ x: bombExplosion.x, y: bombExplosion.y });
       this.juice.bombExplosion(world.x, world.y, bombExplosion.radius * this.grid.cell);
       this.setFlag('ui.bombExplosion', undefined);
     }
@@ -11777,10 +11868,7 @@ export default class SnakeScene extends Phaser.Scene {
       id: string;
     }>('ui.wandererReveal');
     if (wandererReveal) {
-      const world = this.tileToWorldInRoom(
-        { x: wandererReveal.x, y: wandererReveal.y },
-        wandererReveal.roomId,
-      );
+      const world = this.tileToWorldLocalInRoom({ x: wandererReveal.x, y: wandererReveal.y });
       this.juice.wandererReveal(world.x, world.y);
       this.setFlag('ui.wandererReveal', undefined);
     }
@@ -11880,10 +11968,7 @@ export default class SnakeScene extends Phaser.Scene {
       y: number;
     }>('ui.villageReveal');
     if (villageReveal) {
-      const world = this.tileToWorldInRoom(
-        { x: villageReveal.x, y: villageReveal.y },
-        villageReveal.roomId,
-      );
+      const world = this.tileToWorldLocalInRoom({ x: villageReveal.x, y: villageReveal.y });
       this.juice.villageReveal(world.x, world.y);
       const title = villageReveal.name.toUpperCase();
       this.emitNotificationShown({
@@ -11926,7 +12011,7 @@ export default class SnakeScene extends Phaser.Scene {
       y: number;
     }>('ui.townReveal');
     if (townReveal) {
-      const world = this.tileToWorldInRoom({ x: townReveal.x, y: townReveal.y }, townReveal.roomId);
+      const world = this.tileToWorldLocalInRoom({ x: townReveal.x, y: townReveal.y });
       this.juice.villageReveal(world.x, world.y);
       const title = townReveal.name.toUpperCase();
       const message = `${title}\n${formatTownMood(townReveal.mood as never)} | Wanted ${townReveal.wantedLevel}`;
@@ -12266,6 +12351,22 @@ export default class SnakeScene extends Phaser.Scene {
     const snapshot = this.gameSession.getSnapshot();
     this.currentSnapshot = snapshot;
     const localPlayer = snapshot.players[snapshot.localPlayerId];
+    const theme = this.getActiveSnakeTheme();
+    const appearance: import('../players/playerTypes.js').PlayerAppearance = {
+      themeId: theme.id,
+      palette: theme.palette,
+      activeHat: theme.id === 'unicorn' ? 'unicorn-horn' : this.snakeCosmetics.activeHat,
+      renderStyle: theme.id === 'retro-grid' ? 'retro-grid' : 'sprite',
+    };
+    const appearanceSignature = JSON.stringify(appearance);
+    if (this.publishedAppearance !== appearanceSignature) {
+      this.publishedAppearance = appearanceSignature;
+      void this.gameConnection.send({
+        type: 'cosmeticAction',
+        appearance,
+        playerId: this.snakeGame.getLocalPlayerId(),
+      });
+    }
     const roomSnapshot =
       snapshot.viewport.rooms[localPlayer?.roomId ?? snapshot.viewport.centerRoomId];
     const binocularsView =
@@ -12408,7 +12509,7 @@ export default class SnakeScene extends Phaser.Scene {
             name: player.name,
             body: player.body,
             direction: player.direction,
-            color: 0x4ecdc4,
+            appearance: player.appearance,
           })),
         localPlayerName: this.sceneClient ? localPlayer?.name : undefined,
         snakePalette: starforgedSnakePalette ?? activeSnakeTheme.palette,
@@ -15940,6 +16041,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private showTownGuild(town: TownStructure): void {
+    this.paused = true;
     const freshTown = this.snakeGame.getCurrentTown() ?? town;
     const guild = freshTown.thievesGuild;
     if (!freshTown.discoveredGuild && !guild?.discovered) {
@@ -15974,42 +16076,67 @@ export default class SnakeScene extends Phaser.Scene {
       });
     }
     options.push({ id: 'back', title: 'Back', description: 'Return to the district.' });
-    this.villageShopPopup.show(`${freshTown.name} Thieves Guild`, options, (id) => {
+    this.villageShopPopup.show(`${freshTown.name} Thieves Guild`, options, async (id) => {
       if (id === 'back') {
         this.closeVillageShop();
         return;
       }
       if (id === 'guild-lower-wanted') {
-        const result = this.snakeGame.reduceCurrentTownWantedViaGuild();
+        const result = await this.gameConnection.send({
+          type: 'guildAction',
+          action: 'lower-wanted',
+          townId: freshTown.id,
+          playerId: this.snakeGame.getLocalPlayerId(),
+        });
         this.showQuestHintPopup(
           result.message ?? 'Unavailable.',
           result.ok ? '#b6ff6a' : '#ff6b6b',
         );
-        this.showTownGuild(result.town ?? freshTown);
+        this.showTownGuild(this.snakeGame.getCurrentTown() ?? freshTown);
         return;
       }
       if (id === 'guild-fence') {
-        this.addScoreDirect(6);
+        const result = await this.gameConnection.send({
+          type: 'guildAction',
+          action: 'fence',
+          townId: freshTown.id,
+          playerId: this.snakeGame.getLocalPlayerId(),
+        });
         this.showQuestHintPopup(
-          'The fence buys what nobody can prove was stolen. +6 score.',
-          '#b6ff6a',
+          result.message ?? result.reason ?? 'Unavailable.',
+          result.ok ? '#b6ff6a' : '#ff6b6b',
         );
         this.showTownGuild(this.snakeGame.getCurrentTown() ?? freshTown);
         return;
       }
       if (id === 'guild-black-market') {
-        this.showVillageShopRoot(`${freshTown.name} Black Market`, true);
+        const result = await this.gameConnection.send({
+          type: 'guildAction',
+          action: 'market',
+          townId: freshTown.id,
+          playerId: this.snakeGame.getLocalPlayerId(),
+        });
+        if (result.ok && result.shop) this.showActorShopRoot(result.shop, freshTown.id);
+        else {
+          this.showQuestHintPopup(result.reason ?? 'The market is closed.', '#ff6b6b');
+          this.showTownGuild(this.snakeGame.getCurrentTown() ?? freshTown);
+        }
         return;
       }
       if (id.startsWith('guild-job:')) {
         const jobId = id.slice('guild-job:'.length);
-        const success = this.random() > 0.22;
-        const result = this.snakeGame.resolveCurrentTownGuildJob(jobId, success);
+        const result = await this.gameConnection.send({
+          type: 'guildAction',
+          action: 'job',
+          jobId,
+          townId: freshTown.id,
+          playerId: this.snakeGame.getLocalPlayerId(),
+        });
         this.showQuestHintPopup(
           result.message ?? 'Unavailable.',
-          result.ok && success ? '#b6ff6a' : '#fff3a8',
+          result.color ?? (result.ok ? '#b6ff6a' : '#ff6b6b'),
         );
-        this.showTownGuild(result.town ?? freshTown);
+        this.showTownGuild(this.snakeGame.getCurrentTown() ?? freshTown);
       }
     });
   }
@@ -16406,14 +16533,14 @@ export default class SnakeScene extends Phaser.Scene {
       title: 'Leave',
       description: 'Step away before the fine print learns your name.',
     });
-    this.villageShopPopup.show(`${shopkeeperName}'s Ward Contracts`, options, (id) => {
+    this.villageShopPopup.show(`${shopkeeperName}'s Ward Contracts`, options, async (id) => {
       if (id === 'leave') {
         this.closeVillageShop();
         return;
       }
       const [, offerId] = id.split(':');
       if (id.startsWith('style:')) {
-        const result = this.purchaseGoblinStyle();
+        const result = await this.purchaseGoblinStyle();
         this.showQuestHintPopup(result.message ?? 'Unavailable.', result.color);
         this.showGoblinShopRoot(shopkeeperName);
         return;
@@ -16423,7 +16550,11 @@ export default class SnakeScene extends Phaser.Scene {
         return;
       }
       if (id.startsWith('hire:')) {
-        const result = this.snakeGame.hireGoblinMercenary(`${shopkeeperName}'s Cousin`);
+        const result = await this.gameConnection.send({
+          type: 'specialShopAction',
+          action: 'goblin-hire',
+          playerId: this.snakeGame.getLocalPlayerId(),
+        });
         this.showQuestHintPopup(result.message ?? 'Unavailable.', result.color);
         this.showGoblinShopRoot(shopkeeperName);
         return;
@@ -16447,68 +16578,48 @@ export default class SnakeScene extends Phaser.Scene {
             this.showGoblinShopRoot(shopkeeperName);
             return;
           }
-          this.addScoreDirect(-42);
-          this.snakeGame.addItem('fishing-rod', 1);
-          this.showQuestHintPopup('Bought a goblin-modified fishing rod.', '#5dd6a2');
+          const result = await this.gameConnection.send({
+            type: 'specialShopAction',
+            action: 'goblin-rod',
+            playerId: this.snakeGame.getLocalPlayerId(),
+          });
+          this.showQuestHintPopup(
+            result.message ?? result.reason ?? 'Unavailable.',
+            result.ok ? '#5dd6a2' : '#ff6b6b',
+          );
           this.showGoblinShopRoot(shopkeeperName);
           return;
         }
       }
-      const result = this.purchaseGoblinWard(offerId);
+      const result = await this.purchaseGoblinWard(offerId);
       this.showQuestHintPopup(result.message ?? 'Unavailable.', result.color);
       this.showGoblinShopRoot(shopkeeperName);
     });
   }
 
-  private purchaseGoblinWard(offerId: string): { ok: boolean; message: string; color: string } {
-    const offer = getWardScrollOffer(offerId);
-    if (!offer) {
-      return { ok: false, message: 'The contract has gone missing.', color: '#ff6b6b' };
-    }
-    const standing = this.snakeGame.getFactionAlignment('goblin-camps').standing;
-    const price = getWardPrice(
-      offer,
-      standing,
-      Number(this.snakeGame.getWardUsage()[offer.source] ?? 0),
-    );
-    if (price === null) {
-      return { ok: false, message: 'The goblins refuse to sell to you.', color: '#ff6b6b' };
-    }
-    if (this.score < price) {
-      return { ok: false, message: `${offer.label} costs ${price} score.`, color: '#ff6b6b' };
-    }
-    this.addScoreDirect(-price);
-    this.snakeGame.addWardContract(offer.source as WardDeathSource);
-    return {
-      ok: true,
-      message: `${offer.label} signed. It triggers before lives.`,
-      color: '#b6ff6a',
-    };
+  private async purchaseGoblinWard(offerId: string): Promise<CommandResult> {
+    return this.gameConnection.send({
+      type: 'specialShopAction',
+      action: 'ward',
+      offerId,
+      playerId: this.snakeGame.getLocalPlayerId(),
+    });
   }
 
-  private purchaseGoblinStyle(): { ok: boolean; message: string; color: string } {
-    const unlocked = this.snakeCosmetics.unlockedThemes.includes(GOBLIN_SNAKE_STYLE.id);
-    if (!unlocked) {
-      if (this.score < GOBLIN_SNAKE_STYLE.price) {
-        return {
-          ok: false,
-          message: `${GOBLIN_SNAKE_STYLE.label} costs ${GOBLIN_SNAKE_STYLE.price} score.`,
-          color: '#ff6b6b',
-        };
-      }
-      this.addScoreDirect(-GOBLIN_SNAKE_STYLE.price);
+  private async purchaseGoblinStyle(): Promise<CommandResult> {
+    const result = await this.gameConnection.send({
+      type: 'specialShopAction',
+      action: 'goblin-style',
+      playerId: this.snakeGame.getLocalPlayerId(),
+    });
+    if (result.ok) {
       this.snakeCosmetics.unlockedThemes = [
-        ...this.snakeCosmetics.unlockedThemes,
-        GOBLIN_SNAKE_STYLE.id,
+        ...new Set([...this.snakeCosmetics.unlockedThemes, GOBLIN_SNAKE_STYLE.id]),
       ];
+      this.snakeCosmetics.activeTheme = GOBLIN_SNAKE_STYLE.id;
+      this.isDirty = true;
     }
-    this.snakeCosmetics.activeTheme = GOBLIN_SNAKE_STYLE.id;
-    this.isDirty = true;
-    return {
-      ok: true,
-      message: unlocked ? 'Goblin Hide equipped.' : 'Goblin Hide bought and equipped.',
-      color: '#b6ff6a',
-    };
+    return result;
   }
 
   private async showVillageShopRoot(shopkeeperName: string, skipBark = false): Promise<void> {
@@ -16926,7 +17037,7 @@ export default class SnakeScene extends Phaser.Scene {
     });
   }
 
-  private showActorShopRoot(shop: ActorShopView): void {
+  private showActorShopRoot(shop: ActorShopView, guildTownId?: string): void {
     this.paused = true;
     const options = shop.categories.map((category) => ({
       id: `actor-category:${category}`,
@@ -16941,17 +17052,22 @@ export default class SnakeScene extends Phaser.Scene {
       });
     }
     options.push({ id: 'leave', title: 'Leave', description: 'Step away from the counter.' });
-    this.villageShopPopup.show(shop.title, options, (id) => {
+    this.villageShopPopup.show(shop.title, options, async (id) => {
       if (id === 'leave') {
         this.closeVillageShop();
         return;
       }
       if (id === 'sell-length') {
-        const result = this.snakeGame.sellSnakeLengthToButcher(shop.actorId);
+        const result = await this.gameConnection.send({
+          type: 'specialShopAction',
+          action: 'butcher',
+          actorId: shop.actorId,
+          playerId: this.snakeGame.getLocalPlayerId(),
+        });
         this.showQuestHintPopup(result.message ?? 'Unavailable.', result.color);
         const updatedShop = this.snakeGame.getActorShopView(shop.actorId);
         if (updatedShop?.open) {
-          this.showActorShopRoot(updatedShop);
+          this.showActorShopRoot(updatedShop, guildTownId);
         } else {
           this.closeVillageShop();
         }
@@ -16959,12 +17075,22 @@ export default class SnakeScene extends Phaser.Scene {
       }
       if (id.startsWith('actor-category:')) {
         const [, category] = id.split(':');
-        this.showActorShopCategory(shop.actorId, category as ActorShopOfferCategory, 0);
+        this.showActorShopCategory(
+          shop.actorId,
+          category as ActorShopOfferCategory,
+          0,
+          guildTownId,
+        );
       }
     });
   }
 
-  private showActorShopCategory(actorId: string, category: ActorShopOfferCategory, page = 0): void {
+  private showActorShopCategory(
+    actorId: string,
+    category: ActorShopOfferCategory,
+    page = 0,
+    guildTownId?: string,
+  ): void {
     this.paused = true;
     const shop = this.snakeGame.getActorShopView(actorId);
     if (!shop?.open) {
@@ -16998,31 +17124,36 @@ export default class SnakeScene extends Phaser.Scene {
     options.push({ id: 'back', title: 'Back', description: 'Return to the shop counter.' });
     this.villageShopPopup.show(shop.title, options, async (id) => {
       if (id === 'back') {
-        this.showActorShopRoot(shop);
+        this.showActorShopRoot(shop, guildTownId);
         return;
       }
       if (id.startsWith('actor-page:')) {
         const [, nextPage] = id.split(':');
-        this.showActorShopCategory(actorId, category, Number(nextPage));
+        this.showActorShopCategory(actorId, category, Number(nextPage), guildTownId);
         return;
       }
       if (!id.startsWith('actor-offer:')) {
         return;
       }
       const offerId = id.slice('actor-offer:'.length);
-      const result = await this.gameConnection.send({
-        type: 'purchase',
-        actorId,
-        offerId,
-        playerId: this.snakeGame.getLocalPlayerId(),
-      });
+      const result = await this.gameConnection.send(
+        guildTownId
+          ? {
+              type: 'guildAction',
+              action: 'purchase',
+              townId: guildTownId,
+              offerId,
+              playerId: this.snakeGame.getLocalPlayerId(),
+            }
+          : { type: 'purchase', actorId, offerId, playerId: this.snakeGame.getLocalPlayerId() },
+      );
       this.isDirty = true;
       this.showQuestHintPopup(
         result.message ?? result.reason ?? 'Purchased.',
         result.ok ? '#5dd6a2' : '#ff6b6b',
       );
       this.skillTree.getOverlay().refresh();
-      this.showActorShopCategory(actorId, category, safePage);
+      this.showActorShopCategory(actorId, category, safePage, guildTownId);
     });
   }
 
@@ -18043,9 +18174,14 @@ export default class SnakeScene extends Phaser.Scene {
     return container;
   }
 
-  private handleGoblinShopQuestChoice(id: string, shopkeeperName: string): void {
+  private async handleGoblinShopQuestChoice(id: string, shopkeeperName: string): Promise<void> {
     if (id === 'quest:goblin-ledger-debt') {
-      const quest = this.snakeGame.offerGoblinLedgerQuestFromCurrentRoom();
+      const response = await this.gameConnection.send({
+        type: 'specialShopAction',
+        action: 'goblin-quest',
+        playerId: this.snakeGame.getLocalPlayerId(),
+      });
+      const quest = response.ok;
       this.showQuestHintPopup(
         quest
           ? 'Ugly Errand accepted. Find the ledger-stamp.'
@@ -18056,7 +18192,12 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     if (id === 'quest:goblin-ledger-turnin') {
-      const quest = this.snakeGame.turnInGoblinLedgerQuestAtCurrentRoom();
+      const response = await this.gameConnection.send({
+        type: 'specialShopAction',
+        action: 'goblin-turnin',
+        playerId: this.snakeGame.getLocalPlayerId(),
+      });
+      const quest = response.ok;
       this.showQuestHintPopup(
         quest
           ? 'Ledger-stamp returned. The debt is settled.'
@@ -20409,7 +20550,6 @@ export default class SnakeScene extends Phaser.Scene {
       }
       if (id === 'date') {
         const profile = this.getMolemanRelationshipProfile(room);
-        this.snakeGame.ensureRelationshipCandidate(profile);
         this.showRelationshipRoot(profile);
         return;
       }
@@ -20427,8 +20567,9 @@ export default class SnakeScene extends Phaser.Scene {
     const foreman = digSite.foreman;
     return {
       id: `moleman:${room.id}:${foreman.id}`,
+      actorId: `relationship:moleman:${room.id}:${foreman.id}`,
       displayName: foreman.name,
-      species: 'moleman' as RelationshipSpecies,
+      species: 'moleman',
       portraitId: 'moleman-date',
       homeRoomId: room.id,
       factionId: 'hearthbound-remnant' as const,
@@ -20450,17 +20591,32 @@ export default class SnakeScene extends Phaser.Scene {
     this.showQuestHintPopup('Cheat opened Moleman Archaeology.', '#d8b4ff');
   }
 
-  private startMolemanExcavation(variantId: DigSiteVariantId): void {
+  private async startMolemanExcavation(variantId: DigSiteVariantId): Promise<void> {
+    if (this.sceneClient) {
+      const result = await this.gameConnection.send({
+        type: 'archaeologyAction',
+        action: 'start',
+        playerId: this.snakeGame.getLocalPlayerId(),
+      });
+      if (!result.ok)
+        this.showQuestHintPopup(result.reason ?? 'Excavation unavailable.', '#ff6b6b');
+      return;
+    }
     const room = this.snakeGame.getCurrentRoom();
-    this.archaeologySession = new MolemanArchaeologySession(
+    this.localArchaeologySession = new MolemanArchaeologySession(
       getDigSiteVariant(variantId),
       () => this.snakeGame.random(),
       this.snakeGame.getArtifactTuning(),
     );
-    this.archaeologySession.setI18nResolver((key) => i18n.getFeatureString(key));
+    this.localArchaeologySession.setI18nResolver((key) => i18n.getFeatureString(key));
+    this.archaeologySession = this.localArchaeologySession;
+    this.beginArchaeologyPresentation(room.id, room.molemanDigSite?.foreman.id ?? null);
+  }
+
+  private beginArchaeologyPresentation(roomId: string, foremanId: string | null): void {
     this.archaeologyFinalRewards = null;
-    this.archaeologyReturnRoomId = room.id;
-    this.archaeologyReturnForemanId = room.molemanDigSite?.foreman.id ?? null;
+    this.archaeologyReturnRoomId = roomId;
+    this.archaeologyReturnForemanId = foremanId;
     this.archaeologyLogMessages.length = 0;
     this.archaeologyLastTickMs = this.time.now;
     this.archaeologyLastDebugSnapshotMs = this.time.now;
@@ -20475,60 +20631,156 @@ export default class SnakeScene extends Phaser.Scene {
 
   private handleArchaeologyKey(key: string): boolean {
     if (!this.archaeologySession) return false;
-    if (['arrowup', 'w'].includes(key)) this.archaeologySession.moveCursor(0, -1);
-    else if (['arrowdown', 's'].includes(key)) this.archaeologySession.moveCursor(0, 1);
-    else if (['arrowleft', 'a'].includes(key)) this.archaeologySession.moveCursor(-1, 0);
-    else if (['arrowright', 'd'].includes(key)) this.archaeologySession.moveCursor(1, 0);
-    else if (key === ' ' || key === 'enter' || key === 'e') {
-      const swapped = this.archaeologySession.swap();
-      if (!swapped) {
-        this.juice.archaeologyBlocked();
-      }
-    } else if (key === 'escape' || key === 'q') this.finishMolemanExcavation('leave');
-    else return false;
-    if (this.archaeologySession) {
-      this.renderArchaeologyOverlay(this.archaeologySession.getSnapshot());
-      this.emitArchaeologyDebugState('archaeology.state', `keyboard:${key}`, 'verbose');
-    }
+    const action = ['arrowup', 'w'].includes(key)
+      ? 'up'
+      : ['arrowdown', 's'].includes(key)
+        ? 'down'
+        : ['arrowleft', 'a'].includes(key)
+          ? 'left'
+          : ['arrowright', 'd'].includes(key)
+            ? 'right'
+            : [' ', 'enter', 'e'].includes(key)
+              ? 'swap'
+              : ['escape', 'q'].includes(key)
+                ? 'leave'
+                : null;
+    if (!action) return false;
+    this.applyArchaeologyInput(action);
     return true;
   }
 
   private handleArchaeologyControllerCommand(command: ControllerNavCommand): boolean {
     if (!this.archaeologySession) return false;
-    if (command === 'up') this.archaeologySession.moveCursor(0, -1);
-    else if (command === 'down') this.archaeologySession.moveCursor(0, 1);
-    else if (command === 'left') this.archaeologySession.moveCursor(-1, 0);
-    else if (command === 'right') this.archaeologySession.moveCursor(1, 0);
-    else if (command === 'confirm' || command === 'primary') {
-      if (!this.archaeologySession.swap()) this.juice.archaeologyBlocked();
-    } else if (command === 'cancel' || command === 'menu') {
-      this.finishMolemanExcavation('leave');
-    } else {
-      return false;
-    }
-    if (this.archaeologySession) {
-      this.renderArchaeologyOverlay(this.archaeologySession.getSnapshot());
-      this.emitArchaeologyDebugState('archaeology.state', `controller:${command}`, 'verbose');
-    }
+    const action =
+      command === 'up' || command === 'down' || command === 'left' || command === 'right'
+        ? command
+        : command === 'confirm' || command === 'primary'
+          ? 'swap'
+          : command === 'cancel' || command === 'menu'
+            ? 'leave'
+            : null;
+    if (!action) return false;
+    this.applyArchaeologyInput(action);
     return true;
   }
 
-  private updateArchaeologyOverlay(): void {
-    if (!this.archaeologySession) {
+  private async applyArchaeologyInput(
+    action: 'up' | 'down' | 'left' | 'right' | 'swap' | 'leave',
+  ): Promise<void> {
+    const direction =
+      action === 'up'
+        ? { x: 0, y: -1 }
+        : action === 'down'
+          ? { x: 0, y: 1 }
+          : action === 'left'
+            ? { x: -1, y: 0 }
+            : { x: 1, y: 0 };
+    if (this.sceneClient) {
+      if (this.remoteArchaeologyId === null) return;
+      const id = this.remoteArchaeologyId;
+      const result = await this.gameConnection.send(
+        action === 'swap' || action === 'leave'
+          ? { type: 'archaeologyAction', action, id, playerId: this.snakeGame.getLocalPlayerId() }
+          : {
+              type: 'archaeologyAction',
+              action: 'move',
+              id,
+              direction,
+              playerId: this.snakeGame.getLocalPlayerId(),
+            },
+      );
+      if (!result.ok && action === 'swap') this.juice.archaeologyBlocked();
       return;
     }
-    const now = this.time.now;
-    const delta = Math.max(0, now - this.archaeologyLastTickMs);
-    this.archaeologyLastTickMs = now;
-    this.archaeologySession.tick(delta);
-    for (const message of this.archaeologySession.consumeMessages()) {
-      this.archaeologyLogMessages.push(message);
+    const session = this.localArchaeologySession;
+    if (!session) return;
+    if (action === 'leave') {
+      this.finishMolemanExcavation('leave');
+      return;
     }
+    if (action === 'swap') {
+      if (!session.swap()) this.juice.archaeologyBlocked();
+    } else session.moveCursor(direction.x, direction.y);
+    this.renderArchaeologyOverlay(session.getSnapshot());
+    this.emitArchaeologyDebugState('archaeology.state', `input:${action}`, 'verbose');
+  }
+
+  private syncRemoteArchaeology(
+    view: import('../session/AuthoritativeArchaeology.js').ArchaeologyView | null,
+  ): void {
+    if (!view) {
+      if (this.remoteArchaeologyId !== null) {
+        if (this.remoteArchaeologyResultId === this.remoteArchaeologyId) {
+          this.villageShopPopup.hide();
+          this.setChoicePopupVisible(false);
+        }
+        this.remoteArchaeologyId = null;
+        this.archaeologySession = null;
+        this.hideArchaeologyPresentation();
+        if (this.snakeGame.getPlayer(this.snakeGame.getLocalPlayerId())?.alive)
+          this.resumeGameplayAfterModal();
+      }
+      return;
+    }
+    const isNew = this.remoteArchaeologyId !== view.id;
+    this.remoteArchaeologyId = view.id;
+    if (view.result) {
+      if (this.remoteArchaeologyResultId === view.id) return;
+      this.remoteArchaeologyResultId = view.id;
+      this.archaeologySession = null;
+      this.hideArchaeologyPresentation();
+      this.archaeologyReturnRoomId = view.roomId;
+      this.archaeologyReturnForemanId = view.foremanId;
+      this.paused = true;
+      this.showMolemanExcavationSummary(
+        view.result.reason,
+        view.state,
+        view.state.rewards,
+        view.result.payout,
+      );
+      return;
+    }
+    this.archaeologySession = { getSnapshot: () => view.state };
+    if (isNew) this.beginArchaeologyPresentation(view.roomId, view.foremanId);
+  }
+
+  private hideArchaeologyPresentation(): void {
+    this.archaeologyOverlay?.setVisible(false);
+    for (const symbol of this.archaeologySymbolTexts) symbol.setVisible(false);
+    this.juice.stopArchaeologyMusic();
+  }
+
+  private updateArchaeologyOverlay(): void {
+    if (!this.archaeologySession) return;
+    const now = this.time.now;
+    const local = this.localArchaeologySession;
+    if (local) {
+      const delta = Math.max(0, now - this.archaeologyLastTickMs);
+      this.archaeologyLastTickMs = now;
+      local.tick(delta);
+      this.presentArchaeologyUpdates(
+        local.getSnapshot(),
+        local.consumeEvents(),
+        local.consumeMessages(),
+      );
+    } else if (now - this.archaeologyLastPresentationMs >= 1000 / 30) {
+      this.archaeologyLastPresentationMs = now;
+      const snapshot = this.archaeologySession.getSnapshot();
+      this.updateArchaeologyTension(snapshot);
+      this.renderArchaeologyOverlay(snapshot);
+    }
+  }
+
+  private presentArchaeologyUpdates(
+    eventSnapshot: ArchaeologySessionSnapshot,
+    events: ArchaeologySessionEvent[],
+    messages: string[],
+  ): void {
+    const now = this.time.now;
+    this.archaeologyLogMessages.push(...messages);
     this.archaeologyLogMessages.splice(0, Math.max(0, this.archaeologyLogMessages.length - 6));
-    const events = this.archaeologySession.consumeEvents();
     if (events.length === 0 && now - this.archaeologyLastPresentationMs < 1000 / 30) return;
     this.archaeologyLastPresentationMs = now;
-    const eventSnapshot = this.archaeologySession.getSnapshot();
     for (const event of events) {
       this.emitArchaeologySessionEventDebug(event, eventSnapshot);
       if (event.kind === 'swap') this.juice.archaeologySwap();
@@ -20570,7 +20822,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.archaeologyLastDebugSnapshotMs = now;
       this.emitArchaeologyDebugState('archaeology.state', 'periodic', 'verbose');
     }
-    if (snapshot.gameOver) {
+    if (snapshot.gameOver && !this.sceneClient) {
       this.finishMolemanExcavation('failure');
     }
   }
@@ -21170,12 +21422,23 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private finishMolemanExcavation(reason: 'leave' | 'failure'): void {
+    if (this.sceneClient) {
+      if (this.remoteArchaeologyId !== null)
+        void this.gameConnection.send({
+          type: 'archaeologyAction',
+          action: 'leave',
+          id: this.remoteArchaeologyId,
+          playerId: this.snakeGame.getLocalPlayerId(),
+        });
+      return;
+    }
     const session = this.archaeologySession;
     if (!session) return;
     const snapshot = session.getSnapshot();
     const rewards = this.archaeologyFinalRewards ?? snapshot.rewards;
     this.archaeologyFinalRewards = rewards;
     this.archaeologySession = null;
+    this.localArchaeologySession = null;
     this.archaeologyOverlay?.setVisible(false);
     for (const symbol of this.archaeologySymbolTexts) {
       symbol.setVisible(false);
@@ -21281,7 +21544,16 @@ export default class SnakeScene extends Phaser.Scene {
           description: summaryLines.join('\n'),
         },
       ],
-      () => {
+      async () => {
+        if (this.sceneClient && this.remoteArchaeologyId !== null) {
+          const result = await this.gameConnection.send({
+            type: 'archaeologyAction',
+            action: 'close',
+            id: this.remoteArchaeologyId,
+            playerId: this.snakeGame.getLocalPlayerId(),
+          });
+          if (!result.ok) return;
+        }
         this.reopenMolemanInteractionAfterSummary();
       },
     );
@@ -21392,7 +21664,7 @@ export default class SnakeScene extends Phaser.Scene {
           ? this.snakeGame.getActorRole(profile.actorId)
           : undefined;
         if (id === 'leave') {
-          this.paused = false;
+          this.resumeGameplayAfterModal();
           return;
         }
         if (
@@ -21455,7 +21727,11 @@ export default class SnakeScene extends Phaser.Scene {
           return;
         }
         if (id === 'open-gate') {
-          const result = this.snakeGame.openCurrentTownGate();
+          const result = await this.gameConnection.send({
+            type: 'worldInteraction',
+            action: 'open-gate',
+            playerId: this.snakeGame.getLocalPlayerId(),
+          });
           if (result.ok)
             this.recordAchievementEvent({
               type: 'town:gateOpened',
@@ -21470,27 +21746,12 @@ export default class SnakeScene extends Phaser.Scene {
           return;
         }
         if (id.startsWith('pay-fine:')) {
-          const fine = Number(id.split(':')[1] ?? 0);
-          if (this.score < fine) {
-            this.showQuestHintPopup(`The fine is ${fine} score.`, '#ff6b6b');
-            this.closeVillageShop();
-            this.paused = false;
-            return;
-          }
-          this.addScoreDirect(-fine);
-          const town = this.snakeGame.getCurrentTown();
-          if (town) {
-            this.snakeGame.updateCurrentTown({
-              ...town,
-              wantedLevel: Math.max(0, town.wantedLevel - 1) as TownStructure['wantedLevel'],
-            });
-          }
+          const response = await this.actorIntent('pay-fine');
           this.showQuestHintPopup(
-            `${profile.displayName} stamps the fine. Wanted level drops by one.`,
-            '#b6ff6a',
+            response.message ?? response.reason ?? 'Unavailable.',
+            response.ok ? '#b6ff6a' : '#ff6b6b',
           );
           this.closeVillageShop();
-          this.paused = false;
           return;
         }
         if (id === 'card-table') {
@@ -21505,7 +21766,7 @@ export default class SnakeScene extends Phaser.Scene {
               result.ok ? '#b6ff6a' : '#ff6b6b',
             );
             this.skillTree.getOverlay().refresh();
-            this.paused = false;
+            this.resumeGameplayAfterModal();
           });
           return;
         }
@@ -21526,7 +21787,7 @@ export default class SnakeScene extends Phaser.Scene {
               result.ok ? '#b6ff6a' : '#ff6b6b',
             );
             this.skillTree.getOverlay().refresh();
-            this.paused = false;
+            this.resumeGameplayAfterModal();
           });
           return;
         }
@@ -22333,7 +22594,7 @@ export default class SnakeScene extends Phaser.Scene {
   ): Promise<void> {
     this.paused = true;
     this.skillTree.hideOverlay();
-    const response = await this.actorIntent('dating');
+    const response = await this.actorIntent(result ? 'dating-refresh' : 'dating');
     const facts = response.actorOutcome?.dating;
     if (!facts) return;
     if (!result && facts.cutscene) {

@@ -87,6 +87,10 @@ export interface GameplayOutcome {
   sequence: number;
   playerId: string;
   action?: ActionOutcome;
+  delta?: Pick<
+    ActionOutcome,
+    'scoreBefore' | 'scoreAfter' | 'lengthBefore' | 'lengthAfter' | 'head'
+  >;
   feedback: GameplayFeedback[];
 }
 export function describeActionOutcome(

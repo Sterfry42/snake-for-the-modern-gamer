@@ -148,10 +148,26 @@ describe('independent authoritative players', () => {
       (npc) => npc.id === actor.id,
     )!.presence!.position.x = 999;
     expect(game.getActorSystem().getActor(actor.id)!.presence!.position.x).toBe(head.x);
+    const events: import('../GameEvent.js').GameEvent[] = [];
+    session.onEvent((event) => events.push(event));
     expect(
       await session.executeCommand({ type: 'talkToActor', playerId: bob, actorId: actor.id }),
     ).toEqual({ ok: true });
-    expect(session.getSnapshot(bob).ui.messages?.join(' ')).toContain('Ada:');
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'gameplay.outcome',
+        playerId: bob,
+        outcome: expect.objectContaining({
+          feedback: expect.arrayContaining([
+            expect.objectContaining({
+              key: 'ui.questInteraction',
+              value: expect.objectContaining({ message: expect.stringContaining('Ada:') }),
+            }),
+          ]),
+        }),
+      }),
+    );
+    expect(session.getSnapshot(bob).clientState?.flags['ui.questInteraction']).toBeUndefined();
     expect(session.getSnapshot().ui.messages?.join(' ')).not.toContain('Ada:');
     expect(
       await session.executeCommand({ type: 'talkToActor', playerId: bob, actorId: 'missing' }),

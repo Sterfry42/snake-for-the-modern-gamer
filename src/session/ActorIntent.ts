@@ -20,6 +20,8 @@ export const ACTOR_INTENTS = [
   'reject-quest',
   'pickpocket',
   'dating',
+  'dating-refresh',
+  'pay-fine',
   'complete-wedding',
   'tavern-rest',
   'campaign-shake-hands',

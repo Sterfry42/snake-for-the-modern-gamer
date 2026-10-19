@@ -3,7 +3,15 @@ import type { SnakeState } from '../systems/snakeState.js';
 
 export type PlayerId = string;
 
+export interface PlayerAppearance {
+  themeId: string;
+  palette: import('../ui/spriteRecipes/snakeRecipe.js').SnakeSpritePalette;
+  activeHat: import('../ui/spriteRecipes/snakeHatRecipe.js').SnakeHatStyle | null;
+  renderStyle: 'sprite' | 'retro-grid';
+}
+
 export interface PlayerCosmetics {
+  appearance?: PlayerAppearance;
   activeTheme?: string;
   activeHat?: string | null;
 }

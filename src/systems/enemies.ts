@@ -41,6 +41,7 @@ export interface BulletInstance {
   position: Vector2Like;
   direction: Vector2Like;
   owner: 'enemy' | 'player';
+  ownerPlayerId?: string;
   style?: 'enemy' | 'npc-hostile' | 'duelist' | 'freak-joey' | 'goblin' | 'player';
 }
 
@@ -62,6 +63,7 @@ interface EnemyStepParams {
   snake: readonly Vector2Like[];
   currentRoomId: string;
   snakeDirection: Vector2Like;
+  currentPlayerId?: string;
   otherPlayers?: readonly { id: string; roomId: string; body: readonly Vector2Like[] }[];
   onOtherPlayerBulletHit?: (playerId: string, style: BulletInstance['style']) => void;
 }
@@ -729,9 +731,10 @@ export class EnemyManager {
         }
 
         const bulletGlobal = localToGlobal(roomId, nextPosition, this.grid);
-        if (bullet.owner === 'enemy') {
+        {
           const otherPlayer = params.otherPlayers?.find(
             (player) =>
+              player.id !== bullet.ownerPlayerId &&
               player.roomId === roomId &&
               player.body.some(
                 (segment) => segment.x === bulletGlobal.x && segment.y === bulletGlobal.y,
@@ -742,6 +745,9 @@ export class EnemyManager {
             continue;
           }
           if (
+            (bullet.owner === 'enemy' ||
+              (bullet.ownerPlayerId !== undefined &&
+                bullet.ownerPlayerId !== params.currentPlayerId)) &&
             roomId === currentRoomId &&
             snake.some((segment) => segment.x === bulletGlobal.x && segment.y === bulletGlobal.y)
           ) {
@@ -749,7 +755,8 @@ export class EnemyManager {
             hitStyle ??= bullet.style;
             continue;
           }
-        } else {
+        }
+        if (bullet.owner === 'player') {
           const enemies = this.enemies.get(roomId) ?? [];
           const hitEnemy = enemies.find(
             (enemy) => enemy.position.x === nextPosition.x && enemy.position.y === nextPosition.y,
@@ -1006,7 +1013,12 @@ export class EnemyManager {
     );
   }
 
-  firePlayerBullet(roomId: string, origin: Vector2Like, direction: Vector2Like): boolean {
+  firePlayerBullet(
+    roomId: string,
+    origin: Vector2Like,
+    direction: Vector2Like,
+    ownerPlayerId?: string,
+  ): boolean {
     const spawnX = origin.x + direction.x;
     const spawnY = origin.y + direction.y;
     if (spawnX < 0 || spawnX >= this.grid.cols || spawnY < 0 || spawnY >= this.grid.rows) {
@@ -1028,6 +1040,7 @@ export class EnemyManager {
       position: { x: spawnX, y: spawnY },
       direction,
       owner: 'player',
+      ownerPlayerId,
       style: 'player',
     });
     this.bullets.set(roomId, bullets);

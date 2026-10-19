@@ -63,6 +63,7 @@ export type ClientCommand =
 
 export interface CommandResult {
   ok: boolean;
+  shop?: NonNullable<ReturnType<import('../game/snakeGame.js').SnakeGame['getActorShopView']>>;
   actorOutcome?: import('./ActorIntent.js').ActorOutcome;
   relationshipResult?: import('../relationships/relationshipTypes.js').RelationshipEventResult;
   npcDisposition?: ReturnType<import('../game/snakeGame.js').SnakeGame['insultNpc']>;
