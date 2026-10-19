@@ -2,6 +2,7 @@ import type { ClientCommand, CommandResult } from './ClientCommand.js';
 import type { GameConnection } from './GameConnection.js';
 import type { GameEvent } from './GameEvent.js';
 import type { GameSnapshot } from './GameSnapshot.js';
+import { SnapshotDeltaAssembler } from './SnapshotDelta.js';
 import { parseServerMessage } from './gameProtocol.js';
 import {
   normalizeDisplayName,
@@ -16,6 +17,7 @@ export class WebSocketGameConnection implements GameConnection {
   readonly ready: Promise<void>;
   connectionId: string | null = null;
   playerId: string | null = null;
+  private readonly assembler = new SnapshotDeltaAssembler();
   private snapshot: GameSnapshot | null = null;
   private nextId = 0;
   private closed = false;
@@ -75,9 +77,13 @@ export class WebSocketGameConnection implements GameConnection {
             saveServerCredential(this.url, 'resume', message.resumeToken);
             clearTimeout(this.handshakeTimer);
             this.attempt = 0;
+            this.assembler.reset(message.snapshot);
             this.publish(message.snapshot);
             this.setStatus('connected');
             resolve();
+            break;
+          case 'delta':
+            this.publish(this.assembler.apply(message.delta));
             break;
           case 'snapshot':
             this.publish(message.snapshot);

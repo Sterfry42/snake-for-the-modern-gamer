@@ -1,3 +1,4 @@
+import { SnapshotDeltaAssembler } from '../../src/session/SnapshotDelta.js';
 import { test, expect } from '@playwright/test';
 import type { Duplex } from 'node:stream';
 import { SnakeGame } from '../../src/game/snakeGame.js';
@@ -29,8 +30,11 @@ test('friends keep their characters through refresh and a broken socket, see pre
   let bobConnectionId = '';
   bob.on('websocket', socket => {
     if (new URL(socket.url()).pathname !== '/game') return;
+    const assembler = new SnapshotDeltaAssembler();
     socket.on('framereceived', frame => {
-      const message = parseServerMessage(frame.payload.toString());
+      const wire = parseServerMessage(frame.payload.toString());
+      if (wire.type === 'welcome') assembler.reset(wire.snapshot);
+      const message = wire.type === 'delta' ? { type: 'snapshot' as const, snapshot: assembler.apply(wire.delta) } : wire;
       if (message.type === 'welcome') { bobId = message.playerId; bobConnectionId = message.connectionId; }
       if (message.type === 'snapshot' || message.type === 'welcome') bobSnapshot = message.snapshot;
     });

@@ -1,3 +1,4 @@
+import { SnapshotDeltaAssembler } from '../../src/session/SnapshotDelta.js';
 import { test, expect, type Page } from '@playwright/test';
 import { SnakeGame } from '../../src/game/snakeGame.js';
 import { QuestRegistry } from '../../src/quests/questRegistry.js';
@@ -12,8 +13,11 @@ function observe(page: Page) {
   const state: { snapshot?: GameSnapshot } = {};
   page.on('websocket', (socket) => {
     if (new URL(socket.url()).pathname !== '/game') return;
+    const assembler = new SnapshotDeltaAssembler();
     socket.on('framereceived', (frame) => {
-      const message = parseServerMessage(frame.payload.toString());
+      const wire = parseServerMessage(frame.payload.toString());
+      if (wire.type === 'welcome') assembler.reset(wire.snapshot);
+      const message = wire.type === 'delta' ? { type: 'snapshot' as const, snapshot: assembler.apply(wire.delta) } : wire;
       if (message.type === 'welcome' || message.type === 'snapshot')
         state.snapshot = message.snapshot;
     });

@@ -1,3 +1,4 @@
+import { SnapshotDeltaAssembler } from '../../src/session/SnapshotDelta.js';
 import { test, expect, type Page } from '@playwright/test';
 import { AuthoritativeGameSession } from '../../src/session/AuthoritativeGameSession.js';
 import { createGameServer } from '../../src/server/createGameServer.js';
@@ -25,8 +26,11 @@ function observeWorld(page: Page) {
   const observed: { snapshot?: GameSnapshot } = {};
   page.on('websocket', (socket) => {
     if (new URL(socket.url()).pathname !== '/game') return;
+    const assembler = new SnapshotDeltaAssembler();
     socket.on('framereceived', (frame) => {
-      const message = parseServerMessage(frame.payload.toString());
+      const wire = parseServerMessage(frame.payload.toString());
+      if (wire.type === 'welcome') assembler.reset(wire.snapshot);
+      const message = wire.type === 'delta' ? { type: 'snapshot' as const, snapshot: assembler.apply(wire.delta) } : wire;
       if (message.type === 'welcome' || message.type === 'snapshot')
         observed.snapshot = message.snapshot;
     });
@@ -58,12 +62,11 @@ test('Multiplayer offers Server and Archipelago, then enters a named shared worl
     await page.keyboard.press('Tab');
     await expect(page.getByLabel('Server URL')).toBeFocused();
     await page.getByRole('button', { name: 'Back', exact: true }).click();
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('Enter');
+    await clickCanvas(page, 384, 320);
     await expect(page.getByRole('dialog')).toBeHidden();
     await page.screenshot({ path: 'test-results/connections-archipelago.png' });
     await clickCanvas(page, 384, 500);
-    await page.keyboard.press('Enter');
+    await clickCanvas(page, 384, 262);
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByLabel('Server URL').fill('ftp://invalid.test');
     await page.getByRole('button', { name: 'Enter World', exact: true }).click();

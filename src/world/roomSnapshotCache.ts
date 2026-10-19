@@ -18,6 +18,12 @@ interface ArchivedRoom {
 
 /** Archives complete room state without replaying generation or consuming RNG. */
 export class RoomSnapshotCache implements Iterable<[string, RoomSnapshot]> {
+  private version = 0;
+  private readonly revisions = new Map<string, number>();
+  getRevision(id: string): number {
+    return this.revisions.get(id) ?? 0;
+  }
+
   private readonly hot = new Map<string, RoomSnapshot>();
   private readonly archived = new Map<string, ArchivedRoom>();
   private readonly watchers = new WeakMap<object, Set<ChangeReference>>();
@@ -41,6 +47,7 @@ export class RoomSnapshotCache implements Iterable<[string, RoomSnapshot]> {
   prepare(room: RoomSnapshot): RoomSnapshot {
     const proxies = new WeakMap<object, object>();
     const changed = (): void => {
+      this.revisions.set(room.id, ++this.version);
       const record = this.archived.get(room.id);
       if (record?.reference.deref() !== root || record.pending) return;
       record.pending = true;
@@ -109,6 +116,7 @@ export class RoomSnapshotCache implements Iterable<[string, RoomSnapshot]> {
   }
 
   set(id: string, room: RoomSnapshot): void {
+    this.revisions.set(id, ++this.version);
     this.archived.delete(id);
     this.hot.delete(id);
     this.hot.set(id, room);
@@ -132,12 +140,14 @@ export class RoomSnapshotCache implements Iterable<[string, RoomSnapshot]> {
   }
 
   delete(id: string): boolean {
+    this.revisions.delete(id);
     const hot = this.hot.delete(id);
     const archived = this.archived.delete(id);
     return hot || archived;
   }
 
   clear(): void {
+    this.revisions.clear();
     this.hot.clear();
     this.archived.clear();
   }

@@ -17,7 +17,7 @@ export class SceneGameClient {
 
   constructor(readonly connection: GameConnection) {
     this.unsubscribe = connection.onSnapshot((snapshot) => {
-      this.snapshot = structuredClone(snapshot);
+      this.snapshot = snapshot;
     });
   }
 

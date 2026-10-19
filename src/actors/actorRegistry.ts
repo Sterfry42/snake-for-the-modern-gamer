@@ -36,6 +36,7 @@ type ActorWorkKind =
 
 export class ActorRegistry {
   private readonly actors = new Map<string, Actor>();
+  private readonly actorIdsByTown = new Map<string, Set<string>>();
   private readonly actorIdsByRoom = new Map<string, Set<string>>();
   private readonly workActorIds = new Map<ActorWorkKind, Set<string>>();
   private readonly promotedActorIds = new Set<string>();
@@ -95,6 +96,7 @@ export class ActorRegistry {
   clear(): void {
     this.actors.clear();
     this.actorIdsByRoom.clear();
+    this.actorIdsByTown.clear();
     this.workActorIds.clear();
     this.promotedActorIds.clear();
     this.deadActorIds.clear();
@@ -118,6 +120,10 @@ export class ActorRegistry {
   getSize(): number {
     return this.actors.size;
   }
+  getWorkCount(kind: ActorWorkKind): number {
+    return this.workActorIds.get(kind)?.size ?? 0;
+  }
+
   getActiveCount(): number {
     return this.workActorIds.get('active')?.size ?? 0;
   }
@@ -154,7 +160,10 @@ export class ActorRegistry {
   }
 
   getByTown(townId: string): Actor[] {
-    return this.getAll().filter((actor) => actor.townId === townId);
+    return [...(this.actorIdsByTown.get(townId) ?? [])].flatMap((id) => {
+      const actor = this.actors.get(id);
+      return actor ? [actor] : [];
+    });
   }
 
   getByFaction(factionId: string): Actor[] {
@@ -431,6 +440,19 @@ export class ActorRegistry {
   }
 
   private reindexActor(previous: Actor | undefined, next: Actor | undefined): void {
+    if (previous?.townId && previous.townId !== next?.townId) {
+      const ids = this.actorIdsByTown.get(previous.townId);
+      ids?.delete(previous.id);
+      if (ids?.size === 0) this.actorIdsByTown.delete(previous.townId);
+    }
+    if (next?.townId) {
+      let ids = this.actorIdsByTown.get(next.townId);
+      if (!ids) {
+        ids = new Set();
+        this.actorIdsByTown.set(next.townId, ids);
+      }
+      ids.add(next.id);
+    }
     const id = next?.id ?? previous?.id;
     if (id) {
       if (next && isDisposableDeadActor(next)) this.disposableDeadActorIds.add(id);

@@ -23,6 +23,7 @@ import type { GameEvent } from './GameEvent.js';
 import type { LocalAuthoritativeRuntime, LocalAuthoritativeRuntimeArgs } from './GameRuntime.js';
 import type { GameSnapshot, ConnectionPresence } from './GameSnapshot.js';
 import { normalizeDisplayName } from './connectionSettings.js';
+import { ServerPerformance } from './ServerPerformance.js';
 import { SimulationScheduler } from '../systems/simulationScheduler.js';
 import { SnakeGame as Game } from '../game/snakeGame.js';
 import { QuestRegistry } from '../quests/questRegistry.js';
@@ -45,13 +46,39 @@ type EventHandler = (event: GameEvent) => void;
 
 export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   private readonly connections = new Map<string, ConnectionPresence>();
+  readonly performance = new ServerPerformance();
+  private networkDirty = true;
   private hosted = false;
+
+  getPerformanceReport(reset = false) {
+    return this.performance.read(
+      { ...this.game.getServerSimulationGauges(), connectedPlayers: this.connections.size },
+      reset,
+    );
+  }
+
+  getConnectionSnapshot(playerId: PlayerId): Promise<GameSnapshot> {
+    return this.enqueue(async () => this.buildSnapshot(false, playerId, true));
+  }
+
+  publishNetworkState(
+    publish: (playerId: PlayerId, snapshot: GameSnapshot) => void,
+  ): Promise<void> {
+    return this.enqueue(async () => {
+      if (!this.networkDirty) return;
+      this.networkDirty = false;
+      this.performance.publication();
+      for (const playerId of new Set([...this.connections.values()].map((peer) => peer.playerId)))
+        publish(playerId, this.buildSnapshot(false, playerId, true));
+    });
+  }
   private readonly administrators = new Set<PlayerId>();
   private readonly retainedPlayers = new Map<PlayerId, boolean>();
   private readonly expressions = new Map<PlayerId, { id: string; remainingMs: number }>();
 
   configureHosting(): void {
     this.hosted = true;
+    this.game.enableServerSimulationFidelity();
   }
 
   private canManageWorld(playerId: PlayerId): boolean {
@@ -107,6 +134,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       score: attached.snake.score,
       length: attached.snake.bodySegments.length,
     });
+    this.networkDirty = true;
     this.connections.set(connectionId, {
       connectionId,
       playerId,
@@ -460,6 +488,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
 
   advance(deltaMs: number): Promise<void> {
     return this.enqueue(async () => {
+      const updateStartedAt = performance.now();
       if (!Number.isFinite(deltaMs) || deltaMs < 0) throw new Error('Invalid simulation delta');
       let expressionExpired = false;
       for (const [id, expression] of this.expressions) {
@@ -486,6 +515,8 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         await step();
       }
       if (expressionExpired) this.emitSnapshot();
+      if (running || expressionExpired) this.networkDirty = true;
+      this.performance.update(performance.now() - updateStartedAt);
     });
   }
 
@@ -728,7 +759,6 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
 
   private stepPlayerAction(paused: boolean, playerId: PlayerId): StepResult {
-    const previousRoomId = this.game.getPlayer(playerId)?.snake.currentRoomId;
     const scoreBefore = this.game.getScore();
     const lengthBefore = this.game.getSnakeLength();
     const result = this.game.actionStep(paused, { advanceBombs: !this.manageBasicFeatures });
@@ -783,8 +813,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
           roomId: this.game.getCurrentRoom().id,
         }),
       );
-    if (this.eventHandlers.size > 0)
-      this.emitStepEvents(previousRoomId, result, this.buildSnapshot(true, playerId), playerId);
+    if (this.eventHandlers.size > 0) this.emitStepEvents(result, playerId);
     return result;
   }
 
@@ -803,7 +832,16 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
 
   async actorClockStep(stepMs?: number): Promise<StepResult | null> {
-    return this.runAsyncClockStep(() => this.game.actorClockStep(stepMs));
+    const startedAt = performance.now();
+    const playerId = this.hosted ? this.simulationPlayers()[0]?.id : this.localPlayerId;
+    if (!playerId) return null;
+    try {
+      return await this.game.runForPlayerAsync(playerId, () =>
+        this.runAsyncClockStep(() => this.game.actorClockStep(stepMs), playerId),
+      );
+    } finally {
+      this.performance.actor(performance.now() - startedAt);
+    }
   }
 
   hazardClockStep(): StepResult | null {
@@ -819,13 +857,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         return result;
       });
       if (result?.status === 'dead') player.alive = false;
-      if (result && this.eventHandlers.size > 0)
-        this.emitStepEvents(
-          player.snake.currentRoomId,
-          result,
-          this.buildSnapshot(true, player.id),
-          player.id,
-        );
+      if (result && this.eventHandlers.size > 0) this.emitStepEvents(result, player.id);
       first ??= result;
     }
     this.emitSnapshot();
@@ -937,12 +969,20 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     this.checkpoint = null;
   }
 
-  private buildSnapshot(detach = true, playerId = this.localPlayerId): GameSnapshot {
+  private buildSnapshot(
+    detach = true,
+    playerId = this.localPlayerId,
+    network = false,
+  ): GameSnapshot {
     if (this.game.getLocalPlayerId() !== playerId) {
-      return this.game.runForPlayer(playerId, () => this.buildSnapshot(detach, playerId));
+      return this.game.runForPlayer(playerId, () => this.buildSnapshot(detach, playerId, network));
     }
+    const startedAt = performance.now();
     const snapshot = this.game.getSnapshot(playerId);
-    snapshot.clientState = this.game.getSceneClientState();
+    if (network || this.hosted) snapshot.replication = this.game.getNetworkRoomView();
+    snapshot.clientState = this.game.getSceneClientState(
+      snapshot.replication ? Object.keys(snapshot.replication.roomRevisions) : undefined,
+    );
     snapshot.forcedEncounter = this.game.getForcedEncounter();
     if (this.manageBasicFeatures)
       snapshot.clientState.flags = Object.fromEntries(
@@ -958,6 +998,12 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     for (const player of Object.values(snapshot.players))
       player.activeEmoticon = this.expressions.get(player.id)?.id ?? null;
     snapshot.connections = Object.fromEntries(this.connections);
+    if (network) {
+      const connected = new Set([...this.connections.values()].map((peer) => peer.playerId));
+      snapshot.players = Object.fromEntries(
+        Object.entries(snapshot.players).filter(([id]) => connected.has(id)),
+      );
+    }
     for (const room of Object.values(snapshot.viewport.rooms)) {
       room.bosses = this.game.getBosses(room.id).map(cloneBossForSnapshot);
     }
@@ -969,6 +1015,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       atmosphere: this.game.getAtmosphereForRoom(),
     };
 
+    this.performance.build(performance.now() - startedAt);
     return detach ? copyGameSnapshot(snapshot) : snapshot;
   }
 
@@ -979,6 +1026,22 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         this.game.getPlayer(playerId)!.alive = false;
         this.emit({ type: 'player.died', playerId, reason: result.deathReason ?? 'bullet' });
       }
+    }
+    this.networkDirty = true;
+    if (this.hosted && this.snapshotHandlers.size === 0) {
+      for (const player of this.game.getPlayers()) {
+        const previous = this.publishedRooms.get(player.id);
+        this.publishedRooms.set(player.id, player.snake.currentRoomId);
+        if (previous && previous !== player.snake.currentRoomId)
+          this.emit({
+            type: 'room.changed',
+            playerId: player.id,
+            fromRoomId: previous,
+            toRoomId: player.snake.currentRoomId,
+            head: player.snake.bodySegments[0],
+          });
+      }
+      return forceDetach ? this.buildSnapshot(true) : this.lastSnapshot;
     }
     // Unobserved simulation needs no presentation projection. Public reads refresh it.
     if (!forceDetach && this.snapshotHandlers.size === 0 && this.eventHandlers.size === 0) {
@@ -1065,27 +1128,26 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
 
   private runClockStep(step: () => StepResult | null): StepResult | null {
-    const previousRoomId = this.game.getPlayer(this.localPlayerId)?.snake.currentRoomId;
     const result = step();
     if (result) this.resolvePlayerDeath(result, this.localPlayerId);
     if (result?.status === 'dead') this.game.getPlayer(this.localPlayerId)!.alive = false;
-    const snapshot = this.emitSnapshot();
+    this.emitSnapshot();
     if (result && this.eventHandlers.size > 0) {
-      this.emitStepEvents(previousRoomId, result, snapshot);
+      this.emitStepEvents(result);
     }
     return result;
   }
 
   private async runAsyncClockStep(
     step: () => Promise<StepResult | null>,
+    playerId = this.localPlayerId,
   ): Promise<StepResult | null> {
-    const previousRoomId = this.game.getPlayer(this.localPlayerId)?.snake.currentRoomId;
     const result = await step();
-    if (result) this.resolvePlayerDeath(result, this.localPlayerId);
-    if (result?.status === 'dead') this.game.getPlayer(this.localPlayerId)!.alive = false;
-    const snapshot = this.emitSnapshot();
+    if (result) this.resolvePlayerDeath(result, playerId);
+    if (result?.status === 'dead') this.game.getPlayer(playerId)!.alive = false;
+    this.emitSnapshot();
     if (result && this.eventHandlers.size > 0) {
-      this.emitStepEvents(previousRoomId, result, snapshot);
+      this.emitStepEvents(result, playerId);
     }
     return result;
   }
@@ -1120,13 +1182,8 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     result.deathReason = undefined;
   }
 
-  private emitStepEvents(
-    _previousRoomId: string | undefined,
-    result: StepResult,
-    snapshot: GameSnapshot,
-    playerId = this.localPlayerId,
-  ): void {
-    const player = snapshot.players[playerId];
+  private emitStepEvents(result: StepResult, playerId = this.localPlayerId): void {
+    const player = this.game.getPlayer(playerId);
     if (!player) {
       return;
     }

@@ -55,6 +55,22 @@ interface PortalIndexEntry {
 }
 
 export class WorldService {
+  private static nextReplicationId = 0;
+  private replicationEpoch = ++WorldService.nextReplicationId;
+  get replicationId(): number {
+    return this.replicationEpoch;
+  }
+  getRoomRevision(id: string): number {
+    return this.rooms.getRevision(id);
+  }
+  getKnownRoomCount(): number {
+    return this.rooms.knownSize;
+  }
+  mergeReplicaRooms(rooms: readonly RoomSnapshot[]): void {
+    this.replicaOnly = true;
+    for (const room of rooms) this.rooms.set(room.id, room);
+  }
+
   private replicaOnly = false;
 
   replaceReplicaRooms(rooms: readonly RoomSnapshot[]): void {
@@ -322,6 +338,8 @@ export class WorldService {
   }
 
   clear(): void {
+    this.replicationEpoch = ++WorldService.nextReplicationId;
+    this.townsById.clear();
     this.rooms.clear();
     this.townRoomIdsByTownId.clear();
     this.incomingPortalsByDestRoomId.clear();

@@ -6,7 +6,7 @@ import type { GameSnapshot } from './GameSnapshot.js';
 import { SPECIAL_STAT_IDS } from '../stats/specialTypes.js';
 import { EQUIPMENT_SLOTS } from '../inventory/item.js';
 
-export const GAME_PROTOCOL_VERSION = 2;
+export const GAME_PROTOCOL_VERSION = 3;
 
 export interface CommandMessage {
   type: 'command';
@@ -24,6 +24,7 @@ export type ServerMessage =
       snapshot: GameSnapshot;
     }
   | { type: 'snapshot'; snapshot: GameSnapshot }
+  | { type: 'delta'; delta: import('./SnapshotDelta.js').SnapshotDelta }
   | { type: 'event'; event: GameEvent }
   | { type: 'result'; id: number; result: CommandResult };
 
@@ -366,6 +367,18 @@ function isServerMessage(value: unknown): value is ServerMessage {
       );
     case 'snapshot':
       return isSnapshot(value.snapshot);
+    case 'delta':
+      return (
+        isRecord(value.delta) &&
+        isRecord(value.delta.state) &&
+        typeof value.delta.state.localPlayerId === 'string' &&
+        isRecord(value.delta.viewport) &&
+        isRecord(value.delta.viewport.rooms) &&
+        isRecord(value.delta.clientState) &&
+        isRecord(value.delta.flags) &&
+        isRecord(value.delta.flags.set) &&
+        Array.isArray(value.delta.flags.removed)
+      );
     case 'event':
       return isRecord(value.event) && typeof value.event.type === 'string';
     case 'result':

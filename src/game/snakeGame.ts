@@ -1264,6 +1264,40 @@ export class SnakeGame implements QuestRuntime {
   private lethalStepHoldGraceTicks = 0;
   private visitedRooms: Set<string>;
   private readonly npcBodies = new Map<string, NpcBodyState>();
+  private readonly npcBodyIdsByRoom = new Map<string, Set<string>>();
+  private readonly npcBodyRooms = new Map<string, string>();
+
+  private storeNpcBody(body: NpcBodyState): void {
+    const previousRoom = this.npcBodyRooms.get(body.relationshipId);
+    if (previousRoom !== body.roomId && previousRoom)
+      this.npcBodyIdsByRoom.get(previousRoom)?.delete(body.relationshipId);
+    let ids = this.npcBodyIdsByRoom.get(body.roomId);
+    if (!ids) {
+      ids = new Set();
+      this.npcBodyIdsByRoom.set(body.roomId, ids);
+    }
+    ids.add(body.relationshipId);
+    this.npcBodyRooms.set(body.relationshipId, body.roomId);
+    this.npcBodies.set(body.relationshipId, body);
+  }
+
+  private removeNpcBody(id: string): void {
+    const roomId = this.npcBodyRooms.get(id);
+    if (roomId) {
+      const ids = this.npcBodyIdsByRoom.get(roomId);
+      ids?.delete(id);
+      if (ids?.size === 0) this.npcBodyIdsByRoom.delete(roomId);
+    }
+    this.npcBodyRooms.delete(id);
+    this.npcBodies.delete(id);
+  }
+
+  private getNpcBodiesInRoom(roomId: string): NpcBodyState[] {
+    return [...(this.npcBodyIdsByRoom.get(roomId) ?? [])].flatMap((id) => {
+      const body = this.npcBodies.get(id);
+      return body?.roomId === roomId ? [body] : [];
+    });
+  }
   private readonly actorMaterializationDirtyRooms = new Set<string>();
   private readonly actorsTransitionedFromLoadedRoomThisTick = new Set<string>();
   private readonly resolvedWandererEncounters = new Set<string>();
@@ -1385,6 +1419,13 @@ export class SnakeGame implements QuestRuntime {
     this.playerContexts.clear();
     this.players.clear();
     this.world.clear();
+    this.farActorWork = [];
+    this.farActorWorkCursor = 0;
+    this.nextNearbyActorWorkAtMs =
+      this.nextFarActorWorkAtMs =
+      this.nextBusinessRecoveryAtMs =
+      this.lastFidelityNowMs =
+        0;
     this.atmosphere.reset(this.worldGenerationIdentity.seed);
     this.apples.clearAll();
     this.snake.reset(this.config.world.originRoomId);
@@ -1412,6 +1453,8 @@ export class SnakeGame implements QuestRuntime {
     this.syncPlayerMap();
     this.visitedRooms.clear();
     this.npcBodies.clear();
+    this.npcBodyIdsByRoom.clear();
+    this.npcBodyRooms.clear();
     this.actorMaterializationDirtyRooms.clear();
     this.resolvedWandererEncounters.clear();
     this.wandererHistory.clear();
@@ -2055,6 +2098,45 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
+  getServerSimulationGauges() {
+    const occupied = new Set(
+      this.getPlayers()
+        .filter((player) => player.alive)
+        .map((player) => player.snake.currentRoomId),
+    );
+    let activeActors = 0;
+    for (const roomId of occupied) activeActors += this.actors.getActorsInRoom(roomId).length;
+    const totalActors = this.actors.registry.getSize();
+    return {
+      cachedRooms: this.world.getCachedRoomCount(),
+      knownRooms: this.world.getKnownRoomCount(),
+      materializedRooms: occupied.size,
+      totalActors,
+      activeActors,
+      travelingActors: this.actors.registry.getWorkCount('travel'),
+      offscreenActors: Math.max(0, totalActors - activeActors),
+    };
+  }
+
+  getNetworkRoomView(): NonNullable<GameSnapshot['replication']> {
+    const ids = new Set([this.snake.currentRoomId]);
+    if (this.isCoordinateRoomId(this.snake.currentRoomId)) {
+      const [x, y, z] = this.parseRoomCoordinates(this.snake.currentRoomId);
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const id = `${x + dx},${y + dy},${z}`;
+          if (this.world.hasCachedRoom(id)) ids.add(id);
+        }
+    }
+    return {
+      epoch: this.world.replicationId,
+      roomRevisions: Object.fromEntries([...ids].map((id) => [id, this.world.getRoomRevision(id)])),
+    };
+  }
+
+  private replicaRoomEpoch: number | undefined;
+  private readonly replicaRoomRevisions = new Map<string, number>();
+
   /** Hydrates only a declared replica; callers retain the guarded selector view. */
   hydrateClientSnapshot(snapshot: GameSnapshot): void {
     if (this.runtimeMode !== 'client-replica')
@@ -2066,7 +2148,20 @@ export class SnakeGame implements QuestRuntime {
     this.localPlayerId = player.id;
     this.worldGenerationIdentity = createWorldGenerationIdentity(state.worldSeed);
     this.characterMode = snapshot.presentation?.characterMode ?? 'snake';
-    this.world.replaceReplicaRooms(structuredClone(state.worldRooms));
+    if (!snapshot.replication) this.world.replaceReplicaRooms(structuredClone(state.worldRooms));
+    else {
+      if (this.replicaRoomEpoch !== snapshot.replication.epoch) {
+        this.world.replaceReplicaRooms([]);
+        this.replicaRoomRevisions.clear();
+        this.replicaRoomEpoch = snapshot.replication.epoch;
+      }
+      const revisions = snapshot.replication.roomRevisions;
+      const changed = state.worldRooms.filter(
+        (room) => this.replicaRoomRevisions.get(room.id) !== revisions[room.id],
+      );
+      this.world.mergeReplicaRooms(structuredClone(changed));
+      for (const room of changed) this.replicaRoomRevisions.set(room.id, revisions[room.id]);
+    }
     this.snake.restoreBodySnapshot({
       body: player.body,
       roomId: player.roomId,
@@ -2110,7 +2205,9 @@ export class SnakeGame implements QuestRuntime {
   }
 
   /** Builds presentation data without invoking persistence or scene callbacks. */
-  getSceneClientState(): import('../session/SceneClientState.js').SceneClientState {
+  getSceneClientState(
+    roomIds?: readonly string[],
+  ): import('../session/SceneClientState.js').SceneClientState {
     const relationshipStates = this.relationshipController.getAllStates();
     const describeQuest = (quest: Quest) => ({
       id: quest.id,
@@ -2120,7 +2217,12 @@ export class SnakeGame implements QuestRuntime {
       subtasks: this.getQuestSubtasks(quest.id),
     });
     return {
-      worldRooms: [...this.world.snapshot().values()],
+      worldRooms: roomIds
+        ? roomIds.flatMap((id) => {
+            const room = this.world.peekCachedRoom(id);
+            return room ? [room] : [];
+          })
+        : [...this.world.snapshot().values()],
       specialState: this.specialStats.exportState(),
       levelProgression: this.levelProgression,
       raccoon: {
@@ -2130,7 +2232,14 @@ export class SnakeGame implements QuestRuntime {
         stashedTotal: this.raccoonStashedTotal,
       },
       worldSeed: this.worldSeed,
-      flags: { ...this.snake.flags },
+      flags: roomIds
+        ? Object.fromEntries(
+            Object.entries(this.snake.flags).filter(
+              ([key]) =>
+                !['actors.save', 'events.save', 'rumors.save', 'factions.v2.save'].includes(key),
+            ),
+          )
+        : { ...this.snake.flags },
       inventory: Object.fromEntries(this.inventory.getAllItems()),
       equipment: Object.fromEntries(this.inventory.getAllEquipped()),
       quests: {
@@ -2177,7 +2286,7 @@ export class SnakeGame implements QuestRuntime {
       expeditions: normalizeExpeditionBoardState(this.getFlag('expeditionBoard.state')),
       synergies: normalizeModernSynergyState(this.getFlag('modernSynergy.state')),
       alchemy: this.getAlchemyState(),
-      generatedRoomIds: this.getGeneratedRoomIds(),
+      generatedRoomIds: roomIds ? [...roomIds] : this.getGeneratedRoomIds(),
     };
   }
 
@@ -3187,7 +3296,7 @@ export class SnakeGame implements QuestRuntime {
         }
         const relationshipId = this.getRelationshipIdFromHostileNpc(enemyEat.enemy?.id);
         if (relationshipId) {
-          this.npcBodies.delete(relationshipId);
+          this.removeNpcBody(relationshipId);
           const event = this.relationshipController.recordEaten(
             relationshipId,
             this.getRoomsVisitedCount(),
@@ -4312,7 +4421,15 @@ export class SnakeGame implements QuestRuntime {
         this.tickNpcBodies(occupiedRoom);
       });
     }
-    this.recoverOverdueTownBusinessActors(this.getRoomsVisitedCount());
+    const nowMs = Number(this.getFlag<number>('timeMs') ?? 0);
+    if (
+      !this.serverSimulationFidelity ||
+      nowMs >= this.nextBusinessRecoveryAtMs ||
+      nowMs < this.lastFidelityNowMs
+    ) {
+      this.nextBusinessRecoveryAtMs = nowMs + 5000;
+      this.recoverOverdueTownBusinessActors(this.getRoomsVisitedCount());
+    }
 
     return { enemyStep, animalStep };
   }
@@ -6284,7 +6401,7 @@ export class SnakeGame implements QuestRuntime {
         const relationshipId = this.getRelationshipIdFromHostileNpc(enemy.id);
         if (relationshipId && residentRelationshipIds.has(relationshipId)) {
           this.enemies.removeEnemy(enemy.id);
-          this.npcBodies.delete(relationshipId);
+          this.removeNpcBody(relationshipId);
         }
       }
     }
@@ -6732,15 +6849,8 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private findTownById(townId: string | undefined): TownStructure | undefined {
-    if (!townId) {
-      return undefined;
-    }
-    for (const room of this.world.snapshot().values()) {
-      if (room.town?.id === townId) {
-        return this.applyTownRuntimeState(room.town);
-      }
-    }
-    return undefined;
+    const town = townId ? this.findBaseTownById(townId) : undefined;
+    return town ? this.applyTownRuntimeState(town) : undefined;
   }
 
   private getActivePlayerCampaignTownIds(): string[] {
@@ -6842,6 +6952,10 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private findBaseTownById(townId: string): TownStructure | undefined {
+    const current = this.world.peekCachedRoom(this.snake.currentRoomId)?.town;
+    if (current?.id === townId) return this.ensurePhysicalTrainerInTown(current);
+    const indexed = this.world.getTownById(townId);
+    if (indexed) return this.ensurePhysicalTrainerInTown(indexed);
     for (const room of this.world.snapshot().values()) {
       if (room.town?.id === townId) {
         return this.ensurePhysicalTrainerInTown(room.town);
@@ -6923,7 +7037,7 @@ export class SnakeGame implements QuestRuntime {
 
   getRoom(roomId: string) {
     if (this.replicaSnapshot?.clientState) {
-      const room = this.replicaSnapshot.clientState.worldRooms.find((room) => room.id === roomId);
+      const room = this.world.peekCachedRoom(roomId);
       if (!room) throw new Error('Room is absent from authoritative snapshot');
       return room;
     }
@@ -6931,8 +7045,6 @@ export class SnakeGame implements QuestRuntime {
   }
 
   peekCachedRoom(roomId: string): RoomSnapshot | undefined {
-    if (this.replicaSnapshot?.clientState)
-      return this.replicaSnapshot.clientState.worldRooms.find((room) => room.id === roomId);
     return this.world.peekCachedRoom(roomId);
   }
 
@@ -8661,7 +8773,7 @@ export class SnakeGame implements QuestRuntime {
       }
       const relationshipId = this.getRelationshipIdFromHostileNpc(enemy.id);
       if (relationshipId) {
-        this.npcBodies.delete(relationshipId);
+        this.removeNpcBody(relationshipId);
         const event = this.relationshipController.recordKilledByPlayer(
           relationshipId,
           this.getRoomsVisitedCount(),
@@ -9754,8 +9866,8 @@ export class SnakeGame implements QuestRuntime {
         }
       : { x: Math.floor(this.config.grid.cols / 2), y: Math.floor(this.config.grid.rows / 2) };
     const occupied = new Set<string>();
-    for (const body of this.npcBodies.values()) {
-      if (body.roomId === room.id) occupied.add(`${body.position.x},${body.position.y}`);
+    for (const body of this.getNpcBodiesInRoom(room.id)) {
+      occupied.add(`${body.position.x},${body.position.y}`);
     }
     for (const enemy of this.enemies.getEnemiesInRoom(room.id)) {
       occupied.add(`${enemy.position.x},${enemy.position.y}`);
@@ -10274,9 +10386,9 @@ export class SnakeGame implements QuestRuntime {
       activeIds.add(body.relationshipId);
       this.recordActorMaterializedWorkPosition(actor, room.id, body.position);
     }
-    for (const [id, body] of this.npcBodies) {
-      if (body.roomId === room.id && !activeIds.has(id)) {
-        this.npcBodies.delete(id);
+    for (const body of this.getNpcBodiesInRoom(room.id)) {
+      if (!activeIds.has(body.relationshipId)) {
+        this.removeNpcBody(body.relationshipId);
       }
     }
     this.syncHostileNpcBodiesFromEnemies(room.id);
@@ -10630,6 +10742,7 @@ export class SnakeGame implements QuestRuntime {
           'npc-body-rematerialized',
         );
       }
+      this.storeNpcBody(existing);
       return existing;
     }
     const body: NpcBodyState = {
@@ -10642,7 +10755,7 @@ export class SnakeGame implements QuestRuntime {
       moveCooldown: stationary ? 999 : 15 + Math.floor(this._rng() * 18),
       stationary,
     };
-    this.npcBodies.set(profile.id, body);
+    this.storeNpcBody(body);
     if (profile.actorId && actorPresence && !actorPresence.materialized) {
       this.actors.setPresence(
         profile.actorId,
@@ -10685,7 +10798,7 @@ export class SnakeGame implements QuestRuntime {
   private tickNpcBodies(room: RoomSnapshot): ActorTickWorkMetrics {
     this.advanceActorConversations(room.id);
     const work: ActorTickWorkMetrics = { conversationsProcessed: 1 };
-    const bodies = [...this.npcBodies.values()].filter((body) => body.roomId === room.id);
+    const bodies = this.getNpcBodiesInRoom(room.id);
     if (bodies.length === 0) {
       return work;
     }
@@ -10897,7 +11010,7 @@ export class SnakeGame implements QuestRuntime {
           continue;
         }
         const arrival = this.resolveActorTransitionArrival(room, nextRoomId, body.position);
-        this.npcBodies.delete(body.relationshipId);
+        this.removeNpcBody(body.relationshipId);
         const nextPresence = actor.presence
           ? {
               ...actor.presence,
@@ -11005,6 +11118,91 @@ export class SnakeGame implements QuestRuntime {
     );
   }
 
+  private serverSimulationFidelity = false;
+  private nextNearbyActorWorkAtMs = 0;
+  private nextFarActorWorkAtMs = 0;
+  private farActorWork: string[] = [];
+  private farActorWorkCursor = 0;
+  private lastFidelityNowMs = 0;
+  private nextBusinessRecoveryAtMs = 0;
+
+  enableServerSimulationFidelity(): void {
+    this.serverSimulationFidelity = true;
+  }
+
+  private advanceCoarseActorTravel(
+    actor: Actor,
+    nowMs: number,
+    roomNumber: number,
+    occupied: ReadonlySet<string>,
+  ): number {
+    const from = actor.currentRoomId;
+    const goal = actor.goal;
+    if (!from || !goal?.roomId) return 0;
+    const room = this.world.peekCachedRoom(from);
+    let next = from;
+    if (from !== goal.roomId) {
+      if (room?.layer?.parentRoomId) next = room.layer.parentRoomId;
+      else if (
+        room?.layerEntrances?.some((entry) => entry.layerId === goal.roomId) ||
+        room?.portals.some((portal) => portal.destRoomId === goal.roomId)
+      )
+        next = goal.roomId;
+      else if (this.isCoordinateRoomId(from) && this.isCoordinateRoomId(goal.roomId)) {
+        const [x, y, z] = this.parseRoomCoordinates(from);
+        const [gx, gy, gz] = this.parseRoomCoordinates(goal.roomId);
+        if (z === gz)
+          next =
+            x !== gx ? `${x + Math.sign(gx - x)},${y},${z}` : `${x},${y + Math.sign(gy - y)},${z}`;
+      }
+    }
+    const arrived = next === goal.roomId;
+    const portal = room?.portals.find((entry) => entry.destRoomId === next);
+    let position =
+      arrived && goal.targetPosition
+        ? { ...goal.targetPosition }
+        : room?.layer?.parentRoomId === next
+          ? { ...room.layer.returnPosition }
+          : portal
+            ? { x: portal.destX, y: portal.destY }
+            : (this.edgeArrivalForNeighbor(from, next, actor.presence?.position) ??
+              actor.presence?.position ?? { x: 2, y: 2 });
+    const destination = occupied.has(next) ? this.world.peekCachedRoom(next) : undefined;
+    if (destination) position = this.nearestValidActorArrival(destination, position);
+    this.actors.registry.update(actor.id, (current) => ({
+      ...current,
+      flags: { ...current.flags, actorTravelNextAtMs: nowMs + 5000 },
+    }));
+    const moved =
+      next !== from ||
+      actor.presence?.position.x !== position.x ||
+      actor.presence?.position.y !== position.y;
+    if (moved || actor.presence?.materialized)
+      this.actors.setPresence(
+        actor.id,
+        createActorPresence({ roomId: next, position, anchor: position, materialized: false }),
+        'coarse-logical-travel',
+      );
+    this.actors.setActivity(
+      actor.id,
+      {
+        kind:
+          arrived && goal.kind === 'work'
+            ? this.actorWorkActivityKind(actor)
+            : arrived && goal.kind === 'sleep'
+              ? 'sleeping'
+              : arrived
+                ? 'idle'
+                : 'walking',
+        source: 'schedule',
+        startedAtRoomNumber: roomNumber,
+      },
+      'coarse-logical-travel',
+    );
+    if (destination) this.actorMaterializationDirtyRooms.add(next);
+    return moved ? 1 : 0;
+  }
+
   private advanceActorsOffscreenTowardGoals(
     loadedRoomId: string,
     roomNumber: number,
@@ -11016,7 +11214,87 @@ export class SnakeGame implements QuestRuntime {
         .filter((player) => player.alive)
         .map((player) => player.snake.currentRoomId),
     );
-    for (const actor of this.actors.registry.getForWork('travel')) {
+    const relevantRooms = new Set(occupiedRooms);
+    for (const id of occupiedRooms) {
+      if (this.isCoordinateRoomId(id)) {
+        const [x, y, z] = this.parseRoomCoordinates(id);
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++) relevantRooms.add(`${x + dx},${y + dy},${z}`);
+      }
+      const room = this.world.peekCachedRoom(id);
+      if (room?.layer?.parentRoomId) relevantRooms.add(room.layer.parentRoomId);
+      for (const entrance of room?.layerEntrances ?? []) relevantRooms.add(entrance.layerId);
+    }
+    if (nowMs < this.lastFidelityNowMs) {
+      this.nextNearbyActorWorkAtMs = this.nextFarActorWorkAtMs = 0;
+      this.farActorWork = [];
+      this.farActorWorkCursor = 0;
+    }
+    this.lastFidelityNowMs = nowMs;
+    const nearbyDue = !this.serverSimulationFidelity || nowMs >= this.nextNearbyActorWorkAtMs;
+    if (nearbyDue) this.nextNearbyActorWorkAtMs = nowMs + 500;
+    if (
+      this.serverSimulationFidelity &&
+      this.farActorWorkCursor >= this.farActorWork.length &&
+      nowMs >= this.nextFarActorWorkAtMs
+    ) {
+      this.farActorWork = this.actors.registry.getForWork('travel').map((actor) => actor.id);
+      this.farActorWorkCursor = 0;
+      this.nextFarActorWorkAtMs = nowMs + 5000;
+    }
+    const isImportantNearby = (actor: Actor): boolean => {
+      if (
+        !actor.currentRoomId ||
+        !(
+          actor.flags.promoted ||
+          actor.goal?.kind === 'seekPlayer' ||
+          actor.goal?.kind === 'attackActor'
+        )
+      )
+        return false;
+      const roomId =
+        this.world.peekCachedRoom(actor.currentRoomId)?.layer?.parentRoomId ?? actor.currentRoomId;
+      return [...occupiedRooms].some(
+        (occupied) =>
+          this.roomIdDistance(
+            roomId,
+            this.world.peekCachedRoom(occupied)?.layer?.parentRoomId ?? occupied,
+          ) <= 3,
+      );
+    };
+    const importantRooms = new Set(relevantRooms);
+    if (nearbyDue)
+      for (const id of occupiedRooms) {
+        const anchor = this.world.peekCachedRoom(id)?.layer?.parentRoomId ?? id;
+        if (!this.isCoordinateRoomId(anchor)) continue;
+        const [x, y, z] = this.parseRoomCoordinates(anchor);
+        for (let dy = -3; dy <= 3; dy++)
+          for (let dx = -3; dx <= 3; dx++)
+            if (Math.abs(dx) + Math.abs(dy) <= 3) importantRooms.add(`${x + dx},${y + dy},${z}`);
+      }
+    const near = nearbyDue
+      ? [...importantRooms]
+          .flatMap((id) => this.actors.getActorsInRoom(id))
+          .filter(
+            (actor) => relevantRooms.has(actor.currentRoomId ?? '') || isImportantNearby(actor),
+          )
+      : [];
+    const farIds = this.farActorWork.slice(this.farActorWorkCursor, this.farActorWorkCursor + 128);
+    this.farActorWorkCursor += farIds.length;
+    const candidates = !this.serverSimulationFidelity
+      ? this.actors.registry.getForWork('travel')
+      : [
+          ...new Map(
+            [
+              ...near,
+              ...farIds.flatMap((id) => {
+                const actor = this.actors.registry.get(id);
+                return actor ? [actor] : [];
+              }),
+            ].map((actor) => [actor.id, actor]),
+          ).values(),
+        ];
+    for (const actor of candidates) {
       const goalRoomId = actor.goal?.roomId;
       if (
         !goalRoomId ||
@@ -11028,6 +11306,17 @@ export class SnakeGame implements QuestRuntime {
       ) {
         continue;
       }
+      if (
+        this.serverSimulationFidelity &&
+        actor.currentRoomId &&
+        !relevantRooms.has(actor.currentRoomId) &&
+        !isImportantNearby(actor)
+      ) {
+        if (Number(actor.flags.actorTravelNextAtMs ?? 0) <= nowMs)
+          actorsMoved += this.advanceCoarseActorTravel(actor, nowMs, roomNumber, occupiedRooms);
+        continue;
+      }
+      if (this.serverSimulationFidelity && !nearbyDue) continue;
       if (goalRoomId === actor.currentRoomId) {
         actorsMoved += this.advanceActorWithinUnloadedGoalRoom(actor, roomNumber, nowMs);
         continue;
@@ -11093,8 +11382,8 @@ export class SnakeGame implements QuestRuntime {
             finalRoomId: goalRoomId,
           },
         );
-        if (nextRoomId === loadedRoomId) {
-          this.actorMaterializationDirtyRooms.add(loadedRoomId);
+        if (occupiedRooms.has(nextRoomId)) {
+          this.actorMaterializationDirtyRooms.add(nextRoomId);
         }
         actorsMoved += 1;
         continue;
@@ -11165,8 +11454,8 @@ export class SnakeGame implements QuestRuntime {
             finalRoomId: goalRoomId,
           },
         );
-        if (nextRoomId === loadedRoomId) {
-          this.actorMaterializationDirtyRooms.add(loadedRoomId);
+        if (occupiedRooms.has(nextRoomId)) {
+          this.actorMaterializationDirtyRooms.add(nextRoomId);
         }
       } else {
         const presence = actor.presence
@@ -11326,6 +11615,11 @@ export class SnakeGame implements QuestRuntime {
     const elapsedPhaseMs =
       (DAY_PHASE_DURATIONS_MS[atmosphere.dayPhase] ?? 0) * atmosphere.phaseProgress;
     let recovered = 0;
+    const occupiedRooms = new Set(
+      this.getPlayers()
+        .filter((player) => player.alive)
+        .map((player) => player.snake.currentRoomId),
+    );
     for (const actor of this.actors.registry.getForWork('business')) {
       const policy = townBusinessPolicyForRole(actor.role);
       const deadlineMs = policy?.recoveryDeadlineMs[atmosphere.dayPhase];
@@ -11346,18 +11640,21 @@ export class SnakeGame implements QuestRuntime {
       if (actor.flags.actorBusinessRecoveryKey === recoveryKey) {
         continue;
       }
-      const room = this.tryGetActorTravelRoom(target.roomId);
-      if (!room) {
-        continue;
-      }
-      const position = this.resolveActorMaterializationPosition(room, target.position);
+      const precise = !this.serverSimulationFidelity || occupiedRooms.has(target.roomId);
+      const room = precise ? this.tryGetActorTravelRoom(target.roomId) : undefined;
+      if (precise && !room) continue;
+      const position = room
+        ? this.resolveActorMaterializationPosition(room, target.position)
+        : { ...target.position };
       this.actors.setPresence(
         actor.id,
         createActorPresence({
-          roomId: room.id,
+          roomId: target.roomId,
           position,
           anchor: position,
-          materialized: actor.currentRoomId === this.snake.currentRoomId,
+          materialized: this.serverSimulationFidelity
+            ? occupiedRooms.has(target.roomId)
+            : actor.currentRoomId === this.snake.currentRoomId,
         }),
         'business-deadline-recovery',
       );
@@ -11371,7 +11668,7 @@ export class SnakeGame implements QuestRuntime {
         'business-deadline-recovery',
       );
       this.actors.recordActorTelemetry('actor.travel_recovered', actor.id, target.reason, {
-        roomId: room.id,
+        roomId: target.roomId,
         position,
         dayPhase: atmosphere.dayPhase,
       });
@@ -11383,6 +11680,7 @@ export class SnakeGame implements QuestRuntime {
           actorBusinessRecoveryPosition: `${position.x},${position.y}`,
         },
       }));
+      this.actorMaterializationDirtyRooms.add(target.roomId);
       recovered += 1;
     }
     return recovered;
@@ -12749,16 +13047,32 @@ export class SnakeGame implements QuestRuntime {
       if (body) {
         body.position = { ...enemy.position };
         body.roomId = roomId;
+        this.storeNpcBody(body);
       }
       this.syncActorFromHostileEnemy(enemy);
     }
+  }
+
+  private readonly appliedTownRuntime = new WeakMap<
+    RoomSnapshot,
+    { signature: string; town: TownStructure }
+  >();
+
+  private townRuntimeSignature(town: TownStructure): string {
+    return JSON.stringify([
+      this.getFlag(`town.runtime.${town.id}`),
+      (town.gates ?? []).map((gate) => this.getFlag(this.townGateFlagKey(town.id, gate))),
+    ]);
   }
 
   private applyTownRuntimeToRoom(room: RoomSnapshot): void {
     if (!room.town) {
       return;
     }
-    room.town = this.applyTownRuntimeState(room.town);
+    const cached = this.appliedTownRuntime.get(room);
+    const signature = this.townRuntimeSignature(room.town);
+    if (!cached || cached.town !== room.town || cached.signature !== signature)
+      room.town = this.applyTownRuntimeState(room.town);
     const civic = this.getTownCivicState(room.town);
     const atmosphere = this.getAtmosphereState();
     if (this.civic.shouldResolve(civic, atmosphere.worldDay, atmosphere.dayPhase)) {
@@ -12770,6 +13084,10 @@ export class SnakeGame implements QuestRuntime {
     if (room.town.discoveredGuild) {
       this.addGuildGratePortal(room);
     }
+    this.appliedTownRuntime.set(room, {
+      signature: this.townRuntimeSignature(room.town),
+      town: room.town,
+    });
   }
 
   private normalizeTownQuestBoardTiles(room: RoomSnapshot): void {
@@ -12790,7 +13108,8 @@ export class SnakeGame implements QuestRuntime {
     if (layout[board.y]?.[board.x] && layout[board.y][board.x] !== 'G') {
       layout[board.y][board.x] = 'D';
     }
-    room.layout = layout.map((row) => row.join(''));
+    const nextLayout = layout.map((row) => row.join(''));
+    if (nextLayout.some((row, index) => row !== room.layout[index])) room.layout = nextLayout;
   }
 
   private openTownGateTiles(room: RoomSnapshot): void {
@@ -16978,7 +17297,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('npc.randomEncounter.promptToken', undefined);
     this.setFlag('npc.randomEncounter.revealAtMs', undefined);
     if (encounter.actorId) {
-      this.npcBodies.delete(encounter.relationshipId ?? `wanderer:${encounter.id}`);
+      this.removeNpcBody(encounter.relationshipId ?? `wanderer:${encounter.id}`);
       this.actors.registry.update(encounter.actorId, (actor) => ({
         ...actor,
         goal: {
@@ -18129,7 +18448,7 @@ export class SnakeGame implements QuestRuntime {
       };
     const state = this.relationshipController.getState(relationshipId);
     if (state?.stage === 'dead' || state?.flags.dead || state?.flags.eatenByPlayer) {
-      this.npcBodies.delete(relationshipId);
+      this.removeNpcBody(relationshipId);
       return;
     }
     const actorId = body?.actorId ?? state?.actorId ?? actorIdForRelationship(relationshipId);
@@ -18150,6 +18469,7 @@ export class SnakeGame implements QuestRuntime {
     if (body) {
       body.position = { ...enemy.position };
       body.roomId = roomId;
+      this.storeNpcBody(body);
       body.stationary = false;
       body.wanderRadius = Math.max(2, body.wanderRadius);
     }

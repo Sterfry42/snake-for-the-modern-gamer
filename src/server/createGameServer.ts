@@ -7,10 +7,13 @@ import {
   parseCommandMessage,
   type ServerMessage,
 } from '../session/gameProtocol.js';
+import { SnapshotDeltaEncoder } from '../session/SnapshotDelta.js';
+import type { ServerPerformanceReport } from '../session/ServerPerformance.js';
 import { defaultAllowedOrigins, isAllowedGameOrigin } from './originPolicy.js';
 
 export interface GameServerOptions {
   hostToken?: string;
+  onPerformance?: (report: ServerPerformanceReport) => void;
   /**
    * Browser origins allowed to open game sockets. Defaults to the built-in
    * list (local development plus SNAKE_ALLOWED_ORIGINS) when omitted.
@@ -24,6 +27,10 @@ export function createGameServer(
   options: GameServerOptions = {},
 ) {
   session.configureHosting();
+  const channels = new Map<
+    string,
+    { socket: WebSocket; encoder: SnapshotDeltaEncoder; pending: ServerMessage[] }
+  >();
   const identities = new Map<string, string>();
   const active = new Map<string, { socket: WebSocket; connectionId: string }>();
   let initialCharacterClaimed = Object.keys(session.getSnapshot().connections ?? {}).length > 0;
@@ -56,7 +63,11 @@ export function createGameServer(
       socket.close(1013, 'Client is too slow');
       return;
     }
-    socket.send(JSON.stringify(message));
+    const startedAt = performance.now();
+    const serialized = JSON.stringify(message);
+    if (message.type === 'welcome' || message.type === 'delta')
+      session.performance.payload(Buffer.byteLength(serialized), performance.now() - startedAt);
+    socket.send(serialized);
   };
   sockets.on('connection', (socket, request) => {
     socket.pause();
@@ -99,7 +110,14 @@ export function createGameServer(
         await session.detachConnection(connectionId);
         return;
       }
-      const snapshot = session.getSnapshot(playerId);
+      const snapshot = await session.getConnectionSnapshot(playerId);
+      const channel = {
+        socket,
+        encoder: new SnapshotDeltaEncoder(),
+        pending: new Array<ServerMessage>(),
+      };
+      channel.encoder.encode(snapshot);
+      channels.set(connectionId, channel);
       publish(socket, {
         type: 'welcome',
         version: GAME_PROTOCOL_VERSION,
@@ -108,17 +126,12 @@ export function createGameServer(
         resumeToken,
         snapshot,
       });
-      const snapshotSubscription = session.onSnapshot(
-        (snapshot) => publish(socket, { type: 'snapshot', snapshot }),
-        playerId,
-      );
       const eventSubscription = session.onEvent((event) => {
         if ('playerId' in event && event.playerId !== playerId) return;
-        publish(socket, { type: 'event', event });
+        channel.pending.push({ type: 'event', event });
       });
-      session.refreshSnapshot();
       socket.once('close', () => {
-        snapshotSubscription();
+        channels.delete(connectionId);
         eventSubscription();
         if (active.get(playerId)?.connectionId === connectionId) active.delete(playerId);
         void session.detachConnection(connectionId);
@@ -132,10 +145,10 @@ export function createGameServer(
         }
         // A wire payload cannot impersonate another runtime player.
         void session.executeCommand({ ...message.command, playerId }).then(
-          (result) => publish(socket, { type: 'result', id: message.id, result }),
+          (result) => channel.pending.push({ type: 'result', id: message.id, result }),
           (error: unknown) => {
             console.error('[game-server] Command failed', error);
-            publish(socket, {
+            channel.pending.push({
               type: 'result',
               id: message.id,
               result: { ok: false, reason: 'command-failed' },
@@ -146,6 +159,32 @@ export function createGameServer(
       socket.resume();
     }
   });
+
+  let publishing = false;
+  const networkTimer = setInterval(() => {
+    if (publishing) return;
+    publishing = true;
+    void session
+      .publishNetworkState((playerId, snapshot) => {
+        const connection = active.get(playerId);
+        const channel = connection && channels.get(connection.connectionId);
+        if (channel)
+          publish(channel.socket, { type: 'delta', delta: channel.encoder.encode(snapshot) });
+      })
+      .then(() => {
+        for (const channel of channels.values())
+          for (const message of channel.pending.splice(0)) publish(channel.socket, message);
+      })
+      .catch((error: unknown) => console.error('[game-server] Publication failed', error))
+      .finally(() => {
+        publishing = false;
+      });
+  }, 100);
+  networkTimer.unref();
+  const performanceTimer = options.onPerformance
+    ? setInterval(() => options.onPerformance?.(session.getPerformanceReport(true)), 10000)
+    : undefined;
+  performanceTimer?.unref();
 
   const alive = new Set<WebSocket>();
   sockets.on('connection', (socket) => {
@@ -163,6 +202,7 @@ export function createGameServer(
 
   return {
     http,
+    getPerformance: () => session.getPerformanceReport(),
     async listen(port = 8787, host = '127.0.0.1'): Promise<number> {
       await new Promise<void>((resolve, reject) => {
         http.once('error', reject);
@@ -177,6 +217,9 @@ export function createGameServer(
     },
     async close(): Promise<void> {
       clearInterval(heartbeat);
+      clearInterval(networkTimer);
+      clearInterval(performanceTimer);
+      await attachments;
       session.stop();
       await session.flush();
       for (const socket of sockets.clients) socket.terminate();

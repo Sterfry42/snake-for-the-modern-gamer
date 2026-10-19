@@ -1,3 +1,4 @@
+import { SnapshotDeltaAssembler } from '../SnapshotDelta.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WebSocket } from 'ws';
 import type { Duplex } from 'node:stream';
@@ -35,7 +36,16 @@ async function join(url: string, params: Record<string, string> = {}) {
   const socket = new WebSocket(endpoint);
   const messages: ServerMessage[] = [];
   cleanups.push(() => socket.close());
-  socket.on('message', (data) => messages.push(parseServerMessage(data.toString())));
+  const assembler = new SnapshotDeltaAssembler();
+  socket.on('message', (data) => {
+    const message = parseServerMessage(data.toString());
+    if (message.type === 'welcome') assembler.reset(message.snapshot);
+    messages.push(
+      message.type === 'delta'
+        ? { type: 'snapshot', snapshot: assembler.apply(message.delta) }
+        : message,
+    );
+  });
   await vi.waitFor(() => expect(messages.some((message) => message.type === 'welcome')).toBe(true));
   const welcome = messages.find(
     (message): message is Extract<ServerMessage, { type: 'welcome' }> => message.type === 'welcome',

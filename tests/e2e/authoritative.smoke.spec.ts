@@ -1,3 +1,4 @@
+import { SnapshotDeltaAssembler } from '../../src/session/SnapshotDelta.js';
 import { test, expect } from '@playwright/test';
 import { AuthoritativeGameSession } from '../../src/session/AuthoritativeGameSession.js';
 import { createGameServer } from '../../src/server/createGameServer.js';
@@ -24,8 +25,11 @@ test('browser renders the shared authority and routes keyboard input over WebSoc
   const commands: string[] = [];
   page.on('websocket', (socket) => {
     if (new URL(socket.url()).pathname !== '/game') return;
+    const assembler = new SnapshotDeltaAssembler();
     socket.on('framereceived', (frame) => {
-      const message = parseServerMessage(frame.payload.toString());
+      const wire = parseServerMessage(frame.payload.toString());
+      if (wire.type === 'welcome') assembler.reset(wire.snapshot);
+      const message = wire.type === 'delta' ? { type: 'snapshot' as const, snapshot: assembler.apply(wire.delta) } : wire;
       if (message.type === 'snapshot' || message.type === 'welcome') latest = message.snapshot;
     });
     socket.on('framesent', (frame) => commands.push(frame.payload.toString()));
