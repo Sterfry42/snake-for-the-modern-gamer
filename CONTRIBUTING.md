@@ -2,6 +2,12 @@
 
 First off, thank you for considering contributing to this project! We welcome any and all contributions, from bug reports to new features.
 
+## Toolchain
+
+- **Node.js >= 22** and **npm >= 11** are required. `package.json` declares both under `engines` and `.npmrc` sets `engine-strict=true`, so npm will refuse to run on older versions instead of warning.
+- If your npm is older than 11, upgrade once with `npm install -g npm@11`.
+- Why: npm 10.x's dependency resolver (arborist) crashes on this project's dependency graph, which breaks `npm audit fix` and `npm update`.
+
 ## Code of Conduct
 
 We want to create a welcoming and inclusive environment for everyone. To that end, we have a simple code of conduct that we expect all contributors to follow.

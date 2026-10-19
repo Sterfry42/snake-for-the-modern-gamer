@@ -21,6 +21,9 @@ playwright-report/
 test-results/
 *.local
 
+# Local tooling dependency trees (never buildable/testable here)
+.opencode/node_modules/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

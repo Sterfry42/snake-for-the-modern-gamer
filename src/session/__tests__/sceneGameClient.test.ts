@@ -227,7 +227,11 @@ describe('scene state mirror and command facade', () => {
     };
     game.getActorSystem().registry.upsert(actor);
     game.placeSnakeBodyAtLocal(room.id, { x: 9, y: 10 }, { x: 0, y: -1 });
-    expect(await client.applyRelationshipChoice(actor.id, 'talk')).toEqual({ ok: true });
+    // The scene consumes relationshipResult to render the outcome.
+    expect(await client.applyRelationshipChoice(actor.id, 'talk')).toMatchObject({
+      ok: true,
+      relationshipResult: { ok: true },
+    });
     const profile = client
       .getPresentRelationshipProfilesForRoom()
       .find((entry) => entry.actorId === actor.id)!;
@@ -318,7 +322,7 @@ describe('scene state mirror and command facade', () => {
         actorId: actor.id,
         offerId: offer.id,
       }),
-    ).toEqual({ ok: true });
+    ).toMatchObject({ ok: true, message: expect.stringContaining('Purchased') });
     expect(client.getScore()).toBe(10000 - offer.price);
     if (offer.itemId) expect(client.getInventory().getItemCount(offer.itemId)).toBe(1);
     expect(await client.setPlayerInteraction('inventory')).toEqual({ ok: true });
