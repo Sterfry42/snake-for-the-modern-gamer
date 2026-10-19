@@ -4,6 +4,7 @@ import type { PlayerId } from '../players/playerTypes.js';
 import type { SceneActionCommand } from './SceneActionCommand.js';
 
 export type ClientCommand =
+  | { type: 'emote'; playerId: PlayerId; emoticonId: string }
   | SceneActionCommand
   | { type: 'openActor'; playerId: PlayerId; actorId: string }
   | { type: 'selectInteraction'; playerId: PlayerId; menuId: number; optionId: string }

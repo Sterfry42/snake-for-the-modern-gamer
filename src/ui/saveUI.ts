@@ -214,10 +214,10 @@ export class SaveUI {
       !!(this.scene as unknown as { titleVisible: boolean }).titleVisible;
     this.saveLabelText?.setText(this.getSaveLabel());
     this.saveLoadLabelText?.setText(this.getSaveLoadLabel());
-    this.saveButton?.setVisible(!suppressed);
-    this.saveHitArea?.setInteractive(!suppressed);
-    this.saveLoadButton?.setVisible(!suppressed);
-    this.saveLoadBg?.setInteractive(!suppressed);
+    this.saveButton?.setVisible(!suppressed && this.scene.canManageWorld);
+    this.saveHitArea?.setInteractive(!suppressed && this.scene.canManageWorld);
+    this.saveLoadButton?.setVisible(!suppressed && this.scene.canManageWorld);
+    this.saveLoadBg?.setInteractive(!suppressed && this.scene.canManageWorld);
     this.seedLabel?.setVisible(!suppressed);
   }
 

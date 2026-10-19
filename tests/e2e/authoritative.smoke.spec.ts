@@ -13,8 +13,11 @@ test('browser renders the shared authority and routes keyboard input over WebSoc
     config: { ...defaultGameConfig, rng: { seed: 'browser-authority' } },
   });
   await session.executeCommand({ type: 'pause', playerId: session.getSnapshot().localPlayerId });
-  const server = createGameServer(session);
+  const server = createGameServer(session, { hostToken: 'browser-owner-key-explicit' });
   const port = await server.listen(0);
+  await page.addInitScript(({ key, token }) => localStorage.setItem(key, token), {
+    key: `snake.serverIdentity:ws://127.0.0.1:${port}/game:host`, token: 'browser-owner-key-explicit',
+  });
   const errors: string[] = [];
   page.on('pageerror', (error) => { errors.push(error.message); console.error(error.stack); });
   let latest: GameSnapshot | undefined;
@@ -32,7 +35,7 @@ test('browser renders the shared authority and routes keyboard input over WebSoc
     await expect.poll(() => page.evaluate(() => window.snakeE2E?.getLifecycle().mode)).toMatch(/action|manual-room|paused/);
     await expect.poll(() => latest?.localPlayerId).toBe('player-1');
     await expect(page.locator('canvas')).toBeVisible();
-    const observer = await context.newPage();
+    const observer = await context.browser()!.newPage({ baseURL: test.info().project.use.baseURL });
     await observer.goto(`?server=${encodeURIComponent(`ws://127.0.0.1:${port}/game`)}`);
     await expect.poll(() => observer.evaluate(() => window.snakeE2E?.getLifecycle().mode)).toMatch(/action|manual-room|paused/);
     await expect(observer.locator('canvas')).toBeVisible();

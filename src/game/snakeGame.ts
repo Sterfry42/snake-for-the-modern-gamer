@@ -1528,10 +1528,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('equipment.hazardMapSense', undefined);
     this.setFlag('equipment.radiationTimerScalar', undefined);
     this.setFlag('fishing.caughtFish', {});
-    // Give the player a random starting emoticon (owned but not active)
-    const startingEmoticon = ALL_EMOTICON_IDS[(this._rng() * ALL_EMOTICON_IDS.length) | 0];
-    this.setFlag('emoticons.owned', [startingEmoticon]);
-    this.setFlag('emoticons.active', null);
+    this.initializeStartingEmoticon();
     this.setFlag('roomEntryTimeMs', 0);
     const head = this.snake.bodySegments[0];
     if (head) {
@@ -1830,6 +1827,7 @@ export class SnakeGame implements QuestRuntime {
       constructionPlacement: null,
     });
     this.runForPlayer(playerId, () => {
+      this.initializeStartingEmoticon();
       this.setFlag('player.health', 3);
       this.setFlag('player.maxHealth', 3);
       this.questController.reset(this);
@@ -24802,6 +24800,12 @@ export class SnakeGame implements QuestRuntime {
   }
 
   // === EMOTICON SYSTEM ===
+  private initializeStartingEmoticon(): void {
+    const startingEmoticon = ALL_EMOTICON_IDS[(this._rng() * ALL_EMOTICON_IDS.length) | 0];
+    this.setFlag('emoticons.owned', [startingEmoticon]);
+    this.setFlag('emoticons.active', null);
+  }
+
   getEmoticonState(): { owned: string[]; active: string | null } {
     const owned = this.getFlag<string[]>('emoticons.owned') ?? [];
     const active = this.getFlag<string>('emoticons.active') ?? null;

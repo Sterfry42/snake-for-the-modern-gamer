@@ -1,6 +1,7 @@
 import type { PlayerId } from '../players/playerTypes.js';
 
 export type GameEvent =
+  | { type: 'party.presence'; name: string; status: 'joined' | 'left' | 'reconnected' }
   | {
       type: 'archaeology.outcome';
       playerId: PlayerId;

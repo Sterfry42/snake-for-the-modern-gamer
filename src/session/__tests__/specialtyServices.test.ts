@@ -24,7 +24,10 @@ function setup(saveStore?: SaveStore<GameSaveData>) {
   room.layout = room.layout.map((row) => '.'.repeat(row.length));
   game.bosses.clearAll();
   const session = new AuthoritativeGameSession({ game, manageBasicFeatures: true, saveStore });
-  const alice = session.registerConnection('alice', 'Alice');
+  const alice = session.registerConnection('alice', 'Alice', {
+    playerId: game.getLocalPlayerId(),
+    admin: true,
+  });
   const bob = session.registerConnection('bob', 'Bob');
   game.placeSnakeBodyAtLocal(room.id, { x: 5, y: 5 }, { x: 1, y: 0 });
   game.runForPlayer(bob, () =>

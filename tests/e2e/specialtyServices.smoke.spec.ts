@@ -8,7 +8,7 @@ import { createPhysicalHumanTown, discoverThievesGuild } from '../../src/world/t
 import { createBaseActor } from '../../src/actors/actorFactory.js';
 
 async function pick(page: Page, id: string) {
-  await expect.poll(() => page.evaluate(() => window.snakeE2E!.getPresentation().choice.visible)).toBe(true);
+  await expect.poll(() => page.evaluate(target => { const menu = window.snakeE2E!.getPresentation().choice; return menu.visible && menu.options.some(option => option.id === target); }, id)).toBe(true);
   const menu = await page.evaluate(() => window.snakeE2E!.getPresentation().choice);
   const index = menu.options.findIndex(option => option.id === id);
   expect(index, JSON.stringify(menu)).toBeGreaterThanOrEqual(0);
@@ -29,7 +29,7 @@ test('the normal excavation overlay follows authority, keeps world time running,
   const session = new AuthoritativeGameSession({ game, manageBasicFeatures: true });
   const server = createGameServer(session);
   const port = await server.listen(0);
-  const bobPage = await context.newPage();
+  const bobPage = await context.browser()!.newPage({ baseURL: test.info().project.use.baseURL });
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   bobPage.on('pageerror', error => errors.push(error.message));

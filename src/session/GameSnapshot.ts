@@ -24,6 +24,7 @@ export interface GameSnapshot {
   /** Player-specific synchronous selectors for the normal scene's menus and HUD. */
   clientState?: SceneClientState;
   persistence?: { slotId: string; checkpoint: import('../game/saveTypes.js').GameSaveData | null };
+  permissions?: { manageWorld: boolean };
   connections?: Record<string, ConnectionPresence>;
   presentation?: {
     characterMode: 'snake' | 'raccoon';
@@ -81,6 +82,7 @@ export interface PlayerSnapshot {
   score: number;
   alive: boolean;
   isLocal: boolean;
+  activeEmoticon?: string | null;
   appearance?: import('../players/playerTypes.js').PlayerAppearance;
 }
 

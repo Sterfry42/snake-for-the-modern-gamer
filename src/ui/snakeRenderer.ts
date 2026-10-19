@@ -92,6 +92,7 @@ interface SnakeRenderOptions {
   otherPlayers?: readonly {
     id: string;
     name?: string;
+    activeEmoticon?: string | null;
     body: readonly Vector2Like[];
     direction: Vector2Like;
     color?: number;
@@ -3130,7 +3131,12 @@ export class SnakeRenderer {
   private drawPlayerNameplates(
     room: RoomSnapshot,
     roomId: string,
-    players: readonly { id: string; name?: string; body: readonly Vector2Like[] }[],
+    players: readonly {
+      id: string;
+      name?: string;
+      activeEmoticon?: string | null;
+      body: readonly Vector2Like[];
+    }[],
     placements?: ReadonlyMap<string, RoomPlacement>,
   ): void {
     for (const label of this.playerNameplates.values()) label.setVisible(false);
@@ -3153,7 +3159,9 @@ export class SnakeRenderer {
         this.playerNameplates.set(player.id, label);
       }
       label
-        .setText(player.name)
+        .setText(
+          `${player.activeEmoticon ? `${getEmoticonDefinition(player.activeEmoticon)?.symbol ?? ''} ` : ''}${player.name}`,
+        )
         .setPosition(
           (position.x + 0.5) * this.grid.cell * this.renderScale,
           (position.y * this.grid.cell - 6) * this.renderScale,

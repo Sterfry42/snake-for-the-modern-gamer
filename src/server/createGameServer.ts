@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, randomBytes, timingSafeEqual } from 'node:crypto';
 import { WebSocketServer, WebSocket } from 'ws';
 import { AuthoritativeGameSession } from '../session/AuthoritativeGameSession.js';
 import {
@@ -10,6 +10,7 @@ import {
 import { defaultAllowedOrigins, isAllowedGameOrigin } from './originPolicy.js';
 
 export interface GameServerOptions {
+  hostToken?: string;
   /**
    * Browser origins allowed to open game sockets. Defaults to the built-in
    * list (local development plus SNAKE_ALLOWED_ORIGINS) when omitted.
@@ -22,6 +23,11 @@ export function createGameServer(
   session: AuthoritativeGameSession,
   options: GameServerOptions = {},
 ) {
+  session.configureHosting();
+  const identities = new Map<string, string>();
+  const active = new Map<string, { socket: WebSocket; connectionId: string }>();
+  let initialCharacterClaimed = Object.keys(session.getSnapshot().connections ?? {}).length > 0;
+  let attachments: Promise<void> = Promise.resolve();
   const http = createServer((_request, response) => {
     response.writeHead(200, { 'Content-Type': 'application/json' });
     response.end(JSON.stringify({ status: 'ok', protocol: GAME_PROTOCOL_VERSION }));
@@ -55,17 +61,40 @@ export function createGameServer(
   sockets.on('connection', (socket, request) => {
     socket.pause();
     socket.on('error', () => socket.terminate());
-    void attach().catch((error: unknown) => {
+    attachments = attachments.then(attach).catch((error: unknown) => {
       console.error('[game-server] Connection failed', error);
       socket.close(1011, 'Cannot enter world');
     });
     async function attach() {
       const connectionId = randomUUID();
       const endpoint = new URL(request.url ?? '/game', 'http://localhost');
-      const playerId = await session.attachConnection(
-        connectionId,
-        endpoint.searchParams.get('name') ?? 'Player',
-      );
+      const requestedToken = endpoint.searchParams.get('resume') ?? '';
+      let playerId = identities.get(requestedToken);
+      const resumeToken = playerId ? requestedToken : randomBytes(32).toString('hex');
+      if (!playerId) {
+        // The saved world character may be claimed once; it never grants privileges.
+        playerId = initialCharacterClaimed
+          ? `player-${randomUUID()}`
+          : session.getSnapshot().localPlayerId;
+        initialCharacterClaimed = true;
+        identities.set(resumeToken, playerId);
+      }
+      const suppliedHostToken = Buffer.from(endpoint.searchParams.get('hostToken') ?? '');
+      const configuredHostToken = Buffer.from(options.hostToken ?? '');
+      const admin =
+        configuredHostToken.length >= 16 &&
+        suppliedHostToken.length === configuredHostToken.length &&
+        timingSafeEqual(suppliedHostToken, configuredHostToken);
+      const previous = active.get(playerId);
+      if (previous) {
+        await session.detachConnection(previous.connectionId);
+        previous.socket.close(4001, 'Resumed in another window');
+      }
+      active.set(playerId, { socket, connectionId });
+      await session.attachConnection(connectionId, endpoint.searchParams.get('name') ?? 'Player', {
+        playerId,
+        admin,
+      });
       if (socket.readyState !== WebSocket.OPEN) {
         await session.detachConnection(connectionId);
         return;
@@ -76,6 +105,7 @@ export function createGameServer(
         version: GAME_PROTOCOL_VERSION,
         connectionId,
         playerId,
+        resumeToken,
         snapshot,
       });
       const snapshotSubscription = session.onSnapshot(
@@ -90,9 +120,11 @@ export function createGameServer(
       socket.once('close', () => {
         snapshotSubscription();
         eventSubscription();
+        if (active.get(playerId)?.connectionId === connectionId) active.delete(playerId);
         void session.detachConnection(connectionId);
       });
       socket.on('message', (data, binary) => {
+        if (active.get(playerId)?.connectionId !== connectionId) return;
         const message = binary ? null : parseCommandMessage(data.toString());
         if (!message) {
           socket.close(1008, 'Invalid command');
@@ -115,6 +147,20 @@ export function createGameServer(
     }
   });
 
+  const alive = new Set<WebSocket>();
+  sockets.on('connection', (socket) => {
+    alive.add(socket);
+    socket.on('pong', () => alive.add(socket));
+    socket.on('close', () => alive.delete(socket));
+  });
+  const heartbeat = setInterval(() => {
+    for (const socket of sockets.clients) {
+      if (!alive.delete(socket)) socket.terminate();
+      else socket.ping();
+    }
+  }, 15000);
+  heartbeat.unref();
+
   return {
     http,
     async listen(port = 8787, host = '127.0.0.1'): Promise<number> {
@@ -130,6 +176,7 @@ export function createGameServer(
       return address.port;
     },
     async close(): Promise<void> {
+      clearInterval(heartbeat);
       session.stop();
       await session.flush();
       for (const socket of sockets.clients) socket.terminate();

@@ -8,8 +8,7 @@ const session = await AuthoritativeGameSession.create({
     resolve(process.env.SNAKE_SAVE_DIRECTORY ?? '.snake-server-saves'),
   ),
 });
-await session.executeCommand({ type: 'pause', playerId: session.getSnapshot().localPlayerId });
-const server = createGameServer(session);
+const server = createGameServer(session, { hostToken: process.env.SNAKE_HOST_TOKEN });
 const port = await server.listen(Number(process.env.PORT ?? 8787), process.env.HOST ?? '127.0.0.1');
 session.start((error) => {
   console.error('[game-server] Simulation stopped', error);

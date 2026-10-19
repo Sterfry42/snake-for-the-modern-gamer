@@ -13,7 +13,13 @@ export function normalizeDisplayName(value: string): string {
 }
 
 export function normalizeServerUrl(value: string, secure = false): string {
-  const input = value.trim();
+  let input = value.trim();
+  try {
+    const invite = new URL(input);
+    if (invite.searchParams.has('server')) input = invite.searchParams.get('server') ?? input;
+  } catch {
+    /* Bare host names are accepted below. */
+  }
   if (!input) throw new Error('Enter a server URL.');
   let url: URL;
   try {
@@ -28,6 +34,7 @@ export function normalizeServerUrl(value: string, secure = false): string {
   }
   if (url.pathname === '/') url.pathname = '/game';
   url.hash = '';
+  for (const key of ['name', 'resume', 'hostToken']) url.searchParams.delete(key);
   return url.href;
 }
 
@@ -38,7 +45,12 @@ export function loadServerConnectionSettings(pageUrl: string): ServerConnectionS
   defaults.pathname = '/game';
   defaults.search = '';
   defaults.hash = '';
-  const fallback = { serverUrl: defaults.href, displayName: 'Player' };
+  const configured = import.meta.env.VITE_SNAKE_SERVER_URL;
+  const invited = new URL(pageUrl).searchParams.get('server');
+  const fallback = {
+    serverUrl: normalizeServerUrl(invited ?? configured ?? defaults.href),
+    displayName: 'Player',
+  };
   try {
     const raw = safeLocalStorage()?.getItem(SETTINGS_KEY);
     const stored: unknown = raw ? JSON.parse(raw) : null;
@@ -49,7 +61,7 @@ export function loadServerConnectionSettings(pageUrl: string): ServerConnectionS
     )
       return fallback;
     return {
-      serverUrl: normalizeServerUrl(stored.serverUrl),
+      serverUrl: invited ? fallback.serverUrl : normalizeServerUrl(stored.serverUrl),
       displayName: normalizeDisplayName(stored.displayName),
     };
   } catch {
@@ -78,6 +90,45 @@ export function serverGameUrl(pageUrl: string, settings: ServerConnectionSetting
 export function connectionsMenuUrl(pageUrl: string): string {
   const url = new URL(pageUrl);
   for (const key of ['server', 'connection', 'playerName', 'enter']) url.searchParams.delete(key);
+  url.searchParams.set('multiplayer', 'server');
+  return url.href;
+}
+
+/** Credentials are keyed by canonical endpoint, never included in shared invites. */
+export function serverCredentialKey(serverUrl: string): string {
+  const endpoint = new URL(normalizeServerUrl(serverUrl));
+  for (const key of ['name', 'resume', 'hostToken']) endpoint.searchParams.delete(key);
+  endpoint.searchParams.sort();
+  return `snake.serverIdentity:${endpoint.href}`;
+}
+
+export function loadServerCredential(serverUrl: string, kind: 'resume' | 'host'): string | null {
+  try {
+    return safeLocalStorage()?.getItem(`${serverCredentialKey(serverUrl)}:${kind}`) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveServerCredential(
+  serverUrl: string,
+  kind: 'resume' | 'host',
+  token: string,
+): void {
+  try {
+    safeLocalStorage()?.setItem(`${serverCredentialKey(serverUrl)}:${kind}`, token);
+  } catch {
+    /* Play still works when browser storage is unavailable. */
+  }
+}
+
+export function serverInviteUrl(pageUrl: string, serverUrl: string): string {
+  const url = new URL(pageUrl);
+  url.search = '';
+  url.hash = '';
+  const endpoint = new URL(normalizeServerUrl(serverUrl));
+  for (const key of ['name', 'resume', 'hostToken']) endpoint.searchParams.delete(key);
+  url.searchParams.set('server', endpoint.href);
   url.searchParams.set('multiplayer', 'server');
   return url.href;
 }

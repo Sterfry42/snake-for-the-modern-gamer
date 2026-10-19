@@ -45,6 +45,19 @@ type EventHandler = (event: GameEvent) => void;
 
 export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   private readonly connections = new Map<string, ConnectionPresence>();
+  private hosted = false;
+  private readonly administrators = new Set<PlayerId>();
+  private readonly retainedPlayers = new Map<PlayerId, boolean>();
+  private readonly expressions = new Map<PlayerId, { id: string; remainingMs: number }>();
+
+  configureHosting(): void {
+    this.hosted = true;
+  }
+
+  private canManageWorld(playerId: PlayerId): boolean {
+    return (!this.hosted && this.connections.size === 0) || this.administrators.has(playerId);
+  }
+
   private outcomeSequence = 0;
   private readonly outcomeStats = new Map<PlayerId, { score: number; length: number }>();
   private readonly publishedRooms = new Map<PlayerId, string>();
@@ -55,8 +68,12 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   private readonly archaeology: AuthoritativeArchaeology;
   private readonly minigames: AuthoritativeMinigames;
 
-  attachConnection(connectionId: string, name: string): Promise<PlayerId> {
-    return this.enqueue(async () => this.registerConnection(connectionId, name));
+  attachConnection(
+    connectionId: string,
+    name: string,
+    identity?: { playerId: PlayerId; admin: boolean },
+  ): Promise<PlayerId> {
+    return this.enqueue(async () => this.registerConnection(connectionId, name, identity));
   }
 
   detachConnection(connectionId: string): Promise<void> {
@@ -66,12 +83,25 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     });
   }
 
-  registerConnection(connectionId: string, displayName: string): PlayerId {
+  registerConnection(
+    connectionId: string,
+    displayName: string,
+    identity?: { playerId: PlayerId; admin: boolean },
+  ): PlayerId {
     const primaryAttached = [...this.connections.values()].some(
       (peer) => peer.playerId === this.localPlayerId,
     );
-    const playerId = primaryAttached ? `player-${connectionId}` : this.localPlayerId;
-    this.game.addConnectedPlayer(playerId, normalizeDisplayName(displayName)).alive = true;
+    const playerId =
+      identity?.playerId ?? (primaryAttached ? `player-${connectionId}` : this.localPlayerId);
+    // Superseded sockets cannot detach or act for a replacement connection.
+    for (const [id, peer] of this.connections)
+      if (peer.playerId === playerId) this.connections.delete(id);
+    const returning = this.retainedPlayers.has(playerId);
+    const player = this.game.addConnectedPlayer(playerId, normalizeDisplayName(displayName));
+    player.alive = this.retainedPlayers.get(playerId) ?? (identity ? player.alive : true);
+    this.retainedPlayers.delete(playerId);
+    if (identity?.admin) this.administrators.add(playerId);
+    else if (identity) this.administrators.delete(playerId);
     const attached = this.game.getPlayer(playerId)!;
     this.outcomeStats.set(playerId, {
       score: attached.snake.score,
@@ -81,6 +111,11 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       connectionId,
       playerId,
       displayName: normalizeDisplayName(displayName),
+    });
+    this.emit({
+      type: 'party.presence',
+      name: player.name,
+      status: returning ? 'reconnected' : 'joined',
     });
     return playerId;
   }
@@ -96,7 +131,16 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     this.archaeology.reset(peer.playerId);
     this.progression.delete(peer.playerId);
     this.actionElapsed.delete(peer.playerId);
-    if (peer.playerId === this.localPlayerId) {
+    this.administrators.delete(peer.playerId);
+    this.expressions.delete(peer.playerId);
+    this.emit({ type: 'party.presence', name: peer.displayName, status: 'left' });
+    if (this.hosted) {
+      const player = this.game.getPlayer(peer.playerId);
+      if (player) {
+        this.retainedPlayers.set(peer.playerId, player.alive);
+        player.alive = false;
+      }
+    } else if (peer.playerId === this.localPlayerId) {
       const player = this.game.getPlayer(peer.playerId);
       if (player) player.alive = false;
     } else this.game.removeConnectedPlayer(peer.playerId);
@@ -106,7 +150,9 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     const ids =
       this.connections.size > 0
         ? [...new Set([...this.connections.values()].map((peer) => peer.playerId))]
-        : [this.localPlayerId];
+        : this.hosted
+          ? []
+          : [this.localPlayerId];
     return ids
       .map((id) => this.game.getPlayer(id))
       .filter((player): player is PlayerRuntime => player !== null && player.alive);
@@ -240,11 +286,27 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         return result;
       }
       if (
-        ['saveGame', 'loadGame', 'clearSave'].includes(command.type) &&
-        this.connections.size > 0 &&
-        command.playerId !== this.localPlayerId
+        ['saveGame', 'loadGame', 'clearSave', 'pause', 'resume', 'debugAction'].includes(
+          command.type,
+        ) &&
+        !this.canManageWorld(command.playerId)
       )
-        return { ok: false, reason: 'Only the host can manage the world checkpoint.' };
+        return {
+          ok: false,
+          reason: 'Only the server owner can manage world settings and checkpoints.',
+        };
+      if (command.type === 'emote') {
+        return this.game.runForPlayer(command.playerId, () => {
+          if (
+            !this.game.getPlayer(command.playerId)?.alive ||
+            !this.game.getEmoticonState().owned.includes(command.emoticonId)
+          )
+            return { ok: false, reason: 'Emoticon is not available.' };
+          this.expressions.set(command.playerId, { id: command.emoticonId, remainingMs: 5000 });
+          this.emitSnapshot();
+          return { ok: true };
+        });
+      }
       if (isSceneActionCommand(command)) {
         const result = this.game.runForPlayer(command.playerId, () => {
           if (command.type === 'playerInteraction') {
@@ -369,7 +431,9 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
             this.archaeology.reset();
             this.interactions.reset();
             this.playerInteractions.clear();
-            this.game.getPlayer(this.localPlayerId)!.alive = true;
+            this.game.getPlayer(this.localPlayerId)!.alive = !this.retainedPlayers.has(
+              this.localPlayerId,
+            );
             for (const id of ['boss', 'action', 'actor', 'bullet', 'hazard'])
               this.scheduler.resetClock(id);
             this.refreshSnapshot();
@@ -397,6 +461,14 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   advance(deltaMs: number): Promise<void> {
     return this.enqueue(async () => {
       if (!Number.isFinite(deltaMs) || deltaMs < 0) throw new Error('Invalid simulation delta');
+      let expressionExpired = false;
+      for (const [id, expression] of this.expressions) {
+        expression.remainingMs -= deltaMs;
+        if (expression.remainingMs <= 0) {
+          this.expressions.delete(id);
+          expressionExpired = true;
+        }
+      }
       const running = !this.paused && this.simulationPlayers().length > 0;
       if (running) {
         this.advanceEnvironment(deltaMs);
@@ -413,6 +485,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         if (this.paused || this.simulationPlayers().length === 0) break;
         await step();
       }
+      if (expressionExpired) this.emitSnapshot();
     });
   }
 
@@ -490,6 +563,14 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
 
   handleCommand(command: ClientCommand): CommandResult {
+    if (
+      ['saveGame', 'loadGame', 'clearSave', 'pause', 'resume'].includes(command.type) &&
+      !this.canManageWorld(command.playerId)
+    )
+      return {
+        ok: false,
+        reason: 'Only the server owner can manage world settings and checkpoints.',
+      };
     if (isInteractionCommand(command) || isSceneActionCommand(command))
       return { ok: false, reason: 'Interaction commands require the session queue.' };
     if (
@@ -531,6 +612,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       this.minigames.reset(command.playerId);
       this.archaeology.reset(command.playerId);
       this.actionElapsed.delete(command.playerId);
+      this.expressions.delete(command.playerId);
       this.interactions.remove(command.playerId);
       this.playerInteractions.delete(command.playerId);
       this.game.respawnConnectedPlayer(command.playerId);
@@ -870,8 +952,11 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     snapshot.archaeology = this.archaeology.getView(playerId);
     snapshot.persistence = {
       slotId: this.saveSlotId,
-      checkpoint: playerId === this.localPlayerId ? this.checkpoint : null,
+      checkpoint: this.canManageWorld(playerId) ? this.checkpoint : null,
     };
+    snapshot.permissions = { manageWorld: this.canManageWorld(playerId) };
+    for (const player of Object.values(snapshot.players))
+      player.activeEmoticon = this.expressions.get(player.id)?.id ?? null;
     snapshot.connections = Object.fromEntries(this.connections);
     for (const room of Object.values(snapshot.viewport.rooms)) {
       room.bosses = this.game.getBosses(room.id).map(cloneBossForSnapshot);

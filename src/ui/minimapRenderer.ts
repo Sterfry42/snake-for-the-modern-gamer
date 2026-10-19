@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { GridConfig } from '../config/gameConfig.js';
 import type { Vector2Like } from '../core/math.js';
-import { parseRoomId } from '../world/roomAddress.js';
+import { parseRoomId, parseCoordinateRoomId } from '../world/roomAddress.js';
 import { positiveMod } from '../world/generation/worldHash.js';
 import type { RoomSnapshot } from '../world/types.js';
 
@@ -17,6 +17,7 @@ export interface MinimapRendererOptions {
 export interface MinimapSnapshot {
   currentRoomId: string;
   snakeSegments: readonly Vector2Like[];
+  otherPlayers?: readonly { roomId: string; body: readonly Vector2Like[] }[];
 }
 
 type MinimapTileKind = 'empty' | 'wall' | 'masonry' | 'barrier' | 'water';
@@ -94,6 +95,31 @@ export class MinimapRenderer {
       this.terrainSignature = signature;
     }
     this.snakeGraphics.clear();
+    for (const player of snapshot.otherPlayers ?? []) {
+      const room = parseCoordinateRoomId(player.roomId);
+      const head = player.body[0];
+      if (
+        !head ||
+        !room ||
+        room.z !== current.z ||
+        Math.abs(room.x - current.x) > 1 ||
+        Math.abs(room.y - current.y) > 1
+      )
+        continue;
+      const position = worldToRoomPosition(head, this.options.grid, room.z);
+      this.snakeGraphics
+        .fillStyle(0x64d9ff, 1)
+        .fillRect(
+          this.options.x +
+            (room.x - current.x + 1) * this.roomWidth +
+            (position.localX * this.roomWidth) / this.options.grid.cols,
+          this.options.y +
+            (room.y - current.y + 1) * this.roomHeight +
+            (position.localY * this.roomHeight) / this.options.grid.rows,
+          4,
+          4,
+        );
+    }
     this.renderSnake(snapshot, current.z);
   }
 

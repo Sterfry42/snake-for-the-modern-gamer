@@ -52,7 +52,7 @@ async function finishDialogue(page: Page) {
   throw new Error('Dialogue did not finish');
 }
 async function pick(page: Page, _state: ReturnType<typeof observe>, optionId: string) {
-  await expect.poll(async () => (await presentation(page)).choice.visible).toBe(true);
+  await expect.poll(async () => { const menu = (await presentation(page)).choice; return menu.visible && menu.options.some(option => option.id === optionId); }).toBe(true);
   const menu = (await presentation(page)).choice;
   const index = menu.options.findIndex(option => option.id === optionId);
   expect(index, JSON.stringify(menu)).toBeGreaterThanOrEqual(0);
@@ -102,7 +102,7 @@ test('server NPC menus buy shared stock, accept private quests, and block world 
   const session = new AuthoritativeGameSession({ game, manageBasicFeatures: true });
   const server = createGameServer(session);
   const port = await server.listen(0);
-  const bobPage = await context.newPage();
+  const bobPage = await context.browser()!.newPage({ baseURL: test.info().project.use.baseURL });
   const alice = observe(page);
   const bob = observe(bobPage);
   const errors: string[] = [];

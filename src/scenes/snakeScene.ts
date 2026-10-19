@@ -81,6 +81,7 @@ import { SceneGameClient } from '../session/SceneGameClient.js';
 import { SceneReadReplica } from '../session/SceneReadReplica.js';
 import { RemoteCheckpointBrowser } from '../session/RemoteCheckpointBrowser.js';
 import { RemoteSceneSession } from '../session/RemoteSceneSession.js';
+import { PartyOverlay } from '../ui/partyOverlay.js';
 import { WebSocketGameConnection } from '../session/WebSocketGameConnection.js';
 import type { ClientCommand, CommandResult } from '../session/ClientCommand.js';
 import { ServerConnectionMenu } from '../ui/serverConnectionMenu.js';
@@ -1214,6 +1215,7 @@ export default class SnakeScene extends Phaser.Scene {
   private villageShopPopup!: ChoicePopup;
   private datingScenePopup!: DatingScenePopup;
   private emoticonOverlay!: EmoticonOverlay;
+  private partyOverlay: PartyOverlay | null = null;
   private emoticonActivationTime: number = 0;
   private snakeRenderer!: SnakeRenderer;
   private firstPersonRenderer!: FirstPersonRenderer;
@@ -1653,8 +1655,10 @@ export default class SnakeScene extends Phaser.Scene {
   async create() {
     const connectionParams = new URLSearchParams(window.location.search);
     const backend =
-      connectionParams.get('server') ??
-      (connectionParams.get('connection') === 'local' ? 'local' : null);
+      connectionParams.get('multiplayer') === 'server'
+        ? null
+        : (connectionParams.get('server') ??
+          (connectionParams.get('connection') === 'local' ? 'local' : null));
 
     this.performanceHudVisible =
       new URLSearchParams(window.location.search).get('lifecycle') === '1';
@@ -1988,11 +1992,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.showTitleScreen('main');
     if (backend)
-      await this.initializeConnectedClient(
-        backend,
-        connectionParams.get('playerName') ?? 'Player',
-        connectionParams.get('enter') === '1',
-      );
+      await this.initializeConnectedClient(backend, connectionParams.get('playerName') ?? 'Player');
     if (connectionParams.get('multiplayer') === 'server') {
       this.showTitleScreen('multiplayer');
       this.showServerConnectionMenu();
@@ -2128,6 +2128,10 @@ export default class SnakeScene extends Phaser.Scene {
     return this.sceneClient !== null;
   }
 
+  get canManageWorld(): boolean {
+    return !this.sceneClient || Boolean(this.sceneClient.getSnapshot().permissions?.manageWorld);
+  }
+
   leaveServer(): void {
     if (!this.sceneClient) return;
     this.gameConnection?.disconnect();
@@ -2176,16 +2180,15 @@ export default class SnakeScene extends Phaser.Scene {
     this.runtimeReady = true;
   }
 
-  private async initializeConnectedClient(
-    backend: string,
-    name: string,
-    enter: boolean,
-  ): Promise<void> {
+  private async initializeConnectedClient(backend: string, name: string): Promise<void> {
     try {
       let connection: GameConnection;
       if (backend === 'local') {
         const session = await LocalGameSession.create();
-        session.registerConnection('local', name);
+        session.registerConnection('local', name, {
+          playerId: session.getSnapshot().localPlayerId,
+          admin: true,
+        });
         connection = new LocalGameConnection(session, (command) => session.executeCommand(command));
         this.stopLocalAuthority = () => session.stop();
         session.start((error) => this.showQuestHintPopup(String(error), '#ff6b6b'));
@@ -2221,7 +2224,17 @@ export default class SnakeScene extends Phaser.Scene {
       this.runtimeReady = true;
       this.paused = false;
       this.hideTitleScreen();
+      if (backend !== 'local') {
+        this.partyOverlay = new PartyOverlay(backend, () => this.leaveServer());
+        connection.onStatus?.((status) => {
+          this.partyOverlay?.setStatus(status);
+          if (status === 'connected') {
+            this.remoteHold = '';
+          }
+        });
+      }
       this.unsubscribeSnapshot = connection.onSnapshot((snapshot) => {
+        this.partyOverlay?.update(snapshot);
         this.readReplica?.hydrate(snapshot);
         for (const [key, input] of this.presentationFlagInputs) {
           if (JSON.stringify(snapshot.clientState?.flags[key]) !== input) {
@@ -2254,6 +2267,10 @@ export default class SnakeScene extends Phaser.Scene {
         this.isDirty = true;
       });
       this.unsubscribeEvents = connection.onEvent((event) => {
+        if (event.type === 'party.presence') {
+          this.partyOverlay?.showNotice(`${event.name} ${event.status}.`);
+          return;
+        }
         if (event.type === 'archaeology.outcome') {
           if (
             event.playerId === this.snakeGame.getLocalPlayerId() &&
@@ -2301,8 +2318,6 @@ export default class SnakeScene extends Phaser.Scene {
         this.showTitleScreen('multiplayer', reason);
         this.showServerConnectionMenu();
       });
-      if (enter && Object.keys(this.sceneClient.getSnapshot().connections ?? {}).length === 1)
-        await this.submitRemote({ type: 'resume', playerId: this.snakeGame.getLocalPlayerId() });
       this.isDirty = true;
     } catch (error) {
       this.showTitleScreen('multiplayer', String(error));
@@ -2549,7 +2564,13 @@ export default class SnakeScene extends Phaser.Scene {
           this.emoticonOverlay.setOwnedEmoticonIds(owned);
           if (!this.emoticonOverlay.isVisible()) {
             this.emoticonOverlay.show((id) => {
-              this.snakeGame.setActiveEmoticon(id);
+              if (this.sceneClient)
+                void this.submitRemote({
+                  type: 'emote',
+                  playerId: this.sceneClient.getLocalPlayerId(),
+                  emoticonId: id,
+                });
+              else this.snakeGame.setActiveEmoticon(id);
               this.emoticonActivationTime = performance.now();
             });
           } else {
@@ -6395,6 +6416,8 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private handleShutdown(): void {
+    this.partyOverlay?.destroy();
+    this.partyOverlay = null;
     this.serverConnectionMenu?.destroy();
     this.serverConnectionMenu = null;
     this.sceneReady = false;
@@ -12510,6 +12533,7 @@ export default class SnakeScene extends Phaser.Scene {
             body: player.body,
             direction: player.direction,
             appearance: player.appearance,
+            activeEmoticon: player.activeEmoticon,
           })),
         localPlayerName: this.sceneClient ? localPlayer?.name : undefined,
         snakePalette: starforgedSnakePalette ?? activeSnakeTheme.palette,
@@ -12579,6 +12603,12 @@ export default class SnakeScene extends Phaser.Scene {
       this.minimapRenderer?.render({
         currentRoomId: room.id,
         snakeSegments: renderedSnakeBody,
+        otherPlayers: Object.values(snapshot.players).filter(
+          (player) =>
+            !player.isLocal &&
+            player.alive &&
+            Object.values(snapshot.connections ?? {}).some((peer) => peer.playerId === player.id),
+        ),
       });
     }
     this.questHud.update(this.snakeGame.getActiveQuests(), this.grid.cols * this.grid.cell);
@@ -14451,6 +14481,11 @@ export default class SnakeScene extends Phaser.Scene {
    * Returns the active emoticon for rendering, clearing it after 5 seconds.
    */
   private getActiveEmoticonForRender(): string | null {
+    if (this.sceneClient)
+      return (
+        this.sceneClient.getSnapshot().players[this.sceneClient.getLocalPlayerId()]
+          ?.activeEmoticon ?? null
+      );
     const state = this.snakeGame.getEmoticonState();
     const active = state.active;
     if (active && this.emoticonActivationTime > 0) {

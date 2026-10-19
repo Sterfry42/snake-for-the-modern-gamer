@@ -56,7 +56,7 @@ test('two browsers move independent snakes, render NPCs, talk, and view separate
   const session = new AuthoritativeGameSession({ game, manageBasicFeatures: true });
   const server = createGameServer(session);
   const port = await server.listen(0);
-  const bobPage = await context.newPage();
+  const bobPage = await context.browser()!.newPage({ baseURL: test.info().project.use.baseURL });
   const alice = observe(page);
   const bob = observe(bobPage);
   const errors: string[] = [];
@@ -97,7 +97,7 @@ test('two browsers move independent snakes, render NPCs, talk, and view separate
     const menu = await page.evaluate(() => window.snakeE2E!.getPresentation().choice);
     const talk = menu.options.findIndex(option => option.id === 'talk');
     expect(talk).toBeGreaterThanOrEqual(0);
-    for (let i = 0; i < talk; i++) await page.keyboard.press('ArrowDown');
+    for (let i = 0; i < (talk - menu.selectedIndex + menu.options.length) % menu.options.length; i++) await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
     await expect.poll(() => page.evaluate(() => window.snakeE2E!.getPresentation().quest.visible)).toBe(true);
     expect(await page.evaluate(() => window.snakeE2E!.getPresentation().quest.text)).not.toBe('');

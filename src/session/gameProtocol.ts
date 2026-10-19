@@ -6,7 +6,7 @@ import type { GameSnapshot } from './GameSnapshot.js';
 import { SPECIAL_STAT_IDS } from '../stats/specialTypes.js';
 import { EQUIPMENT_SLOTS } from '../inventory/item.js';
 
-export const GAME_PROTOCOL_VERSION = 1;
+export const GAME_PROTOCOL_VERSION = 2;
 
 export interface CommandMessage {
   type: 'command';
@@ -20,6 +20,7 @@ export type ServerMessage =
       version: number;
       connectionId: string;
       playerId: string;
+      resumeToken: string;
       snapshot: GameSnapshot;
     }
   | { type: 'snapshot'; snapshot: GameSnapshot }
@@ -30,6 +31,8 @@ export type ServerMessage =
 export function isClientCommand(value: unknown): value is ClientCommand {
   if (!isRecord(value) || typeof value.playerId !== 'string') return false;
   switch (value.type) {
+    case 'emote':
+      return validIdentifier(value.emoticonId);
     case 'guildAction':
       return (
         validIdentifier(value.townId) &&
@@ -358,6 +361,7 @@ function isServerMessage(value: unknown): value is ServerMessage {
         value.version === GAME_PROTOCOL_VERSION &&
         typeof value.connectionId === 'string' &&
         typeof value.playerId === 'string' &&
+        typeof value.resumeToken === 'string' &&
         isSnapshot(value.snapshot)
       );
     case 'snapshot':

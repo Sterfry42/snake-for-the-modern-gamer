@@ -9,6 +9,7 @@ export interface GameConnection {
   send(command: ClientCommand): CommandResult | Promise<CommandResult>;
   onSnapshot(handler: (snapshot: GameSnapshot) => void): () => void;
   onEvent(handler: (event: GameEvent) => void): () => void;
+  onStatus?(handler: (status: 'connected' | 'reconnecting' | 'closed') => void): () => void;
   onDisconnect?(handler: (reason: string) => void): () => void;
   disconnect(): void;
 }
