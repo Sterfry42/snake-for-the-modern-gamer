@@ -1,0 +1,1 @@
+import{Q as t}from"./quest-D7wXIOK7.js";class s extends t{constructor(){super("settlement-builder","Settlement Builder","Help establish 3 animal settlements")}isCompleted(e){return this.progressSinceAccept(e,"settlementsFounded")>=3}baselineKeys(){return["settlementsFounded"]}onReward(e){e.addScore(150),e.addItem("settlement-plans",1)}}const r=new s;export{r as default};

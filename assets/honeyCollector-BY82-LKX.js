@@ -1,0 +1,1 @@
+import{Q as o}from"./quest-D7wXIOK7.js";class t extends o{constructor(){super("honey-collector","Sweet Tooth","Collect 3 honey from bears")}isCompleted(e){return this.progressSinceAccept(e,"honeyCollected")>=3}baselineKeys(){return["honeyCollected"]}onReward(e){e.addScore(35),e.addItem("honey",2)}}const l=new t;export{l as default};

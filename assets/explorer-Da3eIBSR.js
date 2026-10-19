@@ -1,0 +1,1 @@
+import{Q as r}from"./quest-D7wXIOK7.js";class s extends r{constructor(){super("explore-6-rooms","Explorer","Visit 6 unique rooms")}isCompleted(e){return this.progressSinceAccept(e,"roomsVisited")>=6}baselineKeys(){return["roomsVisited"]}onReward(e){e.addScore(20)}}const i=new s;export{i as default};
