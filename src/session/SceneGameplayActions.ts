@@ -143,7 +143,10 @@ export function executeSceneGameplayAction(
       return { ok: result.ok, message: result.message };
     }
     case 'combatAction': {
-      if (command.action === 'fire') return { ok: game.firePlayerShot(command.direction) };
+      if (command.action === 'fire') {
+        const ok = game.firePlayerShot(command.direction);
+        return ok ? { ok } : { ok, reason: 'shot-unavailable' };
+      }
       const result = game.throwBombToward(command.direction);
       return { ok: result.ok, message: result.message, color: result.color };
     }

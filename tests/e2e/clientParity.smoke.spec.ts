@@ -98,8 +98,14 @@ test('the normal multiplayer pause shell renders every available tab and sends i
     await page.keyboard.press('f');
     await expect.poll(() => page.evaluate(() => window.snakeE2E!.getLifecycle().mode)).toBe('fishing');
     await page.screenshot({ path: 'test-results/normal-multiplayer-fishing.png' });
-    await page.keyboard.press('Escape');
-    await expect.poll(() => session.getSnapshot().minigame).toBeNull();
+    // Fishing polls keys on browser frames; hold until authority acknowledges
+    // instead of releasing a synthetic press before Phaser can observe it.
+    await page.keyboard.down('Escape');
+    try {
+      await expect.poll(() => session.getSnapshot().minigame).toBeNull();
+    } finally {
+      await page.keyboard.up('Escape');
+    }
     expect(errors).toEqual([]);
   } finally {
     await page.close();

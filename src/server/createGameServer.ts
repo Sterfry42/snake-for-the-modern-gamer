@@ -335,6 +335,7 @@ export function createGameServer(
       });
       channel.encoder.encode(snapshot);
       channels.set(connectionId, channel);
+      session.recordPublishedMovement(connectionId, snapshot);
       publish(socket, {
         type: 'welcome',
         diagnostics: Boolean(options.onDiagnostic),
@@ -385,6 +386,7 @@ export function createGameServer(
             if (!result.ok) state.rejected++;
             if (
               !result.ok &&
+              result.reason !== 'shot-unavailable' &&
               message.command.type !== 'setDirection' &&
               receivedAt - state.lastCommandWarningAt > 1000
             ) {
@@ -394,7 +396,7 @@ export function createGameServer(
                 playerId,
                 commandType: command.type,
                 requestId: command.requestId,
-                reason: result.reason,
+                reason: result.reason ?? result.message ?? 'action-unavailable',
               });
             }
             channel.pending.push({ message: { type: 'result', id: message.id, result }, command });
@@ -437,6 +439,8 @@ export function createGameServer(
         const connection = active.get(playerId);
         const channel = connection && channels.get(connection.connectionId);
         if (channel) {
+          if (channel.socket.readyState === WebSocket.OPEN)
+            session.recordPublishedMovement(connection!.connectionId, snapshot);
           socketDetails.get(channel.socket)!.roomId = snapshot.viewport.centerRoomId;
           publish(channel.socket, { type: 'delta', delta: channel.encoder.encode(snapshot) });
         }
@@ -522,6 +526,25 @@ export function createGameServer(
       : undefined;
   performanceTimer?.unref();
 
+  let autosaving: Promise<void> | undefined;
+  const autosaveTimer = setInterval(() => {
+    if (closing || autosaving) return;
+    const startedAt = performance.now();
+    autosaving = session
+      .autosave()
+      .then((saved) => {
+        if (saved)
+          log('info', 'checkpoint.autosaved', { durationMs: performance.now() - startedAt });
+      })
+      .catch((error: unknown) => {
+        log('error', 'checkpoint.autosave-failed', { error });
+      })
+      .finally(() => {
+        autosaving = undefined;
+      });
+  }, 30000);
+  autosaveTimer.unref();
+
   const alive = new Set<WebSocket>();
   sockets.on('connection', (socket) => {
     alive.add(socket);
@@ -584,10 +607,12 @@ export function createGameServer(
       clearInterval(heartbeat);
       clearInterval(networkTimer);
       clearInterval(performanceTimer);
+      clearInterval(autosaveTimer);
       processPerformance?.close();
       await attachments;
       session.stop();
       await session.flush();
+      await autosaving;
       for (const socket of sockets.clients) {
         const details = socketDetails.get(socket);
         if (details) details.closeCause = 'server-shutdown';

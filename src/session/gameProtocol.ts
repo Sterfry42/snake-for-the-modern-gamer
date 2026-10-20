@@ -262,6 +262,10 @@ export function isClientCommand(value: unknown): value is ClientCommand {
     case 'forceDirection': {
       const direction = value.direction;
       return (
+        (value.inputSequence === undefined ||
+          (typeof value.inputSequence === 'number' &&
+            Number.isSafeInteger(value.inputSequence) &&
+            value.inputSequence > 0)) &&
         isRecord(direction) &&
         typeof direction.x === 'number' &&
         typeof direction.y === 'number' &&

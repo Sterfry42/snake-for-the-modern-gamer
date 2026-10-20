@@ -134,7 +134,9 @@ test('a broken socket keeps the local snake moving, buffers turns, and catches u
   game.placeSnakeBodyAtLocal(room.id, { x: 10, y: 10 }, { x: 1, y: 0 });
   const session = new AuthoritativeGameSession({ game, manageBasicFeatures: true });
   const diagnostics: import('../../src/session/SessionDiagnostic.js').SessionDiagnostic[] = [];
-  const server = createGameServer(session, { onDiagnostic: diagnostic => diagnostics.push(diagnostic) });
+  const server = createGameServer(session, {
+    onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
+  });
   const wires: Duplex[] = [];
   server.http.on('upgrade', (_request, socket) => wires.push(socket));
   const port = await server.listen(0);
@@ -171,7 +173,31 @@ test('a broken socket keeps the local snake moving, buffers turns, and catches u
     await expect.poll(() => Object.keys(session.getSnapshot().connections!)[0]).not.toBe(original);
     expect(session.getSnapshot(id).players[id].body[0].y).toBeGreaterThan(body[0].y);
     expect(session.getSnapshot(id).players[id].direction).toEqual({ x: 0, y: 1 });
-    await expect.poll(() => diagnostics.some(diagnostic => diagnostic.event === 'client.connection-lost' && diagnostic.fields?.previousConnectionId === original)).toBe(true);
+    await expect
+      .poll(() =>
+        diagnostics.some(
+          (diagnostic) =>
+            diagnostic.event === 'client.connection-lost' &&
+            diagnostic.fields?.previousConnectionId === original,
+        ),
+      )
+      .toBe(true);
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        event: 'player.attached',
+        fields: expect.objectContaining({ playerId: id, resumedWithinGrace: true }),
+      }),
+    );
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        event: 'movement.replay',
+        fields: expect.objectContaining({
+          playerId: id,
+          reason: 'completed',
+          replayedSteps: expect.any(Number),
+        }),
+      }),
+    );
     expect(requests).toContainEqual(
       expect.objectContaining({
         type: 'movementResume',
@@ -185,6 +211,161 @@ test('a broken socket keeps the local snake moving, buffers turns, and catches u
     await page.screenshot({ path: 'test-results/movement-reconnect.png' });
     expect(errors).toEqual([]);
   } finally {
+    await page.close();
+    await server.close();
+  }
+});
+
+test('two live players survive a transport loss and a dropped resume-from-menu command', async ({
+  page,
+  browser,
+}) => {
+  const game = new SnakeGame(
+    { ...defaultGameConfig, rng: { seed: 'live-reliability' } },
+    new QuestRegistry(),
+  );
+  game.reset();
+  game.bosses.clearAll();
+  const room = game.getCurrentRoom();
+  room.layout = room.layout.map((row) => '.'.repeat(row.length));
+  room.portals = [];
+  game.placeSnakeBodyAtLocal(room.id, { x: 5, y: 5 }, { x: 1, y: 0 });
+  const session = new AuthoritativeGameSession({ game, manageBasicFeatures: true });
+  const diagnostics: import('../../src/session/SessionDiagnostic.js').SessionDiagnostic[] = [];
+  const server = createGameServer(session, {
+    onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
+  });
+  const port = await server.listen(0);
+  const wires = new Map<string, Duplex>();
+  server.http.on('upgrade', (request, socket) =>
+    wires.set(new URL(request.url!, 'http://localhost').searchParams.get('name')!, socket),
+  );
+  const bob = await browser.newPage({ baseURL: test.info().project.use.baseURL });
+  const errors: string[] = [];
+  for (const client of [page, bob]) client.on('pageerror', (error) => errors.push(error.message));
+  await page.addInitScript(() => {
+    const send = WebSocket.prototype.send;
+    WebSocket.prototype.send = function (data) {
+      if (
+        typeof data === 'string' &&
+        sessionStorage.getItem('force-transport-error') === '1' &&
+        JSON.parse(data).command?.type === 'setDirection'
+      ) {
+        sessionStorage.setItem('force-transport-error', 'triggered');
+        this.dispatchEvent(new Event('error'));
+        return;
+      }
+      if (typeof data === 'string' && sessionStorage.getItem('drop-playing') === '1') {
+        const message = JSON.parse(data);
+        if (message.command?.type === 'playerInteraction' && message.command.mode === 'playing') {
+          sessionStorage.setItem('drop-playing', 'dropped');
+          return;
+        }
+      }
+      return send.call(this, data);
+    };
+  });
+  try {
+    const endpoint = encodeURIComponent(`ws://127.0.0.1:${port}/game`);
+    await page.goto(`?server=${endpoint}&playerName=Alice`);
+    await bob.goto(`?server=${endpoint}&playerName=Bob`);
+    for (const client of [page, bob])
+      await expect
+        .poll(() => client.evaluate(() => window.snakeE2E?.getLifecycle().mode))
+        .toBe('action');
+    const alice = session.getSnapshot().localPlayerId;
+    const bobId = Object.values(session.getSnapshot().connections!).find(
+      (peer) => peer.displayName === 'Bob',
+    )!.playerId;
+    game.runForPlayer(bobId, () =>
+      game.placeSnakeBodyAtLocal(room.id, { x: 5, y: 17 }, { x: 1, y: 0 }),
+    );
+    session.refreshSnapshot();
+    await expect.poll(() => session.getSnapshot(alice).ui.playerInteraction).toBe('playing');
+    session.start((error) => {
+      throw error;
+    });
+    const revision = session.getSnapshot(alice).players[alice].movementRevision!;
+    await expect
+      .poll(() => session.getSnapshot(alice).players[alice].movementRevision)
+      .toBeGreaterThan(revision);
+    await page.keyboard.press('Space');
+    await expect.poll(() => session.getSnapshot(alice).ui.playerInteraction).toBe('paused');
+    const held = session.getSnapshot(alice).players[alice].movementRevision;
+    await page.evaluate(() => sessionStorage.setItem('drop-playing', '1'));
+    await page.keyboard.press('Space');
+    await expect
+      .poll(() => page.evaluate(() => sessionStorage.getItem('drop-playing')))
+      .toBe('dropped');
+    await expect.poll(() => session.getSnapshot(alice).ui.playerInteraction).toBe('playing');
+    await expect
+      .poll(() => session.getSnapshot(alice).players[alice].movementRevision)
+      .toBeGreaterThan(held!);
+    const errored = Object.values(session.getSnapshot().connections!).find(
+      (peer) => peer.playerId === alice,
+    )!.connectionId;
+    await page.evaluate(() => sessionStorage.setItem('force-transport-error', '1'));
+    await page.keyboard.press('ArrowDown');
+    await expect
+      .poll(() =>
+        diagnostics.some(
+          (record) =>
+            record.event === 'connection.closed' &&
+            record.fields?.connectionId === errored &&
+            record.fields?.code === 4000,
+        ),
+      )
+      .toBe(true);
+    await expect
+      .poll(() =>
+        Object.values(session.getSnapshot().connections!).some(
+          (peer) => peer.playerId === alice && peer.connectionId !== errored,
+        ),
+      )
+      .toBe(true);
+    await expect(page.getByRole('status')).toHaveText('Connected');
+    const original = Object.values(session.getSnapshot().connections!).find(
+      (peer) => peer.playerId === alice,
+    )!.connectionId;
+    const bobRevision = session.getSnapshot(alice).players[bobId].movementRevision!;
+    wires.get('Alice')!.destroy();
+    await expect
+      .poll(() =>
+        diagnostics.some(
+          (record) =>
+            record.event === 'player.suspended' && record.fields?.connectionId === original,
+        ),
+      )
+      .toBe(true);
+    await expect
+      .poll(() =>
+        Object.values(session.getSnapshot().connections!).some(
+          (peer) => peer.playerId === alice && peer.connectionId !== original,
+        ),
+      )
+      .toBe(true);
+    await expect(page.getByRole('status')).toHaveText('Connected');
+    expect(session.getSnapshot(alice).players[bobId].movementRevision).toBeGreaterThan(bobRevision);
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        event: 'player.attached',
+        fields: expect.objectContaining({ playerId: alice, resumedWithinGrace: true }),
+      }),
+    );
+    expect(diagnostics.filter((record) => record.event === 'movement.replay')).toContainEqual(
+      expect.objectContaining({
+        event: 'movement.replay',
+        fields: expect.objectContaining({ playerId: alice, reason: 'completed' }),
+      }),
+    );
+    expect(
+      diagnostics.some(
+        (record) => record.event === 'player.detached' && record.fields?.playerId === alice,
+      ),
+    ).toBe(false);
+    expect(errors).toEqual([]);
+  } finally {
+    await bob.close();
     await page.close();
     await server.close();
   }

@@ -106,6 +106,20 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       ),
       ...this.getQueueDiagnostics(),
       suspendedPlayers: this.suspended.size,
+      players: [...this.connections.values()].slice(0, 32).map(({ playerId }) =>
+        this.game.runForPlayer(playerId, () => ({
+          playerId,
+          alive: this.game.getPlayer(playerId)?.alive ?? false,
+          roomId: this.game.getCurrentRoom().id,
+          head: this.game.getSnakeBody()[0],
+          held: this.suspended.has(playerId) || this.playerHeld(playerId),
+          holdReason: this.suspended.has(playerId) ? 'suspended' : this.playerHoldReason(playerId),
+          movementRevision: this.movementRevisions.get(playerId) ?? 0,
+          movementIntervalMs: this.movementInterval(playerId),
+          movementAccumulatorMs: this.actionElapsed.get(playerId) ?? 0,
+        })),
+      ),
+      playersTruncated: this.connections.size > 32,
     };
     if (reset) {
       this.maximumQueueWaitMs = 0;
@@ -156,9 +170,27 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       interval: number;
       accumulator: number;
       eligible: boolean;
+      publishedRevisions: number[];
     }
   >();
   private readonly movementRevisions = new Map<PlayerId, number>();
+  private readonly directionSequences = new Map<PlayerId, number>();
+  private readonly publishedMovementRevisions = new Map<
+    string,
+    Array<{ revision: number; at: number }>
+  >();
+
+  /** Only the transport records the bases it actually publishes, never client input. */
+  recordPublishedMovement(connectionId: string, snapshot: GameSnapshot): void {
+    if (this.connections.get(connectionId)?.playerId !== snapshot.localPlayerId) return;
+    const revision = snapshot.players[snapshot.localPlayerId]?.movementRevision;
+    if (revision === undefined) return;
+    const at = Date.now();
+    const recent = (this.publishedMovementRevisions.get(connectionId) ?? []).filter(
+      (entry) => entry.revision !== revision && at - entry.at <= MOVEMENT_GRACE_MS,
+    );
+    this.publishedMovementRevisions.set(connectionId, [...recent, { revision, at }].slice(-8));
+  }
   private readonly actionElapsed = new Map<PlayerId, number>();
   private readonly vehicles: AuthoritativeVehicles;
   private readonly archaeology: AuthoritativeArchaeology;
@@ -191,7 +223,11 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         interval: this.movementInterval(peer.playerId),
         accumulator: this.actionElapsed.get(peer.playerId) ?? 0,
         eligible,
+        publishedRevisions: (this.publishedMovementRevisions.get(connectionId) ?? [])
+          .filter((entry) => now - entry.at <= MOVEMENT_GRACE_MS)
+          .map((entry) => entry.revision),
       });
+      this.publishedMovementRevisions.delete(connectionId);
       peer.suspended = true;
       this.diagnose('player.suspended', {
         connectionId,
@@ -222,6 +258,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
 
   private replaySuspendedMovement(playerId: PlayerId, replay?: MovementReplay): void {
     const suspension = this.suspended.get(playerId);
+    const initialRevision = this.movementRevisions.get(playerId) ?? 0;
     const report = (
       reason: string,
       replayedSteps = 0,
@@ -237,6 +274,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
           replayedSteps,
           baseRevision: replay?.baseRevision,
           serverRevision: this.movementRevisions.get(playerId) ?? 0,
+          alreadyAppliedSteps: replay ? Math.max(0, initialRevision - replay.baseRevision) : 0,
           suspendedMs: suspension ? Date.now() - suspension.startedAt : undefined,
         },
         level,
@@ -262,7 +300,12 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       report('attempt-mismatch', 0, 'warn');
       return;
     }
-    if (replay.baseRevision !== (this.movementRevisions.get(playerId) ?? 0)) {
+    const alreadyApplied = (this.movementRevisions.get(playerId) ?? 0) - replay.baseRevision;
+    if (
+      alreadyApplied < 0 ||
+      alreadyApplied > MAX_PREDICTED_STEPS ||
+      (alreadyApplied > 0 && !suspension.publishedRevisions.includes(replay.baseRevision))
+    ) {
       report('revision-mismatch', 0, 'warn');
       return;
     }
@@ -276,7 +319,12 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       MAX_PREDICTED_STEPS,
       Math.floor((suspension.accumulator + elapsed) / suspension.interval),
     );
-    if (replay.steps > budget || replay.elapsedMs > elapsed + 100) {
+    const requestedSteps = Math.max(0, replay.steps - alreadyApplied);
+    const inputs = replay.inputs.map((input) => ({
+      ...input,
+      step: Math.max(0, input.step - alreadyApplied),
+    }));
+    if (requestedSteps > budget || replay.elapsedMs > elapsed + 100) {
       report('time-budget-exceeded', 0, 'warn');
       return;
     }
@@ -286,16 +334,16 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       let completed = 0;
       let stoppedBy = 'completed';
       const available = suspension.accumulator + Math.min(elapsed, replay.elapsedMs);
-      for (let step = 0; step <= replay.steps; step++) {
+      for (let step = 0; step <= requestedSteps; step++) {
         if (!this.predictionAllowed(playerId)) {
           stoppedBy = 'player-held-or-dead';
           break;
         }
-        while (replay.inputs[input]?.step === step) {
-          const direction = replay.inputs[input++].direction;
+        while (inputs[input]?.step === step) {
+          const direction = inputs[input++].direction;
           this.game.setDirection(direction.x, direction.y);
         }
-        if (step === replay.steps) break;
+        if (step === requestedSteps) break;
         const interval = this.movementInterval(playerId);
         if (spent + interval > available + 1) {
           stoppedBy = 'movement-time-budget';
@@ -324,7 +372,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       report(stoppedBy, completed);
       this.actionElapsed.set(
         playerId,
-        completed === replay.steps && this.predictionAllowed(playerId)
+        completed === requestedSteps && this.predictionAllowed(playerId)
           ? Math.min(this.movementInterval(playerId) - 1, Math.max(0, available - spent))
           : 0,
       );
@@ -350,8 +398,12 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       identity?.playerId ?? (primaryAttached ? `player-${connectionId}` : this.localPlayerId);
     // Superseded sockets cannot detach or act for a replacement connection.
     for (const [id, peer] of this.connections)
-      if (peer.playerId === playerId) this.connections.delete(id);
+      if (peer.playerId === playerId) {
+        this.connections.delete(id);
+        this.publishedMovementRevisions.delete(id);
+      }
     const resuming = this.suspended.delete(playerId);
+    this.directionSequences.delete(playerId);
     const returning = this.retainedPlayers.has(playerId);
     const player = this.game.addConnectedPlayer(playerId, normalizeDisplayName(displayName));
     player.alive = this.retainedPlayers.get(playerId) ?? (identity ? player.alive : true);
@@ -387,6 +439,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
 
   unregisterConnection(connectionId: string, reason = 'disconnect'): void {
+    this.publishedMovementRevisions.delete(connectionId);
     const peer = this.connections.get(connectionId);
     this.connections.delete(connectionId);
     if (!peer) return;
@@ -694,9 +747,11 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
             this.emitSnapshot();
             return { ok: true, saved: true };
           case 'loadGame': {
+            await this.checkpointWrites;
             const data = await this.saveStore.load(this.saveSlotId);
             if (!data) return { ok: false, loaded: false };
             if (!this.game.loadConnectedCheckpoint(data)) return { ok: false, loaded: false };
+            this.publishedMovementRevisions.clear();
             for (const peer of this.connections.values())
               this.game.addConnectedPlayer(peer.playerId, peer.displayName);
             this.checkpoint = structuredClone(data);
@@ -917,6 +972,9 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     }
 
     if (command.type === 'restartRun' && this.connections.size > 0) {
+      for (const peer of this.connections.values())
+        if (peer.playerId === command.playerId)
+          this.publishedMovementRevisions.delete(peer.connectionId);
       this.vehicles.abandon();
       this.minigames.reset(command.playerId);
       this.archaeology.reset(command.playerId);
@@ -934,6 +992,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       return { ok: true };
     }
     if (command.type === 'restartRun') {
+      this.publishedMovementRevisions.clear();
       this.vehicles.reset();
       this.minigames.reset();
       this.archaeology.reset();
@@ -992,27 +1051,36 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     }
 
     this.game.handleCommand(command);
+    if (command.type === 'setDirection' && command.inputSequence !== undefined)
+      this.directionSequences.set(command.playerId, command.inputSequence);
     this.emitSnapshot();
     return { ok: true };
   }
 
   private playerHeld(playerId: PlayerId): boolean {
-    return (
-      Boolean(this.game.getForcedEncounter()) ||
-      Boolean(this.game.getOfferedQuest()) ||
-      Boolean(this.minigames.getView(playerId)) ||
-      Boolean(this.archaeology.getView(playerId)) ||
-      Boolean(this.interactions.getView(playerId)) ||
-      (this.playerInteractions.get(playerId) ?? 'playing') !== 'playing' ||
-      Boolean(this.game.getFlag('vehicle.active')) ||
-      (this.manageBasicFeatures &&
-        isManualMovementArea(
-          this.game.getCurrentRoom(),
-          this.game.getSnakeBody()[0],
-          this.game.config.grid,
-        )) ||
-      Boolean(this.game.getStructurePlacement())
-    );
+    return this.playerHoldReason(playerId) !== null;
+  }
+
+  private playerHoldReason(playerId: PlayerId): string | null {
+    if (this.game.getForcedEncounter()) return 'forced-encounter';
+    if (this.game.getOfferedQuest()) return 'quest-offer';
+    if (this.minigames.getView(playerId)) return 'minigame';
+    if (this.archaeology.getView(playerId)) return 'archaeology';
+    if (this.interactions.getView(playerId)) return 'interaction';
+    const interaction = this.playerInteractions.get(playerId) ?? 'playing';
+    if (interaction !== 'playing') return `playerInteraction:${interaction}`;
+    if (this.game.getFlag('vehicle.active')) return 'vehicle';
+    if (
+      this.manageBasicFeatures &&
+      isManualMovementArea(
+        this.game.getCurrentRoom(),
+        this.game.getSnakeBody()[0],
+        this.game.config.grid,
+      )
+    )
+      return 'manual-area';
+    if (this.game.getStructurePlacement()) return 'construction';
+    return null;
   }
 
   private scheduledActionStep(deltaMs: number): void {
@@ -1189,9 +1257,31 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       this.game.saveGame();
       return;
     }
-    const data = this.game.getSaveData();
-    await this.saveStore.save(this.saveSlotId, data);
-    this.checkpoint = structuredClone(data);
+    const data = structuredClone(this.game.getSaveData());
+    await this.writeCheckpoint(data);
+  }
+
+  private checkpointWrites: Promise<void> = Promise.resolve();
+
+  private writeCheckpoint(data: GameSaveData): Promise<void> {
+    const write = this.checkpointWrites.then(async () => {
+      await this.saveStore?.save(this.saveSlotId, data);
+      this.checkpoint = data;
+      this.networkDirty = true;
+    });
+    this.checkpointWrites = write.catch(() => {});
+    return write;
+  }
+
+  /** Capture in authority order; disk latency must not hold the simulation queue. */
+  async autosave(): Promise<boolean> {
+    if (!this.saveStore || !this.hosted) return false;
+    const captured = await this.enqueue(
+      async () => ({ write: this.writeCheckpoint(structuredClone(this.game.getSaveData())) }),
+      'autosave:capture',
+    );
+    await captured.write;
+    return true;
   }
 
   saveGame(
@@ -1223,6 +1313,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   ): boolean {
     const loaded = this.game.loadGame(getReligionChoice, getClassChoice, getBackgroundChoice);
     if (loaded) {
+      this.publishedMovementRevisions.clear();
       for (const player of this.game.getPlayers())
         this.movementRevisions.set(player.id, (this.movementRevisions.get(player.id) ?? 0) + 1);
       for (const suspension of this.suspended.values()) suspension.eligible = false;
@@ -1255,6 +1346,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       this.game.clearSaveFile();
       return;
     }
+    await this.checkpointWrites;
     await this.saveStore.clear(this.saveSlotId);
     this.checkpoint = null;
   }
@@ -1288,6 +1380,8 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     for (const player of Object.values(snapshot.players)) {
       player.activeEmoticon = this.expressions.get(player.id)?.id ?? null;
       player.movementRevision = this.movementRevisions.get(player.id) ?? 0;
+      if (player.id === playerId)
+        player.acknowledgedDirectionSequence = this.directionSequences.get(player.id);
       player.movementIntervalMs = this.movementInterval(player.id);
       player.movementAccumulatorMs = this.manageBasicFeatures
         ? (this.actionElapsed.get(player.id) ?? 0)

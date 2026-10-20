@@ -85,6 +85,7 @@ export interface PlayerSnapshot {
   alive: boolean;
   isLocal: boolean;
   movementRevision?: number;
+  acknowledgedDirectionSequence?: number;
   movementIntervalMs?: number;
   movementAccumulatorMs?: number;
   movementPredictionAllowed?: boolean;

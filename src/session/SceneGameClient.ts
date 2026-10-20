@@ -85,6 +85,10 @@ export class SceneGameClient {
     return this.action({ type: 'playerInteraction', mode });
   }
 
+  getPlayerInteraction(): PlayerInteraction {
+    return this.currentSnapshot.ui.playerInteraction ?? 'playing';
+  }
+
   useInventoryItem(itemId: string): Promise<CommandResult> {
     return this.send({ type: 'useItem', playerId: this.getLocalPlayerId(), itemId });
   }

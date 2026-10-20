@@ -2,6 +2,7 @@ import type { ClientDiagnostic } from './ClientDiagnostic.js';
 import type { Vector2Like } from '../core/math.js';
 import { MAX_RESUME_INPUTS } from './MovementResume.js';
 import { ClientMovementPredictor } from './ClientMovementPredictor.js';
+import { PeerMovementPresentation } from './PeerMovementPresentation.js';
 import type { ClientCommand, CommandResult } from './ClientCommand.js';
 import type { GameConnection } from './GameConnection.js';
 import type { GameEvent } from './GameEvent.js';
@@ -20,6 +21,9 @@ type ConnectionStatus = 'connected' | 'reconnecting' | 'closed';
 export class WebSocketGameConnection implements GameConnection {
   readonly ready: Promise<void>;
   private readonly predictor = new ClientMovementPredictor();
+  private readonly peers = new PeerMovementPresentation();
+  private readonly directionInputs = new Map<number, Vector2Like>();
+  private desiredHold = 'playing';
   private readonly handoffDirections: Vector2Like[] = [];
   connectionId: string | null = null;
   playerId: string | null = null;
@@ -72,7 +76,7 @@ export class WebSocketGameConnection implements GameConnection {
       if (this.closed || socket !== this.socket) return;
       socket.send(JSON.stringify({ type: 'movementResume', replay: this.predictor.replay() }));
     };
-    this.handshakeTimer = setTimeout(() => socket.close(), 10000);
+    this.handshakeTimer = setTimeout(() => socket.close(4000, 'Handshake timed out'), 10000);
     socket.onmessage = (event: MessageEvent<string>) => {
       if (this.closed || socket !== this.socket) return;
       try {
@@ -92,6 +96,7 @@ export class WebSocketGameConnection implements GameConnection {
             saveServerCredential(this.url, 'resume', message.resumeToken);
             clearTimeout(this.handshakeTimer);
             this.attempt = 0;
+            this.directionInputs.clear();
             this.assembler.reset(message.snapshot);
             this.publish(message.snapshot);
             this.setStatus('connected');
@@ -110,6 +115,7 @@ export class WebSocketGameConnection implements GameConnection {
             for (const handler of this.events) handler(message.event);
             break;
           case 'result': {
+            if (!message.result.ok) this.directionInputs.delete(message.id);
             const request = this.pending.get(message.id);
             if (request) {
               clearTimeout(request.timer);
@@ -123,7 +129,7 @@ export class WebSocketGameConnection implements GameConnection {
         this.finish('Invalid game server response');
       }
     };
-    socket.onerror = () => socket.close();
+    socket.onerror = () => socket.close(4000, 'Transport error');
     socket.onclose = (event) => {
       if (socket !== this.socket) return;
       clearTimeout(this.handshakeTimer);
@@ -143,7 +149,8 @@ export class WebSocketGameConnection implements GameConnection {
       }
       this.predictor.resumePredictionAfterFailedHello();
       for (const direction of this.handoffDirections.splice(0)) this.predictor.direction(direction);
-      if (this.connectionId) this.predictor.begin(this.connectionId);
+      if (this.connectionId && this.desiredHold === 'playing')
+        this.predictor.begin(this.connectionId);
       this.setStatus('reconnecting');
       this.retryTimer = setTimeout(
         () => this.connect(resolve, reject),
@@ -154,6 +161,10 @@ export class WebSocketGameConnection implements GameConnection {
 
   async send(command: ClientCommand): Promise<CommandResult> {
     await this.ready;
+    if (command.type === 'playerInteraction') {
+      this.desiredHold = command.mode;
+      if (command.mode !== 'playing') this.predictor.cancel();
+    }
     const socket = this.socket;
     if (!this.closed && this.status === 'reconnecting' && command.type === 'setDirection') {
       if (
@@ -175,11 +186,16 @@ export class WebSocketGameConnection implements GameConnection {
       socket.readyState !== WebSocket.OPEN
     )
       return { ok: false, reason: 'Reconnecting to server. Please wait.' };
-    if (command.type === 'setDirection') this.predictor.direction(command.direction);
     const id = ++this.nextId;
+    if (command.type === 'setDirection') {
+      this.predictor.direction(command.direction);
+      this.directionInputs.set(id, { ...command.direction });
+      command = { ...command, inputSequence: id };
+    }
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
+        this.directionInputs.delete(id);
         this.reportDiagnostic({
           event: 'command-timeout',
           requestId: id,
@@ -194,6 +210,7 @@ export class WebSocketGameConnection implements GameConnection {
       } catch (error) {
         clearTimeout(timer);
         this.pending.delete(id);
+        this.directionInputs.delete(id);
         reject(error);
       }
     });
@@ -232,8 +249,16 @@ export class WebSocketGameConnection implements GameConnection {
   }
 
   getMovementPresentation() {
+    if (this.desiredHold !== 'playing') return null;
     const player = this.snapshot?.players[this.snapshot.localPlayerId];
     return player ? this.predictor.presentation(player) : null;
+  }
+
+  getPeerMovementPresentation(playerId: string) {
+    return this.peers.sample(playerId);
+  }
+  hasPeerMovementPresentation(): boolean {
+    return this.peers.active();
   }
 
   isPredictionExhausted(): boolean {
@@ -266,6 +291,7 @@ export class WebSocketGameConnection implements GameConnection {
     this.rejectPending(new Error('Game connection closed'));
     this.socket?.close(1000, 'Left server');
     this.diagnostics.length = 0;
+    this.directionInputs.clear();
     this.snapshots.clear();
     this.events.clear();
     this.statuses.clear();
@@ -282,7 +308,14 @@ export class WebSocketGameConnection implements GameConnection {
   }
   private publish(snapshot: GameSnapshot): void {
     this.lastSnapshotAt = performance.now();
-    this.predictor.seedFrom(snapshot);
+    const acknowledged =
+      snapshot.players[snapshot.localPlayerId]?.acknowledgedDirectionSequence ?? 0;
+    for (const sequence of this.directionInputs.keys())
+      if (sequence <= acknowledged) this.directionInputs.delete(sequence);
+    this.predictor.seedFrom(snapshot, performance.now(), this.desiredHold === 'playing', [
+      ...this.directionInputs.values(),
+    ]);
+    this.peers.accept(snapshot);
     this.snapshot = snapshot;
     for (const handler of this.snapshots) handler(structuredClone(snapshot));
   }

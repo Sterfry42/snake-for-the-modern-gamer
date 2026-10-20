@@ -15,6 +15,7 @@ logger.log({
     pid: process.pid,
     nodeVersion: process.version,
     platform: process.platform,
+    hostAuthenticationConfigured: (process.env.SNAKE_HOST_TOKEN?.length ?? 0) >= 16,
     saveDirectory: resolve(process.env.SNAKE_SAVE_DIRECTORY ?? '.snake-server-saves'),
   },
 });

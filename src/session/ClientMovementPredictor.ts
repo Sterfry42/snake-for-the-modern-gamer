@@ -41,17 +41,33 @@ export class ClientMovementPredictor {
   private stopped = false;
   private submitted = false;
   private correction: { body: Vector2Like[]; roomId: string; startedAt: number } | null = null;
+  private connected = false;
+  private seedAt = 0;
+  private clockOffset: number | null = null;
 
-  seedFrom(snapshot: GameSnapshot, now = performance.now()): void {
+  seedFrom(
+    snapshot: GameSnapshot,
+    now = performance.now(),
+    connected = false,
+    pendingDirections: readonly Vector2Like[] = [],
+  ): void {
     const player = snapshot.players[snapshot.localPlayerId];
+    const resetClock =
+      this.epoch !== snapshot.replication?.epoch ||
+      !this.seed?.movementPredictionAllowed ||
+      !player?.movementPredictionAllowed ||
+      this.seed.movementIntervalMs !== player.movementIntervalMs;
+    if (resetClock) this.clockOffset = null;
     if (this.epoch !== snapshot.replication?.epoch) this.rooms.clear();
     this.epoch = snapshot.replication?.epoch;
     for (const room of snapshot.clientState?.worldRooms ?? []) this.rooms.set(room.id, room);
     for (const entry of Object.values(snapshot.viewport.rooms))
       this.rooms.set(entry.id, entry.room);
+    this.advance(now);
     const previous = this.state;
     this.correction = null;
     if (
+      !connected &&
       previous &&
       player?.alive &&
       player.movementPredictionAllowed &&
@@ -67,12 +83,72 @@ export class ClientMovementPredictor {
         this.correction = { body: previous.body, roomId: player.roomId, startedAt: now };
     }
     this.liveInputs = [];
+    if (connected)
+      this.liveInputs = pendingDirections.map((direction) => ({
+        step: 0,
+        direction: { ...direction },
+      }));
     this.seed = player ? structuredClone(player) : null;
     this.grid = player?.movementGrid;
     this.state = null;
     this.startedAt = null;
     this.submitted = false;
     this.queue = player?.directionQueue ? structuredClone(player.directionQueue) : null;
+    this.connected =
+      connected &&
+      Boolean(player?.alive && player.movementPredictionAllowed && this.queue && this.grid);
+    this.seedAt = now;
+    if (this.connected && player) {
+      // A stable server-tick anchor keeps the local step clock running through
+      // publication jitter. Only bounded latency is projected between snapshots.
+      this.clockOffset = Math.max(
+        now - snapshot.tick - 250,
+        Math.min(this.clockOffset ?? Infinity, now - snapshot.tick),
+      );
+      const horizon = Math.max(0, now - this.clockOffset - snapshot.tick);
+      this.state = this.initializeState(now - horizon);
+      for (const direction of pendingDirections) queueSnakeDirection(this.queue!, direction);
+      this.advance(now);
+      if (
+        previous &&
+        this.state &&
+        previous.roomId === this.state.roomId &&
+        previous.body.length === this.state.body.length
+      ) {
+        const distance = Math.max(
+          ...previous.body.map((point, index) =>
+            Math.hypot(point.x - this.state!.body[index].x, point.y - this.state!.body[index].y),
+          ),
+        );
+        if (distance > 0 && distance <= 1.5)
+          this.correction = { body: previous.body, roomId: this.state.roomId, startedAt: now };
+      }
+    }
+  }
+
+  private initializeState(now: number): PredictedSnake | null {
+    if (!this.seed) return null;
+    const state = {
+      body: structuredClone(this.seed.body),
+      roomId: this.seed.roomId,
+      direction: { ...this.seed.direction },
+    };
+    this.lastAt = now;
+    this.accumulator = this.seed.movementAccumulatorMs ?? 0;
+    this.steps = 0;
+    this.inputs = [];
+    this.stopped = false;
+    return state;
+  }
+
+  cancel(): void {
+    this.connected = false;
+    this.startedAt = null;
+    this.state = null;
+    this.queue = null;
+    this.correction = null;
+    this.liveInputs = [];
+    this.clockOffset = null;
   }
 
   begin(connectionId: string, now = performance.now()): void {
@@ -84,11 +160,12 @@ export class ClientMovementPredictor {
     )
       return;
     this.connectionId = connectionId;
-    this.state = {
-      body: structuredClone(this.seed.body),
-      roomId: this.seed.roomId,
-      direction: { ...this.seed.direction },
-    };
+    this.advance(now);
+    const previous = this.state;
+    this.connected = false;
+    this.queue = structuredClone(this.seed.directionQueue!);
+    this.state = this.initializeState(now);
+    for (const input of this.liveInputs) queueSnakeDirection(this.queue, input.direction);
     this.startedAt = now;
     this.lastAt = now;
     this.accumulator = this.seed.movementAccumulatorMs ?? 0;
@@ -97,6 +174,18 @@ export class ClientMovementPredictor {
     this.stopped = false;
     this.submitted = false;
     this.correction = null;
+    if (
+      previous &&
+      this.state &&
+      previous.roomId === this.state.roomId &&
+      previous.body.length === this.state.body.length &&
+      previous.body.every(
+        (point, index) =>
+          Math.hypot(point.x - this.state!.body[index].x, point.y - this.state!.body[index].y) <=
+          1.5,
+      )
+    )
+      this.correction = { body: previous.body, roomId: previous.roomId, startedAt: now };
   }
 
   direction(direction: Vector2Like, now = performance.now()): boolean {
@@ -107,6 +196,13 @@ export class ClientMovementPredictor {
       !this.queue
     )
       return false;
+    if (this.connected) {
+      this.advance(now);
+      if (this.stopped || this.liveInputs.length >= MAX_RESUME_INPUTS) return false;
+      const accepted = queueSnakeDirection(this.queue, direction);
+      if (accepted) this.liveInputs.push({ step: 0, direction: { ...direction } });
+      return accepted;
+    }
     if (this.startedAt === null) {
       if (this.liveInputs.length >= MAX_RESUME_INPUTS) return false;
       const accepted = queueSnakeDirection(this.queue, direction);
@@ -128,7 +224,7 @@ export class ClientMovementPredictor {
 
   advance(now = performance.now()): void {
     if (
-      this.startedAt === null ||
+      (!this.connected && this.startedAt === null) ||
       !this.state ||
       !this.queue ||
       !this.grid ||
@@ -136,7 +232,8 @@ export class ClientMovementPredictor {
       this.stopped
     )
       return;
-    const end = Math.min(now, this.startedAt + MOVEMENT_GRACE_MS);
+    const startedAt = this.startedAt ?? this.seedAt;
+    const end = Math.min(now, startedAt + MOVEMENT_GRACE_MS);
     this.accumulator += Math.max(0, end - this.lastAt);
     this.lastAt = end;
     const interval = this.seed?.movementIntervalMs;
@@ -153,7 +250,7 @@ export class ClientMovementPredictor {
       this.steps++;
       if (this.stopped) break;
     }
-    if (now - this.startedAt >= MOVEMENT_GRACE_MS || this.steps >= MAX_PREDICTED_STEPS)
+    if (now - startedAt >= MOVEMENT_GRACE_MS || this.steps >= MAX_PREDICTED_STEPS)
       this.stopped = true;
   }
 
@@ -208,20 +305,22 @@ export class ClientMovementPredictor {
   presentation(player: PlayerSnapshot, now = performance.now()): PredictedSnake | null {
     if (!player.alive) return null;
     this.advance(now);
-    if (this.state) return structuredClone(this.state);
+    if (this.state && !this.correction) return structuredClone(this.state);
     if (this.correction && this.correction.roomId === player.roomId) {
       const amount = Math.min(1, Math.max(0, (now - this.correction.startedAt) / 120));
+      const target = this.state ?? player;
       if (amount < 1)
         return {
           roomId: player.roomId,
-          direction: { ...player.direction },
-          body: player.body.map((point, index) => ({
+          direction: { ...target.direction },
+          body: target.body.map((point, index) => ({
             x: this.correction!.body[index].x * (1 - amount) + point.x * amount,
             y: this.correction!.body[index].y * (1 - amount) + point.y * amount,
           })),
         };
       this.correction = null;
     }
+    if (this.state) return structuredClone(this.state);
     return null;
   }
 

@@ -15,6 +15,7 @@ export type ClientCommand =
       type: 'setDirection';
       playerId: PlayerId;
       direction: Vector2Like;
+      inputSequence?: number;
     }
   | {
       type: 'forceDirection';

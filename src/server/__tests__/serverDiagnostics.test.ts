@@ -226,6 +226,7 @@ describe('operational server logging', () => {
       await vi.waitFor(() =>
         expect(received).toHaveBeenCalledWith({
           type: 'setDirection',
+          inputSequence: 1,
           playerId: id,
           direction: { x: 0, y: 1 },
         }),

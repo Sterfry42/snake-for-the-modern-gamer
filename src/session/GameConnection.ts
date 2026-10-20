@@ -12,6 +12,10 @@ export interface GameConnection {
   onStatus?(handler: (status: 'connected' | 'reconnecting' | 'closed') => void): () => void;
   onDisconnect?(handler: (reason: string) => void): () => void;
   getMovementPresentation?(): import('./ClientMovementPredictor.js').PredictedSnake | null;
+  getPeerMovementPresentation?(
+    playerId: string,
+  ): import('./ClientMovementPredictor.js').PredictedSnake | null;
+  hasPeerMovementPresentation?(): boolean;
   isPredictionExhausted?(): boolean;
   disconnect(): void;
 }

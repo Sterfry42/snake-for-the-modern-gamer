@@ -83,6 +83,7 @@ import { RemoteCheckpointBrowser } from '../session/RemoteCheckpointBrowser.js';
 import { RemoteSceneSession } from '../session/RemoteSceneSession.js';
 import { PartyOverlay } from '../ui/partyOverlay.js';
 import { WebSocketGameConnection } from '../session/WebSocketGameConnection.js';
+import { PlayerHoldSynchronizer } from '../session/PlayerHoldSynchronizer.js';
 import type { ClientCommand, CommandResult } from '../session/ClientCommand.js';
 import { ServerConnectionMenu } from '../ui/serverConnectionMenu.js';
 import { FeatureManager } from '../systems/features.js';
@@ -1789,12 +1790,13 @@ export default class SnakeScene extends Phaser.Scene {
     this.installE2EBridge();
 
     // Autosave timer: save every 30 seconds during gameplay
-    this.autosaveTimer = this.time.addEvent({
-      delay: 30000,
-      callback: this.triggerAutosave,
-      callbackScope: this,
-      repeat: -1,
-    });
+    if (!this.sceneClient)
+      this.autosaveTimer = this.time.addEvent({
+        delay: 30000,
+        callback: this.triggerAutosave,
+        callbackScope: this,
+        repeat: -1,
+      });
     this.debugSnapshotTimer = this.time.addEvent({
       delay: 10000,
       callback: this.emitPeriodicDebugSnapshot,
@@ -2006,7 +2008,8 @@ export default class SnakeScene extends Phaser.Scene {
   private sceneClient: SceneGameClient | null = null;
   private readReplica: SceneReadReplica | null = null;
   private stopLocalAuthority: (() => void) | null = null;
-  private remoteHold = '';
+  private readonly remoteHold = new PlayerHoldSynchronizer();
+  private remoteConnectionStatus: 'connected' | 'reconnecting' | 'closed' = 'connected';
   private readonly presentationFlags = new Map<string, unknown>();
   private actorInteractionContext: { actorId: string; revision: number } | null = null;
   private actorIntentPending = false;
@@ -2200,6 +2203,10 @@ export default class SnakeScene extends Phaser.Scene {
         await remote.ready;
       }
       this.gameConnection = connection;
+      if (backend !== 'local') {
+        this.autosaveTimer?.remove();
+        this.autosaveTimer = null;
+      }
       this.sceneClient ??= new SceneGameClient(connection);
       const registry = await createQuestRegistry();
       this.readReplica = new SceneReadReplica(
@@ -2228,10 +2235,8 @@ export default class SnakeScene extends Phaser.Scene {
       if (backend !== 'local') {
         this.partyOverlay = new PartyOverlay(backend, () => this.leaveServer());
         connection.onStatus?.((status) => {
+          this.remoteConnectionStatus = status;
           this.partyOverlay?.setStatus(status);
-          if (status === 'connected') {
-            this.remoteHold = '';
-          }
         });
       }
       this.unsubscribeSnapshot = connection.onSnapshot((snapshot) => {
@@ -6315,7 +6320,8 @@ export default class SnakeScene extends Phaser.Scene {
 
   private persistSessionProgress(): void {
     if (this.sceneClient) {
-      void this.submitRemote({ type: 'saveGame', playerId: this.snakeGame.getLocalPlayerId() });
+      if (this.gameConnection instanceof LocalGameConnection)
+        void this.submitRemote({ type: 'saveGame', playerId: this.snakeGame.getLocalPlayerId() });
       return;
     }
     // Autosaves live inside the active session; no session yet, no save.
@@ -10928,7 +10934,11 @@ export default class SnakeScene extends Phaser.Scene {
     ) {
       this.bossHud?.hide();
     }
-    if (this.gameConnection?.getMovementPresentation?.()) this.isDirty = true;
+    if (
+      this.gameConnection?.getMovementPresentation?.() ||
+      this.gameConnection?.hasPeerMovementPresentation?.()
+    )
+      this.isDirty = true;
     this.partyOverlay?.setPredictionExhausted(
       this.gameConnection?.isPredictionExhausted?.() ?? false,
     );
@@ -11399,8 +11409,10 @@ export default class SnakeScene extends Phaser.Scene {
             : mode === 'paused'
               ? 'paused'
               : 'dialogue';
-      if (hold !== this.remoteHold) {
-        this.remoteHold = hold;
+      if (
+        this.remoteConnectionStatus === 'connected' &&
+        this.remoteHold.shouldSend(hold, this.sceneClient.getPlayerInteraction(), performance.now())
+      ) {
         void this.submitRemote({
           type: 'playerInteraction',
           playerId: this.snakeGame.getLocalPlayerId(),
@@ -12381,7 +12393,10 @@ export default class SnakeScene extends Phaser.Scene {
         this.choicePopupVisible ||
         Boolean(this.arcadeSnakeRenderer?.isOpen()),
     );
-    const snapshot = this.gameSession.getSnapshot();
+    const snapshot =
+      this.sceneClient && this.currentSnapshot
+        ? this.currentSnapshot
+        : this.gameSession.getSnapshot();
     this.currentSnapshot = snapshot;
     const authoritativePlayer = snapshot.players[snapshot.localPlayerId];
     const predictedMovement = this.gameConnection.getMovementPresentation?.();
@@ -12552,7 +12567,7 @@ export default class SnakeScene extends Phaser.Scene {
           .map((player) => ({
             id: player.id,
             name: player.name,
-            body: player.body,
+            body: this.gameConnection.getPeerMovementPresentation?.(player.id)?.body ?? player.body,
             direction: player.direction,
             appearance: player.appearance,
             activeEmoticon: player.activeEmoticon,

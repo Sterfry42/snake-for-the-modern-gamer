@@ -28,6 +28,8 @@ Keep the current file and the three archives after reproducing a problem. A serv
 ## What is recorded
 
 - Startup, listening address/protocol version, shutdown signals, fatal exceptions, Node warnings, and stopped simulation errors with stacks.
+- `server.starting.hostAuthenticationConfigured` reports whether a usable host key (at least 16 characters) was configured; the key is never logged. Saved-character identity never grants host privileges.
+- `checkpoint.autosaved` / `checkpoint.autosave-failed` report the server's single 30-second checkpoint timer. Remote browsers do not autosave; explicit manual checkpoint commands still require host privilege. Capture runs in authority order, disk writes run outside the simulation queue, and overlapping autosave cycles are skipped while the prior write is pending.
 - Socket opening, time waiting for serialized attachment, welcome readiness, stable player/connection/room IDs, suspension, resume and final detachment.
 - Close codes and explicit server causes: `heartbeat-timeout`, `socket-error`, `outbound-backpressure`, `resume-hello-timeout`, `invalid-resume-hello`, `invalid-command`, `attach-failed`, `superseded`, or `server-shutdown`. A loss with no observed server cause is marked `abnormal-transport-close` or `peer-close`. Arbitrary peer-provided close text is not logged; its byte count is retained.
 - Ping/pong RTT, age of the last received message/pong, outbound buffered bytes and connection lifetime.
@@ -37,6 +39,18 @@ Keep the current file and the three archives after reproducing a problem. A serv
 - One `performance.sample` every ten seconds: room and Actor counts, active/suspended players, state publication rate, payload bytes, snapshot build/serialization maxima, Actor/update time, publication delay/skipped ticks, authority queue depth/active operation/age, CPU usage, process memory, event-loop utilization and delay. Up to 16 active connections include RTT, buffer and command timing summaries; `connectionsTruncated` identifies a partial sample. Connection command counters/maxima are cumulative for that connection; authority/CPU/event-loop samples cover the reporting interval.
 
 `maximumAckMs` and `command.slow-ack` measure receipt through the server's attempt to send a command result. They are not proof the browser received it. Socket sends, replies, and reconnect reports should be correlated by connection and request ID.
+
+Performance samples include up to 32 player movement records: `movementRevision`, `movementIntervalMs`, `movementAccumulatorMs`, `head`, `held` and the concrete `holdReason` (for example `playerInteraction:dialogue`, `interaction`, `manual-area` or `suspended`). `playersTruncated` indicates more players. A stationary revision alongside a hold reason distinguishes a held player from a stalled simulation. Expected failed shots return `shot-unavailable` and count toward rejection totals but do not emit warning records; other command warnings always have a reason or message.
+
+## Fixed-population memory soak
+
+Run an isolated two-client world with roughly 40 cached rooms and 40 offscreen Actors, then hold exploration steady for 30 minutes:
+
+```powershell
+node --expose-gc --import tsx scripts/soak-server-performance.ts 30
+```
+
+The runner warms up loaded-room materialization, then records forced post-GC heap/RSS, room count, Actor count and `fixedPopulation` every ten seconds in a separate ignored `.snake-server-logs/soak-*/server.jsonl`. It never opens real player saves. Use `60` for an hour; Ctrl+C shuts down cleanly. Interpret a rising post-GC floor only across samples with a stable population. A short smoke run verifies the harness, not long-term leak freedom. This synthetic workload complements a real explored-town session; it cannot prove the absence of every content-specific leak.
 
 ## Reading the evidence
 
