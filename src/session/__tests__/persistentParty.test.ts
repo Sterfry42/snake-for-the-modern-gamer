@@ -65,7 +65,7 @@ describe('persistent server crew', () => {
       game.setFlag('crew.test.progress', 42);
     });
     const body = session.getSnapshot(id).players[id].body;
-    alice.socket.close();
+    alice.socket.close(1000, 'Left server');
     await vi.waitFor(() =>
       expect(
         Object.values(session.getSnapshot().connections ?? {}).some((peer) => peer.playerId === id),
@@ -177,7 +177,7 @@ describe('persistent server crew', () => {
     );
     expect(session.getSnapshot().players[id].activeEmoticon).toBeNull();
     game.getPlayer(id)!.alive = false;
-    alice.socket.close();
+    alice.socket.close(1000, 'Left server');
     await vi.waitFor(() =>
       expect(
         Object.values(session.getSnapshot().connections ?? {}).some((peer) => peer.playerId === id),

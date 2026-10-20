@@ -11,5 +11,7 @@ export interface GameConnection {
   onEvent(handler: (event: GameEvent) => void): () => void;
   onStatus?(handler: (status: 'connected' | 'reconnecting' | 'closed') => void): () => void;
   onDisconnect?(handler: (reason: string) => void): () => void;
+  getMovementPresentation?(): import('./ClientMovementPredictor.js').PredictedSnake | null;
+  isPredictionExhausted?(): boolean;
   disconnect(): void;
 }

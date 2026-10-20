@@ -37,6 +37,7 @@ export interface ConnectionPresence {
   connectionId: string;
   playerId: PlayerId;
   displayName: string;
+  suspended?: boolean;
 }
 
 export interface ViewportSnapshot {
@@ -83,6 +84,12 @@ export interface PlayerSnapshot {
   score: number;
   alive: boolean;
   isLocal: boolean;
+  movementRevision?: number;
+  movementIntervalMs?: number;
+  movementAccumulatorMs?: number;
+  movementPredictionAllowed?: boolean;
+  movementGrid?: import('../config/gameConfig.js').GridConfig;
+  directionQueue?: import('../systems/snakeDirectionQueue.js').SnakeDirectionQueue;
   activeEmoticon?: string | null;
   appearance?: import('../players/playerTypes.js').PlayerAppearance;
 }

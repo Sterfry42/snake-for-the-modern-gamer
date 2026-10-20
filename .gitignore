@@ -17,6 +17,7 @@ __pycache__/
 apworld/*.apworld
 .debug-runs/
 .snake-server-saves/
+.snake-server-logs/
 playwright-report/
 test-results/
 *.local

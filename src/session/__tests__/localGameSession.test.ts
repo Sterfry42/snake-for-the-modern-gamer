@@ -232,13 +232,13 @@ describe('LocalGameSession', () => {
   it('kills the local player when it runs into the debug second player', () => {
     const game = createGame();
     game.reset({ preserveRunSeed: true });
+    game.bosses.clearAll();
+    const room = game.getCurrentRoom();
+    room.layout = room.layout.map((row) => '.'.repeat(row.length));
     game.setDebugSecondPlayerEnabled(true);
-    game.forceDirection(1, 0);
-
-    let result = game.actionStep(false);
-    for (let i = 0; i < 8 && result.status === 'alive'; i += 1) {
-      result = game.actionStep(false);
-    }
+    const target = game.getSnapshot().players['debug-player-2'].body[0];
+    game.placeSnakeBodyAtLocal(room.id, { x: target.x - 1, y: target.y }, { x: 1, y: 0 });
+    const result = game.actionStep(false);
 
     expect(result.status).toBe('dead');
     expect(result.deathReason).toBe('self');

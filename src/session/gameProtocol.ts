@@ -6,7 +6,7 @@ import type { GameSnapshot } from './GameSnapshot.js';
 import { SPECIAL_STAT_IDS } from '../stats/specialTypes.js';
 import { EQUIPMENT_SLOTS } from '../inventory/item.js';
 
-export const GAME_PROTOCOL_VERSION = 3;
+export const GAME_PROTOCOL_VERSION = 4;
 
 export interface CommandMessage {
   type: 'command';
@@ -21,6 +21,7 @@ export type ServerMessage =
       connectionId: string;
       playerId: string;
       resumeToken: string;
+      diagnostics?: boolean;
       snapshot: GameSnapshot;
     }
   | { type: 'snapshot'; snapshot: GameSnapshot }

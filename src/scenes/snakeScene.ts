@@ -515,6 +515,7 @@ interface SnakeE2EWindowApi {
     quest: ReturnType<QuestPopup['getPresentationState']>;
     choice: ReturnType<ChoicePopup['getPresentationState']>;
     players: ReturnType<SnakeRenderer['getPlayerPresentation']>;
+    movement: import('../session/ClientMovementPredictor.js').PredictedSnake | null;
   };
 
   getPauseState(): ReturnType<ReturnType<SkillTreeManager['getOverlay']>['getNavigationState']>;
@@ -3887,6 +3888,7 @@ export default class SnakeScene extends Phaser.Scene {
         quest: this.questPopup.getPresentationState(),
         choice: this.villageShopPopup.getPresentationState(),
         players: this.snakeRenderer.getPlayerPresentation(),
+        movement: this.gameConnection?.getMovementPresentation?.() ?? null,
       }),
       getPauseState: () => this.skillTree.getOverlay().getNavigationState(),
       navigatePause: (command) => this.skillTree.getOverlay().handleControllerCommand(command),
@@ -7631,11 +7633,15 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   get snake(): readonly Vector2Like[] {
-    return this.snakeGame.getSnakeBody();
+    return this.gameConnection?.getMovementPresentation?.()?.body ?? this.snakeGame.getSnakeBody();
   }
 
   get currentRoomId(): string {
-    if (this.sceneClient) return this.sceneClient.getCurrentRoom().id;
+    if (this.sceneClient)
+      return (
+        this.gameConnection?.getMovementPresentation?.()?.roomId ??
+        this.sceneClient.getCurrentRoom().id
+      );
     return (
       this.snakeGame?.getPlayer(this.snakeGame.getLocalPlayerId())?.snake.currentRoomId ??
       defaultGameConfig.world.originRoomId
@@ -10922,6 +10928,10 @@ export default class SnakeScene extends Phaser.Scene {
     ) {
       this.bossHud?.hide();
     }
+    if (this.gameConnection?.getMovementPresentation?.()) this.isDirty = true;
+    this.partyOverlay?.setPredictionExhausted(
+      this.gameConnection?.isPredictionExhausted?.() ?? false,
+    );
     this.updateSimulation(delta);
     this.updatePerformanceHud(delta);
     const firstPersonActive = this.isFirstPersonPresentationActive();
@@ -12373,7 +12383,12 @@ export default class SnakeScene extends Phaser.Scene {
     );
     const snapshot = this.gameSession.getSnapshot();
     this.currentSnapshot = snapshot;
-    const localPlayer = snapshot.players[snapshot.localPlayerId];
+    const authoritativePlayer = snapshot.players[snapshot.localPlayerId];
+    const predictedMovement = this.gameConnection.getMovementPresentation?.();
+    const localPlayer =
+      authoritativePlayer && predictedMovement
+        ? { ...authoritativePlayer, ...predictedMovement }
+        : authoritativePlayer;
     const theme = this.getActiveSnakeTheme();
     const appearance: import('../players/playerTypes.js').PlayerAppearance = {
       themeId: theme.id,
@@ -12390,8 +12405,15 @@ export default class SnakeScene extends Phaser.Scene {
         playerId: this.snakeGame.getLocalPlayerId(),
       });
     }
-    const roomSnapshot =
-      snapshot.viewport.rooms[localPlayer?.roomId ?? snapshot.viewport.centerRoomId];
+    const visibleRoomId = localPlayer?.roomId ?? snapshot.viewport.centerRoomId;
+    const cachedPredictedRoom = predictedMovement
+      ? this.snakeGame.peekCachedRoom(visibleRoomId)
+      : undefined;
+    const roomSnapshot: GameSnapshot['viewport']['rooms'][string] | undefined =
+      snapshot.viewport.rooms[visibleRoomId] ??
+      (cachedPredictedRoom
+        ? { id: visibleRoomId, room: cachedPredictedRoom, layout: cachedPredictedRoom.layout }
+        : undefined);
     const binocularsView =
       this.binocularsViewportActive && localPlayer
         ? this.buildBinocularsRenderView(localPlayer.roomId, roomSnapshot)

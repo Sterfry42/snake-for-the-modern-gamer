@@ -64,3 +64,7 @@ The shared client architecture and the command paths listed above are implemente
 `specialtyServices.test.ts` covers private excavation boards, authority time and real earned rewards, stale and replayed controls, disconnect/reconnect cleanup, death cancellation, foreman identity, guild costs/proximity/stock access, and cross-player job replay rejection. `specialtyServices.smoke.spec.ts` drives the existing excavation and guild/black-market screens over WebSocket, including cursor/swap juice, peer movement during excavation, the normal summary, and Moleman dialogue.
 
 `persistentParty.test.ts` covers opaque identity/state retention, death preservation, permission separation and revocation, takeover, shared expiring emoticons, and real-socket automatic reconnect. `persistentParty.smoke.spec.ts` covers invite/name entry, refresh, inventory retention, crew notices, normal Tab emoticons, a severed socket, and explicit leave in real browsers with separate storage.
+
+Short socket interruptions use the existing authority with a bounded input replay and isolated client presentation; see [movement reconnects](movement-reconnect.md).
+
+Operational evidence for stalls and connection failures is described in [server logging](server-logging.md).

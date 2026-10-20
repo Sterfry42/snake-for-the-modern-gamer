@@ -1,3 +1,10 @@
+import type { DiagnosticSink, SessionDiagnostic } from './SessionDiagnostic.js';
+import {
+  MOVEMENT_GRACE_MS,
+  MAX_PREDICTED_STEPS,
+  isMovementReplay,
+  type MovementReplay,
+} from './MovementResume.js';
 import { setSavedGameData } from '../game/saveManager.js';
 import {
   describeActionOutcome,
@@ -47,18 +54,68 @@ type EventHandler = (event: GameEvent) => void;
 export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   private readonly connections = new Map<string, ConnectionPresence>();
   readonly performance = new ServerPerformance();
+  private readonly diagnosticHandlers = new Set<DiagnosticSink>();
+  private pendingOperations = 0;
+  private activeOperation: { name: string; startedAt: number } | null = null;
+  private maximumQueueWaitMs = 0;
+  private maximumOperationMs = 0;
+  private lastSlowDiagnosticAt = -Infinity;
+  private diagnosticHandlerFailed = false;
+
+  onDiagnostic(handler: DiagnosticSink): () => void {
+    this.diagnosticHandlers.add(handler);
+    return () => this.diagnosticHandlers.delete(handler);
+  }
+
+  getQueueDiagnostics() {
+    return {
+      pendingOperations: this.pendingOperations,
+      activeOperation: this.activeOperation?.name ?? null,
+      activeOperationMs: this.activeOperation
+        ? performance.now() - this.activeOperation.startedAt
+        : 0,
+      maximumQueueWaitMs: this.maximumQueueWaitMs,
+      maximumOperationMs: this.maximumOperationMs,
+    };
+  }
+
+  private diagnose(
+    event: string,
+    fields: Record<string, unknown>,
+    level: SessionDiagnostic['level'] = 'info',
+  ): void {
+    for (const handler of this.diagnosticHandlers) {
+      try {
+        handler({ level, event, fields });
+      } catch (error) {
+        if (!this.diagnosticHandlerFailed)
+          console.error('[game-server] Diagnostic sink failed', error);
+        this.diagnosticHandlerFailed = true;
+      }
+    }
+  }
+
   private networkDirty = true;
   private hosted = false;
 
   getPerformanceReport(reset = false) {
-    return this.performance.read(
-      { ...this.game.getServerSimulationGauges(), connectedPlayers: this.connections.size },
-      reset,
-    );
+    const report = {
+      ...this.performance.read(
+        { ...this.game.getServerSimulationGauges(), connectedPlayers: this.connections.size },
+        reset,
+      ),
+      ...this.getQueueDiagnostics(),
+      suspendedPlayers: this.suspended.size,
+    };
+    if (reset) {
+      this.maximumQueueWaitMs = 0;
+      this.maximumOperationMs = 0;
+    }
+    return report;
   }
 
   getConnectionSnapshot(playerId: PlayerId): Promise<GameSnapshot> {
-    return this.enqueue(async () => this.buildSnapshot(false, playerId, true));
+    return this.enqueue(async () => this.buildSnapshot(false, playerId, true), 'snapshot');
   }
 
   publishNetworkState(
@@ -70,7 +127,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       this.performance.publication();
       for (const playerId of new Set([...this.connections.values()].map((peer) => peer.playerId)))
         publish(playerId, this.buildSnapshot(false, playerId, true));
-    });
+    }, 'publication');
   }
   private readonly administrators = new Set<PlayerId>();
   private readonly retainedPlayers = new Map<PlayerId, boolean>();
@@ -90,6 +147,18 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   private readonly publishedRooms = new Map<PlayerId, string>();
   private readonly playerInteractions = new Map<PlayerId, PlayerInteraction>();
   private readonly progression = new Map<PlayerId, AuthoritativeProgression>();
+  private readonly suspended = new Map<
+    PlayerId,
+    {
+      connectionId: string;
+      expiresAt: number;
+      startedAt: number;
+      interval: number;
+      accumulator: number;
+      eligible: boolean;
+    }
+  >();
+  private readonly movementRevisions = new Map<PlayerId, number>();
   private readonly actionElapsed = new Map<PlayerId, number>();
   private readonly vehicles: AuthoritativeVehicles;
   private readonly archaeology: AuthoritativeArchaeology;
@@ -99,15 +168,174 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     connectionId: string,
     name: string,
     identity?: { playerId: PlayerId; admin: boolean },
+    replay?: MovementReplay,
   ): Promise<PlayerId> {
-    return this.enqueue(async () => this.registerConnection(connectionId, name, identity));
+    return this.enqueue(async () => {
+      if (identity) this.replaySuspendedMovement(identity.playerId, replay);
+      return this.registerConnection(connectionId, name, identity);
+    }, 'attach');
   }
 
-  detachConnection(connectionId: string): Promise<void> {
+  suspendConnection(connectionId: string): Promise<void> {
     return this.enqueue(async () => {
-      this.unregisterConnection(connectionId);
-      this.refreshSnapshot();
+      const peer = this.connections.get(connectionId);
+      if (!peer || this.suspended.has(peer.playerId)) return;
+      const now = Date.now();
+      const eligible = this.game.runForPlayer(peer.playerId, () =>
+        this.predictionAllowed(peer.playerId),
+      );
+      this.suspended.set(peer.playerId, {
+        connectionId,
+        startedAt: now,
+        expiresAt: now + MOVEMENT_GRACE_MS,
+        interval: this.movementInterval(peer.playerId),
+        accumulator: this.actionElapsed.get(peer.playerId) ?? 0,
+        eligible,
+      });
+      peer.suspended = true;
+      this.diagnose('player.suspended', {
+        connectionId,
+        playerId: peer.playerId,
+        graceMs: MOVEMENT_GRACE_MS,
+        roomId: this.game.getPlayer(peer.playerId)?.snake.currentRoomId,
+        predictionEligible: eligible,
+      });
+      this.networkDirty = true;
+    }, 'suspend');
+  }
+
+  private movementInterval(playerId: PlayerId): number {
+    // Snapshot reads must not initialize or persist a player's skill runtime.
+    return this.manageBasicFeatures
+      ? Math.max(20, this.progression.get(playerId)?.intervalMs ?? 100)
+      : 100;
+  }
+
+  private predictionAllowed(playerId: PlayerId): boolean {
+    return (
+      !this.paused &&
+      this.game.getCharacterMode() === 'snake' &&
+      Boolean(this.game.getPlayer(playerId)?.alive) &&
+      !this.playerHeld(playerId)
+    );
+  }
+
+  private replaySuspendedMovement(playerId: PlayerId, replay?: MovementReplay): void {
+    const suspension = this.suspended.get(playerId);
+    const report = (
+      reason: string,
+      replayedSteps = 0,
+      level: SessionDiagnostic['level'] = 'info',
+    ) =>
+      this.diagnose(
+        'movement.replay',
+        {
+          playerId,
+          connectionId: suspension?.connectionId,
+          reason,
+          requestedSteps: replay?.steps ?? 0,
+          replayedSteps,
+          baseRevision: replay?.baseRevision,
+          serverRevision: this.movementRevisions.get(playerId) ?? 0,
+          suspendedMs: suspension ? Date.now() - suspension.startedAt : undefined,
+        },
+        level,
+      );
+    if (!suspension) {
+      if (replay) report('no-suspension', 0, 'warn');
+      return;
+    }
+    if (Date.now() > suspension.expiresAt) {
+      report('grace-expired', 0, 'warn');
+      this.unregisterConnection(suspension.connectionId, 'grace-expired');
+      return;
+    }
+    if (!replay) {
+      report('no-input-replay');
+      return;
+    }
+    if (!isMovementReplay(replay)) {
+      report('invalid-inputs', 0, 'warn');
+      return;
+    }
+    if (replay.connectionId !== suspension.connectionId) {
+      report('attempt-mismatch', 0, 'warn');
+      return;
+    }
+    if (replay.baseRevision !== (this.movementRevisions.get(playerId) ?? 0)) {
+      report('revision-mismatch', 0, 'warn');
+      return;
+    }
+    if (!suspension.eligible) {
+      report('prediction-ineligible');
+      return;
+    }
+    const elapsed = Math.min(MOVEMENT_GRACE_MS, Date.now() - suspension.startedAt);
+    // A client cannot invent extra time or bank an arbitrary burst of movement.
+    const budget = Math.min(
+      MAX_PREDICTED_STEPS,
+      Math.floor((suspension.accumulator + elapsed) / suspension.interval),
+    );
+    if (replay.steps > budget || replay.elapsedMs > elapsed + 100) {
+      report('time-budget-exceeded', 0, 'warn');
+      return;
+    }
+    this.game.runForPlayer(playerId, () => {
+      let input = 0;
+      let spent = 0;
+      let completed = 0;
+      let stoppedBy = 'completed';
+      const available = suspension.accumulator + Math.min(elapsed, replay.elapsedMs);
+      for (let step = 0; step <= replay.steps; step++) {
+        if (!this.predictionAllowed(playerId)) {
+          stoppedBy = 'player-held-or-dead';
+          break;
+        }
+        while (replay.inputs[input]?.step === step) {
+          const direction = replay.inputs[input++].direction;
+          this.game.setDirection(direction.x, direction.y);
+        }
+        if (step === replay.steps) break;
+        const interval = this.movementInterval(playerId);
+        if (spent + interval > available + 1) {
+          stoppedBy = 'movement-time-budget';
+          break;
+        }
+        const roomId = this.game.getCurrentRoom().id;
+        const head = this.game.getSnakeBody()[0];
+        const direction = this.game.getPlayer(playerId)!.snake.nextDirectionVector;
+        const expected = { x: head.x + direction.x, y: head.y + direction.y };
+        const health = this.game.getPlayerHealth().current;
+        const result = this.stepPlayerAction(false, playerId);
+        spent += interval;
+        completed++;
+        if (
+          result.status === 'dead' ||
+          this.game.getCurrentRoom().id !== roomId ||
+          !this.predictionAllowed(playerId) ||
+          this.game.getPlayerHealth().current < health ||
+          this.game.getSnakeBody()[0]?.x !== expected.x ||
+          this.game.getSnakeBody()[0]?.y !== expected.y
+        ) {
+          stoppedBy = result.status === 'dead' ? 'death' : 'authoritative-rule-or-collision';
+          break;
+        }
+      }
+      report(stoppedBy, completed);
+      this.actionElapsed.set(
+        playerId,
+        completed === replay.steps && this.predictionAllowed(playerId)
+          ? Math.min(this.movementInterval(playerId) - 1, Math.max(0, available - spent))
+          : 0,
+      );
     });
+  }
+
+  detachConnection(connectionId: string, reason = 'disconnect'): Promise<void> {
+    return this.enqueue(async () => {
+      this.unregisterConnection(connectionId, reason);
+      this.refreshSnapshot();
+    }, 'detach');
   }
 
   registerConnection(
@@ -123,6 +351,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     // Superseded sockets cannot detach or act for a replacement connection.
     for (const [id, peer] of this.connections)
       if (peer.playerId === playerId) this.connections.delete(id);
+    const resuming = this.suspended.delete(playerId);
     const returning = this.retainedPlayers.has(playerId);
     const player = this.game.addConnectedPlayer(playerId, normalizeDisplayName(displayName));
     player.alive = this.retainedPlayers.get(playerId) ?? (identity ? player.alive : true);
@@ -140,18 +369,35 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       playerId,
       displayName: normalizeDisplayName(displayName),
     });
-    this.emit({
-      type: 'party.presence',
-      name: player.name,
-      status: returning ? 'reconnected' : 'joined',
+    this.diagnose('player.attached', {
+      connectionId,
+      playerId,
+      resumedWithinGrace: resuming,
+      returning,
+      roomId: player.snake.currentRoomId,
+      admin: this.administrators.has(playerId),
     });
+    if (!resuming)
+      this.emit({
+        type: 'party.presence',
+        name: player.name,
+        status: returning ? 'reconnected' : 'joined',
+      });
     return playerId;
   }
 
-  unregisterConnection(connectionId: string): void {
+  unregisterConnection(connectionId: string, reason = 'disconnect'): void {
     const peer = this.connections.get(connectionId);
     this.connections.delete(connectionId);
     if (!peer) return;
+    this.diagnose('player.detached', {
+      connectionId,
+      playerId: peer.playerId,
+      wasSuspended: this.suspended.has(peer.playerId),
+      reason,
+      roomId: this.game.getPlayer(peer.playerId)?.snake.currentRoomId,
+    });
+    this.suspended.delete(peer.playerId);
     this.interactions.remove(peer.playerId);
     this.playerInteractions.delete(peer.playerId);
     this.game.runForPlayer(peer.playerId, () => this.vehicles.abandon());
@@ -174,7 +420,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     } else this.game.removeConnectedPlayer(peer.playerId);
   }
 
-  private simulationPlayers() {
+  private simulationPlayers(includeSuspended = false) {
     const ids =
       this.connections.size > 0
         ? [...new Set([...this.connections.values()].map((peer) => peer.playerId))]
@@ -182,6 +428,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
           ? []
           : [this.localPlayerId];
     return ids
+      .filter((id) => includeSuspended || !this.suspended.has(id))
       .map((id) => this.game.getPlayer(id))
       .filter((player): player is PlayerRuntime => player !== null && player.alive);
   }
@@ -296,6 +543,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   /** Commands, persistence, and asynchronous actor steps share one ordered queue. */
   executeCommand(command: ClientCommand): Promise<CommandResult> {
     return this.enqueue(async () => {
+      if (this.suspended.has(command.playerId)) return { ok: false, reason: 'player-suspended' };
       if (!this.game.getPlayer(command.playerId)) return { ok: false, reason: 'unknown-player' };
       if (command.type === 'actorAction' || command.type === 'datingAction') {
         if (
@@ -454,6 +702,12 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
             this.checkpoint = structuredClone(data);
             this.progression.clear();
             this.actionElapsed.clear();
+            for (const player of this.game.getPlayers())
+              this.movementRevisions.set(
+                player.id,
+                (this.movementRevisions.get(player.id) ?? 0) + 1,
+              );
+            for (const suspension of this.suspended.values()) suspension.eligible = false;
             this.vehicles.reset();
             this.minigames.reset();
             this.archaeology.reset();
@@ -474,7 +728,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         }
       }
       return this.game.runForPlayer(command.playerId, () => this.handleCommand(command));
-    });
+    }, `command:${command.type}`);
   }
 
   private getProgression(playerId: PlayerId): AuthoritativeProgression {
@@ -498,7 +752,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
           expressionExpired = true;
         }
       }
-      const running = !this.paused && this.simulationPlayers().length > 0;
+      const running = !this.paused && this.simulationPlayers(true).length > 0;
       if (running) {
         this.advanceEnvironment(deltaMs);
       }
@@ -511,13 +765,13 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       });
       const steps = this.dueSteps.splice(0);
       for (const step of steps) {
-        if (this.paused || this.simulationPlayers().length === 0) break;
+        if (this.paused || this.simulationPlayers(true).length === 0) break;
         await step();
       }
       if (expressionExpired) this.emitSnapshot();
       if (running || expressionExpired) this.networkDirty = true;
       this.performance.update(performance.now() - updateStartedAt);
-    });
+    }, 'simulation');
   }
 
   /** Shared environment clock for the headless scheduler and the legacy local clock adapter. */
@@ -526,7 +780,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     const elapsed = Math.min(deltaMs, 250);
     const now = Number(this.game.getFlag<number>('timeMs') ?? 0) + elapsed;
     this.game.setFlag('timeMs', now);
-    for (const player of this.simulationPlayers()) player.snake.flags.timeMs = now;
+    for (const player of this.simulationPlayers(true)) player.snake.flags.timeMs = now;
     this.game.updateAtmosphere(elapsed);
     if (this.manageBasicFeatures)
       for (const player of this.simulationPlayers())
@@ -570,19 +824,43 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     await this.work;
   }
 
-  private enqueue<T>(operation: () => Promise<T>): Promise<T> {
+  private enqueue<T>(operation: () => Promise<T>, name = 'operation'): Promise<T> {
+    const queuedAt = performance.now();
+    this.pendingOperations++;
     const next = this.work.then(async () => {
+      const startedAt = performance.now();
+      const waitMs = startedAt - queuedAt;
+      this.maximumQueueWaitMs = Math.max(this.maximumQueueWaitMs, waitMs);
+      this.activeOperation = { name, startedAt };
       try {
         return await operation();
       } finally {
-        if (this.manageBasicFeatures) {
-          const ids = new Set([
-            this.localPlayerId,
-            ...[...this.connections.values()].map((peer) => peer.playerId),
-          ]);
-          for (const id of ids)
-            if (this.game.getPlayer(id))
-              this.game.runForPlayer(id, () => this.publishGameplayOutcome(id));
+        try {
+          if (this.manageBasicFeatures) {
+            const ids = new Set([
+              this.localPlayerId,
+              ...[...this.connections.values()].map((peer) => peer.playerId),
+            ]);
+            for (const id of ids)
+              if (this.game.getPlayer(id))
+                this.game.runForPlayer(id, () => this.publishGameplayOutcome(id));
+          }
+        } finally {
+          const durationMs = performance.now() - startedAt;
+          this.maximumOperationMs = Math.max(this.maximumOperationMs, durationMs);
+          this.pendingOperations--;
+          this.activeOperation = null;
+          if (
+            (waitMs >= 250 || durationMs >= 100) &&
+            performance.now() - this.lastSlowDiagnosticAt >= 1000
+          ) {
+            this.lastSlowDiagnosticAt = performance.now();
+            this.diagnose(
+              'session.slow-operation',
+              { operation: name, waitMs, durationMs, pendingOperations: this.pendingOperations },
+              'warn',
+            );
+          }
         }
       }
     });
@@ -643,6 +921,10 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       this.minigames.reset(command.playerId);
       this.archaeology.reset(command.playerId);
       this.actionElapsed.delete(command.playerId);
+      this.movementRevisions.set(
+        command.playerId,
+        (this.movementRevisions.get(command.playerId) ?? 0) + 1,
+      );
       this.expressions.delete(command.playerId);
       this.interactions.remove(command.playerId);
       this.playerInteractions.delete(command.playerId);
@@ -657,6 +939,9 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       this.archaeology.reset();
       this.progression.clear();
       this.actionElapsed.clear();
+      for (const player of this.game.getPlayers())
+        this.movementRevisions.set(player.id, (this.movementRevisions.get(player.id) ?? 0) + 1);
+      for (const suspension of this.suspended.values()) suspension.eligible = false;
       this.interactions.reset();
       this.playerInteractions.clear();
       this.game.reset();
@@ -762,6 +1047,8 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     const scoreBefore = this.game.getScore();
     const lengthBefore = this.game.getSnakeLength();
     const result = this.game.actionStep(paused, { advanceBombs: !this.manageBasicFeatures });
+    if (!paused)
+      this.movementRevisions.set(playerId, (this.movementRevisions.get(playerId) ?? 0) + 1);
     this.resolvePlayerDeath(result, playerId);
     if (this.manageBasicFeatures && !paused && result.status !== 'dead') {
       const progression = this.getProgression(playerId);
@@ -833,7 +1120,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
 
   async actorClockStep(stepMs?: number): Promise<StepResult | null> {
     const startedAt = performance.now();
-    const playerId = this.hosted ? this.simulationPlayers()[0]?.id : this.localPlayerId;
+    const playerId = this.hosted ? this.simulationPlayers(true)[0]?.id : this.localPlayerId;
     if (!playerId) return null;
     try {
       return await this.game.runForPlayerAsync(playerId, () =>
@@ -850,7 +1137,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       this.resolvePlayerDeath(first, this.localPlayerId);
       if (first.status === 'dead') this.game.getPlayer(this.localPlayerId)!.alive = false;
     }
-    for (const player of this.simulationPlayers()) {
+    for (const player of this.simulationPlayers(true)) {
       const result = this.game.runForPlayer(player.id, () => {
         const result = this.game.hazardClockStep();
         if (result) this.resolvePlayerDeath(result, player.id);
@@ -936,6 +1223,9 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   ): boolean {
     const loaded = this.game.loadGame(getReligionChoice, getClassChoice, getBackgroundChoice);
     if (loaded) {
+      for (const player of this.game.getPlayers())
+        this.movementRevisions.set(player.id, (this.movementRevisions.get(player.id) ?? 0) + 1);
+      for (const suspension of this.suspended.values()) suspension.eligible = false;
       this.archaeology.reset();
       this.interactions.reset();
       this.playerInteractions.clear();
@@ -995,8 +1285,20 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       checkpoint: this.canManageWorld(playerId) ? this.checkpoint : null,
     };
     snapshot.permissions = { manageWorld: this.canManageWorld(playerId) };
-    for (const player of Object.values(snapshot.players))
+    for (const player of Object.values(snapshot.players)) {
       player.activeEmoticon = this.expressions.get(player.id)?.id ?? null;
+      player.movementRevision = this.movementRevisions.get(player.id) ?? 0;
+      player.movementIntervalMs = this.movementInterval(player.id);
+      player.movementAccumulatorMs = this.manageBasicFeatures
+        ? (this.actionElapsed.get(player.id) ?? 0)
+        : this.legacyActionElapsed;
+      player.directionQueue = this.game.getPlayer(player.id)?.snake.directionQueue;
+      if (player.id === playerId) {
+        player.movementPredictionAllowed =
+          !this.suspended.has(player.id) && this.predictionAllowed(player.id);
+        player.movementGrid = { ...this.game.config.grid };
+      }
+    }
     snapshot.connections = Object.fromEntries(this.connections);
     if (network) {
       const connected = new Set([...this.connections.values()].map((peer) => peer.playerId));

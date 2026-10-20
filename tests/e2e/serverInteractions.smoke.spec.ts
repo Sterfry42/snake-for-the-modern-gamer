@@ -126,12 +126,14 @@ test('server NPC menus buy shared stock, accept private quests, and block world 
       game.runForPlayer(id, () => {
         game.placeSnakeBodyAtLocal(room.id, { x: id === aliceId ? 9 : 11, y: 10 }, { x: 0, y: 1 });
         game.setScore(10000);
+        game.setFlag('ui.e2e.interactionReady', true);
       });
     session.refreshSnapshot();
     for (const [browser, state] of [
       [page, alice],
       [bobPage, bob],
     ] as const) {
+      await expect.poll(() => browser.evaluate(() => window.snakeE2E!.getFlag('ui.e2e.interactionReady'))).toBe(true);
       const before = state.results;
       await clickTile(browser, 10, 10);
       await expect.poll(() => state.snapshot?.ui.interaction?.kind).toBe('actor');

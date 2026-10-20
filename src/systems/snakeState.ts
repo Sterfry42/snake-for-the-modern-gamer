@@ -1,3 +1,8 @@
+import {
+  queueSnakeDirection,
+  finishSnakeDirectionStep,
+  type SnakeDirectionQueue,
+} from './snakeDirectionQueue.js';
 import type { GridConfig, SnakeConfig } from '../config/gameConfig.js';
 import type { Vector2Like } from '../core/math.js';
 import { addVectors } from '../core/math.js';
@@ -115,6 +120,14 @@ export class SnakeState {
     return this.nextDirection;
   }
 
+  get directionQueue(): SnakeDirectionQueue {
+    return {
+      direction: { ...this.direction },
+      nextDirection: { ...this.nextDirection },
+      bufferedDirection: this.bufferedDirection ? { ...this.bufferedDirection } : null,
+    };
+  }
+
   createBodySnapshot(): SnakeBodySnapshot {
     return {
       body: this.body.map((segment) => ({ x: segment.x, y: segment.y })),
@@ -155,15 +168,10 @@ export class SnakeState {
 
   commitQueuedDirectionWithoutMoving(): void {
     this.direction = { ...this.nextDirection };
-    if (
-      this.bufferedDirection &&
-      !this.isOppositeDirection(this.bufferedDirection, this.direction)
-    ) {
-      this.nextDirection = { ...this.bufferedDirection };
-    } else {
-      this.nextDirection = { ...this.direction };
-    }
-    this.bufferedDirection = null;
+    const queue = this.directionQueue;
+    finishSnakeDirectionStep(queue);
+    this.nextDirection = queue.nextDirection;
+    this.bufferedDirection = queue.bufferedDirection;
   }
 
   setDirection(x: number, y: number): void {
@@ -183,64 +191,41 @@ export class SnakeState {
       });
       return;
     }
-    const candidate = { x, y };
-    if (this.isSameDirection(candidate, this.nextDirection)) {
-      return;
-    }
-    if (this.isOppositeDirection(candidate, this.nextDirection)) {
-      getDebugBus()?.emit({
-        type: 'input.action_rejected',
-        category: 'input',
-        verbosity: 'verbose',
-        roomId: this.roomId,
-        data: {
-          action: 'direction.change',
-          source: 'snake-state',
-          requestedDirection: candidate,
-          reason: 'opposite-direction',
-          currentDirection: this.direction,
-          nextDirection: this.nextDirection,
-        },
-      });
-      return;
-    }
-
-    if (this.isSameDirection(this.nextDirection, this.direction)) {
-      this.nextDirection = candidate;
-      this.bufferedDirection = null;
-      getDebugBus()?.emit({
-        type: 'snake.direction_changed',
-        category: 'snake',
-        verbosity: 'normal',
-        roomId: this.roomId,
-        data: {
-          previousDirection: this.direction,
-          nextDirection: candidate,
+    const queue = this.directionQueue;
+    const previousDirection =
+      queue.nextDirection.x === queue.direction.x && queue.nextDirection.y === queue.direction.y
+        ? queue.direction
+        : queue.nextDirection;
+    if (!queueSnakeDirection(queue, { x, y })) {
+      if (x === -this.nextDirection.x && y === -this.nextDirection.y)
+        getDebugBus()?.emit({
+          type: 'input.action_rejected',
+          category: 'input',
+          verbosity: 'verbose',
           roomId: this.roomId,
-          source: 'input',
-        },
-      });
+          data: {
+            action: 'direction.change',
+            source: 'snake-state',
+            requestedDirection: { x, y },
+            reason: 'opposite-direction',
+            currentDirection: this.direction,
+            nextDirection: this.nextDirection,
+          },
+        });
       return;
     }
-
-    if (this.isSameDirection(candidate, this.bufferedDirection)) {
-      return;
-    }
-    if (this.bufferedDirection && this.isOppositeDirection(candidate, this.nextDirection)) {
-      return;
-    }
-
-    this.bufferedDirection = candidate;
+    this.nextDirection = queue.nextDirection;
+    this.bufferedDirection = queue.bufferedDirection;
     getDebugBus()?.emit({
       type: 'snake.direction_changed',
       category: 'snake',
       verbosity: 'normal',
       roomId: this.roomId,
       data: {
-        previousDirection: this.nextDirection,
-        nextDirection: candidate,
+        previousDirection,
+        nextDirection: { x, y },
         roomId: this.roomId,
-        source: 'input-buffer',
+        source: queue.bufferedDirection ? 'input-buffer' : 'input',
       },
     });
   }
@@ -622,15 +607,10 @@ export class SnakeState {
       delete this.flags['internal.lastRemovedTail'];
     }
 
-    if (
-      this.bufferedDirection &&
-      !this.isOppositeDirection(this.bufferedDirection, this.direction)
-    ) {
-      this.nextDirection = { ...this.bufferedDirection };
-    } else {
-      this.nextDirection = { ...this.direction };
-    }
-    this.bufferedDirection = null;
+    const queue = this.directionQueue;
+    finishSnakeDirectionStep(queue);
+    this.nextDirection = queue.nextDirection;
+    this.bufferedDirection = queue.bufferedDirection;
 
     const exitDirectionLockTicks = Number(this.flags['traversal.exitDirectionLockTicks'] ?? 0);
     if (exitDirectionLockTicks > 0) {
@@ -890,16 +870,6 @@ export class SnakeState {
         this.clearWallTile(room, x, y);
       }
     }
-  }
-
-  private isOppositeDirection(a: Vector2Like, b: Vector2Like | null): boolean {
-    if (!b) return false;
-    return a.x + b.x === 0 && a.y + b.y === 0;
-  }
-
-  private isSameDirection(a: Vector2Like, b: Vector2Like | null): boolean {
-    if (!b) return false;
-    return a.x === b.x && a.y === b.y;
   }
 
   private isKoiFlowActive(): boolean {

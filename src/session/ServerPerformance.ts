@@ -17,7 +17,9 @@ export class ServerPerformance {
   private bytes = 0;
   private maxBytes = 0;
   private buildMs = 0;
+  private buildMaxMs = 0;
   private serializeMs = 0;
+  private serializeMaxMs = 0;
   private actorMs = 0;
   private actorMaxMs = 0;
   private actorTicks = 0;
@@ -30,12 +32,14 @@ export class ServerPerformance {
   }
   build(durationMs: number): void {
     this.buildMs += durationMs;
+    this.buildMaxMs = Math.max(this.buildMaxMs, durationMs);
   }
   payload(bytes: number, durationMs: number): void {
     this.payloads++;
     this.bytes += bytes;
     this.maxBytes = Math.max(this.maxBytes, bytes);
     this.serializeMs += durationMs;
+    this.serializeMaxMs = Math.max(this.serializeMaxMs, durationMs);
   }
   actor(durationMs: number): void {
     this.actorMs += durationMs;
@@ -58,7 +62,9 @@ export class ServerPerformance {
       averagePayloadBytes: this.bytes / Math.max(1, this.payloads),
       maximumPayloadBytes: this.maxBytes,
       snapshotBuildMs: this.buildMs,
+      maximumSnapshotBuildMs: this.buildMaxMs,
       snapshotSerializationMs: this.serializeMs,
+      maximumSnapshotSerializationMs: this.serializeMaxMs,
       averageActorTickMs: this.actorMs / Math.max(1, this.actorTicks),
       maximumActorTickMs: this.actorMaxMs,
       averageUpdateMs: this.updateMs / Math.max(1, this.updates),
@@ -71,7 +77,9 @@ export class ServerPerformance {
       this.bytes = 0;
       this.maxBytes = 0;
       this.buildMs = 0;
+      this.buildMaxMs = 0;
       this.serializeMs = 0;
+      this.serializeMaxMs = 0;
       this.actorMs = 0;
       this.actorMaxMs = 0;
       this.actorTicks = 0;
