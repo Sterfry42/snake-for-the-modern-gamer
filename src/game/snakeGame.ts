@@ -4,6 +4,7 @@
 import { findSafePlayerSpawn } from '../players/safePlayerSpawn.js';
 import type { PlayerCheckpoint } from '../players/playerCheckpoint.js';
 import { isPlayerInWorld } from '../players/playerLifecycle.js';
+import { applyMovementUpdate, type MovementUpdate } from '../session/MovementUpdate.js';
 import { isGameplayFeedbackKey } from '../session/GameplayOutcome.js';
 import {
   defaultAtmosphereConfig,
@@ -2229,17 +2230,46 @@ export class SnakeGame implements QuestRuntime {
 
   private replicaRoomEpoch: number | undefined;
   private readonly replicaRoomRevisions = new Map<string, number>();
+  private readonly replicaSelectorSignatures = new Map<string, string>();
 
   /** Hydrates only a declared replica; callers retain the guarded selector view. */
+  getReplicationEpoch(): number {
+    return this.world.replicationId;
+  }
+
+  hydrateClientMovement(update: MovementUpdate): void {
+    if (this.runtimeMode !== 'client-replica')
+      throw new Error('An authority cannot hydrate movement');
+    if (!this.replicaSnapshot) return;
+    this.replicaSnapshot = applyMovementUpdate(this.replicaSnapshot, update);
+    const player = update.player;
+    if (player.id !== this.localPlayerId || !this.world.peekCachedRoom(player.roomId)) return;
+    this.snake.restoreBodySnapshot({
+      body: player.body,
+      roomId: player.roomId,
+      direction: player.direction,
+    });
+    this.snake.score = player.score;
+  }
+
   hydrateClientSnapshot(snapshot: GameSnapshot): void {
     if (this.runtimeMode !== 'client-replica')
       throw new Error('An authority cannot hydrate client state');
     const state = snapshot.clientState;
     const player = snapshot.players[snapshot.localPlayerId];
     if (!state || !player) throw new Error('Snapshot is missing replica state');
+    if (this.replicaRoomEpoch !== snapshot.replication?.epoch)
+      this.replicaSelectorSignatures.clear();
+    const changed = (key: string, value: unknown): boolean => {
+      const signature = JSON.stringify(value);
+      if (this.replicaSelectorSignatures.get(key) === signature) return false;
+      this.replicaSelectorSignatures.set(key, signature);
+      return true;
+    };
     this.replicaSnapshot = structuredClone(snapshot);
     this.localPlayerId = player.id;
-    this.worldGenerationIdentity = createWorldGenerationIdentity(state.worldSeed);
+    if (changed('worldSeed', state.worldSeed))
+      this.worldGenerationIdentity = createWorldGenerationIdentity(state.worldSeed);
     this.characterMode = snapshot.presentation?.characterMode ?? 'snake';
     if (!snapshot.replication) this.world.replaceReplicaRooms(structuredClone(state.worldRooms));
     else {
@@ -2263,35 +2293,42 @@ export class SnakeGame implements QuestRuntime {
     this.snake.score = player.score;
     for (const key of Object.keys(this.snake.flags)) delete this.snake.flags[key];
     Object.assign(this.snake.flags, structuredClone(state.flags));
-    this.inventory.clear();
-    for (const [id, count] of Object.entries(state.inventory)) this.inventory.addItem(id, count);
-    for (const id of Object.values(state.equipment)) if (id) this.inventory.equip(id);
-    this.questController.restoreReplicaQuestIds({
-      offeredId: state.quests.offeredId,
-      active: state.quests.active.map((q) => q.id),
-      accepted: state.quests.accepted.map((q) => q.id),
-      completed: state.quests.completedIds,
-    });
-    this.specialStats.restore(state.specialState);
-    this.levelProgression = structuredClone(state.levelProgression);
-    this.maneuvers.restore(state.flags['maneuvers.state']);
-    this.atmosphere.hydrate(state.atmosphere);
-    this.construction.load({
-      claims: state.construction.claim ? [state.construction.claim] : [],
-      structures: state.construction.structures,
-    });
+    if (changed('inventory', [state.inventory, state.equipment])) {
+      this.inventory.clear();
+      for (const [id, count] of Object.entries(state.inventory)) this.inventory.addItem(id, count);
+      for (const id of Object.values(state.equipment)) if (id) this.inventory.equip(id);
+    }
+    if (changed('quests', state.quests))
+      this.questController.restoreReplicaQuestIds({
+        offeredId: state.quests.offeredId,
+        active: state.quests.active.map((q) => q.id),
+        accepted: state.quests.accepted.map((q) => q.id),
+        completed: state.quests.completedIds,
+      });
+    if (changed('special', state.specialState)) this.specialStats.restore(state.specialState);
+    if (changed('level', state.levelProgression))
+      this.levelProgression = structuredClone(state.levelProgression);
+    if (changed('maneuvers', state.flags['maneuvers.state']))
+      this.maneuvers.restore(state.flags['maneuvers.state']);
+    if (changed('atmosphere', state.atmosphere)) this.atmosphere.hydrate(state.atmosphere);
+    if (changed('construction', state.construction))
+      this.construction.load({
+        claims: state.construction.claim ? [state.construction.claim] : [],
+        structures: state.construction.structures,
+      });
     this.constructionPlacement = structuredClone(state.construction.placement);
     this.raccoonWeight = state.raccoon.weight;
     this.raccoonHungerTimerMs = state.raccoon.hungerTimerMs;
     this.raccoonBanditMeter = state.raccoon.banditMeter;
     this.raccoonStashedTotal = state.raccoon.stashedTotal;
-    this.actors.registry.loadSaveData({
-      version: 1,
-      actors: Object.fromEntries(state.actors.map((actor) => [actor.id, structuredClone(actor)])),
-      knownActorIds: state.actors.map((actor) => actor.id),
-      promotedActorIds: [],
-      deadActorIds: [],
-    });
+    if (changed('actors', state.actors))
+      this.actors.registry.loadSaveData({
+        version: 1,
+        actors: Object.fromEntries(state.actors.map((actor) => [actor.id, structuredClone(actor)])),
+        knownActorIds: state.actors.map((actor) => actor.id),
+        promotedActorIds: [],
+        deadActorIds: [],
+      });
     this.visitedRooms = new Set(state.generatedRoomIds);
     this.players.clear();
     this.syncPlayerMap();

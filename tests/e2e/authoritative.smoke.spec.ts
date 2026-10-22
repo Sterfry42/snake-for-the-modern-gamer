@@ -34,6 +34,10 @@ test('browser renders the shared authority and routes keyboard input over WebSoc
     const assembler = new SnapshotDeltaAssembler();
     socket.on('framereceived', (frame) => {
       const wire = parseServerMessage(frame.payload.toString());
+      if (wire.type === 'movement') {
+        assembler.applyMovement(wire.update);
+        return;
+      }
       if (wire.type === 'welcome') assembler.reset(wire.snapshot);
       const message =
         wire.type === 'delta'

@@ -26,7 +26,7 @@ export class AuthoritativeProgression implements SkillTreeRuntime {
     this.skills.restoreRanks(game.getFlag<Record<string, number>>('skills.ranks') ?? {});
     if (ownership) this.skills.restoreOwnership(ownership);
     if (state) this.skills.hydrateClientState(state);
-    else if (extraLives !== undefined) this.skills.setExtraLives(extraLives);
+    if (extraLives !== undefined) this.skills.setExtraLives(extraLives);
     this.refreshEquipment();
     this.actions = new ActionSlotController({
       getStats: () => this.skills.getStats(),
@@ -222,6 +222,9 @@ export class AuthoritativeProgression implements SkillTreeRuntime {
   }
 
   refreshIfNeeded(): void {
+    const lives = this.getFlag<number>('skills.extraLifeCharges');
+    if (lives !== undefined && lives !== this.skills.getStats().extraLives)
+      this.skills.setExtraLives(lives);
     if (this.modifierSignature !== this.getModifierSignature()) this.refreshEquipment();
   }
   private getModifierSignature(): string {

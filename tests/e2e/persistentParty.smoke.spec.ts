@@ -39,6 +39,10 @@ test('friends keep their characters through refresh and a broken socket, see pre
     const assembler = new SnapshotDeltaAssembler();
     socket.on('framereceived', (frame) => {
       const wire = parseServerMessage(frame.payload.toString());
+      if (wire.type === 'movement') {
+        assembler.applyMovement(wire.update);
+        return;
+      }
       if (wire.type === 'welcome') assembler.reset(wire.snapshot);
       const message =
         wire.type === 'delta'
@@ -157,11 +161,19 @@ test('a broken socket keeps the local snake moving, buffers turns, and catches u
       .toBe('action');
     const id = session.getSnapshot().localPlayerId;
     const original = Object.keys(session.getSnapshot().connections!)[0];
-    const body = session.getSnapshot(id).players[id].body;
+    // Match production: connected prediction runs against an advancing authority.
+    const revision = session.getSnapshot(id).players[id].movementRevision!;
+    session.start((error) => {
+      throw error;
+    });
+    await expect
+      .poll(() => session.getSnapshot(id).players[id].movementRevision)
+      .toBeGreaterThan(revision);
     wires[0].destroy();
     await expect
       .poll(() => session.getSnapshot(id).connections?.[original]?.suspended, { intervals: [10] })
       .toBe(true);
+    const body = session.getSnapshot(id).players[id].body;
     await page.keyboard.press('ArrowDown');
     await expect
       .poll(() => page.evaluate(() => window.snakeE2E!.getPresentation().movement?.body[0].y), {
@@ -171,7 +183,10 @@ test('a broken socket keeps the local snake moving, buffers turns, and catches u
     expect(session.getSnapshot(id).players[id].body).toEqual(body);
     await expect(page.getByRole('status')).toHaveText('Connected');
     await expect.poll(() => Object.keys(session.getSnapshot().connections!)[0]).not.toBe(original);
-    expect(session.getSnapshot(id).players[id].body[0].y).toBeGreaterThan(body[0].y);
+    expect(
+      session.getSnapshot(id).players[id].body[0].y,
+      JSON.stringify(diagnostics.filter((record) => record.event === 'movement.replay')),
+    ).toBeGreaterThan(body[0].y);
     expect(session.getSnapshot(id).players[id].direction).toEqual({ x: 0, y: 1 });
     await expect
       .poll(() =>
@@ -204,7 +219,7 @@ test('a broken socket keeps the local snake moving, buffers turns, and catches u
         replay: expect.objectContaining({
           connectionId: original,
           steps: expect.any(Number),
-          inputs: expect.arrayContaining([{ step: 0, direction: { x: 0, y: 1 } }]),
+          inputs: expect.arrayContaining([{ step: expect.any(Number), direction: { x: 0, y: 1 } }]),
         }),
       }),
     );

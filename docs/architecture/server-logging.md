@@ -75,3 +75,9 @@ Credentials are omitted at call sites and redacted defensively in nested fields,
 ## Character recovery
 
 The default checkpoint now includes world rooms and all retained characters with versioned hashed resume ownership. Startup restores them together before listening. Autosave still attempts every 30 seconds and logs completion/failure; only a successful write establishes crash recovery. Keep `SNAKE_SAVE_DIRECTORY` stable across restarts. Raw resume credentials remain in each browser's endpoint-scoped local storage, separate from host keys. Neither ownership digests nor private character records are published in network checkpoint views. See [player experience](multiplayer-player-experience.md) for creation/death recovery and the manual-load compatibility policy.
+
+## Movement and browser lifecycle
+
+Protocol 5 reports movement packet/byte/serialization totals and snapshot build counts separately. Command acknowledgment timing now ends at immediate result publication after execution; the 100 ms world timer no longer adds an intentional wait. Movement updates do not build full scene snapshots. `client.browser-lifecycle` records bounded visibility/pagehide/pageshow context at info level; `connection.closed` labels 4002 as `browser-page-lifecycle` and 1001 as `browser-going-away`. Unexpected close reports retain `closeWasClean` alongside the code. Visibility alone does not suspend a character; pagehide releases its socket with normal reconnect grace. See [movement stream](movement-stream.md) for ordering, benchmarks and limits.
+
+Client presentation subscriber errors report `client.presentation-error` with an enumerated handler kind and retain the healthy socket; details stay in the local console. Invalid protocol/state envelopes instead report `client.protocol-error`. Reconnect replay telemetry includes `cappedPredictionSteps` when a bounded connected lead is clipped to the server clock.

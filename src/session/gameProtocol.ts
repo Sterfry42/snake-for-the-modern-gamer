@@ -5,8 +5,9 @@ import type { GameEvent } from './GameEvent.js';
 import type { GameSnapshot } from './GameSnapshot.js';
 import { SPECIAL_STAT_IDS } from '../stats/specialTypes.js';
 import { EQUIPMENT_SLOTS } from '../inventory/item.js';
+import { isMovementUpdate } from './MovementUpdate.js';
 
-export const GAME_PROTOCOL_VERSION = 4;
+export const GAME_PROTOCOL_VERSION = 5;
 
 export interface CommandMessage {
   type: 'command';
@@ -25,6 +26,7 @@ export type ServerMessage =
       snapshot: GameSnapshot;
     }
   | { type: 'snapshot'; snapshot: GameSnapshot }
+  | { type: 'movement'; update: import('./MovementUpdate.js').MovementUpdate }
   | { type: 'delta'; delta: import('./SnapshotDelta.js').SnapshotDelta }
   | { type: 'event'; event: GameEvent }
   | { type: 'result'; id: number; result: CommandResult };
@@ -397,6 +399,8 @@ function isServerMessage(value: unknown): value is ServerMessage {
         isRecord(value.delta.flags.set) &&
         Array.isArray(value.delta.flags.removed)
       );
+    case 'movement':
+      return isMovementUpdate(value.update);
     case 'event':
       return isRecord(value.event) && typeof value.event.type === 'string';
     case 'result':

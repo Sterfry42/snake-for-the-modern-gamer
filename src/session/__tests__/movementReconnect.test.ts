@@ -292,17 +292,16 @@ describe('short movement reconnects', () => {
     expect(predictor.presentation(authoritative.players[id], interval * 3)).toBeNull();
   });
 
-  it('smooths a one-tile correction briefly and snaps larger disagreements', () => {
+  it('takes small and large corrections immediately without ever displaying fractional grid cells', () => {
     const { id, snapshot, interval } = setup();
     const predictor = new ClientMovementPredictor();
     predictor.seedFrom(snapshot, 0);
     predictor.begin('original', 0);
     predictor.advance(interval);
-    const predicted = predictor.presentation(snapshot.players[id], interval)!;
+    expect(predictor.presentation(snapshot.players[id], interval)!.body[0].x).toBe(11);
     predictor.seedFrom(snapshot, interval);
-    expect(predictor.presentation(snapshot.players[id], interval)?.body).toEqual(predicted.body);
-    const middle = predictor.presentation(snapshot.players[id], interval + 60)!;
-    expect(middle.body[0].x).toBe(snapshot.players[id].body[0].x + 0.5);
+    expect(predictor.presentation(snapshot.players[id], interval)).toBeNull();
+    expect(predictor.presentation(snapshot.players[id], interval + 60)).toBeNull();
     expect(predictor.presentation(snapshot.players[id], interval + 120)).toBeNull();
     predictor.begin('replacement', 1000);
     predictor.advance(1000 + interval * 3);

@@ -127,7 +127,7 @@ describe('movement reliability', () => {
     expect(session.getSnapshot(id).ui.playerInteraction).toBe('playing');
   });
 
-  it('interpolates peers without mutating snapshots, and snaps room changes, death and suspension', async () => {
+  it('presents peer steps immediately on exact grid cells without mutating snapshots, including room changes, death and suspension', async () => {
     const { game, session, id } = setup();
     const bob = session.registerConnection('bob', 'Bob');
     game.runForPlayer(bob, () =>
@@ -135,25 +135,25 @@ describe('movement reliability', () => {
     );
     const peers = new PeerMovementPresentation();
     const initial = session.getSnapshot(id);
-    peers.accept(initial, 0);
+    peers.accept(initial);
     await session.advance(100);
     const next = session.getSnapshot(id);
     const copy = structuredClone(next);
-    peers.accept(next, 100);
-    expect(peers.sample(bob, 150)?.body[0].x).toBe(10.5);
-    expect(peers.active(150)).toBe(true);
-    expect(peers.sample(bob, 200)?.body).toEqual(next.players[bob].body);
+    peers.accept(next);
+    expect(peers.sample(bob)?.body[0].x).toBe(11);
+    expect(peers.active()).toBe(false);
+    expect(peers.sample(bob)?.body).toEqual(next.players[bob].body);
     expect(next).toEqual(copy);
     next.players[bob].roomId = '1,0,0';
-    peers.accept(next, 201);
-    expect(peers.sample(bob, 201)?.roomId).toBe('1,0,0');
+    peers.accept(next);
+    expect(peers.sample(bob)?.roomId).toBe('1,0,0');
     next.connections!.bob.suspended = true;
     next.players[bob].body[0].x++;
-    peers.accept(next, 202);
-    expect(peers.sample(bob, 202)?.body).toEqual(next.players[bob].body);
+    peers.accept(next);
+    expect(peers.sample(bob)?.body).toEqual(next.players[bob].body);
     next.players[bob].alive = false;
-    peers.accept(next, 203);
-    expect(peers.sample(bob, 203)).toBeNull();
+    peers.accept(next);
+    expect(peers.sample(bob)).toBeNull();
   });
 
   it('records the exact movement hold and revision for a stationary player', async () => {

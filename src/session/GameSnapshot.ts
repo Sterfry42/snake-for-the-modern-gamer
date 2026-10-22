@@ -13,6 +13,7 @@ import type { SceneClientState } from './SceneClientState.js';
 import type { PlayerInteraction } from './SceneActionCommand.js';
 
 export interface GameSnapshot {
+  movementSequence?: number;
   replication?: { epoch: number; roomRevisions: Record<string, number> };
   tick: number;
   localPlayerId: PlayerId;

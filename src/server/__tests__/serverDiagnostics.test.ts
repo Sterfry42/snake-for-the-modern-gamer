@@ -34,6 +34,37 @@ async function setup(saveStore?: SaveStore<GameSaveData>) {
 }
 
 describe('operational server logging', () => {
+  it('reports a presentation subscriber failure without mislabeling it as bad server data or disconnecting a healthy socket', async () => {
+    const { session, records, url } = await setup();
+    const client = new WebSocketGameConnection(url);
+    cleanup.push(() => client.disconnect());
+    await client.ready;
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const original = client.connectionId;
+    const stop = client.onMovement!(() => {
+      throw new Error('Presentation failure');
+    });
+    await session.advance(100);
+    await vi.waitFor(() =>
+      expect(
+        records.some(
+          (record) =>
+            record.event === 'client.presentation-error' &&
+            record.fields?.presentationKind === 'movement',
+        ),
+      ).toBe(true),
+    );
+    expect(error).toHaveBeenCalledWith('[game-client] movement handler failed', expect.any(Error));
+    expect(client.connectionId).toBe(original);
+    stop();
+    expect(
+      await client.send({
+        type: 'setDirection',
+        playerId: client.playerId!,
+        direction: { x: 0, y: 1 },
+      }),
+    ).toEqual({ ok: true });
+  });
   it('correlates a real client loss, suspension, resume and browser diagnostic without logging credentials', async () => {
     const { records, server, url } = await setup();
     const wires: Duplex[] = [];

@@ -22,6 +22,10 @@ function observe(page: Page) {
     const assembler = new SnapshotDeltaAssembler();
     socket.on('framereceived', (frame) => {
       const wire = parseServerMessage(frame.payload.toString());
+      if (wire.type === 'movement') {
+        assembler.applyMovement(wire.update);
+        return;
+      }
       if (wire.type === 'welcome') assembler.reset(wire.snapshot);
       const message = wire.type === 'delta' ? { type: 'snapshot' as const, snapshot: assembler.apply(wire.delta) } : wire;
       if (message.type === 'welcome' || message.type === 'snapshot')

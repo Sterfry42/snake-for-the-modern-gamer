@@ -7,6 +7,7 @@ import type { ClientCommand, CommandResult } from './ClientCommand.js';
 import type { GameConnection } from './GameConnection.js';
 import type { GameEvent } from './GameEvent.js';
 import type { GameSnapshot } from './GameSnapshot.js';
+import type { MovementUpdate } from './MovementUpdate.js';
 import { SnapshotDeltaAssembler } from './SnapshotDelta.js';
 import { parseServerMessage } from './gameProtocol.js';
 import {
@@ -29,6 +30,7 @@ export class WebSocketGameConnection implements GameConnection {
   playerId: string | null = null;
   private readonly assembler = new SnapshotDeltaAssembler();
   private snapshot: GameSnapshot | null = null;
+  private lastLocalMovement: MovementUpdate | null = null;
   private diagnosticsEnabled = false;
   private lastSnapshotAt = performance.now();
   private readonly diagnostics: ClientDiagnostic[] = [];
@@ -39,8 +41,11 @@ export class WebSocketGameConnection implements GameConnection {
   private resumeToken: string | null;
   private socket: WebSocket | null = null;
   private retryTimer?: ReturnType<typeof setTimeout>;
+  private pageSuspended = false;
+  private removeLifecycleListeners?: () => void;
   private handshakeTimer?: ReturnType<typeof setTimeout>;
   private readonly snapshots = new Set<(snapshot: GameSnapshot) => void>();
+  private readonly movements = new Set<(update: MovementUpdate) => void>();
   private readonly events = new Set<(event: GameEvent) => void>();
   private readonly statuses = new Set<(status: ConnectionStatus) => void>();
   private readonly disconnectHandlers = new Set<(reason: string) => void>();
@@ -60,10 +65,49 @@ export class WebSocketGameConnection implements GameConnection {
     this.displayName = normalizeDisplayName(displayName);
     this.resumeToken = loadServerCredential(this.url, 'resume');
     this.ready = new Promise<void>((resolve, reject) => this.connect(resolve, reject));
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      const lifecycle = (browserState: ClientDiagnostic['browserState']) =>
+        this.reportDiagnostic({
+          event: 'browser-lifecycle',
+          browserState,
+          pendingCommands: this.pending.size,
+        });
+      const visibility = () =>
+        lifecycle(document.visibilityState === 'hidden' ? 'hidden' : 'visible');
+      const hide = () => {
+        lifecycle('pagehide');
+        this.pageSuspended = true;
+        clearTimeout(this.retryTimer);
+        if (this.connectionId && this.desiredHold === 'playing')
+          this.predictor.begin(this.connectionId);
+        this.socket?.close(4002, 'Browser page lifecycle');
+      };
+      const show = () => {
+        lifecycle('pageshow');
+        if (!this.pageSuspended || this.closed) return;
+        this.pageSuspended = false;
+        this.ready
+          .then(() =>
+            this.connect(
+              () => {},
+              () => {},
+            ),
+          )
+          .catch(() => {});
+      };
+      window.addEventListener('pagehide', hide);
+      window.addEventListener('pageshow', show);
+      document.addEventListener('visibilitychange', visibility);
+      this.removeLifecycleListeners = () => {
+        window.removeEventListener('pagehide', hide);
+        window.removeEventListener('pageshow', show);
+        document.removeEventListener('visibilitychange', visibility);
+      };
+    }
   }
 
   private connect(resolve: () => void, reject: (error: Error) => void): void {
-    if (this.closed) return;
+    if (this.closed || this.pageSuspended) return;
     const endpoint = new URL(this.url);
     endpoint.searchParams.set('name', this.displayName);
     endpoint.searchParams.set('prediction', '1');
@@ -97,6 +141,8 @@ export class WebSocketGameConnection implements GameConnection {
             clearTimeout(this.handshakeTimer);
             this.attempt = 0;
             this.directionInputs.clear();
+            this.predictor.discardReplayedInputs();
+            this.lastLocalMovement = null;
             this.assembler.reset(message.snapshot);
             this.publish(message.snapshot);
             this.setStatus('connected');
@@ -106,16 +152,41 @@ export class WebSocketGameConnection implements GameConnection {
             resolve();
             break;
           case 'delta':
-            this.publish(this.assembler.apply(message.delta));
+            this.publish(
+              this.assembler.apply(message.delta),
+              message.delta.movementResync !== false,
+            );
             break;
           case 'snapshot':
             this.publish(message.snapshot);
             break;
+          case 'movement': {
+            const next = this.assembler.applyMovement(message.update);
+            if (!next) break;
+            this.snapshot = next;
+            if (message.update.player.id === this.playerId) {
+              this.lastLocalMovement = message.update;
+              this.acknowledgeDirections(next);
+              this.predictor.accept(
+                next.players[next.localPlayerId],
+                message.update.epoch,
+                message.update.tick,
+                performance.now(),
+                this.desiredHold === 'playing',
+              );
+            }
+            this.peers.accept(next);
+            this.notify(this.movements, message.update, 'movement');
+            break;
+          }
           case 'event':
-            for (const handler of this.events) handler(message.event);
+            this.notify(this.events, message.event, 'event');
             break;
           case 'result': {
-            if (!message.result.ok) this.directionInputs.delete(message.id);
+            if (!message.result.ok) {
+              this.directionInputs.delete(message.id);
+              this.predictor.rejectDirection(message.id);
+            }
             const request = this.pending.get(message.id);
             if (request) {
               clearTimeout(request.timer);
@@ -125,6 +196,7 @@ export class WebSocketGameConnection implements GameConnection {
           }
         }
       } catch {
+        this.reportDiagnostic({ event: 'protocol-error', pendingCommands: this.pending.size });
         reject(new Error('Invalid game server response'));
         this.finish('Invalid game server response');
       }
@@ -137,6 +209,7 @@ export class WebSocketGameConnection implements GameConnection {
         this.reportDiagnostic({
           event: 'connection-lost',
           closeCode: event.code,
+          closeWasClean: event.wasClean,
           pendingCommands: this.pending.size,
         });
       this.rejectPending(new Error('Connection interrupted; action was not retried.'));
@@ -152,6 +225,7 @@ export class WebSocketGameConnection implements GameConnection {
       if (this.connectionId && this.desiredHold === 'playing')
         this.predictor.begin(this.connectionId);
       this.setStatus('reconnecting');
+      if (this.pageSuspended) return;
       this.retryTimer = setTimeout(
         () => this.connect(resolve, reject),
         Math.min(500 * 2 ** this.attempt++, 5000),
@@ -188,7 +262,7 @@ export class WebSocketGameConnection implements GameConnection {
       return { ok: false, reason: 'Reconnecting to server. Please wait.' };
     const id = ++this.nextId;
     if (command.type === 'setDirection') {
-      this.predictor.direction(command.direction);
+      this.predictor.direction(command.direction, performance.now(), id);
       this.directionInputs.set(id, { ...command.direction });
       command = { ...command, inputSequence: id };
     }
@@ -218,7 +292,17 @@ export class WebSocketGameConnection implements GameConnection {
 
   private reportDiagnostic(
     details: Pick<ClientDiagnostic, 'event' | 'pendingCommands'> &
-      Partial<Pick<ClientDiagnostic, 'requestId' | 'commandType' | 'closeCode'>>,
+      Partial<
+        Pick<
+          ClientDiagnostic,
+          | 'requestId'
+          | 'commandType'
+          | 'closeCode'
+          | 'browserState'
+          | 'closeWasClean'
+          | 'presentationKind'
+        >
+      >,
   ): void {
     if (!this.diagnosticsEnabled || !this.connectionId) return;
     if (this.diagnostics.length >= 8) this.diagnostics.shift();
@@ -247,6 +331,24 @@ export class WebSocketGameConnection implements GameConnection {
       }
     }
   }
+  private notify<T>(
+    handlers: Iterable<(value: T) => void>,
+    value: T,
+    presentationKind: NonNullable<ClientDiagnostic['presentationKind']>,
+  ): void {
+    for (const handler of handlers) {
+      try {
+        handler(value);
+      } catch (error) {
+        console.error(`[game-client] ${presentationKind} handler failed`, error);
+        this.reportDiagnostic({
+          event: 'presentation-error',
+          presentationKind,
+          pendingCommands: this.pending.size,
+        });
+      }
+    }
+  }
 
   getMovementPresentation() {
     if (this.desiredHold !== 'playing') return null;
@@ -271,6 +373,10 @@ export class WebSocketGameConnection implements GameConnection {
     if (this.snapshot) handler(structuredClone(this.snapshot));
     return () => this.snapshots.delete(handler);
   }
+  onMovement(handler: (update: MovementUpdate) => void): () => void {
+    this.movements.add(handler);
+    return () => this.movements.delete(handler);
+  }
   onEvent(handler: (event: GameEvent) => void): () => void {
     this.events.add(handler);
     return () => this.events.delete(handler);
@@ -285,6 +391,7 @@ export class WebSocketGameConnection implements GameConnection {
     return () => this.disconnectHandlers.delete(handler);
   }
   disconnect(): void {
+    this.removeLifecycleListeners?.();
     this.closed = true;
     clearTimeout(this.retryTimer);
     clearTimeout(this.handshakeTimer);
@@ -293,31 +400,43 @@ export class WebSocketGameConnection implements GameConnection {
     this.diagnostics.length = 0;
     this.directionInputs.clear();
     this.snapshots.clear();
+    this.movements.clear();
     this.events.clear();
     this.statuses.clear();
     this.disconnectHandlers.clear();
   }
   private finish(reason: string): void {
     this.setStatus('closed');
-    for (const handler of this.disconnectHandlers) handler(reason);
+    this.notify(this.disconnectHandlers, reason, 'disconnect');
     this.disconnect();
   }
   private setStatus(status: ConnectionStatus): void {
     this.status = status;
-    for (const handler of this.statuses) handler(status);
+    this.notify(this.statuses, status, 'status');
   }
-  private publish(snapshot: GameSnapshot): void {
+  private publish(snapshot: GameSnapshot, movementResync = true): void {
     this.lastSnapshotAt = performance.now();
+    this.acknowledgeDirections(snapshot);
+    const movement = this.lastLocalMovement;
+    const timingSnapshot =
+      !movementResync &&
+      movement &&
+      movement.epoch === snapshot.replication?.epoch &&
+      movement.player.movementRevision ===
+        snapshot.players[snapshot.localPlayerId]?.movementRevision
+        ? { ...snapshot, tick: movement.tick }
+        : snapshot;
+    this.predictor.seedFrom(timingSnapshot, performance.now(), this.desiredHold === 'playing');
+    this.peers.accept(snapshot);
+    this.snapshot = snapshot;
+    for (const handler of this.snapshots)
+      this.notify([handler], structuredClone(snapshot), 'snapshot');
+  }
+  private acknowledgeDirections(snapshot: GameSnapshot): void {
     const acknowledged =
       snapshot.players[snapshot.localPlayerId]?.acknowledgedDirectionSequence ?? 0;
     for (const sequence of this.directionInputs.keys())
       if (sequence <= acknowledged) this.directionInputs.delete(sequence);
-    this.predictor.seedFrom(snapshot, performance.now(), this.desiredHold === 'playing', [
-      ...this.directionInputs.values(),
-    ]);
-    this.peers.accept(snapshot);
-    this.snapshot = snapshot;
-    for (const handler of this.snapshots) handler(structuredClone(snapshot));
   }
   private rejectPending(error: Error): void {
     for (const request of this.pending.values()) {

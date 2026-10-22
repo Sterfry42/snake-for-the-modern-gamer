@@ -4,6 +4,7 @@ import type { Vector2Like } from '../core/math.js';
 export const MOVEMENT_GRACE_MS = 3000;
 export const MAX_PREDICTED_STEPS = 30;
 export const MAX_RESUME_INPUTS = 64;
+export const MAX_CONNECTED_MOVEMENT_LEAD_MS = 250;
 
 /** Inputs only. The old connection binds a replay to one suspension. */
 export interface MovementReplay {

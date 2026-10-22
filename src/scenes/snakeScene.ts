@@ -103,6 +103,7 @@ import { ChoicePopup, type ChoiceOption } from '../ui/choicePopup.js';
 import { SnakeRenderer, type RoomRenderEntry } from '../ui/snakeRenderer.js';
 import { FirstPersonRenderer } from '../ui/firstPerson/firstPersonRenderer.js';
 import type { FirstPersonMovementPresentationState } from '../ui/firstPerson/firstPersonTypes.js';
+import { applyMovementUpdate } from '../session/MovementUpdate.js';
 import {
   directionToMoveAction,
   mapFirstPersonMoveAction,
@@ -1223,6 +1224,7 @@ export default class SnakeScene extends Phaser.Scene {
   private remoteCreationStage = '';
   private binocularsViewportActive = false;
   private unsubscribeSnapshot: (() => void) | null = null;
+  private unsubscribeMovement: (() => void) | null = null;
   private unsubscribeEvents: (() => void) | null = null;
   private questHud!: QuestHud;
   private questPopup!: QuestPopup;
@@ -2312,6 +2314,18 @@ export default class SnakeScene extends Phaser.Scene {
         this.currentApple = snapshot.viewport.rooms[snapshot.viewport.centerRoomId]?.apples ?? null;
         this.isDirty = true;
       });
+      this.unsubscribeMovement =
+        connection.onMovement?.((update) => {
+          if (!this.currentSnapshot) return;
+          if (
+            update.player.id === this.currentSnapshot.localPlayerId &&
+            !this.snakeGame.peekCachedRoom(update.player.roomId)
+          )
+            return;
+          this.currentSnapshot = applyMovementUpdate(this.currentSnapshot, update);
+          this.readReplica?.hydrateMovement(update);
+          this.isDirty = true;
+        }) ?? null;
       this.unsubscribeEvents = connection.onEvent((event) => {
         if (event.type === 'party.presence' || event.type === 'party.activity') {
           this.partyOverlay?.showNotice(`${event.name} ${event.status}.`);
@@ -6666,6 +6680,8 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.unsubscribeSnapshot?.();
     this.unsubscribeSnapshot = null;
+    this.unsubscribeMovement?.();
+    this.unsubscribeMovement = null;
     this.unsubscribeEvents?.();
     this.unsubscribeEvents = null;
     this.inputModeUnsubscribe?.();

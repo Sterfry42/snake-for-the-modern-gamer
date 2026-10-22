@@ -141,6 +141,8 @@ export function createGameServer(
     const serialized = JSON.stringify(message);
     if (message.type === 'welcome' || message.type === 'delta')
       session.performance.payload(Buffer.byteLength(serialized), performance.now() - startedAt);
+    else if (message.type === 'movement')
+      session.performance.movement(Buffer.byteLength(serialized), performance.now() - startedAt);
     const details = socketDetails.get(socket);
     if (details) {
       details.sentBytes += Buffer.byteLength(serialized);
@@ -154,6 +156,64 @@ export function createGameServer(
         error,
       });
     });
+  };
+  const movementSubscription = session.onMovement((update) => {
+    const publicPlayer = { ...update.player };
+    delete publicPlayer.movementGrid;
+    delete publicPlayer.movementPredictionAllowed;
+    delete publicPlayer.acknowledgedDirectionSequence;
+    delete publicPlayer.directionQueue;
+    const publicUpdate = { ...update, player: publicPlayer };
+    for (const [id, channel] of channels) {
+      if (channel.socket.readyState !== WebSocket.OPEN) continue;
+      if (socketDetails.get(channel.socket)?.playerId === update.player.id)
+        session.recordPublishedMovement(id, update);
+      publish(channel.socket, {
+        type: 'movement',
+        update:
+          socketDetails.get(channel.socket)?.playerId === update.player.id ? update : publicUpdate,
+      });
+      const details = socketDetails.get(channel.socket)!;
+      if (details.playerId === update.player.id && details.roomId !== update.player.roomId) {
+        details.roomId = update.player.roomId;
+        void session
+          .getConnectionSnapshot(update.player.id)
+          .then((snapshot) => {
+            publish(channel.socket, {
+              type: 'delta',
+              delta: channel.encoder.encode(snapshot, true),
+            });
+            flushEvents(channel);
+          })
+          .catch((error: unknown) =>
+            log('error', 'network.room-transition-failed', { connectionId: id, error }),
+          );
+      }
+    }
+  });
+  const flushEvents = (channel: {
+    socket: WebSocket;
+    pending: Array<{ message: ServerMessage }>;
+  }) => {
+    for (const entry of channel.pending.splice(0)) publish(channel.socket, entry.message);
+  };
+  const acknowledge = (
+    socket: WebSocket,
+    command: { receivedAt: number; requestId: number; type: string },
+    result: import('../session/ClientCommand.js').CommandResult,
+  ) => {
+    const state = socketDetails.get(socket)!;
+    const ackMs = performance.now() - command.receivedAt;
+    state.maximumAckMs = Math.max(state.maximumAckMs, ackMs);
+    if (ackMs > 500)
+      log('warn', 'command.slow-ack', {
+        connectionId: state.connectionId,
+        playerId: state.playerId,
+        commandType: command.type,
+        requestId: command.requestId,
+        ackMs,
+      });
+    publish(socket, { type: 'result', id: command.requestId, result });
   };
   sockets.on('connection', (socket, request) => {
     const connectionId = randomUUID();
@@ -177,22 +237,36 @@ export function createGameServer(
     log('info', 'connection.opened', { connectionId, pendingAttachments });
     socket.once('close', (code, reason) => {
       const state = socketDetails.get(socket)!;
-      log(code === 1000 || code === 4001 || closing ? 'info' : 'warn', 'connection.closed', {
-        connectionId,
-        playerId: state.playerId,
-        roomId: state.roomId,
-        code,
-        cause: state.closeCause ?? (code === 1006 ? 'abnormal-transport-close' : 'peer-close'),
-        peerReasonBytes: reason.length,
-        lifetimeMs: performance.now() - openedAt,
-        sinceLastMessageMs: performance.now() - state.lastReceivedAt,
-        sinceLastPongMs: performance.now() - state.lastPongAt,
-        rttMs: state.rttMs,
-        bufferedBytes: socket.bufferedAmount,
-        maximumBufferedBytes: state.maximumBufferedBytes,
-        commands: state.commands,
-        sentBytes: state.sentBytes,
-      });
+      log(
+        code === 1000 || code === 1001 || code === 4001 || code === 4002 || closing
+          ? 'info'
+          : 'warn',
+        'connection.closed',
+        {
+          connectionId,
+          playerId: state.playerId,
+          roomId: state.roomId,
+          code,
+          cause:
+            state.closeCause ??
+            (code === 4002
+              ? 'browser-page-lifecycle'
+              : code === 1001
+                ? 'browser-going-away'
+                : code === 1006
+                  ? 'abnormal-transport-close'
+                  : 'peer-close'),
+          peerReasonBytes: reason.length,
+          lifetimeMs: performance.now() - openedAt,
+          sinceLastMessageMs: performance.now() - state.lastReceivedAt,
+          sinceLastPongMs: performance.now() - state.lastPongAt,
+          rttMs: state.rttMs,
+          bufferedBytes: socket.bufferedAmount,
+          maximumBufferedBytes: state.maximumBufferedBytes,
+          commands: state.commands,
+          sentBytes: state.sentBytes,
+        },
+      );
     });
     socket.pause();
     socket.on('error', (error) => {
@@ -343,7 +417,7 @@ export function createGameServer(
         attachMs: performance.now() - openedAt,
         admin,
       });
-      channel.encoder.encode(snapshot);
+      channel.encoder.encode(snapshot, true);
       channels.set(connectionId, channel);
       session.recordPublishedMovement(connectionId, snapshot);
       publish(socket, {
@@ -372,13 +446,17 @@ export function createGameServer(
               clientReports = 0;
             }
             if (clientReports++ < 5)
-              log('warn', `client.${diagnostic.event}`, {
-                ...diagnostic,
-                source: 'client',
-                connectionId,
-                playerId,
-                roomId: state.roomId,
-              });
+              log(
+                diagnostic.event === 'browser-lifecycle' ? 'info' : 'warn',
+                `client.${diagnostic.event}`,
+                {
+                  ...diagnostic,
+                  source: 'client',
+                  connectionId,
+                  playerId,
+                  roomId: state.roomId,
+                },
+              );
             return;
           }
           closeSocket(socket, 1008, 'invalid-command', 'Invalid command');
@@ -387,50 +465,64 @@ export function createGameServer(
         state.commands++;
         const command = { type: message.command.type, receivedAt, requestId: message.id };
         // A wire payload cannot impersonate another runtime player.
-        void session.executeCommand({ ...message.command, playerId }).then(
-          (result) => {
-            state.maximumCommandMs = Math.max(
-              state.maximumCommandMs,
-              performance.now() - receivedAt,
-            );
-            if (!result.ok) state.rejected++;
-            if (
-              !result.ok &&
-              result.reason !== 'shot-unavailable' &&
-              message.command.type !== 'setDirection' &&
-              receivedAt - state.lastCommandWarningAt > 1000
-            ) {
-              state.lastCommandWarningAt = receivedAt;
-              log('warn', 'command.rejected', {
+        void session
+          .executeCommand({ ...message.command, playerId })
+          .then(
+            async (result) => {
+              state.maximumCommandMs = Math.max(
+                state.maximumCommandMs,
+                performance.now() - receivedAt,
+              );
+              if (!result.ok) state.rejected++;
+              if (
+                !result.ok &&
+                result.reason !== 'shot-unavailable' &&
+                message.command.type !== 'setDirection' &&
+                receivedAt - state.lastCommandWarningAt > 1000
+              ) {
+                state.lastCommandWarningAt = receivedAt;
+                log('warn', 'command.rejected', {
+                  connectionId,
+                  playerId,
+                  commandType: command.type,
+                  requestId: command.requestId,
+                  reason: result.reason ?? result.message ?? 'action-unavailable',
+                });
+              }
+              // Steering already published its bounded movement/queue state on the
+              // authority queue. Domain commands publish their changed UI before ack.
+              if (!['setDirection', 'forceDirection'].includes(command.type)) {
+                const current = await session.getConnectionSnapshot(playerId);
+                publish(socket, { type: 'delta', delta: channel.encoder.encode(current, true) });
+                flushEvents(channel);
+              }
+              acknowledge(socket, command, result);
+            },
+            (error: unknown) => {
+              state.errors++;
+              log('error', 'command.failed', {
                 connectionId,
                 playerId,
                 commandType: command.type,
                 requestId: command.requestId,
-                reason: result.reason ?? result.message ?? 'action-unavailable',
+                error,
               });
-            }
-            channel.pending.push({ message: { type: 'result', id: message.id, result }, command });
-          },
-          (error: unknown) => {
-            state.errors++;
-            log('error', 'command.failed', {
+              console.error('[game-server] Command failed', error);
+              acknowledge(socket, command, { ok: false, reason: 'command-failed' });
+            },
+          )
+          .catch((error: unknown) => {
+            log('error', 'command.publication-failed', {
               connectionId,
               playerId,
-              commandType: command.type,
               requestId: command.requestId,
               error,
             });
-            console.error('[game-server] Command failed', error);
-            channel.pending.push({
-              message: {
-                type: 'result',
-                id: message.id,
-                result: { ok: false, reason: 'command-failed' },
-              },
-              command,
+            acknowledge(socket, command, {
+              ok: false,
+              reason: 'State publication unavailable; check state before repeating the action.',
             });
-          },
-        );
+          });
       });
       socket.resume();
     }
@@ -452,30 +544,11 @@ export function createGameServer(
           if (channel.socket.readyState === WebSocket.OPEN)
             session.recordPublishedMovement(connection!.connectionId, snapshot);
           socketDetails.get(channel.socket)!.roomId = snapshot.viewport.centerRoomId;
-          publish(channel.socket, { type: 'delta', delta: channel.encoder.encode(snapshot) });
+          publish(channel.socket, { type: 'delta', delta: channel.encoder.encode(snapshot, true) });
         }
       })
       .then(() => {
-        for (const channel of channels.values())
-          for (const entry of channel.pending.splice(0)) {
-            if (entry.command) {
-              const state = socketDetails.get(channel.socket)!;
-              const ackMs = performance.now() - entry.command.receivedAt;
-              state.maximumAckMs = Math.max(state.maximumAckMs, ackMs);
-              if (ackMs > 500 && performance.now() - state.lastCommandWarningAt > 1000) {
-                state.lastCommandWarningAt = performance.now();
-                log('warn', 'command.slow-ack', {
-                  connectionId: state.connectionId,
-                  playerId: state.playerId,
-                  roomId: state.roomId,
-                  commandType: entry.command.type,
-                  requestId: entry.command.requestId,
-                  ackMs,
-                });
-              }
-            }
-            publish(channel.socket, entry.message);
-          }
+        for (const channel of channels.values()) flushEvents(channel);
       })
       .catch((error: unknown) => {
         log('error', 'network.publication-failed', { error });
@@ -616,6 +689,7 @@ export function createGameServer(
       suspensionTimers.clear();
       clearInterval(heartbeat);
       clearInterval(networkTimer);
+      movementSubscription();
       clearInterval(performanceTimer);
       clearInterval(autosaveTimer);
       processPerformance?.close();

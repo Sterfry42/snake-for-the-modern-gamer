@@ -26,11 +26,16 @@ export class ServerPerformance {
   private updateMs = 0;
   private updateMaxMs = 0;
   private updates = 0;
+  private builds = 0;
+  private movementPackets = 0;
+  private movementBytes = 0;
+  private movementSerializeMs = 0;
 
   publication(): void {
     this.publications++;
   }
   build(durationMs: number): void {
+    this.builds++;
     this.buildMs += durationMs;
     this.buildMaxMs = Math.max(this.buildMaxMs, durationMs);
   }
@@ -40,6 +45,11 @@ export class ServerPerformance {
     this.maxBytes = Math.max(this.maxBytes, bytes);
     this.serializeMs += durationMs;
     this.serializeMaxMs = Math.max(this.serializeMaxMs, durationMs);
+  }
+  movement(bytes: number, durationMs: number): void {
+    this.movementPackets++;
+    this.movementBytes += bytes;
+    this.movementSerializeMs += durationMs;
   }
   actor(durationMs: number): void {
     this.actorMs += durationMs;
@@ -62,6 +72,10 @@ export class ServerPerformance {
       averagePayloadBytes: this.bytes / Math.max(1, this.payloads),
       maximumPayloadBytes: this.maxBytes,
       snapshotBuildMs: this.buildMs,
+      snapshotBuilds: this.builds,
+      movementPackets: this.movementPackets,
+      movementBytes: this.movementBytes,
+      movementSerializationMs: this.movementSerializeMs,
       maximumSnapshotBuildMs: this.buildMaxMs,
       snapshotSerializationMs: this.serializeMs,
       maximumSnapshotSerializationMs: this.serializeMaxMs,
@@ -73,6 +87,7 @@ export class ServerPerformance {
     if (reset) {
       this.since = performance.now();
       this.publications = 0;
+      this.builds = this.movementPackets = this.movementBytes = this.movementSerializeMs = 0;
       this.payloads = 0;
       this.bytes = 0;
       this.maxBytes = 0;
