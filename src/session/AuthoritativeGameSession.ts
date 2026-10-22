@@ -1,4 +1,8 @@
 import type { DiagnosticSink, SessionDiagnostic } from './SessionDiagnostic.js';
+import { AuthoritativeDeaths } from './AuthoritativeDeaths.js';
+import { AuthoritativeCharacterCreation } from './AuthoritativeCharacterCreation.js';
+import { isPlayerInWorld } from '../players/playerLifecycle.js';
+import { copyGameCheckpoint } from './HostedCheckpoint.js';
 import {
   MOVEMENT_GRACE_MS,
   MAX_PREDICTED_STEPS,
@@ -46,6 +50,7 @@ import {
 export type AuthoritativeGameSessionArgs = LocalAuthoritativeRuntimeArgs & {
   manageBasicFeatures?: boolean;
   allowDebugCommands?: boolean;
+  requireCharacterCreation?: boolean;
 };
 
 type SnapshotHandler = (snapshot: GameSnapshot) => void;
@@ -145,6 +150,20 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
   private readonly administrators = new Set<PlayerId>();
   private readonly retainedPlayers = new Map<PlayerId, boolean>();
+  private readonly resumeDigests = new Map<string, string>();
+  private primaryClaimed = false;
+  hasClaimedPrimaryCharacter(): boolean {
+    return this.primaryClaimed;
+  }
+  resolveResumeDigest(digest: string): string | undefined {
+    return this.resumeDigests.get(digest);
+  }
+  rememberResumeDigest(digest: string, playerId: string): void {
+    if (!/^[0-9a-f]{64}$/.test(digest) || !this.game.getPlayer(playerId))
+      throw new Error('Invalid resume ownership association');
+    this.resumeDigests.set(digest, playerId);
+    this.primaryClaimed = true;
+  }
   private readonly expressions = new Map<PlayerId, { id: string; remainingMs: number }>();
 
   configureHosting(): void {
@@ -195,11 +214,14 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   private readonly vehicles: AuthoritativeVehicles;
   private readonly archaeology: AuthoritativeArchaeology;
   private readonly minigames: AuthoritativeMinigames;
+  private readonly deaths: AuthoritativeDeaths;
+  private readonly creation: AuthoritativeCharacterCreation;
+  private readonly requireCharacterCreation: boolean;
 
   attachConnection(
     connectionId: string,
     name: string,
-    identity?: { playerId: PlayerId; admin: boolean },
+    identity?: { playerId: PlayerId; admin: boolean; resumeDigest?: string },
     replay?: MovementReplay,
   ): Promise<PlayerId> {
     return this.enqueue(async () => {
@@ -389,7 +411,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   registerConnection(
     connectionId: string,
     displayName: string,
-    identity?: { playerId: PlayerId; admin: boolean },
+    identity?: { playerId: PlayerId; admin: boolean; resumeDigest?: string },
   ): PlayerId {
     const primaryAttached = [...this.connections.values()].some(
       (peer) => peer.playerId === this.localPlayerId,
@@ -406,6 +428,8 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     this.directionSequences.delete(playerId);
     const returning = this.retainedPlayers.has(playerId);
     const player = this.game.addConnectedPlayer(playerId, normalizeDisplayName(displayName));
+    if (this.requireCharacterCreation)
+      this.game.runForPlayer(playerId, () => this.creation.ensure());
     player.alive = this.retainedPlayers.get(playerId) ?? (identity ? player.alive : true);
     this.retainedPlayers.delete(playerId);
     if (identity?.admin) this.administrators.add(playerId);
@@ -421,6 +445,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       playerId,
       displayName: normalizeDisplayName(displayName),
     });
+    if (identity?.resumeDigest) this.rememberResumeDigest(identity.resumeDigest, playerId);
     this.diagnose('player.attached', {
       connectionId,
       playerId,
@@ -554,6 +579,13 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
 
   constructor(args: AuthoritativeGameSessionArgs) {
     this.game = args.game;
+    this.deaths = new AuthoritativeDeaths(this.game, () =>
+      this.getProgression(this.game.getLocalPlayerId()),
+    );
+    this.creation = new AuthoritativeCharacterCreation(this.game, () =>
+      this.getProgression(this.game.getLocalPlayerId()),
+    );
+    this.requireCharacterCreation = args.requireCharacterCreation ?? false;
     this.vehicles = new AuthoritativeVehicles(this.game);
     this.minigames = new AuthoritativeMinigames(this.game);
     this.archaeology = new AuthoritativeArchaeology(this.game, (playerId, outcome) => {
@@ -577,6 +609,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       config?: GameConfig;
       saveStore?: SaveStore<GameSaveData>;
       saveSlotId?: string;
+      requireCharacterCreation?: boolean;
     } = {},
   ): Promise<AuthoritativeGameSession> {
     const registry = new QuestRegistry();
@@ -588,8 +621,25 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       ...options,
       game,
       manageBasicFeatures: true,
+      requireCharacterCreation: options.requireCharacterCreation ?? true,
     });
-    if (options.saveStore) session.checkpoint = await options.saveStore.load(session.saveSlotId);
+    if (options.saveStore) {
+      const checkpoint = await options.saveStore.load(session.saveSlotId);
+      if (checkpoint) {
+        if (!game.loadFromSaveData(checkpoint)) throw new Error('Cannot restore server checkpoint');
+        session.checkpoint = checkpoint;
+        if (checkpoint.hosted) {
+          session.primaryClaimed = checkpoint.hosted.primaryClaimed;
+          for (const [digest, id] of Object.entries(checkpoint.hosted.resumeDigests))
+            session.resumeDigests.set(digest, id);
+          for (const player of checkpoint.hosted.players) {
+            game.restorePlayerCheckpoint(player);
+            session.retainedPlayers.set(player.id, player.alive);
+            game.getPlayer(player.id)!.alive = false;
+          }
+        }
+      }
+    }
     return session;
   }
 
@@ -598,6 +648,53 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     return this.enqueue(async () => {
       if (this.suspended.has(command.playerId)) return { ok: false, reason: 'player-suspended' };
       if (!this.game.getPlayer(command.playerId)) return { ok: false, reason: 'unknown-player' };
+      if (command.type === 'characterCreationAction') {
+        const result = this.game.runForPlayer(command.playerId, () =>
+          this.creation.choose(command.stage, command.optionId),
+        );
+        this.emitSnapshot();
+        return result;
+      }
+      if (command.type === 'deathEncounterAction') {
+        const result = this.game.runForPlayer(command.playerId, () =>
+          this.deaths.choose(command.encounterId, command.revision, command.choice),
+        );
+        if (result.ok && this.game.getPlayer(command.playerId)?.lifecycle?.kind === 'active') {
+          this.emit({
+            type: 'party.activity',
+            name: this.game.getPlayer(command.playerId)!.name,
+            status: 'returned',
+          });
+          this.playerInteractions.delete(command.playerId);
+          this.actionElapsed.delete(command.playerId);
+          this.movementRevisions.set(
+            command.playerId,
+            (this.movementRevisions.get(command.playerId) ?? 0) + 1,
+          );
+        }
+        this.emitSnapshot();
+        return result;
+      }
+      const lifecycle = this.game.getPlayer(command.playerId)?.lifecycle;
+      if (
+        lifecycle &&
+        lifecycle.kind !== 'active' &&
+        ![
+          'playerInteraction',
+          'cosmeticAction',
+          'characterCreationAction',
+          'saveGame',
+          'loadGame',
+          'clearSave',
+        ].includes(command.type)
+      )
+        return {
+          ok: false,
+          reason:
+            lifecycle.kind === 'death'
+              ? 'Finish your death encounter first.'
+              : 'Finish creating your character first.',
+        };
       if (command.type === 'actorAction' || command.type === 'datingAction') {
         if (
           this.archaeology.getView(command.playerId) &&
@@ -752,6 +849,10 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
             if (!data) return { ok: false, loaded: false };
             if (!this.game.loadConnectedCheckpoint(data)) return { ok: false, loaded: false };
             this.publishedMovementRevisions.clear();
+            const primaryState = data.hosted?.players.find(
+              (player) => player.id === this.localPlayerId,
+            );
+            if (primaryState) this.game.restorePlayerCheckpoint(primaryState);
             for (const peer of this.connections.values())
               this.game.addConnectedPlayer(peer.playerId, peer.displayName);
             this.checkpoint = structuredClone(data);
@@ -807,7 +908,9 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
           expressionExpired = true;
         }
       }
-      const running = !this.paused && this.simulationPlayers(true).length > 0;
+      const running =
+        !this.paused &&
+        (this.hosted ? this.connections.size > 0 : this.simulationPlayers(true).length > 0);
       if (running) {
         this.advanceEnvironment(deltaMs);
       }
@@ -820,7 +923,11 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       });
       const steps = this.dueSteps.splice(0);
       for (const step of steps) {
-        if (this.paused || this.simulationPlayers(true).length === 0) break;
+        if (
+          this.paused ||
+          (this.hosted ? this.connections.size === 0 : this.simulationPlayers(true).length === 0)
+        )
+          break;
         await step();
       }
       if (expressionExpired) this.emitSnapshot();
@@ -1062,6 +1169,8 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
 
   private playerHoldReason(playerId: PlayerId): string | null {
+    const lifecycle = this.game.getPlayer(playerId)?.lifecycle;
+    if (lifecycle && lifecycle.kind !== 'active') return lifecycle.kind;
     if (this.game.getForcedEncounter()) return 'forced-encounter';
     if (this.game.getOfferedQuest()) return 'quest-offer';
     if (this.minigames.getView(playerId)) return 'minigame';
@@ -1176,19 +1285,25 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     onEvent?: (event: import('../systems/boss.js').BossEvent) => void,
     stepMs?: number,
   ): void {
-    this.game.bossStep((event) => {
-      onEvent?.(event);
-      if (this.manageBasicFeatures)
-        for (const player of this.simulationPlayers())
-          if (player.snake.currentRoomId === this.game.getCurrentRoom().id)
-            this.emit({ type: 'boss.outcome', playerId: player.id, event });
-    }, stepMs);
+    const context = this.simulationPlayers(true).find(isPlayerInWorld)?.id ?? this.localPlayerId;
+    this.game.runForPlayer(context, () =>
+      this.game.bossStep((event) => {
+        onEvent?.(event);
+        if (this.manageBasicFeatures)
+          for (const player of this.simulationPlayers())
+            if (player.snake.currentRoomId === this.game.getCurrentRoom().id)
+              this.emit({ type: 'boss.outcome', playerId: player.id, event });
+      }, stepMs),
+    );
     this.emitSnapshot();
   }
 
   async actorClockStep(stepMs?: number): Promise<StepResult | null> {
     const startedAt = performance.now();
-    const playerId = this.hosted ? this.simulationPlayers(true)[0]?.id : this.localPlayerId;
+    const playerId = this.hosted
+      ? (this.simulationPlayers(true).find(isPlayerInWorld)?.id ??
+        this.connections.values().next().value?.playerId)
+      : this.localPlayerId;
     if (!playerId) return null;
     try {
       return await this.game.runForPlayerAsync(playerId, () =>
@@ -1206,6 +1321,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       if (first.status === 'dead') this.game.getPlayer(this.localPlayerId)!.alive = false;
     }
     for (const player of this.simulationPlayers(true)) {
+      if (!isPlayerInWorld(player)) continue;
       const result = this.game.runForPlayer(player.id, () => {
         const result = this.game.hazardClockStep();
         if (result) this.resolvePlayerDeath(result, player.id);
@@ -1257,11 +1373,41 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       this.game.saveGame();
       return;
     }
-    const data = structuredClone(this.game.getSaveData());
+    const data = this.captureCheckpoint();
     await this.writeCheckpoint(data);
   }
 
   private checkpointWrites: Promise<void> = Promise.resolve();
+  private checkpointProjection: { source: GameSaveData; view: GameSaveData } | null = null;
+
+  private publicCheckpoint(): GameSaveData | null {
+    if (!this.checkpoint) return null;
+    if (this.checkpointProjection?.source !== this.checkpoint) {
+      const view = { ...this.checkpoint };
+      delete view.hosted;
+      this.checkpointProjection = { source: this.checkpoint, view };
+    }
+    return this.checkpointProjection.view;
+  }
+
+  private captureCheckpoint(): GameSaveData {
+    const data = this.game.runForPlayer(this.localPlayerId, () => this.game.getSaveData());
+    if (this.hosted)
+      data.hosted = {
+        schemaVersion: 1,
+        primaryClaimed: this.primaryClaimed,
+        resumeDigests: Object.fromEntries(this.resumeDigests),
+        players: this.game
+          .getPlayers()
+          .filter((player) => player.id !== 'debug-player-2')
+          .map((player) => ({
+            ...this.game.capturePlayerCheckpoint(player.id),
+            alive: this.retainedPlayers.get(player.id) ?? player.alive,
+          })),
+        rooms: this.game.captureHostedRooms(),
+      };
+    return copyGameCheckpoint(data);
+  }
 
   private writeCheckpoint(data: GameSaveData): Promise<void> {
     const write = this.checkpointWrites.then(async () => {
@@ -1277,7 +1423,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   async autosave(): Promise<boolean> {
     if (!this.saveStore || !this.hosted) return false;
     const captured = await this.enqueue(
-      async () => ({ write: this.writeCheckpoint(structuredClone(this.game.getSaveData())) }),
+      async () => ({ write: this.writeCheckpoint(this.captureCheckpoint()) }),
       'autosave:capture',
     );
     await captured.write;
@@ -1366,6 +1512,32 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       snapshot.replication ? Object.keys(snapshot.replication.roomRevisions) : undefined,
     );
     snapshot.forcedEncounter = this.game.getForcedEncounter();
+    snapshot.lifecycle = this.game.getPlayer(playerId)?.lifecycle ?? { kind: 'active' };
+    if (this.hosted)
+      snapshot.serverRules = {
+        autosaveIntervalMs: 30000,
+        unavailableFeatures: [
+          'Starforged Vanguard',
+          'Killstreak Arsenal',
+          'Radio bonuses',
+          'Minecraft',
+          'GoPro recording',
+          'Home arcade',
+          'Transit rides',
+        ],
+      };
+    snapshot.lives = {
+      ordinary: this.game.getPlayer(playerId)?.alive ? 1 : 0,
+      skill: Number(this.game.getFlag('skills.extraLifeCharges') ?? 0),
+      equipmentPhoenix: Number(this.game.getFlag('equipment.phoenixCharges') ?? 0),
+      fortitudePhoenix: Number(
+        this.game.getFlag<{ charges?: number }>('fortitude.phoenix')?.charges ?? 0,
+      ),
+      ward: Object.values(this.game.getWardContracts()).reduce(
+        (total, count) => total + (count ?? 0),
+        0,
+      ),
+    };
     if (this.manageBasicFeatures)
       snapshot.clientState.flags = Object.fromEntries(
         Object.entries(snapshot.clientState.flags).filter(([key]) => !isGameplayFeedbackKey(key)),
@@ -1374,10 +1546,18 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     snapshot.archaeology = this.archaeology.getView(playerId);
     snapshot.persistence = {
       slotId: this.saveSlotId,
-      checkpoint: this.canManageWorld(playerId) ? this.checkpoint : null,
+      checkpoint: this.canManageWorld(playerId) ? this.publicCheckpoint() : null,
     };
     snapshot.permissions = { manageWorld: this.canManageWorld(playerId) };
     for (const player of Object.values(snapshot.players)) {
+      const lifecycle = this.game.getPlayer(player.id)?.lifecycle;
+      player.activity =
+        lifecycle?.kind === 'creating'
+          ? 'creating-character'
+          : lifecycle?.kind === 'death'
+            ? 'death-encounter'
+            : 'playing';
+      if (player.id !== playerId && lifecycle && lifecycle.kind !== 'active') player.alive = false;
       player.activeEmoticon = this.expressions.get(player.id)?.id ?? null;
       player.movementRevision = this.movementRevisions.get(player.id) ?? 0;
       if (player.id === playerId)
@@ -1491,7 +1671,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         reason: this.game.getFlag<string>('recent.deathReason') ?? 'bullet',
       });
     if (
-      this.game.getPlayer(playerId)?.alive &&
+      Boolean(this.game.getPlayer(playerId) && isPlayerInWorld(this.game.getPlayer(playerId)!)) &&
       !this.interactions.getView(playerId) &&
       !this.minigames.getView(playerId) &&
       !this.archaeology.getView(playerId)
@@ -1549,33 +1729,20 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
 
   private resolvePlayerDeath(result: StepResult, playerId: PlayerId): void {
-    if (!this.manageBasicFeatures || result.status !== 'dead') return;
-    const progression = this.getProgression(playerId);
-    const angel =
-      this.game.getFlag<boolean>('boss.insultedAngel') ||
-      this.game.getFlag<string>('player.killedByBossKind') === 'angel' ||
-      (result.deathReason === 'boss' &&
-        this.game.getBosses(this.game.getCurrentRoom().id).some((boss) => boss.kind === 'angel'));
-    if (angel) {
-      progression.skills.setExtraLives(0);
-      this.game.setFlag('equipment.phoenixCharges', 0);
-      this.game.setFlag('equipment.itemPhoenixCharges', 0);
-      this.game.setFlag('fortitude.phoenix', { charges: 0 });
-      return;
+    if (!this.manageBasicFeatures) return;
+    const player = this.game.getPlayer(playerId);
+    const previous = player?.lifecycle;
+    this.game.runForPlayer(playerId, () => this.deaths.resolve(result));
+    if (player?.lifecycle?.kind === 'death' && previous !== player.lifecycle) {
+      this.emit({ type: 'party.activity', name: player.name, status: 'died' });
+      this.archaeology.reset(playerId);
+      this.minigames.reset(playerId);
+      this.game.runForPlayer(playerId, () => this.vehicles.abandon());
+      this.interactions.remove(playerId);
+      this.actionElapsed.delete(playerId);
+      if (!player.lifecycle.encounter.terminal)
+        this.emit({ type: 'player.revived', playerId, reason: player.lifecycle.encounter.reason });
     }
-    const rescued =
-      this.game.tryConsumeWardForDeath(result.deathReason) ||
-      this.game.tryConsumeFellowshipRescue() ||
-      this.game.tryConsumeGrowthForDeath(result.deathReason) ||
-      progression.skills.consumeExtraLife();
-    if (!rescued) return;
-    this.game.reviveAfterExtraLife(result.deathReason);
-    this.game.setFlag('traversal.manualResumePending', undefined);
-    this.game.getPlayer(playerId)!.alive = true;
-    result.status = 'alive';
-    progression.persist();
-    this.emit({ type: 'player.revived', playerId, reason: result.deathReason ?? 'unknown' });
-    result.deathReason = undefined;
   }
 
   private emitStepEvents(result: StepResult, playerId = this.localPlayerId): void {

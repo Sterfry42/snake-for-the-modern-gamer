@@ -33,6 +33,19 @@ export type ServerMessage =
 export function isClientCommand(value: unknown): value is ClientCommand {
   if (!isRecord(value) || typeof value.playerId !== 'string') return false;
   switch (value.type) {
+    case 'deathEncounterAction':
+      return (
+        validIdentifier(value.encounterId) &&
+        typeof value.revision === 'number' &&
+        Number.isSafeInteger(value.revision) &&
+        value.revision > 0 &&
+        ['return', 'continue', 'taunt', 'romance', 'complain'].includes(String(value.choice))
+      );
+    case 'characterCreationAction':
+      return (
+        ['faith', 'background', 'class'].includes(String(value.stage)) &&
+        validIdentifier(value.optionId)
+      );
     case 'emote':
       return validIdentifier(value.emoticonId);
     case 'guildAction':

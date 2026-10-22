@@ -681,6 +681,7 @@ export class SnakeState {
     this.body = body.map((segment) => ({ x: segment.x, y: segment.y }));
     this.direction = { ...direction };
     this.nextDirection = { ...direction };
+    this.bufferedDirection = null;
     this.roomId = roomId;
 
     // Ensure the snake length is correct
@@ -695,6 +696,12 @@ export class SnakeState {
     if (currentHead) {
       this.flags['internal.currentHead'] = { x: currentHead.x, y: currentHead.y };
     }
+  }
+
+  restoreDirectionQueue(queue: SnakeDirectionQueue): void {
+    this.direction = { ...queue.direction };
+    this.nextDirection = { ...queue.nextDirection };
+    this.bufferedDirection = queue.bufferedDirection ? { ...queue.bufferedDirection } : null;
   }
 
   teleportTo(

@@ -1,6 +1,9 @@
 /**
  * Snake Game Core
  */
+import { findSafePlayerSpawn } from '../players/safePlayerSpawn.js';
+import type { PlayerCheckpoint } from '../players/playerCheckpoint.js';
+import { isPlayerInWorld } from '../players/playerLifecycle.js';
 import { isGameplayFeedbackKey } from '../session/GameplayOutcome.js';
 import {
   defaultAtmosphereConfig,
@@ -1831,14 +1834,23 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
-  addConnectedPlayer(playerId: PlayerId, name: string): PlayerRuntime {
+  addConnectedPlayer(playerId: PlayerId, name: string, saved?: PlayerCheckpoint): PlayerRuntime {
     const existing = this.getPlayer(playerId);
     if (existing) {
       existing.name = name;
       return existing;
     }
-    const room = this.getCurrentRoom();
-    const snake = this.createConnectedSnake(room);
+    const room = this.world.getRoom(saved?.roomId ?? this.config.world.originRoomId);
+    const snake = saved
+      ? new SnakeState(this.config.grid, this.config.snake, saved.roomId)
+      : this.createConnectedSnake(room, playerId);
+    if (saved)
+      snake.restoreFromSave(
+        saved.body,
+        saved.directionQueue.direction,
+        saved.roomId,
+        saved.body.length,
+      );
     const questController = new QuestController(this.registry, {
       ...this.config.quests,
       rng: this._rng,
@@ -1870,10 +1882,10 @@ export class SnakeGame implements QuestRuntime {
       constructionPlacement: null,
     });
     this.runForPlayer(playerId, () => {
-      this.initializeStartingEmoticon();
+      if (!saved) this.initializeStartingEmoticon();
       this.setFlag('player.health', 3);
       this.setFlag('player.maxHealth', 3);
-      this.questController.reset(this);
+      if (!saved) this.questController.reset(this);
       if (this.config.features.enabled.includes('wrapWall')) this.enableTeleport(true);
       this.syncPlayerMap();
     });
@@ -1882,65 +1894,143 @@ export class SnakeGame implements QuestRuntime {
     return player;
   }
 
-  private createConnectedSnake(room: RoomSnapshot): SnakeState {
-    const snake = new SnakeState(this.config.grid, this.config.snake, room.id);
-    const [roomX, roomY] = this.parseRoomCoordinates(room.id);
-    const anchor = this.worldToLocal(room.id, this.snake.head);
-    const startX = Math.max(3, Math.min(this.config.grid.cols - 3, anchor.x + 6));
-    const startY = Math.max(2, Math.min(this.config.grid.rows - 3, anchor.y));
-    const occupied = new Set(
-      [
-        ...this.collectActorOccupancy(room.id),
-        ...this.getEnemies(room.id).map((enemy) => enemy.position),
-        ...(this.getApple(room.id) ? [this.getApple(room.id)!.position] : []),
-      ].map((position) => vectorKey(position)),
-    );
-    let spawn: Vector2Like | undefined;
-    for (let row = 0; row < this.config.grid.rows - 4 && !spawn; row += 1) {
-      const y = 2 + ((startY - 2 + row) % (this.config.grid.rows - 4));
-      for (let col = 0; col < this.config.grid.cols - 5; col += 1) {
-        const x = 3 + ((startX - 3 + col) % (this.config.grid.cols - 5));
-        const cells = [0, 1, 2].map((offset) => ({ x: x - offset, y }));
-        if (cells.some((cell) => occupied.has(vectorKey(cell)))) continue;
-        if (
-          cells.some((cell) => {
-            const tile = room.layout[cell.y]?.[cell.x];
-            return (
-              !tile ||
-              this.isSolidTile(tile) ||
-              tileHasTag(tile, 'liquid') ||
-              isBlockingTownTile(tile)
-            );
-          })
-        )
-          continue;
-        if (
-          cells.some((cell) =>
-            this.getPlayers().some(
-              (player) =>
-                player.snake.currentRoomId === room.id &&
-                player.snake.bodySegments.some(
-                  (segment) =>
-                    Math.abs(segment.x - (cell.x + roomX * this.config.grid.cols)) +
-                      Math.abs(segment.y - (cell.y + roomY * this.config.grid.rows)) <=
-                    1,
-                ),
-            ),
-          )
-        )
-          continue;
-        spawn = { x: x + roomX * this.config.grid.cols, y: y + roomY * this.config.grid.rows };
-        break;
+  capturePlayerCheckpoint(playerId: PlayerId): PlayerCheckpoint {
+    return this.runForPlayer(playerId, () => {
+      const player = this.getPlayer(playerId)!;
+      return {
+        id: player.id,
+        name: player.name,
+        alive: player.alive,
+        roomId: this.snake.currentRoomId,
+        body: this.snake.bodySegments.map((point) => ({ ...point })),
+        directionQueue: this.snake.directionQueue,
+        score: this.snake.score,
+        flags: { ...this.snake.flags },
+        inventory: Object.fromEntries(this.inventory.getAllItems()),
+        equipment: Object.fromEntries(this.inventory.getAllEquipped()),
+        activeQuests: this.questController.getActive().map((quest) => quest.id),
+        completedQuests: this.questController.getCompletedIds(),
+        acceptedQuests: this.questController.getAcceptedIds(),
+        special: this.specialStats.exportState(),
+        level: this.levelProgression,
+        visitedRooms: [...this.visitedRooms],
+        lifecycle: player.lifecycle,
+        cosmetics: player.cosmetics,
+      };
+    });
+  }
+
+  restorePlayerCheckpoint(saved: PlayerCheckpoint): void {
+    const player = this.addConnectedPlayer(saved.id, saved.name, saved);
+    this.runForPlayer(saved.id, () => {
+      for (const key of Object.keys(this.snake.flags)) delete this.snake.flags[key];
+      Object.assign(this.snake.flags, saved.flags);
+      this.snake.restoreFromSave(
+        saved.body,
+        saved.directionQueue.direction,
+        saved.roomId,
+        saved.body.length,
+      );
+      this.snake.restoreDirectionQueue(saved.directionQueue);
+      this.snake.score = saved.score;
+      this.inventory.clear();
+      for (const [id, count] of Object.entries(saved.inventory)) this.inventory.addItem(id, count);
+      for (const id of Object.values(saved.equipment)) {
+        const item = getItem(id);
+        if (item) this.inventory.equip(item);
       }
-    }
-    if (!spawn) throw new Error('No safe player spawn is available');
-    snake.restoreFromSave(
-      [spawn, { x: spawn.x - 1, y: spawn.y }, { x: spawn.x - 2, y: spawn.y }],
-      { x: 1, y: 0 },
-      room.id,
-      3,
+      this.specialStats.restore(saved.special);
+      this.levelProgression = saved.level;
+      this.visitedRooms = new Set(saved.visitedRooms);
+      this.maneuvers.restore(saved.flags['maneuvers.state']);
+      this.questController.restoreQuestIds(
+        {
+          active: saved.activeQuests,
+          completed: saved.completedQuests,
+          accepted: saved.acceptedQuests,
+        },
+        this,
+      );
+      player.alive = saved.alive;
+      player.lifecycle = saved.lifecycle;
+      player.cosmetics = saved.cosmetics;
+    });
+  }
+
+  captureHostedRooms(): RoomSnapshot[] {
+    return [...this.world.snapshot().values()];
+  }
+
+  private connectedSpawn(
+    room: RoomSnapshot,
+    preferredBody: readonly Vector2Like[],
+    preferredDirection: Vector2Like,
+    excludedPlayerId?: PlayerId,
+  ) {
+    const blocked = [
+      ...this.collectActorOccupancy(room.id),
+      ...this.collectEnemyOccupancy(room.id),
+      ...this.collectBossOccupancy(room.id),
+      ...this.getBombs(room.id).flatMap((bomb) =>
+        room.layout.flatMap((row, y) =>
+          [...row].flatMap((_, x) => (this.isWithinBombRadius({ x, y }, bomb) ? [{ x, y }] : [])),
+        ),
+      ),
+      ...(this.getApple(room.id) ? [this.getApple(room.id)!.position] : []),
+      ...(room.apples ?? []),
+      ...(room.treasure ? [room.treasure] : []),
+      ...(room.powerup ? [room.powerup] : []),
+      ...room.portals.map((portal) => ({ x: portal.x, y: portal.y })),
+    ];
+    for (let y = 0; y < room.layout.length; y++)
+      for (let x = 0; x < room.layout[y].length; x++)
+        if (this.isEffectivelySolidCell(room, x, y)) blocked.push({ x, y });
+    const spawn = findSafePlayerSpawn({
+      room,
+      preferredBody,
+      preferredDirection,
+      blocked,
+      players: this.getPlayers()
+        .filter(
+          (player) =>
+            player.id !== excludedPlayerId &&
+            player.alive &&
+            player.lifecycle?.kind !== 'death' &&
+            player.snake.currentRoomId === room.id,
+        )
+        .map((player) =>
+          player.snake.bodySegments.map((point) => this.worldToLocal(room.id, point)),
+        ),
+    });
+    return {
+      body: spawn.body.map((point) => this.localToWorld(room.id, point)),
+      direction: spawn.direction,
+    };
+  }
+
+  private createConnectedSnake(room: RoomSnapshot, excludedPlayerId?: PlayerId): SnakeState {
+    const snake = new SnakeState(this.config.grid, this.config.snake, room.id);
+    const spawn = this.connectedSpawn(
+      room,
+      this.config.snake.initialBody,
+      this.config.snake.initialDirection,
+      excludedPlayerId,
     );
+    snake.restoreFromSave(spawn.body, spawn.direction, room.id, spawn.body.length);
     return snake;
+  }
+
+  restorePlayerParticipation(): void {
+    const room = this.getCurrentRoom();
+    const spawn = this.connectedSpawn(
+      room,
+      this.snake.bodySegments.map((point) => this.worldToLocal(room.id, point)),
+      this.snake.directionVector,
+      this.localPlayerId,
+    );
+    this.snake.restoreFromSave(spawn.body, spawn.direction, room.id, spawn.body.length);
+    this.grantPostDeathInvulnerability();
+    this.setFlag('traversal.manualResumePending', undefined);
   }
 
   respawnConnectedPlayer(playerId: PlayerId): void {
@@ -1948,7 +2038,10 @@ export class SnakeGame implements QuestRuntime {
       const flags = { ...this.snake.flags };
       const score = this.snake.score;
       const maxHealth = this.getPlayerHealth().max;
-      this.snake = this.createConnectedSnake(this.world.getRoom(this.config.world.originRoomId));
+      this.snake = this.createConnectedSnake(
+        this.world.getRoom(this.config.world.originRoomId),
+        playerId,
+      );
       Object.assign(this.snake.flags, flags);
       this.snake.score = score;
       for (const key of [
@@ -2101,7 +2194,7 @@ export class SnakeGame implements QuestRuntime {
   getServerSimulationGauges() {
     const occupied = new Set(
       this.getPlayers()
-        .filter((player) => player.alive)
+        .filter((player) => isPlayerInWorld(player))
         .map((player) => player.snake.currentRoomId),
     );
     let activeActors = 0;
@@ -2746,7 +2839,7 @@ export class SnakeGame implements QuestRuntime {
       this.getPlayers().some(
         (player) =>
           player.id !== this.localPlayerId &&
-          player.alive &&
+          isPlayerInWorld(player) &&
           player.snake.currentRoomId === this.snake.currentRoomId &&
           this.isSnakeHeadCollidingWithOtherSnake(this.snake, player.snake),
       )
@@ -3492,7 +3585,7 @@ export class SnakeGame implements QuestRuntime {
   bossStep(onEvent?: (event: BossEvent) => void, stepMs?: number): void {
     this.bosses.step({
       getRoom: (roomId: string) => this.world.getRoom(roomId),
-      getSnakeBody: () => this.snake.bodySegments,
+      getSnakeBody: () => this.getPhysicalSnakeBody(),
       onEvent,
       stepMs,
     });
@@ -3578,12 +3671,12 @@ export class SnakeGame implements QuestRuntime {
     const otherHits = new Map<string, { count: number; style: BulletInstance['style'] }>();
     const bulletStep = this.enemies.stepBullets({
       getRoom: (roomId: string) => this.world.getRoom(roomId),
-      snake: this.snake.bodySegments,
+      snake: this.getPhysicalSnakeBody(),
       currentRoomId: this.snake.currentRoomId,
       snakeDirection: this.snake.directionVector,
       currentPlayerId: this.localPlayerId,
       otherPlayers: this.getPlayers()
-        .filter((player) => player.id !== this.localPlayerId && player.alive)
+        .filter((player) => player.id !== this.localPlayerId && isPlayerInWorld(player))
         .map((player) => ({
           id: player.id,
           roomId: player.snake.currentRoomId,
@@ -4363,7 +4456,7 @@ export class SnakeGame implements QuestRuntime {
     this.tickFactionRaidGameplay();
     const enemyStepResult = this.enemies.stepEnemies({
       getRoom: (roomId: string) => this.world.getRoom(roomId),
-      snake: this.snake.bodySegments,
+      snake: this.getPhysicalSnakeBody(),
       currentRoomId: this.snake.currentRoomId,
       snakeDirection: this.snake.directionVector,
     });
@@ -4373,7 +4466,7 @@ export class SnakeGame implements QuestRuntime {
     };
     const animalStep = this.animals.step({
       getRoom: (roomId: string) => this.world.getRoom(roomId),
-      snake: this.snake.bodySegments,
+      snake: this.getPhysicalSnakeBody(),
       currentRoomId: this.snake.currentRoomId,
       snakeDirection: this.snake.directionVector,
       canHuntHarmless: this.canHuntHarmlessAnimals(),
@@ -4410,7 +4503,7 @@ export class SnakeGame implements QuestRuntime {
     });
     const activeRooms = new Set([room.id]);
     for (const player of this.getPlayers()) {
-      if (!player.alive || activeRooms.has(player.snake.currentRoomId)) continue;
+      if (!isPlayerInWorld(player) || activeRooms.has(player.snake.currentRoomId)) continue;
       activeRooms.add(player.snake.currentRoomId);
       this.runForPlayer(player.id, () => {
         const occupiedRoom = this.getCurrentRoom();
@@ -5502,7 +5595,7 @@ export class SnakeGame implements QuestRuntime {
     for (const player of this.getPlayers()) {
       if (
         player.id === this.localPlayerId ||
-        !player.alive ||
+        !isPlayerInWorld(player) ||
         player.snake.currentRoomId !== bomb.roomId
       )
         continue;
@@ -5627,6 +5720,7 @@ export class SnakeGame implements QuestRuntime {
   }): { previous: number; current: number; max: number; killed: boolean } {
     const max = Number(this.getFlag<number>('player.maxHealth') ?? 3);
     const previous = Number(this.getFlag<number>('player.health') ?? max);
+    if (!this.isLocalPlayerInWorld()) return { previous, current: previous, max, killed: false };
     const current = Math.max(0, previous - options.amount);
     this.setFlag('player.health', current);
     const damage = previous - current;
@@ -5656,7 +5750,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private damagePlayerFromBomb(bomb: BombInstance): boolean {
-    if (bomb.roomId !== this.snake.currentRoomId) {
+    if (!this.isLocalPlayerInWorld() || bomb.roomId !== this.snake.currentRoomId) {
       return false;
     }
     const hitSegment = this.snake.bodySegments.some((segment) =>
@@ -7182,6 +7276,15 @@ export class SnakeGame implements QuestRuntime {
 
   private isEffectivelySolidCell(room: RoomSnapshot, x: number, y: number): boolean {
     return this.construction.isEffectivelySolid(room, x, y);
+  }
+
+  private isLocalPlayerInWorld(): boolean {
+    const player = this.getPlayer(this.localPlayerId);
+    return !player || isPlayerInWorld(player);
+  }
+
+  private getPhysicalSnakeBody(): readonly Vector2Like[] {
+    return this.isLocalPlayerInWorld() ? this.snake.bodySegments : [];
   }
 
   private collectActorOccupancy(roomId: string): Vector2Like[] {
@@ -11211,7 +11314,7 @@ export class SnakeGame implements QuestRuntime {
     let actorsMoved = 0;
     const occupiedRooms = new Set(
       this.getPlayers()
-        .filter((player) => player.alive)
+        .filter((player) => isPlayerInWorld(player))
         .map((player) => player.snake.currentRoomId),
     );
     const relevantRooms = new Set(occupiedRooms);
@@ -11617,7 +11720,7 @@ export class SnakeGame implements QuestRuntime {
     let recovered = 0;
     const occupiedRooms = new Set(
       this.getPlayers()
-        .filter((player) => player.alive)
+        .filter((player) => isPlayerInWorld(player))
         .map((player) => player.snake.currentRoomId),
     );
     for (const actor of this.actors.registry.getForWork('business')) {
@@ -17689,7 +17792,7 @@ export class SnakeGame implements QuestRuntime {
       this.getPlayers().find(
         (player) =>
           player.id !== this.localPlayerId &&
-          player.alive &&
+          isPlayerInWorld(player) &&
           player.snake.currentRoomId === this.snake.currentRoomId &&
           player.snake.bodySegments.some(
             (segment) =>
@@ -19483,6 +19586,7 @@ export class SnakeGame implements QuestRuntime {
           perk: 'tooBigToFail',
           removed: removal.removed,
         });
+        this.setFlag('growth.pendingRevivalLength', this.getSnakeLength());
         return true;
       }
     }
@@ -19494,6 +19598,7 @@ export class SnakeGame implements QuestRuntime {
           perk: 'ablativeMass',
           removed: removal.removed,
         });
+        this.setFlag('growth.pendingRevivalLength', this.getSnakeLength());
         return true;
       }
     }
@@ -20897,6 +21002,7 @@ export class SnakeGame implements QuestRuntime {
         });
         logRunSeed(data.worldGeneration.seed, 'load');
       }
+      if (data.hosted) this.world.restoreAuthoritativeRooms(data.hosted.rooms);
       this.construction.load(data.construction);
       this.atmosphere.hydrate(data.atmosphere);
       if (data.snakeBody?.length && data.snakeDirection && data.snakeRoomId) {
@@ -23046,7 +23152,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private applyBulletDamage(hits: number, style?: BulletInstance['style']): boolean {
-    if (hits <= 0) {
+    if (!this.isLocalPlayerInWorld() || hits <= 0) {
       return false;
     }
     if (hasCollisionInvulnerability(this.snake.flags)) {
@@ -23707,6 +23813,10 @@ export class SnakeGame implements QuestRuntime {
     const healthBefore = Number(this.getFlag<number>('player.health') ?? 0);
     const collisionEntity = this.getCollisionEntityDebug(originalReason);
     this.snake.restorePreviousSnapshot();
+    const growthLength = this.getFlag<number>('growth.pendingRevivalLength');
+    if (growthLength !== undefined && this.getSnakeLength() > growthLength)
+      this.snake.shrinkTail(this.getSnakeLength() - growthLength);
+    this.setFlag('growth.pendingRevivalLength', undefined);
     const maxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
     this.setFlag('player.health', maxHealth);
     this.grantPostDeathInvulnerability();

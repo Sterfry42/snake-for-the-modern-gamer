@@ -9,6 +9,10 @@ export class PartyOverlay {
   private readonly status = document.createElement('p');
   private readonly players = document.createElement('ul');
   private readonly notice = document.createElement('p');
+  private readonly rules = document.createElement('details');
+  private readonly rulesText = document.createElement('p');
+  private readonly lifecycle = document.createElement('p');
+  private rulesSignature = '';
   private deadlineTimer?: ReturnType<typeof setTimeout>;
   private statusTimer?: ReturnType<typeof setTimeout>;
   private networkStatus: 'connected' | 'reconnecting' | 'closed' = 'connected';
@@ -43,7 +47,20 @@ export class PartyOverlay {
     leave.type = 'button';
     leave.textContent = 'Leave server';
     leave.onclick = onLeave;
-    this.root.append(title, this.status, this.players, this.notice, copy, leave, this.invite);
+    const summary = document.createElement('summary');
+    summary.textContent = 'World rules';
+    this.rules.append(summary, this.rulesText);
+    this.root.append(
+      title,
+      this.status,
+      this.lifecycle,
+      this.players,
+      this.notice,
+      copy,
+      leave,
+      this.invite,
+      this.rules,
+    );
     this.root.addEventListener('keydown', (event) => event.stopPropagation());
     document.body.append(this.root);
   }
@@ -68,6 +85,17 @@ export class PartyOverlay {
     this.notice.textContent = message;
   }
   update(snapshot: GameSnapshot): void {
+    this.lifecycle.textContent =
+      snapshot.lifecycle?.kind === 'creating'
+        ? 'Creating your character at origin.'
+        : snapshot.lifecycle?.kind === 'death'
+          ? 'Your death encounter is waiting for you.'
+          : '';
+    const rulesSignature = JSON.stringify(snapshot.serverRules ?? null);
+    if (rulesSignature !== this.rulesSignature) {
+      this.rulesSignature = rulesSignature;
+      this.rulesText.textContent = `Equipment, quests, lives and relationships are personal. Towns and terrain are shared. Returning after death keeps your progress. Autosave attempts every ${Math.round((snapshot.serverRules?.autosaveIntervalMs ?? 30000) / 1000)} seconds; restart restores the last successful checkpoint. Unavailable here: ${snapshot.serverRules?.unavailableFeatures.join(', ') ?? 'see host settings'}.`;
+    }
     const peers = Object.values(snapshot.connections ?? {});
     const rows = peers.map((peer) => {
       const player = snapshot.players[peer.playerId];
@@ -75,7 +103,7 @@ export class PartyOverlay {
         ? getEmoticonDefinition(player.activeEmoticon)
         : undefined;
       const row = document.createElement('li');
-      row.textContent = `${peer.displayName}${peer.suspended ? ' (reconnecting)' : ''}${peer.playerId === snapshot.localPlayerId ? ' (you)' : ''} | ${player?.alive ? 'room' : 'down in'} ${player?.roomId ?? '?'}${expression ? ` | ${expression.symbol} ${expression.label}` : ''}`;
+      row.textContent = `${peer.displayName}${peer.suspended ? ' (reconnecting)' : ''}${peer.playerId === snapshot.localPlayerId ? ' (you)' : ''} | ${player?.activity === 'creating-character' ? 'creating character in room' : player?.activity === 'death-encounter' ? 'away from the living board in room' : player?.alive ? 'room' : 'down in'} ${player?.roomId ?? '?'}${expression ? ` | ${expression.symbol} ${expression.label}` : ''}`;
       return row;
     });
     this.players.replaceChildren(...rows);

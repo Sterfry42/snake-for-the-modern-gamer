@@ -20,6 +20,9 @@ export interface GameSnapshot {
   players: Record<PlayerId, PlayerSnapshot>;
   ui: UiSnapshot;
   forcedEncounter?: import('./ForcedEncounter.js').ForcedEncounter | null;
+  lifecycle?: import('../players/playerLifecycle.js').PlayerLifecycle;
+  lives?: import('../players/playerLifecycle.js').LifeSourceView;
+  serverRules?: { autosaveIntervalMs: number; unavailableFeatures: string[] };
   archaeology?: import('./AuthoritativeArchaeology.js').ArchaeologyView | null;
   minigame?: import('./MinigameSnapshot.js').MinigameSnapshot | null;
   /** Player-specific synchronous selectors for the normal scene's menus and HUD. */
@@ -86,6 +89,7 @@ export interface PlayerSnapshot {
   isLocal: boolean;
   movementRevision?: number;
   acknowledgedDirectionSequence?: number;
+  activity?: 'playing' | 'creating-character' | 'death-encounter';
   movementIntervalMs?: number;
   movementAccumulatorMs?: number;
   movementPredictionAllowed?: boolean;

@@ -20,6 +20,8 @@ afterEach(async () => {
 
 async function createSession(saveStore?: SaveStore<GameSaveData>) {
   return AuthoritativeGameSession.create({
+    // These transport fixtures start with established characters; lifecycle tests cover creation.
+    requireCharacterCreation: false,
     config: { ...defaultGameConfig, rng: { seed: 'authoritative-transport' } },
     saveStore,
   });

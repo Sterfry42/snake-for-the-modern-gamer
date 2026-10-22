@@ -11,6 +11,7 @@ import type { SkillTreeClientState } from '../systems/skillTree.js';
 import type { OwnedSkillState } from '../systems/skillTypes.js';
 import { ActionSlotController } from '../systems/actionSlots.js';
 import { getAlchemyDerivedStatSource } from '../alchemy/potionEffects.js';
+import type { CharacterCreationMods } from '../features/characterCreationDefinitions.js';
 
 /** The existing skill system with gameplay callbacks and no Phaser dependency. */
 export class AuthoritativeProgression implements SkillTreeRuntime {
@@ -123,6 +124,14 @@ export class AuthoritativeProgression implements SkillTreeRuntime {
   refreshEquipment(): void {
     this.modifierSignature = this.getModifierSignature();
     const totals = createRuntimeModifierTotals();
+    for (const kind of ['faith', 'background', 'class'] as const) {
+      const prefix = kind === 'faith' ? 'religion' : kind;
+      this.skills.setDerivedStatSource({
+        id: `creation.${kind}`,
+        category: kind,
+        modifiers: this.getFlag<CharacterCreationMods>(`${prefix}.mods`)?.derivedModifiers ?? [],
+      });
+    }
     for (const [, id] of this.game.getInventory().getAllEquipped()) {
       const item = getItem(id);
       applyRuntimeModifierSource(totals, item?.kind === 'equipment' ? item.modifiers : undefined, {

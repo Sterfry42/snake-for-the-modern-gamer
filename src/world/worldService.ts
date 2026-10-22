@@ -367,6 +367,17 @@ export class WorldService {
     return new Map(this.rooms);
   }
 
+  restoreAuthoritativeRooms(rooms: readonly RoomSnapshot[]): void {
+    if (this.replicaOnly) throw new Error('Cannot restore authority rooms into a client replica');
+    this.clear();
+    for (const data of rooms) {
+      const room = this.rooms.prepare(data);
+      this.rooms.set(room.id, room);
+      this.registerRoomIndexes(room);
+      for (const entrance of room.layerEntrances ?? []) this.registerLayerEntrance(entrance);
+    }
+  }
+
   getTownById(townId: string): TownStructure | undefined {
     const town = this.townsById.get(townId);
     return town ? { ...town } : undefined;

@@ -30,7 +30,10 @@ function observeWorld(page: Page) {
     socket.on('framereceived', (frame) => {
       const wire = parseServerMessage(frame.payload.toString());
       if (wire.type === 'welcome') assembler.reset(wire.snapshot);
-      const message = wire.type === 'delta' ? { type: 'snapshot' as const, snapshot: assembler.apply(wire.delta) } : wire;
+      const message =
+        wire.type === 'delta'
+          ? { type: 'snapshot' as const, snapshot: assembler.apply(wire.delta) }
+          : wire;
       if (message.type === 'welcome' || message.type === 'snapshot')
         observed.snapshot = message.snapshot;
     });
@@ -43,6 +46,8 @@ test('Multiplayer offers Server and Archipelago, then enters a named shared worl
   context,
 }) => {
   const session = await AuthoritativeGameSession.create({
+    // Exercise connection controls with established characters, independently of setup UI.
+    requireCharacterCreation: false,
     config: { ...defaultGameConfig, rng: { seed: 'connections-menu' } },
   });
   const server = createGameServer(session);
@@ -80,13 +85,20 @@ test('Multiplayer offers Server and Archipelago, then enters a named shared worl
     expect(
       Object.values(alice.snapshot?.connections ?? {}).map((peer) => peer.displayName),
     ).toEqual(['Alice']);
-    await expect.poll(() => page.evaluate(() => window.snakeE2E?.getLifecycle().mode)).toMatch(/action|manual-room/);
+    await expect
+      .poll(() => page.evaluate(() => window.snakeE2E?.getLifecycle().mode))
+      .toMatch(/action|manual-room/);
     await page.keyboard.press('Space');
     await expect.poll(() => alice.snapshot?.ui.playerInteraction).toBe('paused');
     expect(alice.snapshot?.ui.paused).toBe(false);
     const remembered = await context.storageState();
-    for (const origin of remembered.origins) origin.localStorage = origin.localStorage.filter(entry => !entry.name.startsWith('snake.serverIdentity:'));
-    const second = await context.browser()!.newPage({ baseURL: test.info().project.use.baseURL, storageState: remembered });
+    for (const origin of remembered.origins)
+      origin.localStorage = origin.localStorage.filter(
+        (entry) => !entry.name.startsWith('snake.serverIdentity:'),
+      );
+    const second = await context
+      .browser()!
+      .newPage({ baseURL: test.info().project.use.baseURL, storageState: remembered });
     const bob = observeWorld(second);
     await openServerMenu(second);
     await expect(second.getByLabel('Server URL')).toHaveValue(`ws://127.0.0.1:${port}/game`);
@@ -104,7 +116,9 @@ test('Multiplayer offers Server and Archipelago, then enters a named shared worl
     expect(bob.snapshot?.ui.playerInteraction).toBe('playing');
     await expect.poll(() => Object.keys(alice.snapshot?.connections ?? {}).length).toBe(2);
     await page.screenshot({ path: 'test-results/connections-nameplates.png' });
-    await expect.poll(() => second.evaluate(() => window.snakeE2E?.getLifecycle().mode)).toMatch(/action|manual-room/);
+    await expect
+      .poll(() => second.evaluate(() => window.snakeE2E?.getLifecycle().mode))
+      .toMatch(/action|manual-room/);
     await clickCanvas(second, 530, 548);
     await expect(second.getByRole('dialog', { name: 'Connect to a Server' })).toBeVisible();
     await expect

@@ -18,6 +18,7 @@ export interface ChoiceWithMods {
 }
 
 export interface GameSaveData {
+  hosted?: import('../players/playerCheckpoint.js').HostedCheckpoint;
   version: string;
   timestamp: number;
   characterMode?: CharacterMode;

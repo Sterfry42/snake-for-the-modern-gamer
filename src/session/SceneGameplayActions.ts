@@ -13,6 +13,8 @@ export function executeSceneGameplayAction(
     SceneActionCommand,
     {
       type:
+        | 'deathEncounterAction'
+        | 'characterCreationAction'
         | 'playerInteraction'
         | 'manualStep'
         | 'progressionAction'

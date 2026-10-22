@@ -2,7 +2,8 @@ import { parseClientDiagnostic } from '../session/ClientDiagnostic.js';
 import type { DiagnosticSink, SessionDiagnostic } from '../session/SessionDiagnostic.js';
 import { ProcessPerformance } from './ProcessPerformance.js';
 import { createServer } from 'node:http';
-import { randomUUID, randomBytes, timingSafeEqual } from 'node:crypto';
+import { randomUUID, randomBytes, timingSafeEqual, createHash } from 'node:crypto';
+import { SpawnAreaUnavailable } from '../players/safePlayerSpawn.js';
 import { WebSocketServer, WebSocket } from 'ws';
 import { AuthoritativeGameSession } from '../session/AuthoritativeGameSession.js';
 import {
@@ -99,11 +100,12 @@ export function createGameServer(
     });
     socket.close(code, reason);
   };
-  const identities = new Map<string, string>();
   const active = new Map<string, { socket: WebSocket; connectionId: string }>();
   const suspensionTimers = new Set<ReturnType<typeof setTimeout>>();
   let closing = false;
-  let initialCharacterClaimed = Object.keys(session.getSnapshot().connections ?? {}).length > 0;
+  let initialCharacterClaimed =
+    session.hasClaimedPrimaryCharacter() ||
+    Object.keys(session.getSnapshot().connections ?? {}).length > 0;
   let attachments: Promise<void> = Promise.resolve();
   const http = createServer((_request, response) => {
     response.writeHead(200, { 'Content-Type': 'application/json' });
@@ -204,7 +206,12 @@ export function createGameServer(
       .catch((error: unknown) => {
         log('error', 'connection.attach-failed', { connectionId, error });
         console.error('[game-server] Connection failed', error);
-        closeSocket(socket, 1011, 'attach-failed', 'Cannot enter world');
+        closeSocket(
+          socket,
+          1011,
+          'attach-failed',
+          error instanceof SpawnAreaUnavailable ? error.message : 'Cannot enter world',
+        );
       })
       .finally(() => {
         pendingAttachments--;
@@ -251,7 +258,10 @@ export function createGameServer(
         );
         return;
       }
-      let playerId = identities.get(requestedToken);
+      const digest = (token: string) => createHash('sha256').update(token).digest('hex');
+      let playerId = requestedToken
+        ? session.resolveResumeDigest(digest(requestedToken))
+        : undefined;
       const knownIdentity = Boolean(playerId);
       const resumeToken = playerId ? requestedToken : randomBytes(32).toString('hex');
       if (!playerId) {
@@ -260,7 +270,6 @@ export function createGameServer(
           ? `player-${randomUUID()}`
           : session.getSnapshot().localPlayerId;
         initialCharacterClaimed = true;
-        identities.set(resumeToken, playerId);
       }
       const suppliedHostToken = Buffer.from(endpoint.searchParams.get('hostToken') ?? '');
       const configuredHostToken = Buffer.from(options.hostToken ?? '');
@@ -312,6 +321,7 @@ export function createGameServer(
         {
           playerId,
           admin,
+          resumeDigest: digest(resumeToken),
         },
         hello.replay,
       );

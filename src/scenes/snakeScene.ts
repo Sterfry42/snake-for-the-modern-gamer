@@ -84,6 +84,7 @@ import { RemoteSceneSession } from '../session/RemoteSceneSession.js';
 import { PartyOverlay } from '../ui/partyOverlay.js';
 import { WebSocketGameConnection } from '../session/WebSocketGameConnection.js';
 import { PlayerHoldSynchronizer } from '../session/PlayerHoldSynchronizer.js';
+import type { DeathEncounterView, DeathChoice } from '../players/playerLifecycle.js';
 import type { ClientCommand, CommandResult } from '../session/ClientCommand.js';
 import { ServerConnectionMenu } from '../ui/serverConnectionMenu.js';
 import { FeatureManager } from '../systems/features.js';
@@ -246,6 +247,8 @@ import {
   VILLAGE_SHOP_EQUIPMENT,
   VILLAGE_SHOP_SOLD_HATS,
   VILLAGE_SHOP_STYLES,
+  ALL_VILLAGE_SHOP_STYLE_IDS,
+  ALL_VILLAGE_SHOP_HAT_IDS,
   BLACK_MARKET_STYLES,
   ensurePermanentBlackMarketSupplies,
   getBlackMarketDefinition,
@@ -321,7 +324,11 @@ import type { ArchaeologyRewardBundle } from '../archaeology/molemanArchaeology.
 import { FishingRegistry } from '../fishing/fishingRegistry.js';
 import type { SpecialStatsView } from '../stats/chanceBreakdowns.js';
 import type { SpecialStatId } from '../stats/specialTypes.js';
-import type { CharacterCreationMods } from '../features/characterCreationDefinitions.js';
+import {
+  getCharacterCreationOption,
+  getCharacterCreationCardDescription,
+  type CharacterCreationMods,
+} from '../features/characterCreationDefinitions.js';
 import type { LevelUpResult } from '../stats/levelProgression.js';
 import { FishingMinigame } from '../fishing/fishingMinigame.js';
 import { hasAdjacentWater } from '../fishing/waterDetection.js';
@@ -517,6 +524,7 @@ interface SnakeE2EWindowApi {
     choice: ReturnType<ChoicePopup['getPresentationState']>;
     players: ReturnType<SnakeRenderer['getPlayerPresentation']>;
     movement: import('../session/ClientMovementPredictor.js').PredictedSnake | null;
+    lifecycle: GameSnapshot['lifecycle'];
   };
 
   getPauseState(): ReturnType<ReturnType<SkillTreeManager['getOverlay']>['getNavigationState']>;
@@ -1209,6 +1217,10 @@ export default class SnakeScene extends Phaser.Scene {
   private gameSession!: LocalAuthoritativeRuntime;
   private gameConnection!: GameConnection;
   private currentSnapshot: GameSnapshot | null = null;
+  private remoteDeath: DeathEncounterView | null = null;
+  private remoteHellEscapeRewardSeen = false;
+  private deathChoicePending = false;
+  private remoteCreationStage = '';
   private binocularsViewportActive = false;
   private unsubscribeSnapshot: (() => void) | null = null;
   private unsubscribeEvents: (() => void) | null = null;
@@ -2216,6 +2228,27 @@ export default class SnakeScene extends Phaser.Scene {
       );
       this.snakeGame = this.readReplica.game;
       this.gameSession = new RemoteSceneSession(this.sceneClient, connection);
+      const initialSnapshot = this.sceneClient.getSnapshot();
+      this.remoteHellEscapeRewardSeen = Boolean(
+        initialSnapshot.clientState?.flags['cosmetics.hellEscapeUnlocked'],
+      );
+      if (this.remoteHellEscapeRewardSeen) this.grantHellEscapeRewards(false);
+      const restoredAppearance = initialSnapshot.players[initialSnapshot.localPlayerId]?.appearance;
+      if (restoredAppearance) {
+        const theme = ALL_VILLAGE_SHOP_STYLE_IDS.find((id) => id === restoredAppearance.themeId);
+        const hat = ALL_VILLAGE_SHOP_HAT_IDS.find((id) => id === restoredAppearance.activeHat);
+        if (theme) {
+          this.snakeCosmetics.unlockedThemes = [
+            ...new Set([...this.snakeCosmetics.unlockedThemes, theme]),
+          ];
+          this.snakeCosmetics.activeTheme = theme;
+        }
+        if (hat)
+          this.snakeCosmetics.unlockedHats = [
+            ...new Set([...this.snakeCosmetics.unlockedHats, hat]),
+          ];
+        this.snakeCosmetics.activeHat = hat ?? null;
+      }
       this.pendingFlags = {};
       this.saveUI.setSeed(this.snakeGame.worldSeed);
       this.atmosphereAudioManager = new AtmosphereAudioManager({
@@ -2264,6 +2297,13 @@ export default class SnakeScene extends Phaser.Scene {
           minigame?.kind === 'baseball' ? minigame.state : null,
           minigame?.kind === 'baseball' ? minigame.result : undefined,
         );
+        this.syncRemoteDeath(
+          snapshot.lifecycle?.kind === 'death' ? snapshot.lifecycle.encounter : null,
+        );
+        this.syncRemoteCreation(snapshot.lifecycle);
+        const escapedHell = Boolean(snapshot.clientState?.flags['cosmetics.hellEscapeUnlocked']);
+        if (escapedHell && !this.remoteHellEscapeRewardSeen) this.grantHellEscapeRewards();
+        this.remoteHellEscapeRewardSeen = escapedHell;
         const skillState =
           this.getFlag<import('../systems/skillTree.js').SkillTreeClientState>(
             'skills.clientState',
@@ -2273,7 +2313,7 @@ export default class SnakeScene extends Phaser.Scene {
         this.isDirty = true;
       });
       this.unsubscribeEvents = connection.onEvent((event) => {
-        if (event.type === 'party.presence') {
+        if (event.type === 'party.presence' || event.type === 'party.activity') {
           this.partyOverlay?.showNotice(`${event.name} ${event.status}.`);
           return;
         }
@@ -2309,14 +2349,10 @@ export default class SnakeScene extends Phaser.Scene {
         }
         if (event.type === 'room.changed') this.presentRoomTransition(event.toRoomId, event.head);
         if (event.type === 'player.died') {
-          this.paused = true;
-          this.showQuestHintPopup('Game over — Enter to respawn', '#ff6b6b');
+          this.isDirty = true;
         }
         if (event.type === 'player.revived') {
-          this.paused = false;
-          const position = this.tileToWorld(this.snakeGame.getSnakeBody()[0] ?? null);
-          this.juice.revivalGhostStart(position.x, position.y);
-          this.showQuestHintPopup('A life brought you back.', '#9ad1ff');
+          this.isDirty = true;
         }
       });
       connection.onDisconnect?.((reason) => {
@@ -2412,6 +2448,7 @@ export default class SnakeScene extends Phaser.Scene {
       const key = event.key.toLowerCase();
       if (
         this.sceneClient &&
+        !this.remoteDeath &&
         key === 'enter' &&
         !this.sceneClient.getSnapshot().players[this.sceneClient.getLocalPlayerId()].alive
       ) {
@@ -2919,6 +2956,10 @@ export default class SnakeScene extends Phaser.Scene {
   private handleActiveToolClick(direction: Vector2Like, aim: Vector2Like): void {
     if (this.sceneClient) {
       const tool = this.snakeGame.getEquippedActiveTool();
+      if (tool === 'gopro') {
+        this.showQuestHintPopup('GoPro recording is unavailable on this server.', '#ffd166');
+        return;
+      }
       if (tool === 'binoculars') {
         this.binocularsViewportActive = !this.binocularsViewportActive;
         this.isDirty = true;
@@ -3029,6 +3070,10 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private startGoProRecording(): void {
+    if (this.sceneClient) {
+      this.showQuestHintPopup('GoPro recording is unavailable on this server.', '#ffcf70');
+      return;
+    }
     this.highlightCountdownText?.setVisible(false);
     this.highlightCountdownEvent?.remove(false);
     this.highlightCountdownEvent = null;
@@ -3894,6 +3939,7 @@ export default class SnakeScene extends Phaser.Scene {
         choice: this.villageShopPopup.getPresentationState(),
         players: this.snakeRenderer.getPlayerPresentation(),
         movement: this.gameConnection?.getMovementPresentation?.() ?? null,
+        lifecycle: this.currentSnapshot?.lifecycle,
       }),
       getPauseState: () => this.skillTree.getOverlay().getNavigationState(),
       navigatePause: (command) => this.skillTree.getOverlay().handleControllerCommand(command),
@@ -5315,6 +5361,140 @@ export default class SnakeScene extends Phaser.Scene {
     console.log('Game over:', reason);
   }
 
+  private syncRemoteCreation(lifecycle: GameSnapshot['lifecycle']): void {
+    if (lifecycle?.kind !== 'creating') {
+      if (this.remoteCreationStage) {
+        this.remoteCreationStage = '';
+        this.villageShopPopup.hide();
+        this.setChoicePopupVisible(false);
+        this.paused = Boolean(this.remoteDeath);
+      }
+      return;
+    }
+    this.paused = true;
+    this.skillTree.hideOverlay();
+    const signature = `${lifecycle.stage}:${lifecycle.offers[lifecycle.stage].join(',')}`;
+    if (signature === this.remoteCreationStage) return;
+    this.remoteCreationStage = signature;
+    const title = i18n.getFeatureString(
+      lifecycle.stage === 'faith'
+        ? 'faithTitle'
+        : lifecycle.stage === 'background'
+          ? 'backgroundTitle'
+          : 'classTitle',
+    );
+    const options = lifecycle.offers[lifecycle.stage].flatMap((id) => {
+      const option = getCharacterCreationOption(lifecycle.stage, id);
+      return option
+        ? [
+            {
+              id: option.id,
+              title: option.name,
+              description: getCharacterCreationCardDescription(option),
+            },
+          ]
+        : [];
+    });
+    this.villageShopPopup.show(title, options, (id) => {
+      void this.submitRemote({
+        type: 'characterCreationAction',
+        playerId: this.snakeGame.getLocalPlayerId(),
+        stage: lifecycle.stage,
+        optionId: id,
+      });
+    });
+    this.villageShopPopup.setDepth(95);
+  }
+
+  private syncRemoteDeath(encounter: DeathEncounterView | null): void {
+    const previous = this.remoteDeath;
+    this.remoteDeath = encounter;
+    if (!encounter) {
+      if (previous && this.deathCutscene) {
+        const cutscene = this.deathCutscene;
+        this.deathCutscene = null;
+        this.questPopup.hide();
+        this.villageShopPopup.hide();
+        this.setChoicePopupVisible(false);
+        this.tweens.add({
+          targets: cutscene.container,
+          alpha: 0,
+          duration: 260,
+          onComplete: () => cutscene.container.destroy(true),
+        });
+        this.questPopup.setDepth(70);
+        this.juice.stopHeavenMusic();
+        this.juice.stopHellMusic();
+        this.paused = false;
+        getDebugBus()?.setRunPhase('playing');
+        const position = this.tileToWorld(this.snakeGame.getSnakeBody()[0] ?? null);
+        this.juice.revivalGhostStart(position.x, position.y);
+        this.isDirty = true;
+      }
+      return;
+    }
+    this.paused = true;
+    if (previous?.id !== encounter.id) {
+      this.deathCutscene?.container.destroy(true);
+      this.deathCutscene = null;
+      this.startDeathSequence(encounter.terminal ? 'game-over' : 'revive', encounter.reason, {
+        reviveOnComplete: false,
+        rescuer: encounter.rescuer,
+        slainByAngel: Boolean(encounter.specialExecution),
+      });
+    } else if (previous?.stage !== encounter.stage || previous.phase !== encounter.phase)
+      this.presentRemoteDeathStage();
+  }
+
+  private presentRemoteDeathStage(): void {
+    const encounter = this.remoteDeath;
+    const cutscene = this.deathCutscene;
+    if (!encounter || !cutscene) return;
+    this.questPopup.hide();
+    if (encounter.phase === 'awaiting-respawn') {
+      this.setChoicePopupVisible(true);
+      this.villageShopPopup.show(
+        'Return to the shared world',
+        [
+          {
+            id: 'return',
+            title: 'Return to origin',
+            description:
+              'Keep your score, inventory, skills, quests and relationships. Your friends and the shared world continue.',
+          },
+        ],
+        () => {
+          void this.submitDeathChoice('return');
+        },
+      );
+      this.villageShopPopup.setDepth(95);
+    } else if (encounter.stage === 'afterlife') {
+      cutscene.phase = 'afterlife';
+      this.startAfterlifeCutscene();
+    } else if (encounter.stage === 'ledger') {
+      cutscene.phase = 'final';
+      this.showFinalDialogue();
+    }
+  }
+
+  private async submitDeathChoice(choice: DeathChoice): Promise<boolean> {
+    const encounter = this.remoteDeath;
+    if (!encounter || this.deathChoicePending) return false;
+    this.deathChoicePending = true;
+    try {
+      const result = await this.submitRemote({
+        type: 'deathEncounterAction',
+        playerId: this.snakeGame.getLocalPlayerId(),
+        encounterId: encounter.id,
+        revision: encounter.revision,
+        choice,
+      });
+      return result.ok;
+    } finally {
+      this.deathChoicePending = false;
+    }
+  }
+
   private startDeathSequence(
     mode: DeathCutsceneMode,
     reason?: string | null,
@@ -5322,8 +5502,10 @@ export default class SnakeScene extends Phaser.Scene {
   ): void {
     getDebugBus()?.setRunPhase('death-resolution');
     // Auto-escape from fishing/baseball before death
-    this.autoEscapeFromFishing();
-    this.autoEscapeFromBaseball();
+    if (!this.sceneClient) {
+      this.autoEscapeFromFishing();
+      this.autoEscapeFromBaseball();
+    }
 
     if (reason === 'water') {
       this.playDrowningAnimation(() => this.startDeathCutscene(mode, reason, options));
@@ -5453,7 +5635,8 @@ export default class SnakeScene extends Phaser.Scene {
 
     container.add([fade, halo, angel]);
     const afterlifeDestination: AfterlifeDestination | undefined =
-      mode === 'game-over' ? this.snakeGame.getKarmaAfterlifeDestination() : undefined;
+      this.remoteDeath?.afterlifeDestination ??
+      (mode === 'game-over' ? this.snakeGame.getKarmaAfterlifeDestination() : undefined);
     this.deathCutscene = {
       mode,
       reason,
@@ -5489,6 +5672,10 @@ export default class SnakeScene extends Phaser.Scene {
     if (!cutscene || !cutscene.canAdvance || cutscene.completed) {
       return;
     }
+    if (this.sceneClient && this.remoteDeath) {
+      void this.submitDeathChoice(this.remoteDeath.terminal ? 'continue' : 'return');
+      return;
+    }
 
     if (cutscene.mode === 'revive') {
       this.finalizeDeathCutscene(cutscene);
@@ -5517,6 +5704,10 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private finalizeDeathCutscene(cutscene: DeathCutsceneState): void {
+    if (this.sceneClient) {
+      void this.submitDeathChoice('return');
+      return;
+    }
     cutscene.completed = true;
     this.questPopup.hide();
     this.villageShopPopup.hide();
@@ -5595,6 +5786,10 @@ export default class SnakeScene extends Phaser.Scene {
     if (!cutscene || cutscene.completed) {
       return;
     }
+    if (this.remoteDeath && this.remoteDeath.phase !== 'death-presentation') {
+      this.presentRemoteDeathStage();
+      return;
+    }
 
     this.questPopup.setDepth(90);
     cutscene.canAdvance = false;
@@ -5644,6 +5839,15 @@ export default class SnakeScene extends Phaser.Scene {
     if (!cutscene || cutscene.mode !== 'revive' || cutscene.completed) {
       return;
     }
+    if (this.remoteDeath?.romance) {
+      this.resolveDeathRescuerRomance(cutscene.rescuer, true);
+      return;
+    }
+    if (this.remoteDeath && this.remoteDeath.taunts > 0) {
+      if (cutscene.rescuer === 'goblin-angel') this.complainToGoblinAngel(true);
+      else this.tauntAngel(true);
+      return;
+    }
     this.questPopup.hide();
     const isGoblinAngel = cutscene.rescuer === 'goblin-angel';
     this.setChoicePopupVisible(true);
@@ -5687,13 +5891,25 @@ export default class SnakeScene extends Phaser.Scene {
     this.villageShopPopup.setDepth(95);
   }
 
-  private resolveDeathRescuerRomance(rescuer: DeathRescuer): void {
+  private resolveDeathRescuerRomance(rescuer: DeathRescuer, acknowledged = false): void {
     const cutscene = this.deathCutscene;
     if (!cutscene || cutscene.completed) {
       return;
     }
-    const result = this.snakeGame.romanceDeathRescuer(rescuer);
-    const strong = result.state?.stage === 'dating' || result.state?.stage === 'lover';
+    if (this.sceneClient && !acknowledged) {
+      void this.submitDeathChoice('romance').then((ok) => {
+        if (ok) this.resolveDeathRescuerRomance(rescuer, true);
+      });
+      return;
+    }
+    const result = this.sceneClient
+      ? this.remoteDeath?.romance
+      : this.snakeGame.romanceDeathRescuer(rescuer);
+    if (!result) return;
+    const strong =
+      'strong' in result
+        ? result.strong
+        : result.state?.stage === 'dating' || result.state?.stage === 'lover';
     this.questPopup.showDialogue(
       rescuer === 'goblin-angel' ? 'The Goblin Angel' : 'The Angel',
       [
@@ -5715,19 +5931,25 @@ export default class SnakeScene extends Phaser.Scene {
     );
   }
 
-  private tauntAngel(): void {
+  private tauntAngel(acknowledged = false): void {
     const cutscene = this.deathCutscene;
     if (!cutscene || cutscene.mode !== 'revive' || cutscene.completed) {
       return;
     }
+    if (this.sceneClient && !acknowledged) {
+      void this.submitDeathChoice('taunt').then((ok) => {
+        if (ok) this.tauntAngel(true);
+      });
+      return;
+    }
 
-    cutscene.taunts += 1;
+    cutscene.taunts = this.remoteDeath?.taunts ?? cutscene.taunts + 1;
     const tauntIndex = Math.min(cutscene.taunts - 1, ANGEL_TAUNT_DIALOGUE.length - 1);
     const pages = ANGEL_TAUNT_DIALOGUE[tauntIndex] ?? ANGEL_TAUNT_DIALOGUE[0];
 
     if (cutscene.taunts >= ANGEL_TAUNT_DIALOGUE.length) {
       cutscene.angelBossOnRevive = true;
-      this.snakeGame.setKarmaToMinimum('angel-provoked');
+      if (!this.sceneClient) this.snakeGame.setKarmaToMinimum('angel-provoked');
       this.questPopup.showDialogue(
         'The Angel',
         [...pages],
@@ -5758,12 +5980,18 @@ export default class SnakeScene extends Phaser.Scene {
     );
   }
 
-  private complainToGoblinAngel(): void {
+  private complainToGoblinAngel(acknowledged = false): void {
     const cutscene = this.deathCutscene;
     if (!cutscene || cutscene.mode !== 'revive' || cutscene.completed) {
       return;
     }
-    cutscene.taunts += 1;
+    if (this.sceneClient && !acknowledged) {
+      void this.submitDeathChoice('complain').then((ok) => {
+        if (ok) this.complainToGoblinAngel(true);
+      });
+      return;
+    }
+    cutscene.taunts = this.remoteDeath?.taunts ?? cutscene.taunts + 1;
     const pages =
       cutscene.taunts <= 1
         ? [
@@ -13556,7 +13784,7 @@ export default class SnakeScene extends Phaser.Scene {
       : [{ id: LEGACY_COWBOY_HAT_ID, label: 'Cowboy Hat', price: COWBOY_HAT_COST }];
   }
 
-  private grantHellEscapeRewards(): void {
+  private grantHellEscapeRewards(equip = true): void {
     if (!this.snakeCosmetics.unlockedThemes.includes(HELL_ESCAPE_THEME_ID)) {
       this.snakeCosmetics.unlockedThemes = [
         ...this.snakeCosmetics.unlockedThemes,
@@ -13566,9 +13794,11 @@ export default class SnakeScene extends Phaser.Scene {
     if (!this.snakeCosmetics.unlockedHats.includes(HELL_ESCAPE_HAT_ID)) {
       this.snakeCosmetics.unlockedHats = [...this.snakeCosmetics.unlockedHats, HELL_ESCAPE_HAT_ID];
     }
-    this.snakeCosmetics.activeTheme = HELL_ESCAPE_THEME_ID;
-    this.snakeCosmetics.activeHat = HELL_ESCAPE_HAT_ID;
-    this.snakeCosmetics.cowboyHatEquipped = false;
+    if (equip) {
+      this.snakeCosmetics.activeTheme = HELL_ESCAPE_THEME_ID;
+      this.snakeCosmetics.activeHat = HELL_ESCAPE_HAT_ID;
+      this.snakeCosmetics.cowboyHatEquipped = false;
+    }
     this.isDirty = true;
   }
 
@@ -14602,6 +14832,8 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private getVisibleLifeCharges(): number {
+    if (this.sceneClient && this.currentSnapshot?.lives)
+      return this.currentSnapshot.lives.skill + this.currentSnapshot.lives.equipmentPhoenix;
     const skillLives = Math.max(0, Number(this.skillTree?.getStats().extraLives ?? 0));
     const phoenixLives = Math.max(0, Number(this.getFlag<number>('equipment.phoenixCharges') ?? 0));
     return skillLives + phoenixLives;
@@ -16365,7 +16597,8 @@ export default class SnakeScene extends Phaser.Scene {
     const visibleCharges = this.getVisibleLifeCharges();
     return {
       visibleLifeCharges: visibleCharges,
-      displayedLives: visibleCharges + 1,
+      displayedLives: visibleCharges + (this.currentSnapshot?.lives?.ordinary ?? 1),
+      authoritativeSources: this.currentSnapshot?.lives,
       phoenixSkillCharges:
         this.snakeGame?.getFlag<{ charges?: number }>('fortitude.phoenix')?.charges ?? 0,
       phoenixEquipmentCharges: this.snakeGame?.getFlag<number>('equipment.phoenixCharges') ?? 0,
@@ -19609,6 +19842,10 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private openArcadeSnakeMenu(context: 'mcdonalds' | 'home'): void {
+    if (this.sceneClient) {
+      this.showQuestHintPopup('Home arcade play is unavailable on this server.', '#ffcf70');
+      return;
+    }
     this.paused = true;
     this.hideSaveUI();
     this.skillTree.hideOverlay();
@@ -19689,6 +19926,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private startArcadeSnakeRun(): void {
+    if (this.sceneClient) return;
     this.villageShopPopup.hide();
     this.paused = true;
     this.hideSaveUI();
@@ -19746,6 +19984,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private ensureHomeArcadeCabinet(): void {
+    if (this.sceneClient) return;
     if (!this.arcadeSnakeSaveData.hasHomeCabinet || !this.snakeGame) return;
     const position = this.snakeGame.placeHomeArcadeCabinet();
     if (position) this.snakeRenderer?.markStaticRoomDirty('0,-1,0');
@@ -20081,6 +20320,10 @@ export default class SnakeScene extends Phaser.Scene {
 
     // If near the station, pause the snake and show the prompt
     if (dist <= 1) {
+      if (this.sceneClient) {
+        this.showQuestHintPopup('Transit rides are unavailable on this server.', '#ffcf70');
+        return true;
+      }
       // Pause the snake so it stops moving at the station (house-like behavior)
       this.bulletTrainStationActive = true;
       this.paused = true;
@@ -20359,6 +20602,10 @@ export default class SnakeScene extends Phaser.Scene {
     const dist = Math.abs(local.x - station.entranceX) + Math.abs(local.y - station.entranceY);
 
     if (dist <= 1) {
+      if (this.sceneClient) {
+        this.showQuestHintPopup('Transit rides are unavailable on this server.', '#ffcf70');
+        return true;
+      }
       this.rollercoasterStationActive = true;
       this.paused = true;
 
