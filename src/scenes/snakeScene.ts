@@ -1548,8 +1548,8 @@ export default class SnakeScene extends Phaser.Scene {
   private creditsTextLines: Phaser.GameObjects.Text[] = [];
   private creditsContainer: Phaser.GameObjects.Container | null = null;
   private creditsScrollContainer: Phaser.GameObjects.Container | null = null;
+  private creditsScrollDistance = 0;
   private creditsScrollTween: Phaser.Tweens.Tween | null = null;
-  private creditsCanDismiss = false;
   private creditsDismissZone: Phaser.GameObjects.Container | null = null;
   private cardGameContainer: Phaser.GameObjects.Container | null = null;
   private cardTooltipText: Phaser.GameObjects.Text | null = null;
@@ -2433,10 +2433,8 @@ export default class SnakeScene extends Phaser.Scene {
       if (this.titleCreditsMode) {
         if (key === 'enter' || key === ' ') {
           event.preventDefault();
-          if (this.creditsCanDismiss) {
-            this.hideCreditsScreen();
-            this.showTitleScreen('main');
-          }
+          this.hideCreditsScreen();
+          this.showTitleScreen('main');
         }
         return;
       }
@@ -8153,7 +8151,6 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.titleCreditsMode) return;
 
     this.titleCreditsMode = true;
-    this.creditsCanDismiss = false;
 
     this.titleMainContainer?.setVisible(false);
     this.titleSettingsContainer?.setVisible(false);
@@ -8174,16 +8171,16 @@ export default class SnakeScene extends Phaser.Scene {
 
   private hideCreditsScreen(): void {
     this.titleCreditsMode = false;
-    this.creditsCanDismiss = false;
 
     if (this.creditsScrollTween) {
       this.creditsScrollTween.destroy();
       this.creditsScrollTween = null;
     }
 
+    // The dismiss zone is hidden with the container (Phaser skips hidden
+    // ancestors for input) and intentionally kept alive so re-entering the
+    // credits does not need a rebuild.
     this.creditsContainer?.setVisible(false);
-    this.creditsDismissZone?.destroy();
-    this.creditsDismissZone = null;
   }
 
   private buildCreditsScreen(): void {
@@ -8259,43 +8256,44 @@ export default class SnakeScene extends Phaser.Scene {
     root.add(scrollContainer);
     this.creditsContainer = root;
     this.creditsScrollContainer = scrollContainer;
+    this.creditsScrollDistance = scrollDistance;
 
     const dismissZone = this.add
       .zone(0, 0, width, height)
       .setOrigin(0, 0)
       .setInteractive({ useHandCursor: true });
     dismissZone.on('pointerdown', () => {
-      if (this.creditsCanDismiss) {
-        this.hideCreditsScreen();
-        this.showTitleScreen('main');
-      }
+      this.hideCreditsScreen();
+      this.showTitleScreen('main');
     });
     this.creditsDismissZone = this.add.container(0, 0, [dismissZone]).setDepth(230);
     root.add(this.creditsDismissZone);
-
-    if (scrollDistance <= 0) {
-      this.creditsCanDismiss = true;
-    }
   }
 
   private startCreditsScroll(): void {
-    if (!this.creditsScrollContainer) return;
+    const scrollContainer = this.creditsScrollContainer;
+    if (!scrollContainer) return;
 
-    const scrollDistance = Math.abs(this.creditsScrollContainer.y);
-    if (scrollDistance <= 0) return;
+    const scrollDistance = this.creditsScrollDistance;
+    if (scrollDistance <= 0) {
+      scrollContainer.y = 0;
+      return;
+    }
+
+    // Every visit replays the scroll from the top, and Enter, Space, and
+    // clicks skip it whenever the snake is done watching. The wise old
+    // snake has seen credits shorter than a wasabi apple and never once
+    // skipped the end.
+    scrollContainer.y = -scrollDistance;
 
     const pixelsPerSecond = 60;
     const duration = (scrollDistance / pixelsPerSecond) * 1000;
 
     this.creditsScrollTween = this.tweens.add({
-      targets: this.creditsScrollContainer,
+      targets: scrollContainer,
       y: 0,
       duration: duration,
       ease: 'Linear',
-      onComplete: () => {
-        this.creditsScrollContainer = null;
-        this.creditsCanDismiss = true;
-      },
     });
   }
 
@@ -9130,10 +9128,8 @@ export default class SnakeScene extends Phaser.Scene {
       return this.serverConnectionMenu.handleController(command);
     if (this.titleCreditsMode) {
       if (command === 'confirm' || command === 'cancel' || command === 'menu') {
-        if (this.creditsCanDismiss) {
-          this.hideCreditsScreen();
-          this.showTitleScreen('main');
-        }
+        this.hideCreditsScreen();
+        this.showTitleScreen('main');
         return true;
       }
       return false;
