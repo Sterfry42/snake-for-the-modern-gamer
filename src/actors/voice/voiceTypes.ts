@@ -1,3 +1,4 @@
+import type { FactionRelationState } from '../../factions/factionTypes.js';
 import type { BiomeId } from '../../world/biomes.js';
 import type { WorldEventType } from '../../events/worldEventTypes.js';
 import type { RelationshipStage } from '../../relationships/relationshipTypes.js';
@@ -55,16 +56,6 @@ export type ActorVoiceSource =
   | 'lore'
   | 'social'
   | 'fallback';
-export type FactionRelationState =
-  | 'allied'
-  | 'friendly'
-  | 'neutral'
-  | 'tense'
-  | 'truce'
-  | 'skirmishing'
-  | 'hostile'
-  | 'war';
-
 export interface ActorConversationRumor {
   id: string;
   summary: string;
