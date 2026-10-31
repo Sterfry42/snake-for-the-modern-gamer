@@ -1,20 +1,20 @@
-export type ActiveInputMode = 'keyboardMouse' | 'controller' | 'mobile';
+import type { InputModeId } from './controlActions.js';
 
-type InputModeListener = (mode: ActiveInputMode) => void;
+type InputModeListener = (mode: InputModeId) => void;
 
 export class InputModeManager {
-  private activeMode: ActiveInputMode;
+  private activeMode: InputModeId;
   private readonly listeners = new Set<InputModeListener>();
 
-  constructor(initialMode: ActiveInputMode = 'keyboardMouse') {
+  constructor(initialMode: InputModeId = 'keyboardMouse') {
     this.activeMode = initialMode;
   }
 
-  getMode(): ActiveInputMode {
+  getMode(): InputModeId {
     return this.activeMode;
   }
 
-  setMode(mode: ActiveInputMode): boolean {
+  setMode(mode: InputModeId): boolean {
     if (this.activeMode === mode) {
       return false;
     }
