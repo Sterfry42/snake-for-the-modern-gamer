@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { computePauseMenuLayoutForTest, type UiRect } from '../core/PauseMenuLayout';
+import { computePauseMenuLayoutForTest } from '../core/PauseMenuLayout';
+import type { UiRect } from '../core/UiLayout';
 
 function intersects(a: UiRect, b: UiRect): boolean {
   return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
