@@ -4,6 +4,12 @@ import type { RandomGenerator } from '../core/rng.js';
 
 export type StructureBounds = Rect;
 
+/** Common options for structure placers: forbidden cells and edge margin. */
+export interface StructurePlacementOptions {
+  forbiddenCells?: ReadonlySet<string>;
+  margin?: number;
+}
+
 export interface RandomRectPlacementOptions {
   width: number;
   height: number;
@@ -100,7 +106,7 @@ export function placeRectWithFallback(
   width: number,
   height: number,
   rng: RandomGenerator,
-  options: { forbiddenCells?: ReadonlySet<string>; margin?: number; attempts?: number } = {},
+  options: StructurePlacementOptions & { attempts?: number } = {},
 ): StructureBounds | null {
   const margin = options.margin ?? 5;
   const attempts = options.attempts ?? 80;
@@ -196,7 +202,7 @@ export function placeCampScaffold(
   layout: string[][],
   grid: GridConfig,
   rng: RandomGenerator,
-  options: { forbiddenCells?: ReadonlySet<string>; margin?: number } = {},
+  options: StructurePlacementOptions = {},
 ): CampScaffold | null {
   if (grid.cols < 24 || grid.rows < 18) return null;
 

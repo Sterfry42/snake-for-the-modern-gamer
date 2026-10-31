@@ -1,18 +1,19 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import type { RandomGenerator } from '../core/rng.js';
 import { createHumanoidSpawn } from './humanoidSpawn.js';
-import { fillRect, findRandomRectPlacement, pickOne, setTile } from './structurePlacement.js';
+import {
+  fillRect,
+  findRandomRectPlacement,
+  pickOne,
+  setTile,
+  type StructurePlacementOptions,
+} from './structurePlacement.js';
 import type { RoomSnapshot } from './types.js';
 
 const MIKO_NAMES = ['Hana', 'Saki', 'Yuki', 'Ren', 'Mio', 'Aoi', 'Kiri'] as const;
 const SHRINE_ATTEMPTS = 32;
 const SHRINE_MARGIN = 5;
 const SAFE_AREA_PADDING = 5;
-
-interface ShrinePlacementOptions {
-  forbiddenCells?: ReadonlySet<string>;
-  margin?: number;
-}
 
 function drawToriiGate(layout: string[][], left: number, top: number): void {
   setTile(layout, left, top, 'T');
@@ -24,7 +25,7 @@ export function tryPlaceShrine(
   layout: string[][],
   grid: GridConfig,
   rng: RandomGenerator,
-  options: ShrinePlacementOptions = {},
+  options: StructurePlacementOptions = {},
 ): NonNullable<RoomSnapshot['shrine']> | null {
   if (grid.cols < 20 || grid.rows < 16) return null;
 

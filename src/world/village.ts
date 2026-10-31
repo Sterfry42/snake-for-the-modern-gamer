@@ -2,7 +2,13 @@ import type { GridConfig } from '../config/gameConfig.js';
 import type { RandomGenerator } from '../core/rng.js';
 import type { BiomeId } from './biomes.js';
 import { createHumanoidSpawn } from './humanoidSpawn.js';
-import { fillRect, findRandomRectPlacement, pickOne, setTile } from './structurePlacement.js';
+import {
+  fillRect,
+  findRandomRectPlacement,
+  pickOne,
+  setTile,
+  type StructurePlacementOptions,
+} from './structurePlacement.js';
 import type { RoomSnapshot } from './types.js';
 
 const VILLAGE_NAMES: Record<BiomeId, readonly string[]> = {
@@ -97,11 +103,6 @@ const VILLAGE_ATTEMPTS = 28;
 const VILLAGE_MARGIN = 5;
 const SAFE_AREA_PADDING = 5;
 
-interface VillagePlacementOptions {
-  forbiddenCells?: ReadonlySet<string>;
-  margin?: number;
-}
-
 function drawHouse(
   layout: string[][],
   left: number,
@@ -142,7 +143,7 @@ export function tryPlaceVillage(
   grid: GridConfig,
   rng: RandomGenerator,
   biomeId: BiomeId,
-  options: VillagePlacementOptions = {},
+  options: StructurePlacementOptions = {},
 ): {
   questGiver: RoomSnapshot['questGiver'];
   village: NonNullable<RoomSnapshot['village']>;
