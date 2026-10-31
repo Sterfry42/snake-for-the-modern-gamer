@@ -14,6 +14,7 @@ import {
   tryBreakBlockCreative,
   tryPlaceBlockCreative,
 } from './blockInteraction.js';
+import { blockCellKey } from './cellKey.js';
 import {
   getRecipeById,
   canCraft,
@@ -566,7 +567,7 @@ export class MinecraftFeature extends Feature {
             });
           }
           if (isPlaceableSpecialBlock(blockType)) {
-            const key = `${worldTileX},${worldTileY},${room.id}`;
+            const key = blockCellKey(worldTileX, worldTileY, room.id);
             if (blockType === 'furnace') this.furnaces.delete(key);
             if (blockType === 'chest') this.chests.delete(key);
             if (blockType === 'bed') this.beds.delete(key);
