@@ -15,6 +15,7 @@ import {
   tryPlaceBlockCreative,
 } from './blockInteraction.js';
 import { blockCellKey } from './cellKey.js';
+import { parseRoomCoordinates } from './roomCoordinates.js';
 import {
   getRecipeById,
   canCraft,
@@ -404,7 +405,7 @@ export class MinecraftFeature extends Feature {
     if (!this.renderLayer) return;
 
     const room = scene.snakeGame.getCurrentRoom();
-    const [roomX, roomY] = this.parseRoomCoordinates(room.id);
+    const [roomX, roomY] = parseRoomCoordinates(room.id);
     const localX = Math.floor(
       (worldX - roomX * scene.grid.cols * scene.grid.cell) / scene.grid.cell,
     );
@@ -469,7 +470,7 @@ export class MinecraftFeature extends Feature {
     if (!this.minecraftMode || !this.player) return false;
 
     const room: RoomSnapshot = scene.snakeGame.getCurrentRoom();
-    const [roomX, roomY] = this.parseRoomCoordinates(room.id);
+    const [roomX, roomY] = parseRoomCoordinates(room.id);
     const localX = Math.floor(
       (worldX - roomX * scene.grid.cols * scene.grid.cell) / scene.grid.cell,
     );
@@ -1253,12 +1254,6 @@ export class MinecraftFeature extends Feature {
       cow: 'raw_beef',
     };
     return dropMap[mobType] ?? null;
-  }
-
-  private parseRoomCoordinates(roomId: string): [number, number] {
-    if (roomId.startsWith('cave:')) return [0, 0];
-    const parts = roomId.split(',').map(Number);
-    return [parts[0] ?? 0, parts[1] ?? 0];
   }
 
   private getMobColor(type: string): number {
