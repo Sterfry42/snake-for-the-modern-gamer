@@ -4,6 +4,8 @@
  * The wise old snake has cataloged 999 mutations. These are just the good ones.
  */
 
+import type { SnakeSpritePalette } from '../ui/spriteRecipes/snakeRecipe.js';
+
 // ---------------------------------------------------------------------------
 // Cosmetic category IDs
 // ---------------------------------------------------------------------------
@@ -31,14 +33,6 @@ export interface CosmeticItemBase {
 // ---------------------------------------------------------------------------
 // Theme / Palette items
 // ---------------------------------------------------------------------------
-
-export interface SnakeSpritePalette {
-  baseColor: string;
-  bellyColor: string;
-  patternColor: string;
-  outlineColor: string;
-  eyeColor: string;
-}
 
 export interface ThemeCosmeticItem extends CosmeticItemBase {
   category: 'themes';

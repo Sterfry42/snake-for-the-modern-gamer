@@ -14,7 +14,6 @@ export type {
   LanguageCosmeticItem,
   EmoticonCosmeticItem,
   CosmeticCategoryMeta,
-  SnakeSpritePalette,
 } from './cosmeticTypes.js';
 
 export { COSMETIC_CATEGORIES } from './cosmeticTypes.js';

@@ -11,7 +11,7 @@ import type {
   LanguageCosmeticItem,
   EmoticonCosmeticItem,
 } from './cosmeticTypes.js';
-import type { SnakeSpritePalette } from './cosmeticTypes.js';
+import type { SnakeSpritePalette } from '../ui/spriteRecipes/snakeRecipe.js';
 import { EMOTICON_DEFINITIONS } from '../emoticons/emoticonCatalog.js';
 import { AVAILABLE_LANGUAGES } from '../i18n/types.js';
 
