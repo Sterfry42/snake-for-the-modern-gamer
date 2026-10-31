@@ -1925,7 +1925,8 @@ function walkableDoorApproach(
   return undefined;
 }
 
-function isWalkableTownApproach(tile: string | undefined): boolean {
+/** A town tile the player can stand on: set, not void, not solid, not a blocking town tile. */
+export function isWalkableTownApproach(tile: string | undefined): boolean {
   return Boolean(tile && tile !== '~' && !isSolidTile(tile) && !isBlockingTownTile(tile));
 }
 

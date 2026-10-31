@@ -1,5 +1,4 @@
-import { isBlockingTownTile } from '../../world/town.js';
-import { isSolidTile } from '../../world/tiles.js';
+import { isWalkableTownApproach } from '../../world/town.js';
 import type { RoomSnapshot } from '../../world/types.js';
 
 export interface ReachabilityTarget {
@@ -78,16 +77,12 @@ export function defaultReachabilityStarts(room: RoomSnapshot): ReachabilityTarge
   }
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
-      if (isTownWalkable(room.layout[y]?.[x])) {
+      if (isWalkableTownApproach(room.layout[y]?.[x])) {
         return [{ x, y, label: 'first walkable tile' }];
       }
     }
   }
   return [];
-}
-
-export function isTownWalkable(tile: string | undefined): boolean {
-  return Boolean(tile && tile !== '~' && !isSolidTile(tile) && !isBlockingTownTile(tile));
 }
 
 function reachableCells(
@@ -103,7 +98,7 @@ function reachableCells(
   for (let y = 0; y < height; y += 1) {
     const row = layout[y];
     for (let x = 0; x < row.length; x += 1) {
-      if (isTownWalkable(row[x])) walkable[y * width + x] = 1;
+      if (isWalkableTownApproach(row[x])) walkable[y * width + x] = 1;
     }
   }
   const queue: number[] = [];
@@ -142,7 +137,7 @@ function pushIfWalkable(
   y: number,
   label: string,
 ): void {
-  if (isTownWalkable(room.layout[y]?.[x])) {
+  if (isWalkableTownApproach(room.layout[y]?.[x])) {
     starts.push({ x, y, label });
   }
 }
