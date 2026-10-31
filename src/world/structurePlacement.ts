@@ -1,5 +1,5 @@
 import type { GridConfig } from '../config/gameConfig.js';
-import { clamp, vectorKey } from '../core/math.js';
+import { clamp, vectorKey, type Vector2Like } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 
 export interface StructureBounds {
@@ -148,4 +148,80 @@ function canClearRect(
     }
   }
   return true;
+}
+
+/** Positions shared by the goblin and tengu camp skeletons. */
+export interface CampScaffold {
+  camp: StructureBounds;
+  center: Vector2Like;
+  safeArea: StructureBounds;
+  tents: Vector2Like[];
+  fires: Vector2Like[];
+  leaderSpot: Vector2Like;
+  guardSpots: Vector2Like[];
+}
+
+/**
+ * Place the common camp skeleton: an 8x4 core inside a 5-tile padded safe
+ * area (both filled with 'E'), three tents, two fires, a leader spot, and
+ * two guard spots. Camp-specific tile art and spawns are drawn by the
+ * caller using the returned positions.
+ */
+export function placeCampScaffold(
+  layout: string[][],
+  grid: GridConfig,
+  rng: RandomGenerator,
+  options: { forbiddenCells?: ReadonlySet<string>; margin?: number } = {},
+): CampScaffold | null {
+  if (grid.cols < 24 || grid.rows < 18) return null;
+
+  const coreWidth = 8;
+  const coreHeight = 4;
+  const safeAreaPadding = 5;
+  const camp = findRandomRectPlacement(layout, grid, rng, {
+    width: coreWidth + safeAreaPadding * 2,
+    height: coreHeight + safeAreaPadding * 2,
+    margin: options.margin ?? 5,
+    attempts: 32,
+    forbiddenCells: options.forbiddenCells,
+  });
+  if (!camp) return null;
+
+  const center: Vector2Like = {
+    x: camp.left + Math.floor(camp.width / 2),
+    y: camp.top + Math.floor(camp.height / 2),
+  };
+  const safeArea: StructureBounds = {
+    left: camp.left,
+    top: camp.top,
+    width: camp.width,
+    height: camp.height,
+  };
+
+  fillRect(layout, safeArea.left, safeArea.top, safeArea.width, safeArea.height, 'E');
+  fillRect(
+    layout,
+    camp.left + safeAreaPadding,
+    camp.top + safeAreaPadding,
+    coreWidth,
+    coreHeight,
+    'E',
+  );
+
+  const tents: Vector2Like[] = [
+    { x: camp.left + 1, y: camp.top + 1 },
+    { x: camp.left + camp.width - 4, y: camp.top + 1 },
+    { x: camp.left + 2, y: camp.top + camp.height - 4 },
+  ];
+  const fires: Vector2Like[] = [
+    { x: center.x - 1, y: center.y },
+    { x: center.x + 2, y: center.y + 1 },
+  ];
+  const leaderSpot: Vector2Like = { x: center.x, y: center.y - 1 };
+  const guardSpots: Vector2Like[] = [
+    { x: center.x - 3, y: center.y + 1 },
+    { x: center.x + 4, y: center.y - 1 },
+  ];
+
+  return { camp, center, safeArea, tents, fires, leaderSpot, guardSpots };
 }
