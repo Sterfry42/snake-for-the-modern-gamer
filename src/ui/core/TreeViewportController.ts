@@ -1,9 +1,6 @@
-import { clamp } from '../../core/math.js';
+import { clamp, type Vector2Like } from '../../core/math.js';
 
-export interface TreePoint {
-  x: number;
-  y: number;
-}
+export type TreePoint = Vector2Like;
 
 export interface TreeViewportControllerOptions {
   width: number;

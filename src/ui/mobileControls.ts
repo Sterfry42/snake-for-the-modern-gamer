@@ -1,3 +1,4 @@
+import type { Vector2Like } from '../core/math.js';
 import type { ControlActionId } from '../input/controlActions.js';
 
 const isCoarsePointer = () => {
@@ -27,16 +28,11 @@ interface MobileControlsOptions {
   onAction?: (actionId: ControlActionId) => void;
 }
 
-export interface SwipePoint {
-  x: number;
-  y: number;
-}
-
 export type SwipeDirection = { x: 0; y: -1 } | { x: 0; y: 1 } | { x: -1; y: 0 } | { x: 1; y: 0 };
 
 export function resolveSwipeDirection(
-  start: SwipePoint,
-  end: SwipePoint,
+  start: Vector2Like,
+  end: Vector2Like,
   thresholdPx = 32,
 ): SwipeDirection | null {
   const dx = end.x - start.x;
@@ -129,7 +125,7 @@ export function createMobileControls(options: MobileControlsOptions): MobileCont
   swipeLayer.className = 'mobile-controls__swipe-layer';
   swipeLayer.setAttribute('aria-hidden', 'true');
 
-  let swipeStart: SwipePoint | null = null;
+  let swipeStart: Vector2Like | null = null;
   let swipePointerId: number | null = null;
 
   const handleSwipeStart = (event: PointerEvent) => {
