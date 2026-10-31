@@ -1,4 +1,5 @@
 import type { RuntimeSpriteRecipe } from '../runtimeSpriteFactory.js';
+import { drawPixels } from './spriteGeometry.js';
 
 export type AppleSpriteVariant = 'normal' | 'shielded' | 'gold' | 'skittish' | 'roadRash';
 
@@ -18,26 +19,6 @@ const APPLE_VARIANTS: readonly AppleSpriteVariant[] = [
   'skittish',
   'roadRash',
 ];
-
-function drawBlock(
-  context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  pixelSize: number,
-  color: string,
-): void {
-  context.fillStyle = color;
-  context.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
-}
-
-function drawMany(
-  context: CanvasRenderingContext2D,
-  points: number[][],
-  pixelSize: number,
-  color: string,
-): void {
-  points.forEach(([x, y]) => drawBlock(context, x, y, pixelSize, color));
-}
 
 const APPLE_OUTLINE = [
   [3, 1],
@@ -173,21 +154,21 @@ export const appleSpriteRecipe: RuntimeSpriteRecipe<AppleSpriteVariant, AppleSpr
     context.translate(offset, offset);
     context.imageSmoothingEnabled = false;
 
-    drawMany(context, APPLE_OUTLINE, pixelSize, palette.outlineColor);
-    drawMany(context, APPLE_FILL, pixelSize, palette.fillColor);
-    drawMany(context, APPLE_ACCENT, pixelSize, palette.accentColor);
-    drawMany(context, LEAF, pixelSize, palette.leafColor);
-    drawMany(context, STEM, pixelSize, palette.stemColor);
+    drawPixels(context, APPLE_OUTLINE, pixelSize, palette.outlineColor);
+    drawPixels(context, APPLE_FILL, pixelSize, palette.fillColor);
+    drawPixels(context, APPLE_ACCENT, pixelSize, palette.accentColor);
+    drawPixels(context, LEAF, pixelSize, palette.leafColor);
+    drawPixels(context, STEM, pixelSize, palette.stemColor);
 
     if (variant === 'shielded') {
-      drawMany(context, SHIELD_MARKS, pixelSize, palette.sparkleColor);
+      drawPixels(context, SHIELD_MARKS, pixelSize, palette.sparkleColor);
     } else if (variant === 'gold') {
-      drawMany(context, GOLD_SPARKLES, pixelSize, palette.sparkleColor);
+      drawPixels(context, GOLD_SPARKLES, pixelSize, palette.sparkleColor);
     } else if (variant === 'skittish') {
-      drawMany(context, SKITTISH_EYES, pixelSize, palette.sparkleColor);
-      drawMany(context, SKITTISH_FEET, pixelSize, palette.sparkleColor);
+      drawPixels(context, SKITTISH_EYES, pixelSize, palette.sparkleColor);
+      drawPixels(context, SKITTISH_FEET, pixelSize, palette.sparkleColor);
     } else if (variant === 'roadRash') {
-      drawMany(context, ROAD_RASH_FLAMES, pixelSize, palette.sparkleColor);
+      drawPixels(context, ROAD_RASH_FLAMES, pixelSize, palette.sparkleColor);
     }
 
     context.restore();

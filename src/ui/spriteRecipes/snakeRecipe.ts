@@ -1,5 +1,5 @@
 import type { RuntimeSpriteRecipe } from '../runtimeSpriteFactory.js';
-import { createSpriteRotator } from './spriteGeometry.js';
+import { createSpriteRotator, drawPixels } from './spriteGeometry.js';
 
 const { rotatePoints } = createSpriteRotator(8);
 
@@ -43,26 +43,6 @@ const VARIANTS: readonly SnakeSpriteVariant[] = [
   'tail-left',
   'tail-right',
 ];
-
-function fillPixel(
-  context: CanvasRenderingContext2D,
-  px: number,
-  py: number,
-  pixelSize: number,
-  color: string,
-): void {
-  context.fillStyle = color;
-  context.fillRect(px * pixelSize, py * pixelSize, pixelSize, pixelSize);
-}
-
-function drawPixels(
-  context: CanvasRenderingContext2D,
-  points: ReadonlyArray<readonly [number, number]>,
-  pixelSize: number,
-  color: string,
-): void {
-  points.forEach(([x, y]) => fillPixel(context, x, y, pixelSize, color));
-}
 
 function directionToTurns(direction: 'up' | 'right' | 'down' | 'left'): number {
   switch (direction) {

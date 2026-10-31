@@ -1,5 +1,5 @@
 import type { RuntimeSpriteRecipe } from '../runtimeSpriteFactory.js';
-import { createSpriteRotator, turnsForVariant } from './spriteGeometry.js';
+import { createSpriteRotator, drawPixels, turnsForVariant } from './spriteGeometry.js';
 
 const { rotatePoints } = createSpriteRotator(8);
 
@@ -34,26 +34,6 @@ const VARIANTS: readonly EnemySpriteVariant[] = [
   'enemy-flash-right',
   'bullet',
 ];
-
-function fillPixel(
-  context: CanvasRenderingContext2D,
-  px: number,
-  py: number,
-  pixelSize: number,
-  color: string,
-): void {
-  context.fillStyle = color;
-  context.fillRect(px * pixelSize, py * pixelSize, pixelSize, pixelSize);
-}
-
-function drawPixels(
-  context: CanvasRenderingContext2D,
-  points: readonly (readonly [number, number])[],
-  pixelSize: number,
-  color: string,
-): void {
-  points.forEach(([x, y]) => fillPixel(context, x, y, pixelSize, color));
-}
 
 const ENEMY_OUTLINE = [
   [2, 1],
