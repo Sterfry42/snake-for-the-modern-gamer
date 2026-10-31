@@ -20,6 +20,28 @@ export interface FurnitureSpritePalette {
   gardenReady: { fill: string; accent: string; outline: string };
 }
 
+/** Map a layout tile character to its furniture sprite variant. */
+export function furnitureVariantForTile(tile: string): FurnitureSpriteVariant | null {
+  switch (tile) {
+    case 'C':
+      return 'couch';
+    case 'K':
+      return 'kitchen';
+    case 'B':
+      return 'bed';
+    case 'P':
+      return 'plant';
+    case 'L':
+      return 'lamp';
+    case 'D':
+      return 'garden';
+    case 'R':
+      return 'gardenReady';
+    default:
+      return null;
+  }
+}
+
 const VARIANTS: readonly FurnitureSpriteVariant[] = [
   'couch',
   'kitchen',
