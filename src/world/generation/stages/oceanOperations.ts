@@ -2,6 +2,7 @@ import type { GridConfig } from '../../../config/gameConfig.js';
 import type { RandomGenerator } from '../../../core/rng.js';
 import { biomeCountsAs } from '../../biomes.js';
 import type { BiomeMap } from '../biomeMap.js';
+import { hashRoomCoordinates } from '../worldHash.js';
 
 export class OceanOperations {
   constructor(
@@ -91,7 +92,7 @@ export class OceanOperations {
       return null;
     }
 
-    const hash = this.hashRoom(anchorX, anchorY, roomZ, 0x51f);
+    const hash = hashRoomCoordinates(anchorX, anchorY, roomZ, 0x51f);
     if (hash % 100 >= 10) {
       return null;
     }
@@ -108,7 +109,7 @@ export class OceanOperations {
     const span = orientation === 'east' ? grid.rows : grid.cols;
     const maxOffset = Math.max(margin, span - width - margin);
     const offsetRange = Math.max(1, maxOffset - margin + 1);
-    const offset = margin + (this.hashRoom(anchorX, anchorY, roomZ, 0x9e3) % offsetRange);
+    const offset = margin + (hashRoomCoordinates(anchorX, anchorY, roomZ, 0x9e3) % offsetRange);
     return { orientation, offset, width };
   }
 
@@ -146,16 +147,5 @@ export class OceanOperations {
 
   private randomIntInRange(minInclusive: number, maxExclusive: number): number {
     return minInclusive + this.randomInt(Math.max(1, maxExclusive - minInclusive));
-  }
-
-  private hashRoom(roomX: number, roomY: number, roomZ: number, salt: number): number {
-    let hash = 2166136261;
-    hash ^= roomX + 0x9e3779b9;
-    hash = Math.imul(hash, 16777619);
-    hash ^= roomY + 0x85ebca6b;
-    hash = Math.imul(hash, 16777619);
-    hash ^= roomZ + salt;
-    hash = Math.imul(hash, 16777619);
-    return hash >>> 0;
   }
 }
