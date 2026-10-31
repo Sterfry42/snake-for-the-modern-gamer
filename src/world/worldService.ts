@@ -1403,21 +1403,6 @@ function townInteriorResidentsForBuilding(
   }
 }
 
-function townInteriorPalette(templateId: LayerTemplateId): {
-  title: string;
-  backgroundColor: number;
-  wallColor: number;
-  wallOutlineColor: number;
-};
-function townInteriorPalette(
-  templateId: LayerTemplateId,
-  titleOverride: string | undefined,
-): {
-  title: string;
-  backgroundColor: number;
-  wallColor: number;
-  wallOutlineColor: number;
-};
 function townInteriorPalette(
   templateId: LayerTemplateId,
   titleOverride?: string,
