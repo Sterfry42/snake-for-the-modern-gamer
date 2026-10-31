@@ -7,6 +7,7 @@
  * stays with each transit kind.
  */
 import type { Vector2Like } from '../core/math.js';
+import type { RandomGenerator } from '../core/rng.js';
 
 export interface TransitFloorBlock {
   tiles: Vector2Like[];
@@ -93,6 +94,23 @@ export function findEdgeTiles(
 /** Generate a unique station ID from a transit kind and room ID. */
 export function generateTransitStationId(kind: string, roomId: string): string {
   return `${kind}:${roomId}`;
+}
+
+/** Build the 1-2 intermediate transit room ids between a station and its destination. */
+export function generateTransitRooms(
+  stationRoomId: string,
+  destinationRoomId: string,
+  rng: RandomGenerator,
+): string[] {
+  const transitRooms: string[] = [];
+  const count = 1 + Math.floor(rng() * 2); // 1-2 transit rooms
+
+  for (let i = 0; i < count; i++) {
+    const transitId = `transit:${stationRoomId}:${destinationRoomId}:${i}`;
+    transitRooms.push(transitId);
+  }
+
+  return transitRooms;
 }
 
 /** Deterministic candidate-seed hash shared by transit resolvers. */
