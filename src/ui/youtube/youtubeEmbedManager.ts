@@ -1,3 +1,5 @@
+import { parkEmbedHost } from '../core/CanvasPanel.js';
+
 const YOUTUBE_LAST_URL_STORAGE_KEY = 'snake.youtube.lastUrl';
 
 const YOUTUBE_HOSTS = new Set([
@@ -133,7 +135,8 @@ export class YouTubeEmbedManager {
       return;
     }
     this.document?.body.append(this.host);
-    this.applyParkedStyles(this.host);
+    parkEmbedHost(this.host);
+    this.host.style.zIndex = 'auto';
   }
 
   destroy(): void {
@@ -152,7 +155,8 @@ export class YouTubeEmbedManager {
     }
     const host = this.document.createElement('div');
     host.className = 'youtube-embed-manager__host';
-    this.applyParkedStyles(host);
+    parkEmbedHost(host);
+    host.style.zIndex = 'auto';
     this.host = host;
     return host;
   }
@@ -210,18 +214,6 @@ export class YouTubeEmbedManager {
     host.style.pointerEvents = 'auto';
     host.style.display = 'block';
     host.style.zIndex = '1200';
-  }
-
-  private applyParkedStyles(host: HTMLElement): void {
-    host.style.position = 'fixed';
-    host.style.left = '-10000px';
-    host.style.top = '-10000px';
-    host.style.width = '1px';
-    host.style.height = '1px';
-    host.style.opacity = '0';
-    host.style.pointerEvents = 'none';
-    host.style.display = 'block';
-    host.style.zIndex = 'auto';
   }
 }
 

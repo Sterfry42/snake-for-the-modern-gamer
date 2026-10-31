@@ -28,3 +28,18 @@ export function positionCanvasPanel(
   root.style.width = `${bounds.width * scaleX}px`;
   root.style.height = `${bounds.height * scaleY}px`;
 }
+
+/**
+ * Park an embed host off-screen: a 1x1 fixed element with no pointer
+ * events. Shared by the Spotify and YouTube embed managers.
+ */
+export function parkEmbedHost(host: HTMLElement): void {
+  host.style.position = 'fixed';
+  host.style.left = '-10000px';
+  host.style.top = '-10000px';
+  host.style.width = '1px';
+  host.style.height = '1px';
+  host.style.opacity = '0';
+  host.style.pointerEvents = 'none';
+  host.style.display = 'block';
+}
