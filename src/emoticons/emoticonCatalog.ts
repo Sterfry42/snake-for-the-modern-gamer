@@ -36,8 +36,6 @@ export const ALL_EMOTICON_IDS = [
   'thumbsup',
 ] as const;
 
-export type EmoticonId = (typeof ALL_EMOTICON_IDS)[number];
-
 export const EMOTICON_DEFINITIONS: readonly EmoticonDefinition[] = [
   {
     id: 'happy',
