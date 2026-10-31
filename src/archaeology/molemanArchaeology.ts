@@ -440,7 +440,7 @@ export class MolemanArchaeologySession {
     } else if (this.topGraceRemainingMs <= 0) {
       this.topGraceRemainingMs = TOP_GRACE_MS;
       this.riseProgress = 0;
-      this.pendingMessages.push(t('ceilingPressure'));
+      this.pendingMessages.push(tArchaeology('ceilingPressure'));
       return;
     }
     if (this.topGraceRemainingMs > 0) {
@@ -448,7 +448,7 @@ export class MolemanArchaeologySession {
       this.riseProgress = 0;
       if (this.topGraceRemainingMs <= 0 && this.board[0]?.some(Boolean)) {
         this.gameOver = true;
-        this.pendingMessages.push(t('ceilingReached'));
+        this.pendingMessages.push(tArchaeology('ceilingReached'));
         this.pendingEvents.push({ kind: 'game-over' });
       }
       return;
@@ -465,7 +465,7 @@ export class MolemanArchaeologySession {
     if (this.board[0]?.some(Boolean)) {
       this.topGraceRemainingMs = TOP_GRACE_MS;
       this.riseProgress = 0;
-      this.pendingMessages.push(t('ceilingPressure'));
+      this.pendingMessages.push(tArchaeology('ceilingPressure'));
       return;
     }
     this.board.shift();
@@ -812,8 +812,8 @@ export class MolemanArchaeologySession {
       const appleCount = Object.values(apples).reduce((total, amount) => total + amount, 0);
       const label =
         appleCount > 0
-          ? t('appleScore', { count: appleCount, score: awardedScore })
-          : t('plusScore', { score: awardedScore });
+          ? tArchaeology('appleScore', { count: appleCount, score: awardedScore })
+          : tArchaeology('plusScore', { score: awardedScore });
       this.pendingMessages.push(label);
       this.pendingEvents.push({
         kind: 'reward',
@@ -856,10 +856,10 @@ export class MolemanArchaeologySession {
       const score = baseScore + duplicateScore;
       this.score += score;
       this.rewards.score += score;
-      this.pendingMessages.push(t('artifactDuplicate', { name: artifact.name }));
+      this.pendingMessages.push(tArchaeology('artifactDuplicate', { name: artifact.name }));
       this.pendingEvents.push({
         kind: 'reward',
-        label: t('artifactDuplicateShort', { name: artifact.name }),
+        label: tArchaeology('artifactDuplicateShort', { name: artifact.name }),
       });
       this.pendingEvents.push({ kind: 'cache', artifactName: artifact.name });
       return score;
@@ -869,10 +869,10 @@ export class MolemanArchaeologySession {
       this.rewards.score += baseScore;
     }
     this.rewards.artifacts.push(artifact.id);
-    this.pendingMessages.push(t('artifactRecovered', { name: artifact.name }));
+    this.pendingMessages.push(tArchaeology('artifactRecovered', { name: artifact.name }));
     this.pendingEvents.push({
       kind: 'reward',
-      label: t('artifactRecovered', { name: artifact.name }),
+      label: tArchaeology('artifactRecovered', { name: artifact.name }),
     });
     this.pendingEvents.push({ kind: 'cache', artifactName: artifact.name });
     return baseScore;
@@ -888,7 +888,9 @@ export class MolemanArchaeologySession {
 
   private addReward(target: Record<string, number>, itemId: string, count: number): void {
     target[itemId] = (target[itemId] ?? 0) + count;
-    const label = t('recoveredItem', { name: getItem(itemId)?.name ?? itemId.replace(/-/g, ' ') });
+    const label = tArchaeology('recoveredItem', {
+      name: getItem(itemId)?.name ?? itemId.replace(/-/g, ' '),
+    });
     this.pendingMessages.push(label);
     this.pendingEvents.push({ kind: 'reward', label });
   }
@@ -937,7 +939,11 @@ function pick<T>(values: readonly T[], rng: () => number): T {
   return values[Math.floor(rng() * values.length)]!;
 }
 
-function t(key: string, replacements: Record<string, string | number> = {}): string {
+/** Translate an archaeology common-string key with `{name}` placeholder replacement. */
+export function tArchaeology(
+  key: string,
+  replacements: Record<string, string | number> = {},
+): string {
   return Object.entries(replacements).reduce(
     (text, [name, value]) => text.split(`{${name}}`).join(String(value)),
     i18n.getCommon(`archaeology.${key}`),
