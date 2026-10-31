@@ -1,13 +1,9 @@
+import { ACTION_SLOT_FLAG, readActionSlotState, type ActionSlotState } from '../actionSlots.js';
 import { spellRegistry, type SpellRegistry } from './spellRegistry.js';
 import type { SpellDefinition } from './spellTypes.js';
 
 const KNOWN_FLAG = 'arcane.spellbook.known';
 const LOADOUT_FLAG = 'arcane.spellbook.loadout';
-const ACTION_SLOT_FLAG = 'actions.slots';
-
-interface ActionSlotState {
-  q?: string;
-}
 
 export type LearnSpellResult =
   | { ok: true; spell: SpellDefinition; alreadyKnown: false }
@@ -146,8 +142,6 @@ export class SpellbookService {
   }
 
   private getActionSlotState(): ActionSlotState {
-    const value = this.storage.getFlag<ActionSlotState>(ACTION_SLOT_FLAG);
-    if (!value || typeof value !== 'object') return {};
-    return { q: typeof value.q === 'string' ? value.q : undefined };
+    return readActionSlotState((key) => this.storage.getFlag(key));
   }
 }
