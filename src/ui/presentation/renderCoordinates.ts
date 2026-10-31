@@ -1,5 +1,6 @@
 import type { GridConfig } from '../../config/gameConfig.js';
 import type { Vector2Like } from '../../core/math.js';
+import { parseCoordinateRoomId } from '../../world/roomAddress.js';
 
 export interface RenderRoomPlacement {
   roomId: string;
@@ -36,15 +37,5 @@ export function localRenderPoint(
   return {
     x: position.x + placement.offsetX,
     y: position.y + placement.offsetY,
-  };
-}
-
-export function parseCoordinateRoomId(roomId: string): { x: number; y: number; z: number } | null {
-  const match = /^(-?\d+),(-?\d+),(-?\d+)$/.exec(roomId);
-  if (!match) return null;
-  return {
-    x: Number(match[1]),
-    y: Number(match[2]),
-    z: Number(match[3]),
   };
 }

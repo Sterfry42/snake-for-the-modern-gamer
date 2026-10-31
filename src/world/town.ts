@@ -10,6 +10,7 @@ import {
   type TownDoorKind,
 } from '../layers/layerTypes.js';
 import { fillRect, rowsToStrings, setTile } from './structurePlacement.js';
+import { parseCoordinateRoomId } from './roomAddress.js';
 import type { BiomeId } from './biomes.js';
 import { createHumanoidIdentity, type WorldHumanoidIdentity } from './humanoidSpawn.js';
 import { isSolidTile, tileHasTag } from './tiles.js';
@@ -569,11 +570,6 @@ class TownRoomBuildContext {
 
 function roomId(townId: string, kind: TownRoomKind): string {
   return `${townId}:${kind}`;
-}
-
-function parseCoordinateRoomId(id: string): { x: number; y: number; z: number } | null {
-  const [x, y, z = 0] = id.split(',').map(Number);
-  return Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z) ? { x, y, z } : null;
 }
 
 function roomIdOnSide(roomIdValue: string, side: TownGateSide): string {
