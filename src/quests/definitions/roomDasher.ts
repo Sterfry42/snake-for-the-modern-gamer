@@ -1,4 +1,4 @@
-import { Quest } from '../quest.js';
+import { Quest, crossedRoomFastEnough } from '../quest.js';
 import type { QuestRuntime } from '../quest.js';
 
 const MIN_DISTANCE = 26;
@@ -10,12 +10,9 @@ class RoomDasherQuest extends Quest {
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {
-    const distance = Number(runtime.getFlag<number>('roomTravelDistance') ?? 0);
-    const travelMs = Number(runtime.getFlag<number>('roomTravelMs') ?? Number.POSITIVE_INFINITY);
     return (
       this.progressSinceAccept(runtime, 'roomsVisited') >= 1 &&
-      distance >= MIN_DISTANCE &&
-      travelMs <= MAX_TRAVEL_MS
+      crossedRoomFastEnough(runtime, MIN_DISTANCE, MAX_TRAVEL_MS)
     );
   }
 
