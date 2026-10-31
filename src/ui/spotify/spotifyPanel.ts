@@ -1,6 +1,6 @@
 import { SpotifyEmbedManager } from './spotifyEmbedManager.js';
 
-export interface SpotifyPanelBounds {
+interface SpotifyPanelBounds {
   overlayX: number;
   overlayY: number;
   x: number;

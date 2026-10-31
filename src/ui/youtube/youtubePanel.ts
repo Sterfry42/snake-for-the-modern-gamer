@@ -1,6 +1,6 @@
 import { YouTubeEmbedManager } from './youtubeEmbedManager.js';
 
-export interface YouTubePanelBounds {
+interface YouTubePanelBounds {
   overlayX: number;
   overlayY: number;
   x: number;

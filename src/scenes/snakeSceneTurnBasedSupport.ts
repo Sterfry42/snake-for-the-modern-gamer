@@ -1,9 +1,9 @@
-export interface TurnBasedGridSize {
+interface TurnBasedGridSize {
   cols: number;
   rows: number;
 }
 
-export interface TurnBasedZoneBounds {
+interface TurnBasedZoneBounds {
   left: number;
   top: number;
   width: number;
