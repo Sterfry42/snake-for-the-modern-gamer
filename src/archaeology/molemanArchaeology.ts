@@ -1,7 +1,7 @@
 import { ARTIFACT_DEFINITIONS, type ArtifactDefinition } from '../artifacts/artifacts.js';
 import { i18n } from '../i18n/i18nManager.js';
 import { getItem } from '../inventory/itemRegistry.js';
-import { clamp } from '../core/math.js';
+import { clamp, vectorKey } from '../core/math.js';
 
 export type DigSiteVariantId = 'forest' | 'ocean' | 'deep';
 
@@ -581,14 +581,14 @@ export class MolemanArchaeologySession {
     const locked = new Set<string>();
     const state = this.resolver;
     if (state?.kind === 'highlight' || state?.kind === 'pop') {
-      for (const cell of state.cells) locked.add(key(cell.x, cell.y));
+      for (const cell of state.cells) locked.add(vectorKey(cell));
     }
-    if (this.activePoppingCell) locked.add(key(this.activePoppingCell.x, this.activePoppingCell.y));
+    if (this.activePoppingCell) locked.add(vectorKey(this.activePoppingCell));
     for (const move of this.visibleGravityMoves) {
-      locked.add(key(move.fromX, move.fromY));
-      locked.add(key(move.toX, move.toY));
+      locked.add(vectorKey({ x: move.fromX, y: move.fromY }));
+      locked.add(vectorKey({ x: move.toX, y: move.toY }));
     }
-    return locked.has(key(x, y)) || locked.has(key(x + 1, y));
+    return locked.has(vectorKey({ x, y })) || locked.has(vectorKey({ x: x + 1, y }));
   }
 
   private tickResolver(deltaMs: number): void {
@@ -689,7 +689,7 @@ export class MolemanArchaeologySession {
     matchedCells: readonly ArchaeologyBoardCell[],
     origins: readonly ArchaeologyBoardCell[],
   ): ArchaeologyBoardCell[] {
-    const destroyed = new Map(matchedCells.map((cell) => [key(cell.x, cell.y), cell]));
+    const destroyed = new Map(matchedCells.map((cell) => [vectorKey(cell), cell]));
     for (const origin of origins) {
       for (let dy = -2; dy <= 2; dy += 1) {
         for (let dx = -2; dx <= 2; dx += 1) {
@@ -697,7 +697,7 @@ export class MolemanArchaeologySession {
           const x = origin.x + dx;
           const y = origin.y + dy;
           const tile = this.board[y]?.[x] ?? null;
-          if (tile) destroyed.set(key(x, y), { x, y, tile });
+          if (tile) destroyed.set(vectorKey({ x, y }), { x, y, tile });
         }
       }
     }
@@ -773,7 +773,7 @@ export class MolemanArchaeologySession {
   private addMatchedCell(matched: Map<string, ArchaeologyBoardCell>, x: number, y: number): void {
     const tile = this.board[y]?.[x] ?? null;
     if (!tile) return;
-    matched.set(key(x, y), { x, y, tile });
+    matched.set(vectorKey({ x, y }), { x, y, tile });
   }
 
   private isSameMatchable(ax: number, ay: number, bx: number, by: number): boolean {
@@ -935,10 +935,6 @@ export function chooseDigSiteVariant(
 
 function pick<T>(values: readonly T[], rng: () => number): T {
   return values[Math.floor(rng() * values.length)]!;
-}
-
-function key(x: number, y: number): string {
-  return `${x},${y}`;
 }
 
 function t(key: string, replacements: Record<string, string | number> = {}): string {
