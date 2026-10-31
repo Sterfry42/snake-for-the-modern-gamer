@@ -89,6 +89,36 @@ export function findRandomRectPlacement(
   return null;
 }
 
+/**
+ * Place a rect via up to `attempts` random positions, falling back to the
+ * fixed candidate positions (clearing that area) when the room is crowded.
+ * Returns null when no candidate fits.
+ */
+export function placeRectWithFallback(
+  layout: string[][],
+  grid: GridConfig,
+  width: number,
+  height: number,
+  rng: RandomGenerator,
+  options: { forbiddenCells?: ReadonlySet<string>; margin?: number; attempts?: number } = {},
+): StructureBounds | null {
+  const margin = options.margin ?? 5;
+  const attempts = options.attempts ?? 80;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const left = randomIntInRange(rng, margin, Math.max(margin + 1, grid.cols - width - margin));
+    const top = randomIntInRange(rng, margin, Math.max(margin + 1, grid.rows - height - margin));
+    const candidate: StructureBounds = { left, top, width, height };
+    if (canPlaceRect(layout, candidate, options.forbiddenCells, 1)) {
+      return candidate;
+    }
+  }
+
+  const fallback = findFallbackRectPlacement(layout, grid, width, height, options.forbiddenCells);
+  if (!fallback) return null;
+  clearRect(layout, fallback, 1);
+  return fallback;
+}
+
 export function findFallbackRectPlacement(
   layout: string[][],
   grid: GridConfig,
