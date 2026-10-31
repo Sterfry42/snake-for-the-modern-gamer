@@ -1,8 +1,10 @@
 import type { GridConfig } from '../config/gameConfig.js';
+import { hslToHex } from '../config/palette.js';
 import type { RoamingSnakeConfig } from '../config/roamingSnakeConfig.js';
 import type { Vector2Like } from '../core/math.js';
 import { isCaveRoomId } from '../caves/caveGenerator.js';
 import type { RandomGenerator } from '../core/rng.js';
+import { colorToCss } from '../ui/colorUtils.js';
 import type { RoomSnapshot } from '../world/types.js';
 import { getBiomeDefinition, getBiomeEnemySpawnChance } from '../world/biomes.js';
 import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
@@ -560,7 +562,7 @@ export class EnemyManager {
     const hue = Math.floor(rng() * 360);
     const saturation = 0.65 + rng() * 0.25;
     const lightness = 0.45 + rng() * 0.15;
-    const colorHex = this.hslToHex(hue, saturation, lightness);
+    const colorHex = colorToCss(hslToHex(hue, saturation, lightness));
 
     const id = `roaming-snake-${this.idCounter++}`;
     const roaming: EnemyInstance = {
@@ -650,41 +652,6 @@ export class EnemyManager {
     }
 
     return null;
-  }
-
-  private hslToHex(h: number, s: number, l: number): string {
-    const hue = (h % 360) / 360;
-    const chroma = (1 - Math.abs(2 * l - 1)) * s;
-    const hPrime = hue * 6;
-    const x = chroma * (1 - Math.abs((hPrime % 2) - 1));
-    let r = 0,
-      g = 0,
-      b = 0;
-
-    if (hPrime >= 0 && hPrime < 1) {
-      r = chroma;
-      g = x;
-    } else if (hPrime >= 1 && hPrime < 2) {
-      r = x;
-      g = chroma;
-    } else if (hPrime >= 2 && hPrime < 3) {
-      g = chroma;
-      b = x;
-    } else if (hPrime >= 3 && hPrime < 4) {
-      g = x;
-      b = chroma;
-    } else if (hPrime >= 4 && hPrime < 5) {
-      r = x;
-      b = chroma;
-    } else {
-      r = chroma;
-      b = x;
-    }
-
-    const m = l - chroma / 2;
-    const toChannel = (v: number) => Math.max(0, Math.min(255, Math.round((v + m) * 255)));
-
-    return `#${((toChannel(r) << 16) | (toChannel(g) << 8) | toChannel(b)).toString(16).padStart(6, '0')}`;
   }
 
   step(params: EnemyStepParams): EnemyStepResult {
