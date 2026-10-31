@@ -22,6 +22,8 @@ import type {
   ResolvedAtmosphereTint,
   ResolvedAtmosphereView,
   ShelterMode,
+  SkyEvent,
+  GlobalWeather,
   WeatherIconId,
   AtmosphereEffectTag,
 } from './atmosphereTypes.js';
@@ -580,41 +582,55 @@ function resolveTint(
   };
 }
 
+interface TintProfile {
+  color: number;
+  baseAlpha: number;
+  alphaGain: number;
+  amount: number;
+}
+
+const SKY_EVENT_TINTS: Record<SkyEvent, TintProfile | null> = {
+  none: null,
+  bloodMoon: { color: 0x5a0b1a, baseAlpha: 0.18, alphaGain: 0.12, amount: 0.78 },
+  eclipse: { color: 0x05070d, baseAlpha: 0.28, alphaGain: 0.12, amount: 0.86 },
+  meteorShower: { color: 0x1d2748, baseAlpha: 0.1, alphaGain: 0.06, amount: 0.45 },
+  aurora: { color: 0x2c5770, baseAlpha: 0.08, alphaGain: 0.08, amount: 0.5 },
+};
+
+const CLOUDY_WEATHER_TINTS: Record<GlobalWeather, TintProfile | null> = {
+  clear: null,
+  rain: { color: 0x405968, baseAlpha: 0.08, alphaGain: 0.08, amount: 0.62 },
+  storm: { color: 0x24313e, baseAlpha: 0.14, alphaGain: 0.1, amount: 0.76 },
+  fog: { color: 0x91a4ad, baseAlpha: 0.1, alphaGain: 0.06, amount: 0.82 },
+  heatwave: null,
+  coldfront: { color: 0x7893aa, baseAlpha: 0.08, alphaGain: 0.07, amount: 0.55 },
+  wind: null,
+};
+
 function skyEventTint(
   state: AtmosphereState,
 ): { color: number; alpha: number; amount: number } | null {
+  const profile = SKY_EVENT_TINTS[state.skyEvent?.current ?? 'none'];
+  if (!profile) return null;
   const intensity = clamp01(state.skyEvent?.intensity ?? 0);
-  switch (state.skyEvent?.current) {
-    case 'bloodMoon':
-      return { color: 0x5a0b1a, alpha: 0.18 + intensity * 0.12, amount: 0.78 };
-    case 'eclipse':
-      return { color: 0x05070d, alpha: 0.28 + intensity * 0.12, amount: 0.86 };
-    case 'meteorShower':
-      return { color: 0x1d2748, alpha: 0.1 + intensity * 0.06, amount: 0.45 };
-    case 'aurora':
-      return { color: 0x2c5770, alpha: 0.08 + intensity * 0.08, amount: 0.5 };
-    case 'none':
-    case undefined:
-      return null;
-  }
+  return {
+    color: profile.color,
+    alpha: profile.baseAlpha + intensity * profile.alphaGain,
+    amount: profile.amount,
+  };
 }
 
 function cloudyWeatherTint(
   state: AtmosphereState,
 ): { color: number; alpha: number; amount: number } | null {
+  const profile = CLOUDY_WEATHER_TINTS[state.globalWeather];
+  if (!profile) return null;
   const intensity = clamp01(state.weatherIntensity);
-  switch (state.globalWeather) {
-    case 'fog':
-      return { color: 0x91a4ad, alpha: 0.1 + intensity * 0.06, amount: 0.82 };
-    case 'rain':
-      return { color: 0x405968, alpha: 0.08 + intensity * 0.08, amount: 0.62 };
-    case 'storm':
-      return { color: 0x24313e, alpha: 0.14 + intensity * 0.1, amount: 0.76 };
-    case 'coldfront':
-      return { color: 0x7893aa, alpha: 0.08 + intensity * 0.07, amount: 0.55 };
-    default:
-      return null;
-  }
+  return {
+    color: profile.color,
+    alpha: profile.baseAlpha + intensity * profile.alphaGain,
+    amount: profile.amount,
+  };
 }
 
 function resolveWeatherTransitionScalar(state: AtmosphereState): number {
