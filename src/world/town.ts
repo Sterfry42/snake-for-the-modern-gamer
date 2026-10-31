@@ -9,7 +9,7 @@ import {
   type LayerTemplateId,
   type TownDoorKind,
 } from '../layers/layerTypes.js';
-import { fillRect, setTile } from './structurePlacement.js';
+import { fillRect, rowsToStrings, setTile } from './structurePlacement.js';
 import type { BiomeId } from './biomes.js';
 import { createHumanoidIdentity, type WorldHumanoidIdentity } from './humanoidSpawn.js';
 import { isSolidTile, tileHasTag } from './tiles.js';
@@ -1650,10 +1650,6 @@ export function formatTownMood(mood: TownMood): string {
 
 function emptyRows(grid: GridConfig, fill = '.'): string[][] {
   return Array.from({ length: grid.rows }, () => Array.from({ length: grid.cols }, () => fill));
-}
-
-function rowsToStrings(layout: string[][]): string[] {
-  return layout.map((row) => row.join(''));
 }
 
 type ExitSide = 'north' | 'south' | 'east' | 'west';

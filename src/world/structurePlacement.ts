@@ -24,6 +24,11 @@ export function setTile(layout: string[][], x: number, y: number, ch: string): v
   row[x] = ch;
 }
 
+/** Join a tile-character grid into row strings for storage/comparison. */
+export function rowsToStrings(layout: string[][]): string[] {
+  return layout.map((row) => row.join(''));
+}
+
 export function fillRect(
   layout: string[][],
   left: number,
