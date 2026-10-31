@@ -1,5 +1,5 @@
 import type { GridConfig } from '../config/gameConfig.js';
-import { vectorKey } from '../core/math.js';
+import { clamp, vectorKey } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 
 export interface StructureBounds {
@@ -114,8 +114,8 @@ export function findFallbackRectPlacement(
 
   for (const candidate of candidates) {
     const bounds = {
-      left: clampInt(candidate.left, 1, grid.cols - width - 1),
-      top: clampInt(candidate.top, 1, grid.rows - height - 1),
+      left: clamp(candidate.left, 1, grid.cols - width - 1),
+      top: clamp(candidate.top, 1, grid.rows - height - 1),
       width,
       height,
     };
@@ -148,8 +148,4 @@ function canClearRect(
     }
   }
   return true;
-}
-
-function clampInt(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
 }
