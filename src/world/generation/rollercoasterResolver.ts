@@ -1,7 +1,11 @@
 import type { GridConfig } from '../../config/gameConfig.js';
 import type { WorldGenerationIdentity } from './worldGenerationIdentity.js';
 import { parseRoomId, type RoomCoordinate } from './multiRoomStructures.js';
-import { hashTransitCoordinate } from '../transitShared.js';
+import {
+  hashTransitCoordinate,
+  type TransitDestinationInfo,
+  type TransitStationPlacement,
+} from '../transitShared.js';
 import { positiveMod } from './worldHash.js';
 
 const COASTER_STATION_REGION_SIZE = 16;
@@ -9,32 +13,10 @@ const COASTER_STATION_CANDIDATE_ATTEMPTS = 6;
 const COASTER_DESTINATION_RADIUS = 12;
 const COASTER_DESTINATION_Z_RADIUS = 4;
 
-/** A pre-computed rollercoaster station placement. */
-export interface RollercoasterPlacement {
-  id: string;
-  seed: number;
-  roomId: string;
-  /** Grid coordinate of the station room. */
-  coordinate: RoomCoordinate;
-}
-
-/** A pre-computed destination for a coaster station. */
-export interface RollercoasterDestinationInfo {
-  /** Room ID of the destination room. */
-  roomId: string;
-  /** Grid coordinate of the destination room. */
-  coordinate: RoomCoordinate;
-  /** Exit position within the destination room. */
-  exitX: number;
-  exitY: number;
-  /** Weight for random selection. */
-  weight: number;
-}
-
 /** Resolver that pre-computes rollercoaster station placements and destinations. */
 export class RollercoasterStructureResolver {
-  private readonly stationPlacements = new Map<string, RollercoasterPlacement>();
-  private readonly destinationMap = new Map<string, RollercoasterDestinationInfo[]>();
+  private readonly stationPlacements = new Map<string, TransitStationPlacement>();
+  private readonly destinationMap = new Map<string, TransitDestinationInfo[]>();
   private readonly allStationableRooms = new Set<string>();
   private readonly coordsByRoomId = new Map<string, RoomCoordinate>();
   private readonly roomsByRegion = new Map<string, string[]>();
@@ -90,12 +72,12 @@ export class RollercoasterStructureResolver {
   }
 
   /** Get the station placement for a room. */
-  getStationPlacement(roomId: string): RollercoasterPlacement | null {
+  getStationPlacement(roomId: string): TransitStationPlacement | null {
     return this.stationPlacements.get(roomId) ?? null;
   }
 
   /** Get pre-computed destinations for a station. */
-  getDestinations(roomId: string): RollercoasterDestinationInfo[] {
+  getDestinations(roomId: string): TransitDestinationInfo[] {
     return this.destinationMap.get(roomId) ?? [];
   }
 
@@ -144,7 +126,7 @@ export class RollercoasterStructureResolver {
     regionY: number,
     regionKey: string,
     index: number,
-  ): RollercoasterPlacement | null {
+  ): TransitStationPlacement | null {
     const seed = positiveMod(hashTransitCoordinate(this.identity.seed, regionKey, index), 1000000);
 
     for (let attempt = 0; attempt < COASTER_STATION_CANDIDATE_ATTEMPTS; attempt++) {
@@ -185,8 +167,8 @@ export class RollercoasterStructureResolver {
     return null;
   }
 
-  private computeDestinations(placement: RollercoasterPlacement): RollercoasterDestinationInfo[] {
-    const destinations: RollercoasterDestinationInfo[] = [];
+  private computeDestinations(placement: TransitStationPlacement): TransitDestinationInfo[] {
+    const destinations: TransitDestinationInfo[] = [];
 
     for (const roomId of this.allStationableRooms) {
       if (roomId === placement.roomId) continue;

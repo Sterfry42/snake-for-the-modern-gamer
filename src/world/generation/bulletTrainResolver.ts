@@ -1,7 +1,11 @@
 import type { GridConfig } from '../../config/gameConfig.js';
 import type { WorldGenerationIdentity } from './worldGenerationIdentity.js';
 import { parseRoomId, type RoomCoordinate } from './multiRoomStructures.js';
-import { hashTransitCoordinate } from '../transitShared.js';
+import {
+  hashTransitCoordinate,
+  type TransitDestinationInfo,
+  type TransitStationPlacement,
+} from '../transitShared.js';
 import { positiveMod } from './worldHash.js';
 
 const JADE_PEAK_STATION_REGION_SIZE = 12;
@@ -9,32 +13,10 @@ const JADE_PEAK_STATION_CANDIDATE_ATTEMPTS = 8;
 const JADE_PEAK_DESTINATION_RADIUS = 10;
 const JADE_PEAK_DESTINATION_Z_RADIUS = 3;
 
-/** A pre-computed bullet train station placement. */
-export interface BulletTrainPlacement {
-  id: string;
-  seed: number;
-  roomId: string;
-  /** Grid coordinate of the station room. */
-  coordinate: RoomCoordinate;
-}
-
-/** A pre-computed destination for a station. */
-export interface BulletTrainDestinationInfo {
-  /** Room ID of the destination room. */
-  roomId: string;
-  /** Grid coordinate of the destination room. */
-  coordinate: RoomCoordinate;
-  /** Exit position within the destination room. */
-  exitX: number;
-  exitY: number;
-  /** Weight for random selection. */
-  weight: number;
-}
-
 /** Resolver that pre-computes bullet train station placements and destinations. */
 export class BulletTrainStructureResolver {
-  private readonly stationPlacements = new Map<string, BulletTrainPlacement>();
-  private readonly destinationMap = new Map<string, BulletTrainDestinationInfo[]>();
+  private readonly stationPlacements = new Map<string, TransitStationPlacement>();
+  private readonly destinationMap = new Map<string, TransitDestinationInfo[]>();
   private readonly allJadePeakRooms = new Set<string>();
   private readonly coordsByRoomId = new Map<string, RoomCoordinate>();
   private readonly roomsByRegion = new Map<string, string[]>();
@@ -90,12 +72,12 @@ export class BulletTrainStructureResolver {
   }
 
   /** Get the station placement for a room. */
-  getStationPlacement(roomId: string): BulletTrainPlacement | null {
+  getStationPlacement(roomId: string): TransitStationPlacement | null {
     return this.stationPlacements.get(roomId) ?? null;
   }
 
   /** Get pre-computed destinations for a station. */
-  getDestinations(roomId: string): BulletTrainDestinationInfo[] {
+  getDestinations(roomId: string): TransitDestinationInfo[] {
     return this.destinationMap.get(roomId) ?? [];
   }
 
@@ -144,7 +126,7 @@ export class BulletTrainStructureResolver {
     regionY: number,
     regionKey: string,
     index: number,
-  ): BulletTrainPlacement | null {
+  ): TransitStationPlacement | null {
     const seed = positiveMod(hashTransitCoordinate(this.identity.seed, regionKey, index), 1000000);
 
     // Try multiple candidate rooms in the region
@@ -190,8 +172,8 @@ export class BulletTrainStructureResolver {
     return null;
   }
 
-  private computeDestinations(placement: BulletTrainPlacement): BulletTrainDestinationInfo[] {
-    const destinations: BulletTrainDestinationInfo[] = [];
+  private computeDestinations(placement: TransitStationPlacement): TransitDestinationInfo[] {
+    const destinations: TransitDestinationInfo[] = [];
 
     for (const roomId of this.allJadePeakRooms) {
       // Exclude the station's own room

@@ -8,6 +8,7 @@
  */
 import type { Vector2Like } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
+import type { RoomCoordinate } from './roomAddress.js';
 
 export interface TransitFloorBlock {
   tiles: Vector2Like[];
@@ -94,6 +95,28 @@ export function findEdgeTiles(
 /** Generate a unique station ID from a transit kind and room ID. */
 export function generateTransitStationId(kind: string, roomId: string): string {
   return `${kind}:${roomId}`;
+}
+
+/** A pre-computed station placement shared by every transit resolver. */
+export interface TransitStationPlacement {
+  id: string;
+  seed: number;
+  roomId: string;
+  /** Grid coordinate of the station room. */
+  coordinate: RoomCoordinate;
+}
+
+/** A pre-computed destination for a transit station. */
+export interface TransitDestinationInfo {
+  /** Room ID of the destination room. */
+  roomId: string;
+  /** Grid coordinate of the destination room. */
+  coordinate: RoomCoordinate;
+  /** Exit position within the destination room. */
+  exitX: number;
+  exitY: number;
+  /** Weight for random selection. */
+  weight: number;
 }
 
 /** Build the 1-2 intermediate transit room ids between a station and its destination. */
