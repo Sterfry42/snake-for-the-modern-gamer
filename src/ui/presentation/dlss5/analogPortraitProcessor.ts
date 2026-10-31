@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { clampChannel } from '../../../config/palette.js';
 import type { Dlss5PortraitIdentity } from './portraitResolver.js';
 import { fetchDlss5PortraitRow } from './huggingFacePortraitSource.js';
 
@@ -113,9 +114,9 @@ export class AnalogPortraitProcessor {
         const blue = data[offset + 2]!;
         const luma = red * 0.32 + green * 0.42 + blue * 0.26;
         const noise = (((x * 17 + y * 29 + index * 31) % 11) - 5) * 2;
-        data[offset] = clampColor((luma * 1.08 + red * 0.18) * scanline + noise + 8);
-        data[offset + 1] = clampColor((luma * 0.92 + green * 0.12) * scanline + noise);
-        data[offset + 2] = clampColor((luma * 0.84 + blue * 0.16) * scanline + noise + 14);
+        data[offset] = clampChannel((luma * 1.08 + red * 0.18) * scanline + noise + 8);
+        data[offset + 1] = clampChannel((luma * 0.92 + green * 0.12) * scanline + noise);
+        data[offset + 2] = clampChannel((luma * 0.84 + blue * 0.16) * scanline + noise + 14);
       }
     }
     lowContext.putImageData(source, 0, 0);
@@ -145,8 +146,4 @@ export class AnalogPortraitProcessor {
     this.pending.clear();
     this.failed.clear();
   }
-}
-
-function clampColor(value: number): number {
-  return Math.max(0, Math.min(255, Math.round(value)));
 }
