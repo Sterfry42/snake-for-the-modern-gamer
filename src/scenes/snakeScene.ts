@@ -97,7 +97,8 @@ import { SkillTreeManager } from '../systems/skillTreeManager.js';
 import type { OwnedSkillState } from '../systems/skillTypes.js';
 import { QuestHud } from '../ui/questHud.js';
 import { QuestPopup } from '../ui/questPopup.js';
-import { ChoicePopup, type ChoiceOption } from '../ui/choicePopup.js';
+import { ChoicePopup } from '../ui/choicePopup.js';
+import type { NormalizedChoiceOption } from '../ui/choicePopupModel.js';
 import { SnakeRenderer, type RoomRenderEntry } from '../ui/snakeRenderer.js';
 import { FirstPersonRenderer } from '../ui/firstPerson/firstPersonRenderer.js';
 import type { FirstPersonMovementPresentationState } from '../ui/firstPerson/firstPersonTypes.js';
@@ -14654,7 +14655,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.paused = true;
     const purchases = this.getFlag<Record<string, unknown>>('house.purchases') ?? {};
     const expandLevel = Number(this.getFlag<number>('house.expandLevel') ?? 0);
-    const options: ChoiceOption[] = [
+    const options: NormalizedChoiceOption[] = [
       ['couch', 'Couch — 10 score', Boolean(purchases['couch'])],
       ['kitchen', 'Kitchen — 15 score', Boolean(purchases['kitchen'])],
       ['expand', `Expand — 20 score (${expandLevel}/5)`, expandLevel >= 5],
@@ -14958,7 +14959,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const hasCar = this.snakeGame.getCars(room.id).some((car) => car.id === `${garage.id}:car`);
-    const option: ChoiceOption = {
+    const option: NormalizedChoiceOption = {
       id: 'buy-car',
       title: hasCar
         ? 'Car already purchased'
@@ -15790,7 +15791,7 @@ export default class SnakeScene extends Phaser.Scene {
   private showTownBoardRoot(board: TownBoardView): void {
     this.paused = true;
     this.skillTree.hideOverlay();
-    const options: ChoiceOption[] = [
+    const options: NormalizedChoiceOption[] = [
       {
         id: 'quests',
         title: 'Quests',
@@ -15848,7 +15849,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private showTownBoardQuests(board: TownBoardView): void {
-    const options: ChoiceOption[] =
+    const options: NormalizedChoiceOption[] =
       board.quests.length > 0
         ? board.quests.map((quest) => ({
             id: `quest:${quest.id}`,
@@ -15881,7 +15882,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private showTownBoardInfo(board: TownBoardView, title: string, lines: readonly string[]): void {
-    const options: ChoiceOption[] = lines.map((line, index) => ({
+    const options: NormalizedChoiceOption[] = lines.map((line, index) => ({
       id: `line:${index}`,
       title: line,
       description: '',
@@ -15932,7 +15933,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (!station) {
       return false;
     }
-    const options: ChoiceOption[] = station.options.map((option) => ({
+    const options: NormalizedChoiceOption[] = station.options.map((option) => ({
       id: option.id,
       title: option.title,
       description: option.enabled ? 'Ready.' : (option.reason ?? 'Not ready.'),
@@ -16083,7 +16084,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.showQuestHintPopup('The guild is still only a rumor.', '#ff6b6b');
       return;
     }
-    const options: ChoiceOption[] = [
+    const options: NormalizedChoiceOption[] = [
       {
         id: 'guild-lower-wanted',
         title: 'Lower Wanted',
@@ -16503,7 +16504,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     const contracts = this.snakeGame.getWardContracts();
     const usage = this.snakeGame.getWardUsage();
-    const options: ChoiceOption[] = GOBLIN_WARD_SCROLLS.map((offer) => {
+    const options: NormalizedChoiceOption[] = GOBLIN_WARD_SCROLLS.map((offer) => {
       const price =
         getWardPrice(offer, standing, Number(usage[offer.source] ?? 0)) ?? offer.basePrice;
       const owned = Number(contracts[offer.source] ?? 0);
@@ -16704,7 +16705,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
     const title = shopkeeperName;
     const shop = this.getCurrentVillageShop();
-    const options: ChoiceOption[] = [];
+    const options: NormalizedChoiceOption[] = [];
     if ((shop?.equipment.length ?? 0) > 0) {
       options.push({
         id: 'equipment',
@@ -16833,7 +16834,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.inputModeManager.getMode(),
     );
     const baseDescription = `${definition.description} ${control} activates it. Cooldown: ${definition.cooldownSteps} steps.`;
-    const options: ChoiceOption[] = [];
+    const options: NormalizedChoiceOption[] = [];
     if (learned) {
       options.push({
         id: 'equip',
@@ -16923,7 +16924,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.closeVillageShop();
       return;
     }
-    const options: ChoiceOption[] = [];
+    const options: NormalizedChoiceOption[] = [];
     if (category === 'equipment') {
       for (const offer of shop.equipment) {
         const item = getItem(offer.itemId) as Item | undefined;
@@ -17137,7 +17138,7 @@ export default class SnakeScene extends Phaser.Scene {
     const pageCount = Math.max(1, Math.ceil(offers.length / pageSize));
     const safePage = Math.max(0, Math.min(page, pageCount - 1));
     const pageOffers = offers.slice(safePage * pageSize, safePage * pageSize + pageSize);
-    const options: ChoiceOption[] = pageOffers.map((offer) => ({
+    const options: NormalizedChoiceOption[] = pageOffers.map((offer) => ({
       id: `actor-offer:${offer.id}`,
       title: `${offer.label} - ${offer.price} score${offer.itemId ? actorOfferOwnedText(this.snakeGame.getInventory().getItemCount(offer.itemId)) : ''}`,
       description: offer.note,
@@ -17245,7 +17246,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.paused = true;
     const collection = this.getCardCollection();
     const ownedCount = countCards(collection);
-    const options: ChoiceOption[] = CARD_TABLES.map((table) => ({
+    const options: NormalizedChoiceOption[] = CARD_TABLES.map((table) => ({
       id: `table:${table.id}`,
       title: highStakes ? `${table.name} - Sharp Table` : table.name,
       description: `Best of 3. Target ${table.minScore}-${table.maxScore}. ${this.describeHouseMode(table)} ${table.id === 'porch-table' ? 'Fixed wagers: 10, 25, or 50.' : 'No wager limit.'} Payout ${table.payoutMultiplier}x. ${table.riskLabel ?? 'Risky'}. ${ownedCount} cards owned.`,
@@ -17285,7 +17286,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.showCardTableRoot(shopkeeperName, fromVillageShop, highStakes, actorRole);
       return;
     }
-    const options: ChoiceOption[] = wagers.map((wager, index) => ({
+    const options: NormalizedChoiceOption[] = wagers.map((wager, index) => ({
       id: `bet:${index}:${wager.amount}`,
       title: wager.label,
       description: `Risk ${wager.amount} score. Win the match to receive ${getCardTablePayout(wager.amount, table)} score back.`,
@@ -19575,7 +19576,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.paused = true;
     this.hideSaveUI();
     this.skillTree.hideOverlay();
-    const options: ChoiceOption[] = [
+    const options: NormalizedChoiceOption[] = [
       {
         id: 'play',
         title: 'Play',
@@ -19738,7 +19739,7 @@ export default class SnakeScene extends Phaser.Scene {
     );
     const foodOptions = restaurant.food.map((food) => this.createRestaurantEatOption(food));
 
-    const options: ChoiceOption[] = [
+    const options: NormalizedChoiceOption[] = [
       ...purchaseOptions,
       ...foodOptions,
       {
@@ -19753,7 +19754,7 @@ export default class SnakeScene extends Phaser.Scene {
     });
   }
 
-  private createRestaurantPurchaseOption(offer: RestaurantPurchaseOffer): ChoiceOption {
+  private createRestaurantPurchaseOption(offer: RestaurantPurchaseOffer): NormalizedChoiceOption {
     const owned = offer.itemIds
       .map((itemId) => {
         const food = getRestaurantFoodDefinition(itemId);
@@ -19768,7 +19769,7 @@ export default class SnakeScene extends Phaser.Scene {
     };
   }
 
-  private createRestaurantEatOption(food: RestaurantFoodDefinition): ChoiceOption {
+  private createRestaurantEatOption(food: RestaurantFoodDefinition): NormalizedChoiceOption {
     const owned = this.snakeGame.getInventory().getItemCount(food.id) > 0;
     return {
       id: `eat:${food.id}`,
@@ -20126,7 +20127,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     // Build choice options with coordinates
-    const options: ChoiceOption[] = destinations.map((dest, index) => {
+    const options: NormalizedChoiceOption[] = destinations.map((dest, index) => {
       const coordStr = dest.coordinates ?? '???';
       return {
         id: `dest-${index}`,
@@ -20394,7 +20395,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
 
-    const options: ChoiceOption[] = destinations.map((dest, index) => {
+    const options: NormalizedChoiceOption[] = destinations.map((dest, index) => {
       const coordStr = dest.coordinates ?? '???';
       return {
         id: `dest-${index}`,
@@ -20537,7 +20538,7 @@ export default class SnakeScene extends Phaser.Scene {
     const variant = getDigSiteVariant(digSite.variantId);
     this.paused = true;
     this.skillTree.hideOverlay();
-    const options: ChoiceOption[] = [
+    const options: NormalizedChoiceOption[] = [
       {
         id: 'dig',
         title: this.tArchaeology('digWarningTitle'),
@@ -22204,7 +22205,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (!option) {
       return false;
     }
-    const choices: ChoiceOption[] = [];
+    const choices: NormalizedChoiceOption[] = [];
     let title = 'Liberty Badlands';
     if (
       room.gridironYard &&

@@ -1,6 +1,7 @@
 import { Feature } from '../feature.js';
 import type SnakeScene from '../../scenes/snakeScene.js';
-import { ChoicePopup, type ChoiceOption } from '../../ui/choicePopup.js';
+import { ChoicePopup } from '../../ui/choicePopup.js';
+import type { NormalizedChoiceOption } from '../../ui/choicePopupModel.js';
 import { i18n } from '../../i18n/i18nManager.js';
 import {
   BACKGROUNDS,
@@ -48,7 +49,7 @@ class ReligionChoiceFeature extends Feature {
       choose: (option: CharacterCreationOption) => void,
     ): void => {
       const candidates = pickN(options, 3, rng);
-      const cards: ChoiceOption[] = candidates.map((option) => ({
+      const cards: NormalizedChoiceOption[] = candidates.map((option) => ({
         id: option.id,
         title: option.name,
         description: getCharacterCreationCardDescription(option),
