@@ -35,8 +35,7 @@ export {
 export type {
   ThemeDefinition,
   HatDefinition,
-  CowbellDefinition,
-  UtilityDefinition,
+  SimpleCosmeticDefinition,
   LanguageDefinition,
   EmoticonShopItem,
 } from './cosmeticCatalog.js';

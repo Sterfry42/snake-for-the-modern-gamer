@@ -174,14 +174,15 @@ export const HAT_DEFINITIONS: readonly HatDefinition[] = [
 // Cowbell definitions
 // ---------------------------------------------------------------------------
 
-export interface CowbellDefinition {
+/** Shared shape for simple priced cosmetic entries (cowbells, utilities). */
+export interface SimpleCosmeticDefinition {
   id: string;
   label: string;
   cost: number;
   description: string;
 }
 
-export const COWBELL_DEFINITIONS: readonly CowbellDefinition[] = [
+export const COWBELL_DEFINITIONS: readonly SimpleCosmeticDefinition[] = [
   {
     id: 'cowbell',
     label: 'Cowbell',
@@ -194,14 +195,7 @@ export const COWBELL_DEFINITIONS: readonly CowbellDefinition[] = [
 // Utility definitions
 // ---------------------------------------------------------------------------
 
-export interface UtilityDefinition {
-  id: string;
-  label: string;
-  cost: number;
-  description: string;
-}
-
-export const UTILITY_DEFINITIONS: readonly UtilityDefinition[] = [
+export const UTILITY_DEFINITIONS: readonly SimpleCosmeticDefinition[] = [
   {
     id: 'quiet-steps',
     label: 'Quiet Steps',
@@ -279,19 +273,19 @@ export function getHatDefinition(id: string): HatDefinition | undefined {
   return HAT_DEFINITIONS.find((h) => h.id === id);
 }
 
-export function getAllCowbellDefinitions(): readonly CowbellDefinition[] {
+export function getAllCowbellDefinitions(): readonly SimpleCosmeticDefinition[] {
   return COWBELL_DEFINITIONS;
 }
 
-export function getCowbellDefinition(id: string): CowbellDefinition | undefined {
+export function getCowbellDefinition(id: string): SimpleCosmeticDefinition | undefined {
   return COWBELL_DEFINITIONS.find((c) => c.id === id);
 }
 
-export function getAllUtilityDefinitions(): readonly UtilityDefinition[] {
+export function getAllUtilityDefinitions(): readonly SimpleCosmeticDefinition[] {
   return UTILITY_DEFINITIONS;
 }
 
-export function getUtilityDefinition(id: string): UtilityDefinition | undefined {
+export function getUtilityDefinition(id: string): SimpleCosmeticDefinition | undefined {
   return UTILITY_DEFINITIONS.find((u) => u.id === id);
 }
 
@@ -339,7 +333,7 @@ export function toHatItem(def: HatDefinition, owned: boolean, active: boolean): 
 }
 
 export function toCowbellItem(
-  def: CowbellDefinition,
+  def: SimpleCosmeticDefinition,
   owned: boolean,
   enabled?: boolean,
 ): CowbellCosmeticItem {
@@ -355,7 +349,7 @@ export function toCowbellItem(
 }
 
 export function toUtilityItem(
-  def: UtilityDefinition,
+  def: SimpleCosmeticDefinition,
   owned: boolean,
   enabled?: boolean,
 ): UtilityCosmeticItem {
