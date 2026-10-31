@@ -1,16 +1,11 @@
+import type { Rect } from '../core/math.js';
+
 interface TurnBasedGridSize {
   cols: number;
   rows: number;
 }
 
-interface TurnBasedZoneBounds {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}
-
-export function getTownTurnBasedBounds(grid: TurnBasedGridSize): TurnBasedZoneBounds {
+export function getTownTurnBasedBounds(grid: TurnBasedGridSize): Rect {
   return {
     left: 0,
     top: 0,

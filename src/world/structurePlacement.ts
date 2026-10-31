@@ -1,13 +1,8 @@
 import type { GridConfig } from '../config/gameConfig.js';
-import { clamp, vectorKey, type Vector2Like } from '../core/math.js';
+import { clamp, vectorKey, type Rect, type Vector2Like } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 
-export interface StructureBounds {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}
+export type StructureBounds = Rect;
 
 export interface RandomRectPlacementOptions {
   width: number;
