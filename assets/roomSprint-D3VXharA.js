@@ -1,0 +1,1 @@
+import{Q as s,c as r}from"./quest-DCM-IEEX.js";const e=24,t=1800;class n extends s{constructor(){super("room-sprint","Room Sprint","Cross a room in under 1.8s")}isCompleted(o){return this.progressSinceAccept(o,"roomsVisited")>=1&&r(o,e,t)}baselineKeys(){return["roomsVisited"]}onReward(o){o.addScore(30)}}const a=new n;export{a as default};
