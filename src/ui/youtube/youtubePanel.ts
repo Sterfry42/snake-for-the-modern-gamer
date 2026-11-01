@@ -1,13 +1,5 @@
+import { positionCanvasPanel, type CanvasPanelBounds } from '../core/CanvasPanel.js';
 import { YouTubeEmbedManager } from './youtubeEmbedManager.js';
-
-export interface YouTubePanelBounds {
-  overlayX: number;
-  overlayY: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
 
 export interface YouTubePanelOptions {
   document?: Document;
@@ -35,9 +27,9 @@ export class YouTubePanel {
     this.manager = options.manager ?? new YouTubeEmbedManager({ document: this.document });
   }
 
-  show(bounds: YouTubePanelBounds): void {
+  show(bounds: CanvasPanelBounds): void {
     const root = this.ensureRoot();
-    this.positionRoot(root, bounds);
+    positionCanvasPanel(root, bounds, this.canvas);
     root.style.display = 'block';
     this.input!.value = (this.input!.value || this.manager.getLastUrl()) ?? '';
     this.manager.showInPanel(this.embedSlot!);
@@ -151,19 +143,6 @@ export class YouTubePanel {
     }
     this.status.textContent = message;
     this.status.classList.toggle('youtube-panel__status--error', error);
-  }
-
-  private positionRoot(root: HTMLDivElement, bounds: YouTubePanelBounds): void {
-    const canvasRect = this.canvas?.getBoundingClientRect();
-    const scaleX = canvasRect && this.canvas ? canvasRect.width / this.canvas.width : 1;
-    const scaleY = canvasRect && this.canvas ? canvasRect.height / this.canvas.height : 1;
-    const left = (canvasRect?.left ?? 0) + (bounds.overlayX + bounds.x) * scaleX;
-    const top = (canvasRect?.top ?? 0) + (bounds.overlayY + bounds.y) * scaleY;
-
-    root.style.left = `${left}px`;
-    root.style.top = `${top}px`;
-    root.style.width = `${bounds.width * scaleX}px`;
-    root.style.height = `${bounds.height * scaleY}px`;
   }
 
   private getErrorMessage(error: unknown): string {

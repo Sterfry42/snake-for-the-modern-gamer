@@ -7,6 +7,7 @@ import {
   isSolidBlock,
   getBlockType,
 } from './blockRegistry.js';
+import { parseRoomCoordinates } from './roomCoordinates.js';
 
 export class MinecraftRenderLayer {
   private graphics: Phaser.GameObjects.Graphics;
@@ -35,7 +36,7 @@ export class MinecraftRenderLayer {
     if (snakeBody.length === 0) return;
 
     const head = snakeBody[0];
-    const [roomX, roomY] = this.parseRoomCoordinates(scene.snakeGame.getCurrentRoom().id);
+    const [roomX, roomY] = parseRoomCoordinates(scene.snakeGame.getCurrentRoom().id);
     const centerX = head.x - roomX * scene.grid.cols + scene.grid.cell / 2;
     const centerY = head.y - roomY * scene.grid.rows + scene.grid.cell / 2;
 
@@ -90,12 +91,6 @@ export class MinecraftRenderLayer {
   destroy(): void {
     this.graphics.destroy();
     this.highlightGraphics?.destroy();
-  }
-
-  private parseRoomCoordinates(roomId: string): [number, number] {
-    if (roomId.startsWith('cave:')) return [0, 0];
-    const parts = roomId.split(',').map(Number);
-    return [parts[0] ?? 0, parts[1] ?? 0];
   }
 }
 

@@ -1,7 +1,7 @@
 /**
  * Sprite Geometry
  *
- * Shared quarter-turn rotation for pixel sprite variants.
+ * Shared pixel-grid primitives and quarter-turn rotation for pixel sprite variants.
  */
 
 export interface SpriteRotator {
@@ -36,4 +36,28 @@ export function turnsForVariant(variant: string): number {
   if (variant.endsWith('down')) return 2;
   if (variant.endsWith('left')) return 3;
   return 0;
+}
+
+/** Fill one pixel-grid cell of a sprite canvas. */
+export function fillPixel(
+  context: CanvasRenderingContext2D,
+  px: number,
+  py: number,
+  pixelSize: number,
+  color: string,
+): void {
+  context.fillStyle = color;
+  context.fillRect(px * pixelSize, py * pixelSize, pixelSize, pixelSize);
+}
+
+/** Fill every pixel-grid cell in `points` with one color. */
+export function drawPixels(
+  context: CanvasRenderingContext2D,
+  points: ReadonlyArray<readonly number[]>,
+  pixelSize: number,
+  color: string,
+): void {
+  for (const [x, y] of points) {
+    fillPixel(context, x ?? 0, y ?? 0, pixelSize, color);
+  }
 }

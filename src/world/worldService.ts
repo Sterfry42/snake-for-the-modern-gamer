@@ -24,7 +24,8 @@ import {
   type LayerInstance,
   type LayerTemplateId,
 } from '../layers/layerTypes.js';
-import { generateDecorations, generateTransitRooms } from './bulletTrainService.js';
+import { generateDecorations } from './bulletTrainService.js';
+import { generateTransitRooms } from './transitShared.js';
 import type { BulletTrainDestination, BulletTrainJourney } from './bulletTrainTypes.js';
 import { BulletTrainStructureResolver } from './generation/bulletTrainResolver.js';
 import { parseRoomId } from './generation/multiRoomStructures.js';
@@ -1402,21 +1403,6 @@ function townInteriorResidentsForBuilding(
   }
 }
 
-function townInteriorPalette(templateId: LayerTemplateId): {
-  title: string;
-  backgroundColor: number;
-  wallColor: number;
-  wallOutlineColor: number;
-};
-function townInteriorPalette(
-  templateId: LayerTemplateId,
-  titleOverride: string | undefined,
-): {
-  title: string;
-  backgroundColor: number;
-  wallColor: number;
-  wallOutlineColor: number;
-};
 function townInteriorPalette(
   templateId: LayerTemplateId,
   titleOverride?: string,

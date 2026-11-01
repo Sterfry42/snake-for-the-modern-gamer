@@ -4,6 +4,7 @@ import { biomeCountsAs } from '../../biomes.js';
 import type { BiomeMap } from '../biomeMap.js';
 import type { ProtectedCells, RoomGenerationContext } from '../types.js';
 import type { WorldGenerationIdentity } from '../worldGenerationIdentity.js';
+import { hashRoomCoordinates } from '../worldHash.js';
 
 export class CrossRoomFeatureOperations {
   private readonly worldSalt: number;
@@ -57,7 +58,7 @@ export class CrossRoomFeatureOperations {
     roomZ: number,
     grid: GridConfig,
   ): { left: number; top: number; width: number; height: number } | null {
-    const hash = this.hashRoom(anchorX, anchorY, roomZ, 0x4b7);
+    const hash = hashRoomCoordinates(anchorX, anchorY, roomZ, 0x4b7, this.worldSalt);
     if (hash % 100 >= 48) {
       return null;
     }
@@ -91,21 +92,27 @@ export class CrossRoomFeatureOperations {
       return null;
     }
 
-    const width = 6 + (this.hashRoom(anchorX, anchorY, roomZ, 0x4c1) % 7);
-    const height = 4 + (this.hashRoom(anchorX, anchorY, roomZ, 0x4c9) % 9);
-    const overlapX = 2 + (this.hashRoom(anchorX, anchorY, roomZ, 0x4d3) % Math.max(1, width - 3));
-    const overlapY = 2 + (this.hashRoom(anchorX, anchorY, roomZ, 0x4df) % Math.max(1, height - 3));
+    const width = 6 + (hashRoomCoordinates(anchorX, anchorY, roomZ, 0x4c1, this.worldSalt) % 7);
+    const height = 4 + (hashRoomCoordinates(anchorX, anchorY, roomZ, 0x4c9, this.worldSalt) % 9);
+    const overlapX =
+      2 +
+      (hashRoomCoordinates(anchorX, anchorY, roomZ, 0x4d3, this.worldSalt) %
+        Math.max(1, width - 3));
+    const overlapY =
+      2 +
+      (hashRoomCoordinates(anchorX, anchorY, roomZ, 0x4df, this.worldSalt) %
+        Math.max(1, height - 3));
     const innerX = this.hashedOffset(
       grid.cols,
       width,
       7,
-      this.hashRoom(anchorX, anchorY, roomZ, 0x4e7),
+      hashRoomCoordinates(anchorX, anchorY, roomZ, 0x4e7, this.worldSalt),
     );
     const innerY = this.hashedOffset(
       grid.rows,
       height,
       7,
-      this.hashRoom(anchorX, anchorY, roomZ, 0x4f1),
+      hashRoomCoordinates(anchorX, anchorY, roomZ, 0x4f1, this.worldSalt),
     );
 
     if (kind === 0) {
@@ -290,20 +297,22 @@ export class CrossRoomFeatureOperations {
     if (this.riverTouchesStartingArea(anchorX, anchorY, roomZ)) {
       return null;
     }
-    const hash = this.hashRoom(anchorX, anchorY, roomZ, 0x713);
+    const hash = hashRoomCoordinates(anchorX, anchorY, roomZ, 0x713, this.worldSalt);
     if (hash % 100 >= 4) {
       return null;
     }
 
     const orientation = hash % 2 === 0 ? 'east' : 'south';
     const length = 15;
-    const width = 4 + (this.hashRoom(anchorX, anchorY, roomZ, 0x727) % 3);
+    const width = 4 + (hashRoomCoordinates(anchorX, anchorY, roomZ, 0x727, this.worldSalt) % 3);
     const span = orientation === 'east' ? grid.rows : grid.cols;
     const margin = 4;
     const maxOffset = Math.max(margin, span - width - margin);
     const offsetRange = Math.max(1, maxOffset - margin + 1);
-    const offset = margin + (this.hashRoom(anchorX, anchorY, roomZ, 0x739) % offsetRange);
-    const bridgeIndex = 5 + (this.hashRoom(anchorX, anchorY, roomZ, 0x751) % 7);
+    const offset =
+      margin + (hashRoomCoordinates(anchorX, anchorY, roomZ, 0x739, this.worldSalt) % offsetRange);
+    const bridgeIndex =
+      5 + (hashRoomCoordinates(anchorX, anchorY, roomZ, 0x751, this.worldSalt) % 7);
     return { orientation, offset, width, length, bridgeIndex };
   }
 
@@ -320,7 +329,17 @@ export class CrossRoomFeatureOperations {
     if (segmentIndex <= 0 || segmentIndex >= river.length - 1) {
       return false;
     }
-    return this.hashRoom(anchorX + segmentIndex, anchorY - segmentIndex, roomZ, 0x76d) % 100 < 40;
+    return (
+      hashRoomCoordinates(
+        anchorX + segmentIndex,
+        anchorY - segmentIndex,
+        roomZ,
+        0x76d,
+        this.worldSalt,
+      ) %
+        100 <
+      40
+    );
   }
 
   private drawGlobalRect(
@@ -378,18 +397,5 @@ export class CrossRoomFeatureOperations {
 
   private isSpecialHouseRoom(roomX: number, roomY: number, roomZ: number): boolean {
     return roomX === 0 && roomY === -1 && roomZ === 0;
-  }
-
-  private hashRoom(roomX: number, roomY: number, roomZ: number, salt: number): number {
-    let hash = 2166136261;
-    hash ^= this.worldSalt;
-    hash = Math.imul(hash, 16777619);
-    hash ^= roomX + 0x9e3779b9;
-    hash = Math.imul(hash, 16777619);
-    hash ^= roomY + 0x85ebca6b;
-    hash = Math.imul(hash, 16777619);
-    hash ^= roomZ + salt;
-    hash = Math.imul(hash, 16777619);
-    return hash >>> 0;
   }
 }

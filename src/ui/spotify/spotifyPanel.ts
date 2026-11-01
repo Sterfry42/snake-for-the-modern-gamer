@@ -1,13 +1,5 @@
+import { positionCanvasPanel, type CanvasPanelBounds } from '../core/CanvasPanel.js';
 import { SpotifyEmbedManager } from './spotifyEmbedManager.js';
-
-export interface SpotifyPanelBounds {
-  overlayX: number;
-  overlayY: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
 
 export interface SpotifyPanelOptions {
   document?: Document;
@@ -35,9 +27,9 @@ export class SpotifyPanel {
     this.manager = options.manager ?? new SpotifyEmbedManager({ document: this.document });
   }
 
-  show(bounds: SpotifyPanelBounds): void {
+  show(bounds: CanvasPanelBounds): void {
     const root = this.ensureRoot();
-    this.positionRoot(root, bounds);
+    positionCanvasPanel(root, bounds, this.canvas);
     root.style.display = 'block';
     this.input!.value = (this.input!.value || this.manager.getLastEntityUrl()) ?? '';
     this.manager.show(this.embedSlot!);
@@ -141,19 +133,6 @@ export class SpotifyPanel {
     }
     this.status.textContent = message;
     this.status.classList.toggle('spotify-panel__status--error', error);
-  }
-
-  private positionRoot(root: HTMLDivElement, bounds: SpotifyPanelBounds): void {
-    const canvasRect = this.canvas?.getBoundingClientRect();
-    const scaleX = canvasRect && this.canvas ? canvasRect.width / this.canvas.width : 1;
-    const scaleY = canvasRect && this.canvas ? canvasRect.height / this.canvas.height : 1;
-    const left = (canvasRect?.left ?? 0) + (bounds.overlayX + bounds.x) * scaleX;
-    const top = (canvasRect?.top ?? 0) + (bounds.overlayY + bounds.y) * scaleY;
-
-    root.style.left = `${left}px`;
-    root.style.top = `${top}px`;
-    root.style.width = `${bounds.width * scaleX}px`;
-    root.style.height = `${bounds.height * scaleY}px`;
   }
 
   private getErrorMessage(error: unknown): string {

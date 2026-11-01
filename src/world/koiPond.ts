@@ -1,19 +1,18 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import { vectorKey, type Vector2Like } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
-import { findRandomRectPlacement, setTile } from './structurePlacement.js';
+import {
+  findRandomRectPlacement,
+  setTile,
+  type StructurePlacementOptions,
+} from './structurePlacement.js';
 import type { RoomSnapshot } from './types.js';
-
-interface KoiPondPlacementOptions {
-  forbiddenCells?: ReadonlySet<string>;
-  margin?: number;
-}
 
 export function tryPlaceKoiPond(
   layout: string[][],
   grid: GridConfig,
   rng: RandomGenerator,
-  options: KoiPondPlacementOptions = {},
+  options: StructurePlacementOptions = {},
 ): NonNullable<RoomSnapshot['koiPond']> | null {
   if (grid.cols < 14 || grid.rows < 12) return null;
 

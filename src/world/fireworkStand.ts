@@ -1,7 +1,13 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import type { RandomGenerator } from '../core/rng.js';
 import { createHumanoidIdentity } from './humanoidSpawn.js';
-import { fillRect, findRandomRectPlacement, pickOne, setTile } from './structurePlacement.js';
+import {
+  fillRect,
+  findRandomRectPlacement,
+  pickOne,
+  setTile,
+  type StructurePlacementOptions,
+} from './structurePlacement.js';
 import type { RoomSnapshot } from './types.js';
 
 const FIREWORK_STAND_NAMES = [
@@ -28,16 +34,11 @@ const FIREWORK_INSPECTOR_NAMES = [
   'Permit Hank',
 ] as const;
 
-interface PlacementOptions {
-  forbiddenCells?: ReadonlySet<string>;
-  margin?: number;
-}
-
 export function tryPlaceFireworkStand(
   layout: string[][],
   grid: GridConfig,
   rng: RandomGenerator,
-  options: PlacementOptions = {},
+  options: StructurePlacementOptions = {},
 ): NonNullable<RoomSnapshot['fireworkStand']> | null {
   if (grid.cols < 18 || grid.rows < 14) return null;
 

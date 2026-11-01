@@ -15,7 +15,7 @@ export interface ActionAbilityView {
   manaCost?: number;
 }
 
-interface ActionSlotState {
+export interface ActionSlotState {
   q?: string;
 }
 
@@ -51,7 +51,18 @@ export interface ActionSlotRuntime {
   recallFollowers(): { ok: boolean; message: string };
 }
 
-const ACTION_SLOT_FLAG = 'actions.slots';
+export const ACTION_SLOT_FLAG = 'actions.slots';
+
+/** Normalize the raw 'actions.slots' flag into an ActionSlotState. */
+export function readActionSlotState(
+  getFlag: <T = unknown>(key: string) => T | undefined,
+): ActionSlotState {
+  const value = getFlag<ActionSlotState>(ACTION_SLOT_FLAG);
+  if (!value || typeof value !== 'object') {
+    return {};
+  }
+  return { q: typeof value.q === 'string' ? value.q : undefined };
+}
 
 export class ActionSlotController {
   private readonly abilities: ActionAbilityDefinition[];
@@ -258,11 +269,7 @@ export class ActionSlotController {
   }
 
   private getState(): ActionSlotState {
-    const value = this.runtime.getFlag<ActionSlotState>(ACTION_SLOT_FLAG);
-    if (!value || typeof value !== 'object') {
-      return {};
-    }
-    return { q: typeof value.q === 'string' ? value.q : undefined };
+    return readActionSlotState((key) => this.runtime.getFlag(key));
   }
 
   private saveState(state: ActionSlotState): void {

@@ -81,6 +81,7 @@ import { SceneGameClient } from '../session/SceneGameClient.js';
 import { SceneReadReplica } from '../session/SceneReadReplica.js';
 import { RemoteCheckpointBrowser } from '../session/RemoteCheckpointBrowser.js';
 import { RemoteSceneSession } from '../session/RemoteSceneSession.js';
+import { mixColor } from '../ui/colorUtils.js';
 import { PartyOverlay } from '../ui/partyOverlay.js';
 import { WebSocketGameConnection } from '../session/WebSocketGameConnection.js';
 import type { ClientCommand, CommandResult } from '../session/ClientCommand.js';
@@ -97,7 +98,8 @@ import { SkillTreeManager } from '../systems/skillTreeManager.js';
 import type { OwnedSkillState } from '../systems/skillTypes.js';
 import { QuestHud } from '../ui/questHud.js';
 import { QuestPopup } from '../ui/questPopup.js';
-import { ChoicePopup, type ChoiceOption } from '../ui/choicePopup.js';
+import { ChoicePopup } from '../ui/choicePopup.js';
+import type { NormalizedChoiceOption } from '../ui/choicePopupModel.js';
 import { SnakeRenderer, type RoomRenderEntry } from '../ui/snakeRenderer.js';
 import { FirstPersonRenderer } from '../ui/firstPerson/firstPersonRenderer.js';
 import type { FirstPersonMovementPresentationState } from '../ui/firstPerson/firstPersonTypes.js';
@@ -311,6 +313,7 @@ import {
   ARCHAEOLOGY_TILE_DEFINITIONS,
   getDigSiteVariant,
   MolemanArchaeologySession,
+  tArchaeology,
   type ArchaeologySessionEvent,
   type ArchaeologySessionSnapshot,
   type ArchaeologyTileKind,
@@ -14654,7 +14657,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.paused = true;
     const purchases = this.getFlag<Record<string, unknown>>('house.purchases') ?? {};
     const expandLevel = Number(this.getFlag<number>('house.expandLevel') ?? 0);
-    const options: ChoiceOption[] = [
+    const options: NormalizedChoiceOption[] = [
       ['couch', 'Couch — 10 score', Boolean(purchases['couch'])],
       ['kitchen', 'Kitchen — 15 score', Boolean(purchases['kitchen'])],
       ['expand', `Expand — 20 score (${expandLevel}/5)`, expandLevel >= 5],
@@ -14958,7 +14961,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const hasCar = this.snakeGame.getCars(room.id).some((car) => car.id === `${garage.id}:car`);
-    const option: ChoiceOption = {
+    const option: NormalizedChoiceOption = {
       id: 'buy-car',
       title: hasCar
         ? 'Car already purchased'
@@ -15790,7 +15793,7 @@ export default class SnakeScene extends Phaser.Scene {
   private showTownBoardRoot(board: TownBoardView): void {
     this.paused = true;
     this.skillTree.hideOverlay();
-    const options: ChoiceOption[] = [
+    const options: NormalizedChoiceOption[] = [
       {
         id: 'quests',
         title: 'Quests',
@@ -15848,7 +15851,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private showTownBoardQuests(board: TownBoardView): void {
-    const options: ChoiceOption[] =
+    const options: NormalizedChoiceOption[] =
       board.quests.length > 0
         ? board.quests.map((quest) => ({
             id: `quest:${quest.id}`,
@@ -15881,7 +15884,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private showTownBoardInfo(board: TownBoardView, title: string, lines: readonly string[]): void {
-    const options: ChoiceOption[] = lines.map((line, index) => ({
+    const options: NormalizedChoiceOption[] = lines.map((line, index) => ({
       id: `line:${index}`,
       title: line,
       description: '',
@@ -15932,7 +15935,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (!station) {
       return false;
     }
-    const options: ChoiceOption[] = station.options.map((option) => ({
+    const options: NormalizedChoiceOption[] = station.options.map((option) => ({
       id: option.id,
       title: option.title,
       description: option.enabled ? 'Ready.' : (option.reason ?? 'Not ready.'),
@@ -16083,7 +16086,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.showQuestHintPopup('The guild is still only a rumor.', '#ff6b6b');
       return;
     }
-    const options: ChoiceOption[] = [
+    const options: NormalizedChoiceOption[] = [
       {
         id: 'guild-lower-wanted',
         title: 'Lower Wanted',
@@ -16503,7 +16506,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     const contracts = this.snakeGame.getWardContracts();
     const usage = this.snakeGame.getWardUsage();
-    const options: ChoiceOption[] = GOBLIN_WARD_SCROLLS.map((offer) => {
+    const options: NormalizedChoiceOption[] = GOBLIN_WARD_SCROLLS.map((offer) => {
       const price =
         getWardPrice(offer, standing, Number(usage[offer.source] ?? 0)) ?? offer.basePrice;
       const owned = Number(contracts[offer.source] ?? 0);
@@ -16704,7 +16707,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
     const title = shopkeeperName;
     const shop = this.getCurrentVillageShop();
-    const options: ChoiceOption[] = [];
+    const options: NormalizedChoiceOption[] = [];
     if ((shop?.equipment.length ?? 0) > 0) {
       options.push({
         id: 'equipment',
@@ -16833,7 +16836,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.inputModeManager.getMode(),
     );
     const baseDescription = `${definition.description} ${control} activates it. Cooldown: ${definition.cooldownSteps} steps.`;
-    const options: ChoiceOption[] = [];
+    const options: NormalizedChoiceOption[] = [];
     if (learned) {
       options.push({
         id: 'equip',
@@ -16923,7 +16926,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.closeVillageShop();
       return;
     }
-    const options: ChoiceOption[] = [];
+    const options: NormalizedChoiceOption[] = [];
     if (category === 'equipment') {
       for (const offer of shop.equipment) {
         const item = getItem(offer.itemId) as Item | undefined;
@@ -17137,7 +17140,7 @@ export default class SnakeScene extends Phaser.Scene {
     const pageCount = Math.max(1, Math.ceil(offers.length / pageSize));
     const safePage = Math.max(0, Math.min(page, pageCount - 1));
     const pageOffers = offers.slice(safePage * pageSize, safePage * pageSize + pageSize);
-    const options: ChoiceOption[] = pageOffers.map((offer) => ({
+    const options: NormalizedChoiceOption[] = pageOffers.map((offer) => ({
       id: `actor-offer:${offer.id}`,
       title: `${offer.label} - ${offer.price} score${offer.itemId ? actorOfferOwnedText(this.snakeGame.getInventory().getItemCount(offer.itemId)) : ''}`,
       description: offer.note,
@@ -17245,7 +17248,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.paused = true;
     const collection = this.getCardCollection();
     const ownedCount = countCards(collection);
-    const options: ChoiceOption[] = CARD_TABLES.map((table) => ({
+    const options: NormalizedChoiceOption[] = CARD_TABLES.map((table) => ({
       id: `table:${table.id}`,
       title: highStakes ? `${table.name} - Sharp Table` : table.name,
       description: `Best of 3. Target ${table.minScore}-${table.maxScore}. ${this.describeHouseMode(table)} ${table.id === 'porch-table' ? 'Fixed wagers: 10, 25, or 50.' : 'No wager limit.'} Payout ${table.payoutMultiplier}x. ${table.riskLabel ?? 'Risky'}. ${ownedCount} cards owned.`,
@@ -17285,7 +17288,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.showCardTableRoot(shopkeeperName, fromVillageShop, highStakes, actorRole);
       return;
     }
-    const options: ChoiceOption[] = wagers.map((wager, index) => ({
+    const options: NormalizedChoiceOption[] = wagers.map((wager, index) => ({
       id: `bet:${index}:${wager.amount}`,
       title: wager.label,
       description: `Risk ${wager.amount} score. Win the match to receive ${getCardTablePayout(wager.amount, table)} score back.`,
@@ -19575,7 +19578,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.paused = true;
     this.hideSaveUI();
     this.skillTree.hideOverlay();
-    const options: ChoiceOption[] = [
+    const options: NormalizedChoiceOption[] = [
       {
         id: 'play',
         title: 'Play',
@@ -19738,7 +19741,7 @@ export default class SnakeScene extends Phaser.Scene {
     );
     const foodOptions = restaurant.food.map((food) => this.createRestaurantEatOption(food));
 
-    const options: ChoiceOption[] = [
+    const options: NormalizedChoiceOption[] = [
       ...purchaseOptions,
       ...foodOptions,
       {
@@ -19753,7 +19756,7 @@ export default class SnakeScene extends Phaser.Scene {
     });
   }
 
-  private createRestaurantPurchaseOption(offer: RestaurantPurchaseOffer): ChoiceOption {
+  private createRestaurantPurchaseOption(offer: RestaurantPurchaseOffer): NormalizedChoiceOption {
     const owned = offer.itemIds
       .map((itemId) => {
         const food = getRestaurantFoodDefinition(itemId);
@@ -19768,7 +19771,7 @@ export default class SnakeScene extends Phaser.Scene {
     };
   }
 
-  private createRestaurantEatOption(food: RestaurantFoodDefinition): ChoiceOption {
+  private createRestaurantEatOption(food: RestaurantFoodDefinition): NormalizedChoiceOption {
     const owned = this.snakeGame.getInventory().getItemCount(food.id) > 0;
     return {
       id: `eat:${food.id}`,
@@ -20126,7 +20129,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     // Build choice options with coordinates
-    const options: ChoiceOption[] = destinations.map((dest, index) => {
+    const options: NormalizedChoiceOption[] = destinations.map((dest, index) => {
       const coordStr = dest.coordinates ?? '???';
       return {
         id: `dest-${index}`,
@@ -20394,7 +20397,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
 
-    const options: ChoiceOption[] = destinations.map((dest, index) => {
+    const options: NormalizedChoiceOption[] = destinations.map((dest, index) => {
       const coordStr = dest.coordinates ?? '???';
       return {
         id: `dest-${index}`,
@@ -20537,26 +20540,26 @@ export default class SnakeScene extends Phaser.Scene {
     const variant = getDigSiteVariant(digSite.variantId);
     this.paused = true;
     this.skillTree.hideOverlay();
-    const options: ChoiceOption[] = [
+    const options: NormalizedChoiceOption[] = [
       {
         id: 'dig',
-        title: this.tArchaeology('digWarningTitle'),
-        description: this.tArchaeology('digDescription'),
+        title: tArchaeology('digWarningTitle'),
+        description: tArchaeology('digDescription'),
       },
       {
         id: 'talk',
-        title: this.tArchaeology('talkTitle'),
-        description: this.tArchaeology('talkDescription'),
+        title: tArchaeology('talkTitle'),
+        description: tArchaeology('talkDescription'),
       },
       {
         id: 'date',
-        title: this.tArchaeology('bondTitle'),
-        description: this.tArchaeology('bondDescription'),
+        title: tArchaeology('bondTitle'),
+        description: tArchaeology('bondDescription'),
       },
       {
         id: 'leave',
-        title: this.tArchaeology('leaveTitle'),
-        description: this.tArchaeology('leaveDescription'),
+        title: tArchaeology('leaveTitle'),
+        description: tArchaeology('leaveDescription'),
       },
     ];
     this.villageShopPopup.show(digSite.foreman.name, options, (id) => {
@@ -20569,8 +20572,8 @@ export default class SnakeScene extends Phaser.Scene {
           digSite.foreman.name,
           [
             `"${variant.foremanLine}"`,
-            `"${this.tArchaeology('foremanHowTo')}"`,
-            `"${this.tArchaeology('foremanOddFind')}"`,
+            `"${tArchaeology('foremanHowTo')}"`,
+            `"${tArchaeology('foremanOddFind')}"`,
           ],
           {
             onAccept: () => {
@@ -20578,7 +20581,7 @@ export default class SnakeScene extends Phaser.Scene {
               this.paused = false;
             },
           },
-          { acceptLabel: this.tArchaeology('back'), nextLabel: this.tArchaeology('more') },
+          { acceptLabel: tArchaeology('back'), nextLabel: tArchaeology('more') },
           { portraitId: 'moleman-foreman' },
         );
         return;
@@ -20660,7 +20663,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.ensureArchaeologyOverlay();
     this.archaeologyOverlay?.setVisible(true);
     this.juice.startArchaeologyMusic();
-    this.showQuestHintPopup(this.tArchaeology('started'), '#d8b4ff');
+    this.showQuestHintPopup(tArchaeology('started'), '#d8b4ff');
     this.emitArchaeologyDebugState('archaeology.started', 'session-started', 'normal');
   }
 
@@ -21228,23 +21231,23 @@ export default class SnakeScene extends Phaser.Scene {
     const logLines = this.archaeologyLogMessages.slice(-4);
     const graceSeconds = Math.max(0, 3 - snapshot.topGraceProgress * 3).toFixed(1);
     const statusLine = snapshot.topGraceActive
-      ? this.tArchaeology('ceilingJam', { seconds: graceSeconds })
+      ? tArchaeology('ceilingJam', { seconds: graceSeconds })
       : snapshot.resolving
-        ? this.tArchaeology('resolving')
-        : this.tArchaeology('rising');
+        ? tArchaeology('resolving')
+        : tArchaeology('rising');
     const controllerMode = this.inputModeManager.getMode() === 'controller';
     text
       .setPosition(boardX + boardWidth + 38, boardY - 6)
       .setText(
         [
-          this.tArchaeology('title'),
-          this.tArchaeology(`${snapshot.variant.id}Name`),
-          this.tArchaeology('depthScore', { depth: snapshot.depth, score: snapshot.score }),
-          this.tArchaeology('chainBest', { chain: snapshot.chain, best: snapshot.maxChain }),
+          tArchaeology('title'),
+          tArchaeology(`${snapshot.variant.id}Name`),
+          tArchaeology('depthScore', { depth: snapshot.depth, score: snapshot.score }),
+          tArchaeology('chainBest', { chain: snapshot.chain, best: snapshot.maxChain }),
           '',
-          controllerMode ? 'LEFT STICK / D-PAD: Move cursor' : this.tArchaeology('moveHelp'),
-          controllerMode ? 'A / X: Swap pair' : this.tArchaeology('swapHelp'),
-          controllerMode ? 'B / START: Leave dig' : this.tArchaeology('leaveHelp'),
+          controllerMode ? 'LEFT STICK / D-PAD: Move cursor' : tArchaeology('moveHelp'),
+          controllerMode ? 'A / X: Swap pair' : tArchaeology('swapHelp'),
+          controllerMode ? 'B / START: Leave dig' : tArchaeology('leaveHelp'),
           statusLine,
           '',
           ...logLines,
@@ -21269,12 +21272,12 @@ export default class SnakeScene extends Phaser.Scene {
     const def = ARCHAEOLOGY_TILE_DEFINITIONS[tile];
     const inset = state.popping ? 7 : 4;
     const highlightFill = state.highlighted
-      ? this.mixColor(def.color, 0xfff3a8, 0.42 + 0.18 * state.pulse)
+      ? mixColor(def.color, 0xfff3a8, 0.42 + 0.18 * state.pulse)
       : def.color;
     const revealProgress = state.revealProgress ?? 1;
-    const revealedFill = this.mixColor(highlightFill, 0x050811, (1 - revealProgress) * 0.52);
+    const revealedFill = mixColor(highlightFill, 0x050811, (1 - revealProgress) * 0.52);
     const fill = state.compressed
-      ? this.mixColor(revealedFill, 0xffffff, 0.16 + state.pulse * 0.08)
+      ? mixColor(revealedFill, 0xffffff, 0.16 + state.pulse * 0.08)
       : revealedFill;
     const tileAlpha = state.highlighted ? 1 : state.popping ? 0.72 : 0.34 + revealProgress * 0.66;
     const face = state.popping ? size - inset * 2 : size - inset * 2 - 1;
@@ -21421,21 +21424,6 @@ export default class SnakeScene extends Phaser.Scene {
     return (r << 16) | (g << 8) | b;
   }
 
-  private mixColor(a: number, b: number, amount: number): number {
-    const t = Phaser.Math.Clamp(amount, 0, 1);
-    const r = Math.round(((a >> 16) & 0xff) * (1 - t) + ((b >> 16) & 0xff) * t);
-    const g = Math.round(((a >> 8) & 0xff) * (1 - t) + ((b >> 8) & 0xff) * t);
-    const blue = Math.round((a & 0xff) * (1 - t) + (b & 0xff) * t);
-    return (r << 16) | (g << 8) | blue;
-  }
-
-  private tArchaeology(key: string, replacements: Record<string, string | number> = {}): string {
-    return Object.entries(replacements).reduce(
-      (text, [name, value]) => text.split(`{${name}}`).join(String(value)),
-      i18n.getCommon(`archaeology.${key}`),
-    );
-  }
-
   private formatArchaeologyRewardLines(rewards: ArchaeologyRewardBundle): string[] {
     const lines: string[] = [];
     for (const [itemId, count] of Object.entries(rewards.apples)) {
@@ -21448,10 +21436,10 @@ export default class SnakeScene extends Phaser.Scene {
       lines.push(`${getItem(itemId)?.name ?? itemId} x${count}`);
     }
     if (rewards.artifacts.length > 0) {
-      lines.push(this.tArchaeology('artifacts', { count: rewards.artifacts.length }));
+      lines.push(tArchaeology('artifacts', { count: rewards.artifacts.length }));
     }
     if (rewards.score > 0) {
-      lines.push(this.tArchaeology('scoreReward', { score: rewards.score }));
+      lines.push(tArchaeology('scoreReward', { score: rewards.score }));
     }
     return lines;
   }
@@ -21553,29 +21541,28 @@ export default class SnakeScene extends Phaser.Scene {
   ): void {
     const rewardLines = this.formatArchaeologyRewardLines(rewards);
     const summaryLines = [
-      `${this.tArchaeology(`${snapshot.variant.id}Name`)}  ${this.tArchaeology('depthScore', { depth: snapshot.depth, score: snapshot.score })}`,
-      this.tArchaeology('digScore', { score: snapshot.score }),
-      this.tArchaeology('runScore', { score: payout.score }),
-      this.tArchaeology('applesRecovered', { count: payout.appleCount }),
-      this.tArchaeology('appleResolution', {
+      `${tArchaeology(`${snapshot.variant.id}Name`)}  ${tArchaeology('depthScore', { depth: snapshot.depth, score: snapshot.score })}`,
+      tArchaeology('digScore', { score: snapshot.score }),
+      tArchaeology('runScore', { score: payout.score }),
+      tArchaeology('applesRecovered', { count: payout.appleCount }),
+      tArchaeology('appleResolution', {
         length: payout.appleLengthGained,
         score: payout.appleScoreGained,
       }),
-      this.tArchaeology('itemsRecovered', { count: payout.itemCount }),
-      this.tArchaeology('artifactsRecovered', { count: payout.artifactCount }),
+      tArchaeology('itemsRecovered', { count: payout.itemCount }),
+      tArchaeology('artifactsRecovered', { count: payout.artifactCount }),
       '',
-      ...(rewardLines.length ? rewardLines.slice(0, 10) : [this.tArchaeology('noFinds')]),
+      ...(rewardLines.length ? rewardLines.slice(0, 10) : [tArchaeology('noFinds')]),
       '',
-      this.tArchaeology('appleRule'),
+      tArchaeology('appleRule'),
     ];
-    const title =
-      reason === 'failure' ? this.tArchaeology('gameOverSummary') : this.tArchaeology('summary');
+    const title = reason === 'failure' ? tArchaeology('gameOverSummary') : tArchaeology('summary');
     this.villageShopPopup.show(
       title,
       [
         {
           id: 'continue',
-          title: this.tArchaeology('continue'),
+          title: tArchaeology('continue'),
           description: summaryLines.join('\n'),
         },
       ],
@@ -22204,7 +22191,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (!option) {
       return false;
     }
-    const choices: ChoiceOption[] = [];
+    const choices: NormalizedChoiceOption[] = [];
     let title = 'Liberty Badlands';
     if (
       room.gridironYard &&

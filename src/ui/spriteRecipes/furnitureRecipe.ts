@@ -1,4 +1,5 @@
 import type { RuntimeSpriteRecipe } from '../runtimeSpriteFactory.js';
+import { drawPixels } from './spriteGeometry.js';
 
 export type FurnitureSpriteVariant =
   | 'couch'
@@ -19,6 +20,28 @@ export interface FurnitureSpritePalette {
   gardenReady: { fill: string; accent: string; outline: string };
 }
 
+/** Map a layout tile character to its furniture sprite variant. */
+export function furnitureVariantForTile(tile: string): FurnitureSpriteVariant | null {
+  switch (tile) {
+    case 'C':
+      return 'couch';
+    case 'K':
+      return 'kitchen';
+    case 'B':
+      return 'bed';
+    case 'P':
+      return 'plant';
+    case 'L':
+      return 'lamp';
+    case 'D':
+      return 'garden';
+    case 'R':
+      return 'gardenReady';
+    default:
+      return null;
+  }
+}
+
 const VARIANTS: readonly FurnitureSpriteVariant[] = [
   'couch',
   'kitchen',
@@ -28,26 +51,6 @@ const VARIANTS: readonly FurnitureSpriteVariant[] = [
   'garden',
   'gardenReady',
 ];
-
-function fillPixel(
-  context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  pixelSize: number,
-  color: string,
-): void {
-  context.fillStyle = color;
-  context.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
-}
-
-function drawPixels(
-  context: CanvasRenderingContext2D,
-  points: readonly [number, number][],
-  pixelSize: number,
-  color: string,
-): void {
-  points.forEach(([x, y]) => fillPixel(context, x, y, pixelSize, color));
-}
 
 function drawSprite(
   context: CanvasRenderingContext2D,

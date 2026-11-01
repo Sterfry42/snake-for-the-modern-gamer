@@ -1,5 +1,5 @@
 import type { RuntimeSpriteRecipe } from '../runtimeSpriteFactory.js';
-import { createSpriteRotator, turnsForVariant } from './spriteGeometry.js';
+import { createSpriteRotator, drawPixels, turnsForVariant } from './spriteGeometry.js';
 
 const { rotatePoints } = createSpriteRotator(9);
 
@@ -58,26 +58,6 @@ const ALL_VARIANTS: readonly AnimalSpriteVariant[] = ANIMAL_SPRITE_TYPES.flatMap
     `${type}-flash-${direction}` as AnimalSpriteVariant,
   ]),
 );
-
-function fillPixel(
-  context: CanvasRenderingContext2D,
-  px: number,
-  py: number,
-  pixelSize: number,
-  color: string,
-): void {
-  context.fillStyle = color;
-  context.fillRect(px * pixelSize, py * pixelSize, pixelSize, pixelSize);
-}
-
-function drawPixels(
-  context: CanvasRenderingContext2D,
-  points: readonly (readonly [number, number])[],
-  pixelSize: number,
-  color: string,
-): void {
-  points.forEach(([x, y]) => fillPixel(context, x, y, pixelSize, color));
-}
 
 function getAnimalType(variant: AnimalSpriteVariant): string {
   const parts = variant.split('-');

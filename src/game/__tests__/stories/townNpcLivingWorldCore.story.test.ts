@@ -15,7 +15,6 @@ import {
   offsetPosition,
 } from '../../../test/headless/scenarioFixtures.js';
 import {
-  isTownWalkable,
   renderTownAtlas,
   unreachableTargets,
   type ReachabilityTarget,
@@ -29,6 +28,7 @@ import { getBiomeDefinition } from '../../../world/biomes.js';
 import { tryPlaceGarage } from '../../../world/garage.js';
 import { tryPlaceMolemanDigSite } from '../../../world/molemanDigSite.js';
 import { isSolidTile } from '../../../world/tiles.js';
+import { isWalkableTownApproach } from '../../../world/town.js';
 import type { RoomSnapshot } from '../../../world/types.js';
 
 describe('Town NPC living-world core stories', () => {
@@ -2125,7 +2125,7 @@ function exteriorReachabilityTargets(room: RoomSnapshot): ReachabilityTarget[] {
       ...entrance.returnPosition,
       label: `${entrance.templateId} return position`,
     });
-    if (isTownWalkable(room.layout[entrance.y]?.[entrance.x])) {
+    if (isWalkableTownApproach(room.layout[entrance.y]?.[entrance.x])) {
       targets.push({ x: entrance.x, y: entrance.y, label: `${entrance.templateId} doorway` });
     }
   }

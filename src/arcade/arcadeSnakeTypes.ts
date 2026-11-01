@@ -1,3 +1,5 @@
+import type { Vector2Like } from '../core/math.js';
+
 export const ARCADE_GRID_WIDTH = 16;
 export const ARCADE_GRID_HEIGHT = 12;
 export const ARCADE_TICK_MS = 140;
@@ -16,10 +18,7 @@ export type ArcadeQuestId =
   | 'no-left-apples'
   | 'long-snake-apples';
 
-export interface ArcadeTilePosition {
-  x: number;
-  y: number;
-}
+export type ArcadeTilePosition = Vector2Like;
 
 export interface ArcadeApple {
   type: ArcadeAppleType;

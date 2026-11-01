@@ -17,7 +17,7 @@ import {
 import { resolveRenderTile } from './tileVisualResolver.js';
 import type { RenderRoom, RenderSprite, WorldRenderScene } from './worldRenderScene.js';
 import type { NpcVisualDescriptor, WorldVisualAssetResolver } from './worldVisualAssets.js';
-import type { FurnitureSpriteVariant } from '../spriteRecipes/furnitureRecipe.js';
+import { furnitureVariantForTile } from '../spriteRecipes/furnitureRecipe.js';
 
 const FREAKER_RAINBOW = [0xff4fd8, 0xff7b54, 0xffd166, 0x6eff95, 0x5fd7ff, 0xb46cff] as const;
 
@@ -549,27 +549,6 @@ function pushSprite(
     roomId: options.roomId,
     facing: options.facing,
   });
-}
-
-function furnitureVariantForTile(tile: string): FurnitureSpriteVariant | null {
-  switch (tile) {
-    case 'C':
-      return 'couch';
-    case 'K':
-      return 'kitchen';
-    case 'B':
-      return 'bed';
-    case 'P':
-      return 'plant';
-    case 'L':
-      return 'lamp';
-    case 'D':
-      return 'garden';
-    case 'R':
-      return 'gardenReady';
-    default:
-      return null;
-  }
 }
 
 function pushAuthoredNpcs(

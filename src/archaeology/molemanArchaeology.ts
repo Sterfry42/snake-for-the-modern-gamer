@@ -1,7 +1,7 @@
 import { ARTIFACT_DEFINITIONS, type ArtifactDefinition } from '../artifacts/artifacts.js';
 import { i18n } from '../i18n/i18nManager.js';
 import { getItem } from '../inventory/itemRegistry.js';
-import { clamp } from '../core/math.js';
+import { clamp, vectorKey } from '../core/math.js';
 
 export type DigSiteVariantId = 'forest' | 'ocean' | 'deep';
 
@@ -440,7 +440,7 @@ export class MolemanArchaeologySession {
     } else if (this.topGraceRemainingMs <= 0) {
       this.topGraceRemainingMs = TOP_GRACE_MS;
       this.riseProgress = 0;
-      this.pendingMessages.push(t('ceilingPressure'));
+      this.pendingMessages.push(tArchaeology('ceilingPressure'));
       return;
     }
     if (this.topGraceRemainingMs > 0) {
@@ -448,7 +448,7 @@ export class MolemanArchaeologySession {
       this.riseProgress = 0;
       if (this.topGraceRemainingMs <= 0 && this.board[0]?.some(Boolean)) {
         this.gameOver = true;
-        this.pendingMessages.push(t('ceilingReached'));
+        this.pendingMessages.push(tArchaeology('ceilingReached'));
         this.pendingEvents.push({ kind: 'game-over' });
       }
       return;
@@ -465,7 +465,7 @@ export class MolemanArchaeologySession {
     if (this.board[0]?.some(Boolean)) {
       this.topGraceRemainingMs = TOP_GRACE_MS;
       this.riseProgress = 0;
-      this.pendingMessages.push(t('ceilingPressure'));
+      this.pendingMessages.push(tArchaeology('ceilingPressure'));
       return;
     }
     this.board.shift();
@@ -581,14 +581,14 @@ export class MolemanArchaeologySession {
     const locked = new Set<string>();
     const state = this.resolver;
     if (state?.kind === 'highlight' || state?.kind === 'pop') {
-      for (const cell of state.cells) locked.add(key(cell.x, cell.y));
+      for (const cell of state.cells) locked.add(vectorKey(cell));
     }
-    if (this.activePoppingCell) locked.add(key(this.activePoppingCell.x, this.activePoppingCell.y));
+    if (this.activePoppingCell) locked.add(vectorKey(this.activePoppingCell));
     for (const move of this.visibleGravityMoves) {
-      locked.add(key(move.fromX, move.fromY));
-      locked.add(key(move.toX, move.toY));
+      locked.add(vectorKey({ x: move.fromX, y: move.fromY }));
+      locked.add(vectorKey({ x: move.toX, y: move.toY }));
     }
-    return locked.has(key(x, y)) || locked.has(key(x + 1, y));
+    return locked.has(vectorKey({ x, y })) || locked.has(vectorKey({ x: x + 1, y }));
   }
 
   private tickResolver(deltaMs: number): void {
@@ -689,7 +689,7 @@ export class MolemanArchaeologySession {
     matchedCells: readonly ArchaeologyBoardCell[],
     origins: readonly ArchaeologyBoardCell[],
   ): ArchaeologyBoardCell[] {
-    const destroyed = new Map(matchedCells.map((cell) => [key(cell.x, cell.y), cell]));
+    const destroyed = new Map(matchedCells.map((cell) => [vectorKey(cell), cell]));
     for (const origin of origins) {
       for (let dy = -2; dy <= 2; dy += 1) {
         for (let dx = -2; dx <= 2; dx += 1) {
@@ -697,7 +697,7 @@ export class MolemanArchaeologySession {
           const x = origin.x + dx;
           const y = origin.y + dy;
           const tile = this.board[y]?.[x] ?? null;
-          if (tile) destroyed.set(key(x, y), { x, y, tile });
+          if (tile) destroyed.set(vectorKey({ x, y }), { x, y, tile });
         }
       }
     }
@@ -773,7 +773,7 @@ export class MolemanArchaeologySession {
   private addMatchedCell(matched: Map<string, ArchaeologyBoardCell>, x: number, y: number): void {
     const tile = this.board[y]?.[x] ?? null;
     if (!tile) return;
-    matched.set(key(x, y), { x, y, tile });
+    matched.set(vectorKey({ x, y }), { x, y, tile });
   }
 
   private isSameMatchable(ax: number, ay: number, bx: number, by: number): boolean {
@@ -812,8 +812,8 @@ export class MolemanArchaeologySession {
       const appleCount = Object.values(apples).reduce((total, amount) => total + amount, 0);
       const label =
         appleCount > 0
-          ? t('appleScore', { count: appleCount, score: awardedScore })
-          : t('plusScore', { score: awardedScore });
+          ? tArchaeology('appleScore', { count: appleCount, score: awardedScore })
+          : tArchaeology('plusScore', { score: awardedScore });
       this.pendingMessages.push(label);
       this.pendingEvents.push({
         kind: 'reward',
@@ -856,10 +856,10 @@ export class MolemanArchaeologySession {
       const score = baseScore + duplicateScore;
       this.score += score;
       this.rewards.score += score;
-      this.pendingMessages.push(t('artifactDuplicate', { name: artifact.name }));
+      this.pendingMessages.push(tArchaeology('artifactDuplicate', { name: artifact.name }));
       this.pendingEvents.push({
         kind: 'reward',
-        label: t('artifactDuplicateShort', { name: artifact.name }),
+        label: tArchaeology('artifactDuplicateShort', { name: artifact.name }),
       });
       this.pendingEvents.push({ kind: 'cache', artifactName: artifact.name });
       return score;
@@ -869,10 +869,10 @@ export class MolemanArchaeologySession {
       this.rewards.score += baseScore;
     }
     this.rewards.artifacts.push(artifact.id);
-    this.pendingMessages.push(t('artifactRecovered', { name: artifact.name }));
+    this.pendingMessages.push(tArchaeology('artifactRecovered', { name: artifact.name }));
     this.pendingEvents.push({
       kind: 'reward',
-      label: t('artifactRecovered', { name: artifact.name }),
+      label: tArchaeology('artifactRecovered', { name: artifact.name }),
     });
     this.pendingEvents.push({ kind: 'cache', artifactName: artifact.name });
     return baseScore;
@@ -888,7 +888,9 @@ export class MolemanArchaeologySession {
 
   private addReward(target: Record<string, number>, itemId: string, count: number): void {
     target[itemId] = (target[itemId] ?? 0) + count;
-    const label = t('recoveredItem', { name: getItem(itemId)?.name ?? itemId.replace(/-/g, ' ') });
+    const label = tArchaeology('recoveredItem', {
+      name: getItem(itemId)?.name ?? itemId.replace(/-/g, ' '),
+    });
     this.pendingMessages.push(label);
     this.pendingEvents.push({ kind: 'reward', label });
   }
@@ -937,11 +939,11 @@ function pick<T>(values: readonly T[], rng: () => number): T {
   return values[Math.floor(rng() * values.length)]!;
 }
 
-function key(x: number, y: number): string {
-  return `${x},${y}`;
-}
-
-function t(key: string, replacements: Record<string, string | number> = {}): string {
+/** Translate an archaeology common-string key with `{name}` placeholder replacement. */
+export function tArchaeology(
+  key: string,
+  replacements: Record<string, string | number> = {},
+): string {
   return Object.entries(replacements).reduce(
     (text, [name, value]) => text.split(`{${name}}`).join(String(value)),
     i18n.getCommon(`archaeology.${key}`),

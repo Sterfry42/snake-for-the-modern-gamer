@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { computeAchievementDetailLayout, type DetailRect } from './achievementDetailLayout.js';
+import { computeAchievementDetailLayout } from './achievementDetailLayout.js';
+import type { UiRect } from '../ui/core/UiLayout.js';
 
-function contains(outer: DetailRect, inner: DetailRect): boolean {
+function contains(outer: UiRect, inner: UiRect): boolean {
   return (
     inner.x >= outer.x &&
     inner.y >= outer.y &&

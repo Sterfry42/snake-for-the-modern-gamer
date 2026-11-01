@@ -173,10 +173,6 @@ export function findNearestBiomeByRegion(
   const [ox, oy, oz] = parseLocatorRoomId(originRoomId);
   const [origRx, origRy] = roomToRegion(ox, oy);
 
-  function biomeMatches(roomBiome: BiomeDefinition): boolean {
-    return roomBiome.id === targetBiomeId;
-  }
-
   const adjacent = sameFloor ? adjacentRegionIds : adjacentRegionIdsAnyFloor;
 
   const visited = new Set<string>();
@@ -198,7 +194,7 @@ export function findNearestBiomeByRegion(
     const centerRoomId = regionToCenterRoomId(current.regionX, current.regionY, current.z);
     const roomBiome = resolveBiome(centerRoomId);
 
-    if (biomeMatches(roomBiome)) {
+    if (roomBiome.id === targetBiomeId) {
       // Compute Manhattan distance from origin room to center of matching region
       const centerCoord = parseLocatorRoomId(centerRoomId);
       const distance =
@@ -291,10 +287,6 @@ export function findNearestBiome(
 
   const [ox, oy, oz] = parseLocatorRoomId(originRoomId);
 
-  function biomeMatches(roomBiome: BiomeDefinition): boolean {
-    return roomBiome.id === targetBiomeId;
-  }
-
   const adjacent = sameFloor ? adjacentRoomIds : adjacentRoomIdsAnyFloor;
 
   const visited = new Set<string>();
@@ -309,7 +301,7 @@ export function findNearestBiome(
     const current = queue.shift()!;
     const roomBiome = resolveBiome(current.roomId);
 
-    if (biomeMatches(roomBiome)) {
+    if (roomBiome.id === targetBiomeId) {
       return {
         roomId: current.roomId,
         distance: current.distance,

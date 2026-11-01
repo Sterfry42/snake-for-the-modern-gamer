@@ -1,3 +1,5 @@
+import { parkEmbedHost } from '../core/CanvasPanel.js';
+
 const SPOTIFY_IFRAME_API_SRC = 'https://open.spotify.com/embed/iframe-api/v1';
 const SPOTIFY_SCRIPT_ID = 'spotify-iframe-api';
 const SPOTIFY_LAST_ENTITY_STORAGE_KEY = 'snake.spotify.lastEntityUrl';
@@ -137,7 +139,7 @@ export class SpotifyEmbedManager {
       return;
     }
     this.document?.body.append(this.host);
-    this.applyParkedStyles(this.host);
+    parkEmbedHost(this.host);
   }
 
   async loadEntity(spotifyUriOrUrl: string): Promise<void> {
@@ -174,7 +176,7 @@ export class SpotifyEmbedManager {
     }
     const host = this.document.createElement('div');
     host.className = 'spotify-embed-manager__host';
-    this.applyParkedStyles(host);
+    parkEmbedHost(host);
     this.host = host;
     return host;
   }
@@ -232,17 +234,6 @@ export class SpotifyEmbedManager {
     host.style.height = '232px';
     host.style.opacity = '1';
     host.style.pointerEvents = 'auto';
-    host.style.display = 'block';
-  }
-
-  private applyParkedStyles(host: HTMLElement): void {
-    host.style.position = 'fixed';
-    host.style.left = '-10000px';
-    host.style.top = '-10000px';
-    host.style.width = '1px';
-    host.style.height = '1px';
-    host.style.opacity = '0';
-    host.style.pointerEvents = 'none';
     host.style.display = 'block';
   }
 }

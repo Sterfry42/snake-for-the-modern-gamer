@@ -1,4 +1,4 @@
-import type { Vector2Like } from '../core/math.js';
+import { vectorKey, type Vector2Like } from '../core/math.js';
 import { isSolidTile } from '../world/tiles.js';
 import type { RoomSnapshot, VegetationType } from '../world/types.js';
 import {
@@ -156,7 +156,7 @@ export class ConstructionState {
     const structureCells = new Set<string>();
     for (const structure of this.structuresInRoom(context.room.id)) {
       for (const cell of structure.cells) {
-        structureCells.add(cellKey(cell.localX, cell.localY));
+        structureCells.add(vectorKey({ x: cell.localX, y: cell.localY }));
       }
     }
 
@@ -165,7 +165,7 @@ export class ConstructionState {
       if (!isInsideRoom(context.room, cell.localX, cell.localY)) {
         reasons.push('outside-room');
       } else {
-        const key = cellKey(cell.localX, cell.localY);
+        const key = vectorKey({ x: cell.localX, y: cell.localY });
         const tile = context.room.layout[cell.localY]?.[cell.localX];
         if (cell.solid && isSolidTile(tile)) reasons.push('solid-terrain');
         if (structureCells.has(key)) reasons.push('existing-structure');
@@ -316,10 +316,10 @@ export class ConstructionState {
     validation: StructurePlacementValidation,
   ): void {
     const clearable = new Set(
-      validation.cells.filter((cell) => cell.clearOnCommit).map((cell) => cellKey(cell.x, cell.y)),
+      validation.cells.filter((cell) => cell.clearOnCommit).map((cell) => vectorKey(cell)),
     );
     if (clearable.size === 0 || !room.vegetation) return;
-    room.vegetation = room.vegetation.filter((entry) => !clearable.has(cellKey(entry.x, entry.y)));
+    room.vegetation = room.vegetation.filter((entry) => !clearable.has(vectorKey(entry)));
   }
 }
 
@@ -328,11 +328,7 @@ function isInsideRoom(room: RoomSnapshot, x: number, y: number): boolean {
 }
 
 function toCellSet(cells: readonly Vector2Like[] | undefined): ReadonlySet<string> {
-  return new Set((cells ?? []).map((cell) => cellKey(cell.x, cell.y)));
-}
-
-function cellKey(x: number, y: number): string {
-  return `${x},${y}`;
+  return new Set((cells ?? []).map(vectorKey));
 }
 
 function isClearableVegetation(variant: VegetationType): boolean {

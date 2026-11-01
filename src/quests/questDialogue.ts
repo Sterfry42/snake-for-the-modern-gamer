@@ -2,12 +2,8 @@
  * Quest Dialogue
  */
 import type { Quest } from './quest.js';
+import type { QuestDialogue } from '../i18n/types.js';
 import { i18n } from '../i18n/i18nManager.js';
-
-export interface QuestDialogue {
-  title: string;
-  pages: string[];
-}
 
 const CUSTOM_DIALOGUES: Record<string, QuestDialogue> = {
   'explore-6-rooms': {

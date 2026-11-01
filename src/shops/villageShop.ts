@@ -1,3 +1,4 @@
+import type { EmoticonDefinition } from '../emoticons/emoticonTypes.js';
 import type { EquipmentSlot } from '../inventory/item.js';
 import type { SnakeSpritePalette } from '../ui/spriteRecipes/snakeRecipe.js';
 import type { BiomeId } from '../world/biomes.js';
@@ -70,21 +71,13 @@ export interface VillageShopSupplyOffer {
   note: string;
 }
 
-export interface VillageShopEmoticonOffer {
-  id: string;
-  label: string;
-  symbol: string;
-  price: number;
-  description: string;
-}
-
 export interface VillageShopDefinition {
   equipment: VillageShopEquipmentOffer[];
   styles: VillageShopStyleOffer[];
   hats: VillageShopHatOffer[];
   cowbells: VillageShopCowbellOffer[];
   supplies: VillageShopSupplyOffer[];
-  emoticons: VillageShopEmoticonOffer[];
+  emoticons: EmoticonDefinition[];
   fishSales: VillageShopFishSaleOffer[];
 }
 
@@ -473,7 +466,7 @@ function getVendorLocatorOffer(currentBiomeId: BiomeId): VillageShopSupplyOffer 
   };
 }
 
-export const VILLAGE_SHOP_EMOTICONS: readonly VillageShopEmoticonOffer[] = [
+export const VILLAGE_SHOP_EMOTICONS: readonly EmoticonDefinition[] = [
   { id: 'happy', label: 'Happy', symbol: ':)', price: 10, description: 'A simple smile.' },
   {
     id: 'sad',

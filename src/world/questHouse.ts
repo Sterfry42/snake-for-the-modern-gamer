@@ -12,11 +12,6 @@ export interface QuestHouseResult {
   bounds: { left: number; top: number; width: number; height: number };
 }
 
-export interface QuestHousePlacementOptions {
-  forbiddenCells?: ReadonlySet<string>;
-  margin?: number;
-}
-
 const SAFE_INTERIOR_TILES = new Set(['W', 'E', 'T']);
 const SAGE_NAMES = ['Aurex', 'Belisar', 'Cyrene', 'Thalestra', 'Ozym', 'Ilyra', 'Ryan'] as const;
 const SAGE_PORTRAITS = ['sage-1', 'sage-2', 'sage-3'] as const;
@@ -82,7 +77,7 @@ export function tryPlaceQuestHouse(
   layout: string[][],
   grid: GridConfig,
   rng: RandomGenerator,
-  options: QuestHousePlacementOptions = {},
+  options: { forbiddenCells?: ReadonlySet<string>; margin?: number } = {},
 ): QuestHouseResult | null {
   const attempts = 24;
   const margin = options.margin ?? 2;

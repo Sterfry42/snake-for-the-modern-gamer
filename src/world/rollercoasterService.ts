@@ -11,6 +11,7 @@ import type {
 import {
   findContiguousFloorBlocks,
   findEdgeTiles,
+  generateTransitRooms,
   generateTransitStationId,
 } from './transitShared.js';
 import type { RoomSnapshot } from './types.js';
@@ -375,23 +376,6 @@ export function createRollercoasterStation(
   station.stationName = generateStationName(theme, rng);
 
   return station;
-}
-
-/** Generate transit room IDs for a rollercoaster journey. */
-export function generateTransitRooms(
-  stationRoomId: string,
-  destinationRoomId: string,
-  rng: RandomGenerator,
-): string[] {
-  const transitRooms: string[] = [];
-  const count = 1 + Math.floor(rng() * 2);
-
-  for (let i = 0; i < count; i++) {
-    const transitId = `transit:${stationRoomId}:${destinationRoomId}:${i}`;
-    transitRooms.push(transitId);
-  }
-
-  return transitRooms;
 }
 
 /** Build a weighted list of destination choices for the player. */
