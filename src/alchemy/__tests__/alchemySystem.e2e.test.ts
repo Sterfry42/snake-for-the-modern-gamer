@@ -351,13 +351,14 @@ describe('alchemy headless end-to-end', () => {
 
     scenario.game.setScore(200);
     const shop = scenario.game.getActorShopView(wizard.id);
-    expect(shop?.categories).toEqual(['consumables', 'items']);
+    expect(shop?.categories).toEqual(['consumables', 'items', 'services']);
     expect(shop?.offers.map((offer) => offer.id)).toEqual(
       expect.arrayContaining([
         'alchemy-station',
         'recipe-scroll-shield',
         'recipe-scroll-phase',
-        'ingredient-pearl-apple',
+        'mana-potion',
+        'wizard-lesson',
       ]),
     );
     expect(scenario.game.purchaseActorShopOffer(wizard.id, 'recipe-scroll-shield').ok).toBe(true);

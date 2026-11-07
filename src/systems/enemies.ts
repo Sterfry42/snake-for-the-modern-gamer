@@ -21,6 +21,7 @@ export interface EnemyInstance {
   moveCooldown: number;
   aimDirection: Vector2Like;
   flashTicks: number;
+  chillTicks?: number;
   name?: string;
   currentHearts?: number;
   maxHearts?: number;
@@ -781,6 +782,16 @@ export class EnemyManager {
         continue;
       }
 
+      if ((enemy.chillTicks ?? 0) > 0) {
+        // Chilled enemies hold position, aim, and breath until the rime thaws.
+        nextEnemies.push({
+          ...enemy,
+          flashTicks: Math.max(0, enemy.flashTicks - 1),
+          chillTicks: Math.max(0, (enemy.chillTicks ?? 0) - 1),
+        });
+        continue;
+      }
+
       if (enemy.position.x === headLocal.x && enemy.position.y === headLocal.y) {
         nextEnemies.push({
           ...enemy,
@@ -1028,6 +1039,83 @@ export class EnemyManager {
     }
     const defeated = this.damageEnemyById(roomId, target.id, damage);
     return { hit: true, defeated };
+  }
+
+  isEnemyChilled(enemyId: string): boolean {
+    for (const enemies of this.enemies.values()) {
+      const enemy = enemies.find((candidate) => candidate.id === enemyId);
+      if (enemy) {
+        return (enemy.chillTicks ?? 0) > 0;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Freeze every enemy within Manhattan `radius` of the world origin.
+   * Chilled enemies hold still, hold their aim, and hold their breath.
+   */
+  applyChill(roomId: string, worldOrigin: Vector2Like, radius: number, ticks: number): number {
+    const origin = globalToLocal(roomId, worldOrigin, this.grid);
+    const enemies = this.enemies.get(roomId) ?? [];
+    const radiusClamped = Math.max(0, Math.floor(radius));
+    const duration = Math.max(0, Math.floor(ticks));
+    if (duration <= 0) {
+      return 0;
+    }
+    let chilled = 0;
+    const next = enemies.map((enemy) => {
+      const distance =
+        Math.abs(enemy.position.x - origin.x) + Math.abs(enemy.position.y - origin.y);
+      if (distance > radiusClamped) {
+        return enemy;
+      }
+      chilled += 1;
+      return {
+        ...enemy,
+        chillTicks: Math.max(duration, enemy.chillTicks ?? 0),
+        flashTicks: Math.max(enemy.flashTicks, 1),
+      };
+    });
+    if (chilled > 0) {
+      this.enemies.set(roomId, next);
+    }
+    return chilled;
+  }
+
+  /**
+   * Frost Nova: rime passes through the room, nipping every enemy in radius
+   * and leaving them chilled for the given number of enemy steps.
+   */
+  frostNova(
+    roomId: string,
+    worldOrigin: Vector2Like,
+    radius: number,
+    damage = 1,
+    chillTicks = 5,
+  ): { chilled: number; affected: Vector2Like[]; defeated: EnemyInstance[] } {
+    const origin = globalToLocal(roomId, worldOrigin, this.grid);
+    const enemies = this.enemies.get(roomId) ?? [];
+    const radiusClamped = Math.max(0, Math.floor(radius));
+    const inRadius = enemies.filter((enemy) => {
+      const distance =
+        Math.abs(enemy.position.x - origin.x) + Math.abs(enemy.position.y - origin.y);
+      return distance <= radiusClamped;
+    });
+    const affected: Vector2Like[] = [];
+    const defeated: EnemyInstance[] = [];
+    for (const enemy of inRadius) {
+      const world = localToGlobal(roomId, enemy.position, this.grid);
+      const hit = this.damageEnemyAt(roomId, world, Math.max(1, Math.floor(damage)));
+      affected.push({ x: enemy.position.x, y: enemy.position.y });
+      if (hit.defeated) {
+        defeated.push(hit.defeated);
+      }
+    }
+    if (affected.length > 0) {
+      this.applyChill(roomId, worldOrigin, radiusClamped, chillTicks);
+    }
+    return { chilled: affected.length, affected, defeated };
   }
 
   getDuelBossInRoom(roomId: string): DuelBossDisplay | null {

@@ -172,6 +172,32 @@ export interface SkillTreeRuntime {
   onAstralNova?(): void;
   onSummonFamiliarCast?(): void;
   hasRatFamiliar?(): boolean;
+  castArcanePulseBlast?(): { defeated: number; affected: number };
+  castFirebolt?(): { fired: boolean; directHit: boolean };
+  castMagicMissile?(): { hit: boolean; defeated: string | null };
+  hasMagicMissileTarget?(): boolean;
+  castLightningStrike?(): {
+    strikes: readonly { x: number; y: number }[];
+    defeated: readonly string[];
+  };
+  hasLightningTarget?(): boolean;
+  castFrostNova?(): {
+    chilled: number;
+    affected: readonly { x: number; y: number }[];
+    defeated: readonly string[];
+  };
+  hasFrostNovaTargets?(): boolean;
+  castSwiftstep?(): { moved: number };
+  canSwiftstep?(): boolean;
+  castHaste?(): { magnitude: number };
+  castMirrorImage?(): { magnitude: number };
+  castShimmerCloak?(): { magnitude: number };
+  castHealingGlow?(): { kind: 'vitality' | 'ward' };
+  castManaSip?(): { magnitude: number };
+  hasLightWisp?(): boolean;
+  castSummonLightWisp?(): { ok: boolean; message: string; color: string };
+  getLightWispManaRegen?(): number;
+  getSpellStatusTicks?(statusId: string): number;
   setFlag(key: string, value: unknown): void;
 }
 

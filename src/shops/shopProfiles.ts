@@ -142,6 +142,84 @@ const WIZARD_SUPPLIES: readonly VillageShopSupplyOffer[] = [
     note: 'A conjuration tome with suspicious little footprints in the margins.',
   },
   {
+    id: 'spell-tome-firebolt',
+    itemId: 'spell-tome-firebolt',
+    price: 36,
+    note: 'A destruction tome. The wizard apologizes in advance for the soot.',
+  },
+  {
+    id: 'spell-tome-magic-missile',
+    itemId: 'spell-tome-magic-missile',
+    price: 40,
+    note: 'A destruction tome that insists you owe the missile an apology.',
+  },
+  {
+    id: 'spell-tome-lightning-strike',
+    itemId: 'spell-tome-lightning-strike',
+    price: 44,
+    note: 'A destruction tome. The sky owes the wizard a favor; this is the invoice.',
+  },
+  {
+    id: 'spell-tome-frost-nova',
+    itemId: 'spell-tome-frost-nova',
+    price: 46,
+    note: 'An alteration tome that runs cold in your pack on warm days.',
+  },
+  {
+    id: 'spell-tome-swiftstep',
+    itemId: 'spell-tome-swiftstep',
+    price: 44,
+    note: 'An alteration tome. The wizard insists blink is a verb with manners.',
+  },
+  {
+    id: 'spell-tome-haste',
+    itemId: 'spell-tome-haste',
+    price: 42,
+    note: 'An alteration tome with the pacing of a very anxious letter.',
+  },
+  {
+    id: 'spell-tome-mirror-image',
+    itemId: 'spell-tome-mirror-image',
+    price: 48,
+    note: 'An illusion tome. The margins argue with themselves; that is the point.',
+  },
+  {
+    id: 'spell-tome-shimmer-cloak',
+    itemId: 'spell-tome-shimmer-cloak',
+    price: 52,
+    note: 'An illusion tome that is slightly harder to look at than to read.',
+  },
+  {
+    id: 'spell-tome-healing-glow',
+    itemId: 'spell-tome-healing-glow',
+    price: 64,
+    note: 'A restoration tome that smells faintly of bandages and breakfast.',
+  },
+  {
+    id: 'spell-tome-mana-sip',
+    itemId: 'spell-tome-mana-sip',
+    price: 58,
+    note: 'A restoration tome. The river resents frequent visitors; sip accordingly.',
+  },
+  {
+    id: 'spell-tome-summon-light-wisp',
+    itemId: 'spell-tome-summon-light-wisp',
+    price: 72,
+    note: 'A conjuration tome. One very small claw mark appears in the margins.',
+  },
+  {
+    id: 'mana-potion',
+    itemId: 'mana-potion',
+    price: 18,
+    note: 'Starlight in a bottle. The fizz is intentional and not a defect.',
+  },
+  {
+    id: 'mana-crystal',
+    itemId: 'mana-crystal',
+    price: 85,
+    note: 'Compressed night sky. Permanent, so the wizard makes you repeat the price.',
+  },
+  {
     id: 'recipe-scroll-shield',
     itemId: 'recipe-scroll-shield',
     price: 24,
@@ -179,6 +257,22 @@ const WIZARD_SUPPLIES: readonly VillageShopSupplyOffer[] = [
   },
 ];
 
+const WIZARD_SERVICES: readonly {
+  id: string;
+  itemId: string;
+  label: string;
+  price: number;
+  note: string;
+}[] = [
+  {
+    id: 'wizard-lesson',
+    itemId: 'wizard-lesson',
+    label: "Wizard's Lesson",
+    price: 25,
+    note: 'One spell, properly taught. The wizard keeps a list of your excuses.',
+  },
+];
+
 const FOOD_SUPPLIES = VILLAGE_SHOP_SUPPLIES.filter((offer) =>
   ['senbei', 'ramen', 'animal-bait'].includes(offer.id),
 );
@@ -198,12 +292,13 @@ export const DEFAULT_SHOP_PROFILES: ReadonlyMap<string, ShopProfile> = new Map(
       items: { poolId: 'potion-maker-items', anchored: ['alchemy-station'], randomCount: 3 },
     }),
     profile('wizard', {
-      consumables: { poolId: 'wizard-consumables', randomCount: 3 },
+      consumables: { poolId: 'wizard-consumables', randomCount: 4 },
       items: {
         poolId: 'wizard-items',
         anchored: ['alchemy-station', 'spell-tome-arcane-pulse'],
-        randomCount: 4,
+        randomCount: 5,
       },
+      services: { poolId: 'wizard-services', randomCount: 'all' },
     }),
     profile('butcher', {
       consumables: { poolId: 'butcher-consumables', randomCount: 'all' },
@@ -286,11 +381,12 @@ const DEFAULT_SHOP_OFFER_POOL_LIST: ShopOfferPool[] = [
     'wizard-consumables',
     'consumables',
     WIZARD_SUPPLIES.filter((offer) =>
-      ['recipe-scroll-shield', 'recipe-scroll-phase'].includes(offer.id),
+      ['recipe-scroll-shield', 'recipe-scroll-phase', 'mana-potion'].includes(offer.id),
     ),
     {
       'recipe-scroll-shield': 10,
       'recipe-scroll-phase': 8,
+      'mana-potion': 14,
     },
   ),
   supplyPool(
@@ -301,6 +397,18 @@ const DEFAULT_SHOP_OFFER_POOL_LIST: ShopOfferPool[] = [
         'alchemy-station',
         'spell-tome-arcane-pulse',
         'spell-tome-summon-rat-familiar',
+        'spell-tome-firebolt',
+        'spell-tome-magic-missile',
+        'spell-tome-lightning-strike',
+        'spell-tome-frost-nova',
+        'spell-tome-swiftstep',
+        'spell-tome-haste',
+        'spell-tome-mirror-image',
+        'spell-tome-shimmer-cloak',
+        'spell-tome-healing-glow',
+        'spell-tome-mana-sip',
+        'spell-tome-summon-light-wisp',
+        'mana-crystal',
         'ingredient-pearl-apple',
         'ingredient-quartz',
         'ingredient-meteor-iron',
@@ -311,12 +419,43 @@ const DEFAULT_SHOP_OFFER_POOL_LIST: ShopOfferPool[] = [
       'alchemy-station': 1,
       'spell-tome-arcane-pulse': 12,
       'spell-tome-summon-rat-familiar': 4,
+      'spell-tome-firebolt': 10,
+      'spell-tome-magic-missile': 9,
+      'spell-tome-lightning-strike': 7,
+      'spell-tome-frost-nova': 6,
+      'spell-tome-swiftstep': 6,
+      'spell-tome-haste': 6,
+      'spell-tome-mirror-image': 5,
+      'spell-tome-shimmer-cloak': 5,
+      'spell-tome-healing-glow': 3,
+      'spell-tome-mana-sip': 3,
+      'spell-tome-summon-light-wisp': 2,
+      'mana-crystal': 4,
       'ingredient-pearl-apple': 12,
       'ingredient-quartz': 20,
       'ingredient-meteor-iron': 3,
       'ingredient-nightshade': 4,
     },
   ),
+  {
+    id: 'wizard-services',
+    tab: 'services',
+    resolve: (context) =>
+      WIZARD_SERVICES.map((service) =>
+        withPriceScalar(
+          {
+            id: service.id,
+            category: 'services',
+            label: service.label,
+            price: service.price,
+            note: service.note,
+            itemId: service.itemId,
+            // Services are gated by the lesson limit, not by shop stock.
+          },
+          context.priceScalar,
+        ),
+      ),
+  },
   supplyPool('butcher-consumables', 'consumables', FOOD_SUPPLIES),
   supplyPool('tavern-consumables', 'consumables', TAVERN_SUPPLIES),
   equipmentPool('black-market-equipment', BLACK_MARKET_EQUIPMENT),
