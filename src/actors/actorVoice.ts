@@ -10,7 +10,7 @@ interface ActorVoiceLineResult {
   portraitId?: string;
 }
 
-interface ActorVoiceContext {
+export interface ActorVoiceContext {
   actor: Actor;
   biomeId: BiomeId;
   dangerLevel: number;
@@ -206,7 +206,7 @@ const ACTOR_VOICE_LINES: readonly ActorVoiceLine[] = [
   },
   {
     id: 'actor-secret-royal',
-    text: 'The King is not a person here. He is weather with a signature.',
+    text: 'The King is not a {{kingNot}} here. He is {{kingIs}} with a {{kingWith}}.',
     priority: 82,
     requiresKingLore: true,
     tags: ['king', 'lore'],
@@ -331,7 +331,158 @@ function isActorLineValid(line: ActorVoiceLine, context: ActorVoiceContext): boo
   return true;
 }
 
+/**
+ * Nouns the royal secret may wear in each of its three slots.
+ *
+ * The wise old snake keeps 999 better lists, in a secret room, out of the rain.
+ * Every entry must still read correctly after the article "a".
+ */
+export const KING_LORE_NOUNS: readonly string[] = [
+  'storm',
+  'rumor',
+  'season',
+  'tax',
+  'debt',
+  'habit',
+  'legend',
+  'verdict',
+  'procession',
+  'shadow',
+  'bell',
+  'coin',
+  'ledger',
+  'decree',
+  'harvest',
+  'drought',
+  'frost',
+  'flood',
+  'fever',
+  'hunger',
+  'winter',
+  'spring',
+  'thicket',
+  'dawn',
+  'dusk',
+  'thunder',
+  'lightning',
+  'hail',
+  'sleet',
+  'fog',
+  'mist',
+  'rain',
+  'snow',
+  'wind',
+  'dust',
+  'smoke',
+  'coal',
+  'cinder',
+  'spark',
+  'flame',
+  'candle',
+  'lantern',
+  'mirror',
+  'window',
+  'door',
+  'gate',
+  'key',
+  'lock',
+  'hinge',
+  'latch',
+  'rope',
+  'chain',
+  'ring',
+  'crown',
+  'scepter',
+  'throne',
+  'castle',
+  'tower',
+  'wall',
+  'moat',
+  'bridge',
+  'road',
+  'path',
+  'step',
+  'stair',
+  'plank',
+  'beam',
+  'nail',
+  'bolt',
+  'blade',
+  'steel',
+  'copper',
+  'bronze',
+  'silver',
+  'gold',
+  'marble',
+  'stone',
+  'brick',
+  'timber',
+  'wood',
+  'bark',
+  'root',
+  'branch',
+  'leaf',
+  'thorn',
+  'rose',
+  'poppy',
+  'fern',
+  'moss',
+  'lichen',
+  'seed',
+  'grain',
+  'wheat',
+  'barley',
+  'prune',
+  'honey',
+  'butter',
+  'cheese',
+  'bread',
+  'salt',
+  'pepper',
+  'vinegar',
+  'wine',
+  'broth',
+  'soup',
+  'stew',
+  'meat',
+  'fish',
+  'fowl',
+  'loaf',
+  'crumb',
+  'feast',
+  'famine',
+  'plague',
+  'sleep',
+  'dream',
+  'memory',
+  'story',
+  'song',
+  'hymn',
+];
+
+export interface KingLoreRoll {
+  kingNot: string;
+  kingIs: string;
+  kingWith: string;
+}
+
+/** Rolls three distinct nouns for the royal secret line. */
+export function rollKingLoreNouns(random: () => number): KingLoreRoll {
+  const kingNot = pickKingLoreNoun(random);
+  const kingIs = pickKingLoreNoun(random, [kingNot]);
+  const kingWith = pickKingLoreNoun(random, [kingNot, kingIs]);
+  return { kingNot, kingIs, kingWith };
+}
+
+function pickKingLoreNoun(random: () => number, exclude: readonly string[] = []): string {
+  const pool = KING_LORE_NOUNS.filter((noun) => !exclude.includes(noun));
+  const index = Math.floor(random() * pool.length) % pool.length;
+  return pool[index] ?? KING_LORE_NOUNS[0];
+}
+
 function fillActorVoiceSlots(text: string, context: ActorVoiceContext): string {
+  const random = context.random ?? Math.random;
+  const kingLore = rollKingLoreNouns(random);
   return text
     .split('{{name}}')
     .join(context.actor.displayName)
@@ -340,7 +491,13 @@ function fillActorVoiceSlots(text: string, context: ActorVoiceContext): string {
     .split('{{mayor}}')
     .join(context.civic?.currentMayorName ?? 'the Mayor')
     .split('{{platform}}')
-    .join(context.civic?.platformLabel ?? 'the platform');
+    .join(context.civic?.platformLabel ?? 'the platform')
+    .split('{{kingNot}}')
+    .join(kingLore.kingNot)
+    .split('{{kingIs}}')
+    .join(kingLore.kingIs)
+    .split('{{kingWith}}')
+    .join(kingLore.kingWith);
 }
 
 function moodPriorityBonus(line: ActorVoiceLine, context: ActorVoiceContext): number {
