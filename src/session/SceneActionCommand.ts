@@ -119,9 +119,7 @@ export type SceneActionCommand = { playerId: PlayerId } & (
   | { type: 'archaeologyAction'; action: 'start' }
   | { type: 'archaeologyAction'; action: 'swap' | 'leave' | 'close'; id: number }
   | { type: 'archaeologyAction'; action: 'move'; id: number; direction: Vector2Like }
-  | { type: 'purchase'; actorId: string; offerId: string; count?: number }
-  | { type: 'farmToolAction'; action: 'step'; direction: Vector2Like }
-  | { type: 'farmToolAction'; action: 'exit' }
+  | { type: 'purchase'; actorId: string; offerId: string }
   | { type: 'relationshipAction'; actorId: string; choice: RelationshipChoice }
   | { type: 'questAction'; action: 'track'; questId: string | null }
   | { type: 'specialAction'; action: 'preview'; statId: SpecialStatId; delta: -1 | 1 }
@@ -162,7 +160,6 @@ export function isSceneActionCommand(command: ClientCommand): command is SceneAc
   return (
     command.type === 'houseAction' ||
     command.type === 'farmingAction' ||
-    command.type === 'farmToolAction' ||
     command.type === 'territoryAction' ||
     command.type === 'farmSellAction' ||
     command.type === 'deathEncounterAction' ||

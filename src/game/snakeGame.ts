@@ -288,7 +288,6 @@ import {
 import {
   defaultShopProfileIdForRole,
   resolveShopProfileTabs,
-  referenceRetailPrice,
   type ShopOfferView,
   type ShopTabId,
 } from '../shops/shopProfiles.js';
@@ -1555,7 +1554,6 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('equipment.swimmingEnabled', undefined);
     this.setFlag('equipment.firstPersonView', undefined);
     this.setFlag('equipment.activeTool', undefined);
-    this.setFlag('farm.selectedTool', undefined);
     this.setFlag('traversal.buoyancyRemaining', undefined);
     this.setFlag('traversal.buoyancyCapacity', undefined);
     this.setFlag('ui.drowning', undefined);
@@ -7296,53 +7294,6 @@ export class SnakeGame implements QuestRuntime {
   getFarmCells(roomId = this.snake.currentRoomId) {
     return this.farming.cells(roomId);
   }
-
-  /** Farming uses inventory tools without consuming an armor/weapon slot. */
-  getFarmTool(): string | undefined {
-    const tool = this.getFlag<string>('farm.selectedTool');
-    return tool === 'farm-hoe' || tool === 'watering-can' ||
-      tool === 'garden-watering-can' || tool === 'farm-compost' ||
-      tool === 'garden-fertilizer' || tool === 'farm-magic-bed' ||
-      CROPS.some((crop) => crop.seedItemId === tool) ? tool : undefined;
-  }
-
-  getFarmToolTarget(): Vector2Like {
-    return { ...this.snake.directionVector };
-  }
-
-  exitFarmToolMode(): { ok: boolean; message: string } {
-    this.setFlag('farm.selectedTool', undefined);
-    return { ok: true, message: 'Put away farming tools.' };
-  }
-
-  /** Deliberate one-tile movement: never step through solid world geometry or the tail. */
-  stepFarmToolMode(direction: Vector2Like): { ok: boolean; message: string } {
-    if (!this.getFarmTool()) return { ok: false, message: 'Select a farming tool first.' };
-    if (!Number.isInteger(direction.x) || !Number.isInteger(direction.y) ||
-        Math.abs(direction.x) + Math.abs(direction.y) !== 1)
-      return { ok: false, message: 'Choose a cardinal direction.' };
-    const head = this.snake.bodySegments[0];
-    if (!head || !this.isLocalPlayerInWorld() || this.getPlayerHealth().current <= 0)
-      return { ok: false, message: 'Cannot tend land while absent or dead.' };
-    const room = this.getCurrentRoom();
-    const local = this.worldToLocal(room.id, head);
-    const next = { x: local.x + direction.x, y: local.y + direction.y };
-    if (next.x < 1 || next.y < 1 || next.x >= this.config.grid.cols - 1 ||
-        next.y >= this.config.grid.rows - 1 ||
-        room.layout[next.y]?.[next.x] === '~' ||
-        this.isEffectivelySolidCell(room, next.x, next.y))
-      return { ok: false, message: 'The path is blocked.' };
-    if (this.snake.bodySegments.slice(1).some((part) => {
-      const position = this.worldToLocal(room.id, part);
-      return position.x === next.x && position.y === next.y;
-    })) return { ok: false, message: 'Your tail blocks the path.' };
-    if ([...this.collectActorOccupancy(room.id), ...this.collectEnemyOccupancy(room.id),
-      ...this.collectBossOccupancy(room.id)].some((actor) => actor.x === next.x && actor.y === next.y))
-      return { ok: false, message: 'Someone is standing there.' };
-    this.snake.forceDirection(direction.x, direction.y);
-    this.moveToRoom(room.id, next);
-    return { ok: true, message: 'Moved one farming step.' };
-  }
   getFarmContextToken(): string {
     const head = this.snake.bodySegments[0];
     return `${this.snake.currentRoomId}:${head?.x}:${head?.y}:${this.getRoomsVisitedCount()}`;
@@ -7716,67 +7667,42 @@ export class SnakeGame implements QuestRuntime {
     this.recoverFarmLoot(enemy.id);
   }
 
-  /** Every open merchant buys saleable inventory; their specialty can improve the quote. */
-  getMerchantSellOffers(actorId: string): Array<{
-    itemId: string; label: string; count: number; price: number; specialty: boolean;
-  }> {
-    const shop = this.getActorShopView(actorId);
-    const actor = this.actors.getActor(actorId);
-    if (!shop?.open || !actor) return [];
-    const market = actor.shopProfileId ?? defaultShopProfileIdForRole(actor.role);
-    return this.inventory.getAllItems().flatMap(([itemId, count]) => {
-      const item = getItem(itemId);
-      if (!item || count <= 0 || item.category === 'quest') return [];
-      if (!produce && referenceRetailPrice(itemId) === undefined) return [];
-      const produce = resolveProduce(itemId);
-      const retail = (produce ? produce.crop.seedCost : referenceRetailPrice(itemId)) ?? 10;
-      if (retail < 4 && !produce) return [];
-      const specialty = market === 'black-market'
-        ? Boolean(produce?.crop.contraband)
-        : market === 'butcher'
-          ? itemId.includes('meat') || itemId.includes('fish') || itemId.includes('chicken')
-          : market === 'bartender'
-            ? ['beer', 'wine', 'ramen', 'mead'].some((drink) => itemId.includes(drink))
-          : market === 'potion-maker'
-            ? itemId.includes('potion') || itemId.includes('alchemy')
-            : market === 'wizard'
-              ? itemId.includes('spell') || itemId.includes('magic') || itemId.includes('luminous')
-              : market === 'mapper'
-                ? itemId.includes('locator') || itemId.includes('map')
-                : market === 'general-merchant'
-                  ? item.category === 'material'
-                  : false;
-      const base = produce
-        ? Math.floor(produce.crop.value * QUALITY_MULTIPLIERS[produce.quality])
-        : Math.max(1, Math.floor(retail * 0.18));
-      const premium = specialty ? Math.max(base, Math.floor(base * 1.25)) : base;
-      const listed = shop.offers.find((offer) => offer.itemId === itemId)?.price;
-      // Nonproduce resale is lower than even a 0.25x retail discount; produce
-      // is valued against its seed cost, since shops do not retail harvested crops.
-      const ceiling = produce ? produce.crop.seedCost - 1 : Math.ceil(retail * 0.25) - 1;
-      const price = Math.min(premium, ceiling, listed === undefined ? Infinity : listed - 1);
-      return price > 0 ? [{ itemId, label: item.name, count, price, specialty }] : [];
-    });
-  }
-
   sellFarmProduce(actorId: string, itemId: string, count: number) {
-    const shop = this.getActorShopView(actorId);
-    if (!this.canInteractWithActor(actorId) || !shop?.open)
+    const goods = resolveProduce(itemId),
+      actor = this.actors.getActor(actorId);
+    const shop = actor && this.getActorShopView(actorId);
+    if (!this.canInteractWithActor(actorId) || !shop?.open || !actor)
       return { ok: false, message: 'Move beside an open merchant.' };
-    if (!Number.isSafeInteger(count) || count <= 0 || count > 10000 ||
-        this.inventory.getItemCount(itemId) < count)
-      return { ok: false, message: 'Invalid quantity or unavailable items.' };
-    const quote = this.getMerchantSellOffers(actorId).find((offer) => offer.itemId === itemId);
-    if (!quote) return { ok: false, message: 'This item cannot be sold.' };
+    const market = actor.shopProfileId ?? defaultShopProfileIdForRole(actor.role);
+    if (
+      !goods ||
+      !Number.isSafeInteger(count) ||
+      count <= 0 ||
+      count > 10000 ||
+      this.inventory.getItemCount(itemId) < count
+    )
+      return { ok: false, message: 'Invalid produce or quantity; no goods exchanged.' };
+    if (
+      goods.crop.contraband
+        ? market !== 'black-market'
+        : !['general-merchant', 'butcher', 'bartender', 'black-market'].includes(market ?? '')
+    )
+      return {
+        ok: false,
+        message: goods.crop.contraband
+          ? 'Ordinary merchants refuse contraband.'
+          : 'This merchant does not buy produce.',
+      };
+    const price = Math.floor(goods.crop.value * QUALITY_MULTIPLIERS[goods.quality]);
     this.inventory.removeItem(itemId, count);
-    this.addScore(quote.price * count);
-    if (resolveProduce(itemId)?.crop.contraband) {
+    this.addScore(price * count);
+    if (goods.crop.contraband) {
       const head = this.snake.bodySegments[0];
       if (head) this.observeContraband(this.worldToLocal(this.snake.currentRoomId, head));
     }
     return {
       ok: true,
-      message: `Sold ${count} ${quote.label} for ${quote.price * count} score${quote.specialty ? ' (specialty bonus)' : ''}.`,
+      message: `Sold ${count} ${goods.crop.label} (${goods.quality}) for ${price * count} score.`,
     };
   }
 
@@ -7785,7 +7711,6 @@ export class SnakeGame implements QuestRuntime {
       this.setFlag('construction.lastRejection', { reason: 'unknown-blueprint', blueprintId });
       return false;
     }
-    this.setFlag('farm.selectedTool', undefined);
     this.constructionPlacement = { blueprintId, roomId: this.snake.currentRoomId };
     this.setFlag('construction.mode', {
       active: true,
@@ -8487,7 +8412,7 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
-  purchaseActorShopOffer(actorId: string, offerId: string, count = 1): ActorShopPurchaseResult {
+  purchaseActorShopOffer(actorId: string, offerId: string): ActorShopPurchaseResult {
     const scoreBefore = this.getScore();
     const closed = (
       reason: ActorShopPurchaseResult['reason'],
@@ -8514,10 +8439,6 @@ export class SnakeGame implements QuestRuntime {
     if (!offer) {
       return closed('missing-offer', 'That offer is not on the counter.');
     }
-    if (!Number.isSafeInteger(count) || count < 1 || count > 100 ||
-        (count > 1 && !offer.itemId?.startsWith('seed-')) ||
-        (offer.quantity !== undefined && count > offer.quantity))
-      return closed('missing-offer', 'That quantity is not in stock.', offer);
     if (!offer.itemId && !offer.cardId) {
       return closed('missing-offer', 'That offer is not available.', offer);
     }
@@ -8537,10 +8458,10 @@ export class SnakeGame implements QuestRuntime {
         offer,
       );
     }
-    if (this.getScore() < offer.price * count) {
-      return closed('insufficient-score', `${count} ${offer.label} cost ${offer.price * count} score.`, offer);
+    if (this.getScore() < offer.price) {
+      return closed('insufficient-score', `${offer.label} costs ${offer.price} score.`, offer);
     }
-    this.addScore(-offer.price * count);
+    this.addScore(-offer.price);
     if (offer.itemId === 'wizard-lesson') {
       // The score moved before the magic did: grant only after payment.
       const lesson = this.receiveWizardLesson(actorId);
@@ -8549,18 +8470,18 @@ export class SnakeGame implements QuestRuntime {
         return closed('missing-offer', lesson.message, offer);
       }
     } else if (offer.itemId) {
-      this.addItem(offer.itemId, count);
+      this.addItem(offer.itemId, 1);
     }
     if (offer.cardId) {
       this.addCardToCollection(offer.cardId, 1);
     }
-    this.decrementActorShopOfferStock(actorId, offer, count);
+    this.decrementActorShopOfferStock(actorId, offer);
     const result = {
       ok: true,
       message:
         lessonPreview && lessonPreview.spellId
           ? `The wizard teaches you ${lessonPreview.spellId}.`
-          : `Purchased ${count} ${offer.label}.`,
+          : `Purchased ${offer.label}.`,
       actorId,
       offerId,
       scoreBefore,
@@ -8601,7 +8522,6 @@ export class SnakeGame implements QuestRuntime {
       townId: actor.townId ?? room.town?.id,
       worldSeed: this.worldSeed,
       stockPeriod: this.getAtmosphereState().worldDay,
-      season: this.getAtmosphereState().season,
       priceScalar: this.getActorShopPriceScalar(),
       stockCountBonus: this.getActorShopStockCountBonus(),
       hasAlchemyStation: this.getAlchemyStationCount() > 0,
@@ -8624,12 +8544,12 @@ export class SnakeGame implements QuestRuntime {
     return [{ ...offer, quantity: remaining }];
   }
 
-  private decrementActorShopOfferStock(actorId: string, offer: ActorShopOfferView, count = 1): void {
+  private decrementActorShopOfferStock(actorId: string, offer: ActorShopOfferView): void {
     if (offer.quantity === undefined) {
       return;
     }
     const key = this.getActorShopOfferStockFlagKey(actorId, offer.id);
-    const remaining = Math.max(0, this.getActorShopOfferRemaining(actorId, offer) - count);
+    const remaining = Math.max(0, this.getActorShopOfferRemaining(actorId, offer) - 1);
     this.actors.registry.update(actorId, (actor) => ({
       ...actor,
       flags: { ...actor.flags, [key]: remaining },
@@ -20308,33 +20228,6 @@ export class SnakeGame implements QuestRuntime {
     const item = getItem(itemId);
     if (!item || this.inventory.getItemCount(itemId) <= 0) {
       return { ok: false, message: 'That item is not in your pack.', color: '#ff6b6b' };
-    }
-
-    if (
-      itemId === 'farm-hoe' || itemId === 'watering-can' ||
-      itemId === 'garden-watering-can' || itemId === 'farm-compost' ||
-      itemId === 'garden-fertilizer' || itemId === 'farm-magic-bed' ||
-      CROPS.some((crop) => crop.seedItemId === itemId)
-    ) {
-      if (!this.isLocalPlayerInWorld() || this.getPlayerHealth().current <= 0)
-        return { ok: false, message: 'Cannot work the land while absent or dead.' };
-      this.cancelStructurePlacement();
-      this.setFlag('farm.selectedTool', itemId);
-      return {
-        ok: true,
-        message: `${item.name} selected. Move deliberately, Interact to use it, Escape to put away. J opens the seed picker.`,
-        color: '#9cff9c',
-        consume: false,
-      };
-    }
-    if (itemId === 'farm-water-refill') {
-      if (!this.inventory.getItemCount('watering-can') && !this.inventory.getItemCount('garden-watering-can'))
-        return { ok: false, message: 'Requires a watering can.' };
-      const charges = Number(this.getFlag<number>('farm.canCharges') ?? 8);
-      if (charges >= 8) return { ok: false, message: 'The watering can is already full.' };
-      this.inventory.removeItem(itemId);
-      this.setFlag('farm.canCharges', 8);
-      return { ok: true, message: 'Watering can refilled: 8/8.', color: '#9cff9c', consume: true };
     }
 
     if (itemId === 'bomb') {

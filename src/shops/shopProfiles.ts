@@ -70,7 +70,6 @@ export interface ResolveShopProfileContext {
   townId?: string;
   worldSeed: string;
   stockPeriod: number;
-  season?: import('../world/atmosphereTypes.js').Season;
   priceScalar: number;
   stockCountBonus: number;
   hasAlchemyStation: boolean;
@@ -583,36 +582,30 @@ export function resolveShopProfileTabs(
     }
   }
   if (!context.profiles && (profileId === 'general-merchant' || profileId === 'black-market')) {
-    const eligible = CROPS.filter((crop) =>
-      profileId === 'black-market'
-        ? crop.contraband
-        : !crop.contraband && crop.seasons.includes(context.season ?? 'spring'),
+    const crops = CROPS.filter((crop) =>
+      profileId === 'black-market' ? crop.contraband : !crop.contraband,
     );
-    const crops = [...eligible].sort((a, b) =>
-      stableStringHashUnsigned(`${context.worldSeed}:${context.townId ?? profileId}:${context.stockPeriod}:${a.id}`) -
-      stableStringHashUnsigned(`${context.worldSeed}:${context.townId ?? profileId}:${context.stockPeriod}:${b.id}`),
-    ).slice(0, profileId === 'black-market' ? 1 : 4);
     const offers: ShopOfferView[] = crops.map((crop) => ({
       id: crop.seedItemId,
       itemId: crop.seedItemId,
       category: 'items',
       label: `${crop.label} Seeds`,
       price: crop.seedCost,
-      quantity: profileId === 'black-market'
-        ? 4
-        : 8 + stableStringHashUnsigned(`${context.worldSeed}:${context.stockPeriod}:${crop.id}:quantity`) % 8,
+      quantity: 1,
       note: `${crop.growDays} world days; ${crop.seasons.join('/')}. Yield ${crop.yield}; produce sells for ${crop.value} each.`,
     }));
     if (profileId === 'general-merchant')
-      offers.push(...FARM_TOOLS.map((tool) => ({
-        id: tool.id,
-        itemId: tool.id,
-        category: 'items' as const,
-        label: tool.name,
-        price: tool.price,
-        quantity: 1,
-        note: 'Use from inventory to work the land one step at a time.',
-      })));
+      offers.push(
+        ...FARM_TOOLS.map((tool) => ({
+          id: tool.id,
+          itemId: tool.id,
+          category: 'items' as const,
+          label: tool.name,
+          price: tool.price,
+          quantity: 1,
+          note: 'Use from Farming (J). Free cultivation on suitable wilderness.',
+        })),
+      );
     const items = tabs.find((tab) => tab.id === 'items');
     if (items) items.offers.push(...offers);
     else tabs.push({ id: 'items', offers });
@@ -750,18 +743,4 @@ function defaultSupplyQuantity(offer: VillageShopSupplyOffer, category: ShopTabI
     return 1;
   }
   return 5;
-}
-
-/** Retail reference for resale quotes, independent of today's random shop shelf. */
-export function referenceRetailPrice(itemId: string): number | undefined {
-  const seed = CROPS.find((crop) => crop.seedItemId === itemId);
-  if (seed) return seed.seedCost;
-  const farmTool = FARM_TOOLS.find((tool) => tool.id === itemId);
-  if (farmTool) return farmTool.price;
-  const offers = [
-    ...VILLAGE_SHOP_SUPPLIES, ...VILLAGE_SHOP_EQUIPMENT,
-    ...BLACK_MARKET_SUPPLIES, ...BLACK_MARKET_EQUIPMENT,
-    ...POTION_MAKER_SUPPLIES, ...WIZARD_SUPPLIES,
-  ];
-  return offers.find((offer) => offer.itemId === itemId)?.price;
 }

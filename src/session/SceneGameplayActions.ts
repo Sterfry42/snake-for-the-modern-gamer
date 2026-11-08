@@ -32,10 +32,6 @@ export function executeSceneGameplayAction(
     case 'territoryAction':
     case 'farmSellAction':
       return game.executeAgricultureCommand(command);
-    case 'farmToolAction':
-      return command.action === 'step'
-        ? game.stepFarmToolMode(command.direction)
-        : game.exitFarmToolMode();
     case 'guildAction':
       return executeGuildAction(game, command);
     case 'specialShopAction':
@@ -186,7 +182,7 @@ export function executeSceneGameplayAction(
     case 'purchase': {
       if (!game.canInteractWithActor(command.actorId))
         return { ok: false, reason: 'Move closer to shop.' };
-      const result = game.purchaseActorShopOffer(command.actorId, command.offerId, command.count ?? 1);
+      const result = game.purchaseActorShopOffer(command.actorId, command.offerId);
       return {
         ok: result.ok,
         reason: result.ok ? undefined : result.message,
