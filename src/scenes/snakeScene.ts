@@ -3586,10 +3586,12 @@ export default class SnakeScene extends Phaser.Scene {
     if (await this.tryInteractTownGuildGrate()) return;
     if (this.tryInteractLibertyStructure()) return;
     if (this.tryInteractMolemanDigSite()) return;
+    // A merchant is an NPC first: their actor menu owns Talk, Pick Pocket, and Shop.
+    // The legacy scenery shop handlers remain fallbacks for unmaterialized actors.
+    if (this.tryInteractRelationshipNpc()) return;
     if (this.tryInteractGarageMechanic()) return;
     if (this.tryInteractVillageShopkeeper()) return;
     if (this.tryInteractGoblinShopkeeper()) return;
-    if (this.tryInteractRelationshipNpc()) return;
     if (await this.tryInteractQuestGiver()) return;
     if (this.tryInteractBulletTrain()) return;
     if (this.tryInteractRollercoaster()) return;
