@@ -3470,11 +3470,6 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
 
-    if (actionId === 'menu.pause') {
-      this.togglePauseMenu();
-      return;
-    }
-
     if (actionId === 'map.toggle') {
       const result = this.toggleMinimap();
       if (result) {

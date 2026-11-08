@@ -1,28 +1,11 @@
 import type { Vector2Like } from '../core/math.js';
 import type { ControlActionId } from '../input/controlActions.js';
 
-const isCoarsePointer = () => {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  const coarseMediaQuery = window.matchMedia?.('(pointer: coarse)');
-  if (coarseMediaQuery?.matches) {
-    return true;
-  }
-
-  if (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0) {
-    return true;
-  }
-
-  return false;
-};
-
 export interface MobileControls {
   destroy(): void;
 }
 
-interface MobileControlsOptions {
+export interface MobileControlsOptions {
   onDirection: (x: number, y: number) => void;
   onTogglePause: () => void;
   onAction?: (actionId: ControlActionId) => void;
@@ -89,30 +72,30 @@ function createButton(options: {
   return button;
 }
 
-function createDirectionHandler(
-  options: MobileControlsOptions,
-  x: SwipeDirection['x'],
-  y: SwipeDirection['y'],
-): (event: PointerEvent) => void {
+/**
+ * Shared press handler: cancel the browser gesture, give haptic feedback,
+ * then hand the press to the scene.
+ */
+function createPressHandler(invoke: () => void): (event: PointerEvent) => void {
   return (event: PointerEvent) => {
     event.preventDefault();
     vibrate();
-    options.onDirection(x, y);
+    invoke();
   };
 }
 
 function fireAction(options: MobileControlsOptions, actionId: ControlActionId): void {
-  options.onAction?.(actionId);
   if (actionId === 'menu.pause') {
+    // The Start button owns the pause toggle exclusively. Routing it through
+    // onTogglePause (and not onAction as well) keeps the scene from
+    // receiving the toggle twice per press.
     options.onTogglePause();
+    return;
   }
+  options.onAction?.(actionId);
 }
 
-export function createMobileControls(options: MobileControlsOptions): MobileControls | null {
-  if (!isCoarsePointer()) {
-    return null;
-  }
-
+export function createMobileControls(options: MobileControlsOptions): MobileControls {
   const cleanupCallbacks: Array<() => void> = [];
   const container = document.createElement('div');
   container.className = 'mobile-controls mobile-controls--handheld';
@@ -178,7 +161,7 @@ export function createMobileControls(options: MobileControlsOptions): MobileCont
         className: `mobile-controls__dpad-button mobile-controls__dpad-button--${direction.className}`,
         label: direction.label,
         ariaLabel: direction.ariaLabel,
-        onPress: createDirectionHandler(options, direction.x, direction.y),
+        onPress: createPressHandler(() => options.onDirection(direction.x, direction.y)),
         cleanupCallbacks,
       }),
     );
@@ -193,18 +176,12 @@ export function createMobileControls(options: MobileControlsOptions): MobileCont
   centerPanel.className = 'mobile-controls__center-panel';
   centerPanel.setAttribute('aria-label', 'System controls');
 
-  const createActionHandler = (actionId: ControlActionId) => (event: PointerEvent) => {
-    event.preventDefault();
-    vibrate();
-    fireAction(options, actionId);
-  };
-
   centerPanel.appendChild(
     createButton({
       className: 'mobile-controls__utility-button mobile-controls__utility-button--select',
       label: 'Select',
       ariaLabel: 'Toggle map',
-      onPress: createActionHandler('map.toggle'),
+      onPress: createPressHandler(() => fireAction(options, 'map.toggle')),
       cleanupCallbacks,
     }),
   );
@@ -213,7 +190,7 @@ export function createMobileControls(options: MobileControlsOptions): MobileCont
       className: 'mobile-controls__utility-button mobile-controls__utility-button--start',
       label: 'Start',
       ariaLabel: 'Toggle menu',
-      onPress: createActionHandler('menu.pause'),
+      onPress: createPressHandler(() => fireAction(options, 'menu.pause')),
       cleanupCallbacks,
     }),
   );
@@ -221,42 +198,30 @@ export function createMobileControls(options: MobileControlsOptions): MobileCont
   const actionPanel = document.createElement('section');
   actionPanel.className = 'mobile-controls__action-panel';
   actionPanel.setAttribute('aria-label', 'Action controls');
-  actionPanel.appendChild(
-    createButton({
-      className: 'mobile-controls__action-button mobile-controls__action-button--x',
-      label: 'X',
-      ariaLabel: 'Use context ability',
-      onPress: createActionHandler('ability.context'),
-      cleanupCallbacks,
-    }),
-  );
-  actionPanel.appendChild(
-    createButton({
-      className: 'mobile-controls__action-button mobile-controls__action-button--maneuver',
-      label: 'M',
-      ariaLabel: 'Use maneuver',
-      onPress: createActionHandler('maneuver.activate'),
-      cleanupCallbacks,
-    }),
-  );
-  actionPanel.appendChild(
-    createButton({
-      className: 'mobile-controls__action-button mobile-controls__action-button--b',
-      label: 'B',
-      ariaLabel: 'Back or cancel',
-      onPress: createActionHandler('back.cancel'),
-      cleanupCallbacks,
-    }),
-  );
-  actionPanel.appendChild(
-    createButton({
-      className: 'mobile-controls__action-button mobile-controls__action-button--a',
-      label: 'A',
-      ariaLabel: 'Interact or confirm',
-      onPress: createActionHandler('interact.confirm'),
-      cleanupCallbacks,
-    }),
-  );
+
+  const actionButtons: Array<{
+    actionId: ControlActionId;
+    label: string;
+    ariaLabel: string;
+    css: string;
+  }> = [
+    { actionId: 'ability.context', label: 'X', ariaLabel: 'Use context ability', css: 'x' },
+    { actionId: 'maneuver.activate', label: 'M', ariaLabel: 'Use maneuver', css: 'maneuver' },
+    { actionId: 'back.cancel', label: 'B', ariaLabel: 'Back or cancel', css: 'b' },
+    { actionId: 'interact.confirm', label: 'A', ariaLabel: 'Interact or confirm', css: 'a' },
+  ];
+
+  for (const actionButton of actionButtons) {
+    actionPanel.appendChild(
+      createButton({
+        className: `mobile-controls__action-button mobile-controls__action-button--${actionButton.css}`,
+        label: actionButton.label,
+        ariaLabel: actionButton.ariaLabel,
+        onPress: createPressHandler(() => fireAction(options, actionButton.actionId)),
+        cleanupCallbacks,
+      }),
+    );
+  }
 
   shell.appendChild(swipeLayer);
   shell.appendChild(dpadPanel);
