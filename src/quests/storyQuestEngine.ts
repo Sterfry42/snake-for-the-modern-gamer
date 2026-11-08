@@ -45,18 +45,21 @@ export interface StoryQuestAction {
   characterLines?: Partial<Record<ActorPersonalityTag, string>>;
   acceptQuest?: boolean;
   requiresCounter?: { key: string; atLeast: number };
+  counterBelow?: { key: string; limit: number };
   incrementCounter?: string;
   uniqueActor?: boolean;
   bindGiver?: boolean;
   requiresGiver?: boolean;
   nextStage?: string;
   advanceWhen?: { counter: string; atLeast: number; stage: string };
+  advanceWhenAll?: { counters: readonly string[]; atLeast: number; stage: string };
   outcome?: string;
 }
 
 export interface StoryQuestDefinition {
   id: string;
   label: string;
+  description?: string;
   initialStage: string;
   actions: readonly StoryQuestAction[];
   nextQuest?: { id: string; outcomes: readonly string[] };
@@ -136,7 +139,9 @@ export function storyQuestObjectives(
   }
   if (state.stage === 'declined') return ['[x] Refused'];
   return (definition.objectives?.[state.stage] ?? ['[ ] Speak with someone involved']).map(
-    (line) => line.replaceAll('{captured}', String(state.counters.captured ?? 0)),
+    (line) => line.replace(/\{([a-zA-Z]+)\}/g, (_match, key: string) =>
+      String(state.counters[key] ?? 0),
+    ),
   );
 }
 
@@ -169,6 +174,8 @@ export function availableStoryActions(
       !action.personalityAny.some((tag) => target.personality?.includes(tag))) return false;
     if (action.minTrust !== undefined && (target.trust ?? 0) < action.minTrust) return false;
     if (action.minScore !== undefined && (target.score ?? 0) < action.minScore) return false;
+    if (action.counterBelow &&
+      (state.counters[action.counterBelow.key] ?? 0) >= action.counterBelow.limit) return false;
     if (action.requiresCounter) {
       if ((state.counters[action.requiresCounter.key] ?? 0) < action.requiresCounter.atLeast) {
         return false;
@@ -197,9 +204,14 @@ export function applyStoryAction(
     counters[action.incrementCounter] = (counters[action.incrementCounter] ?? 0) + 1;
   }
   const stage =
-    action.advanceWhen && (counters[action.advanceWhen.counter] ?? 0) >= action.advanceWhen.atLeast
-      ? action.advanceWhen.stage
-      : (action.nextStage ?? state.stage);
+    action.advanceWhenAll &&
+    action.advanceWhenAll.counters.every(
+      (counter) => (counters[counter] ?? 0) >= action.advanceWhenAll!.atLeast,
+    )
+      ? action.advanceWhenAll.stage
+      : action.advanceWhen && (counters[action.advanceWhen.counter] ?? 0) >= action.advanceWhen.atLeast
+        ? action.advanceWhen.stage
+        : (action.nextStage ?? state.stage);
   return {
     action,
     state: {

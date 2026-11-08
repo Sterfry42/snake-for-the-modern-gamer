@@ -97,13 +97,28 @@ describe('character-driven and intersecting quest rules', () => {
       'convene',
       lookup(adverse),
     )!.state;
-    const decision = applyStoryAction(
+    const goblinsHeard = applyStoryAction(
       THE_OPEN_TABLE,
       hearing,
       goblin,
       'goblin-testimony',
       lookup(adverse),
     )!.state;
+    expect(goblinsHeard.stage).toBe('hearing');
+    expect(availableStoryActions(
+      THE_OPEN_TABLE, goblinsHeard, { ...goblin, actorId: 'fresh-witness' }, lookup(adverse),
+    ).map((a) => a.key)).not.toContain('goblin-testimony');
+    expect(storyQuestObjectives(THE_OPEN_TABLE, goblinsHeard)).toContain(
+      '[ ] Hear a goblin trader (1/1)',
+    );
+    const decision = applyStoryAction(
+      THE_OPEN_TABLE,
+      goblinsHeard,
+      guard,
+      'guard-testimony',
+      lookup(adverse),
+    )!.state;
+    expect(decision.stage).toBe('decision');
     const options = availableStoryActions(THE_OPEN_TABLE, decision, official, lookup(adverse));
     expect(options.map((action) => action.key)).toEqual([
       'charter',

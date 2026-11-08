@@ -148,6 +148,8 @@ describe('character quest arcs in the live actor interaction pipeline', () => {
     )).toBe(true);
     await choose(game, official, 'the-open-table', 'convene');
     await choose(game, goblin, 'the-open-table', 'goblin-testimony');
+    expect(state(game, 'the-open-table').stage).toBe('hearing');
+    await choose(game, guard, 'the-open-table', 'guard-testimony');
     expect(state(game, 'the-open-table').stage).toBe('decision');
     const old = game.getFactionAlignment('goblin-camps').value;
     await choose(game, official, 'the-open-table', 'charter');

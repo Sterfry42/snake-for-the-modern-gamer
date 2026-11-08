@@ -11,5 +11,6 @@ class StoryChapterQuest extends Quest {
 }
 
 export default EXPANDED_STORY_QUESTS.map(
-  ({ id, label }) => new StoryChapterQuest(id, label, 'A choice-driven story with lasting consequences.'),
+  ({ id, label, description }) =>
+    new StoryChapterQuest(id, label, description ?? 'A consequential local story.'),
 );

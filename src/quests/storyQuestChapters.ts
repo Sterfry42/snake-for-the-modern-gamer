@@ -8,6 +8,7 @@ import type { StoryQuestDefinition } from './storyQuestEngine.js';
 export const INK_AND_ASHES: StoryQuestDefinition = {
   id: 'ink-and-ashes',
   label: 'Ink and Ashes',
+  description: 'A missing ration ledger, a worried guard, and three very different witnesses.'
   initialStage: 'offered',
   objectives: {
     offered: ['[ ] Ask a town guard about the missing ration ledger'],
@@ -126,6 +127,7 @@ export const INK_AND_ASHES: StoryQuestDefinition = {
 export const THE_LAST_RATION: StoryQuestDefinition = {
   id: 'the-last-ration',
   label: 'The Last Ration',
+  description: 'The missing food still has to be paid for. Decide who bears the cost.'
   initialStage: 'aftermath',
   prerequisites: [
     { questId: 'ink-and-ashes', outcomes: ['exposed', 'buried', 'sold', 'complicit'] },
@@ -191,6 +193,7 @@ export const THE_LAST_RATION: StoryQuestDefinition = {
 export const PAPER_BRIDGES: StoryQuestDefinition = {
   id: 'paper-bridges',
   label: 'Paper Bridges',
+  description: 'A goblin bookkeeper wants a promise of safe passage, not another war.'
   initialStage: 'offered',
   objectives: {
     offered: ['[ ] Hear a goblin trader\'s request for safe passage'],
@@ -304,6 +307,7 @@ export const PAPER_BRIDGES: StoryQuestDefinition = {
 export const TOLLKEEPERS_DEBT: StoryQuestDefinition = {
   id: 'tollkeepers-debt',
   label: 'The Tollkeeper\'s Debt',
+  description: 'A signed seal has consequences even after the ink is dry.'
   initialStage: 'aftermath',
   prerequisites: [
     { questId: 'paper-bridges', outcomes: ['treaty', 'forged', 'extorted', 'betrayed'] },
@@ -370,6 +374,7 @@ export const TOLLKEEPERS_DEBT: StoryQuestDefinition = {
 export const THE_OPEN_TABLE: StoryQuestDefinition = {
   id: 'the-open-table',
   label: 'The Open Table',
+  description: 'Put the town watch and goblin merchants in the same hearing, then decide the road.'
   initialStage: 'offered',
   prerequisites: [
     {
@@ -383,7 +388,10 @@ export const THE_OPEN_TABLE: StoryQuestDefinition = {
   ],
   objectives: {
     offered: ['[ ] Ask the mayor\'s office to convene the town and goblin camps'],
-    hearing: ['[ ] Hear a guard or a goblin witness at the public hearing'],
+    hearing: [
+      '[ ] Hear a human guard ({humanVoices}/1)',
+      '[ ] Hear a goblin trader ({goblinVoices}/1)',
+    ],
     decision: ['[ ] Persuade the convening official to decide the future of the road'],
   },
   returnStages: ['decision'],
@@ -417,7 +425,14 @@ export const THE_OPEN_TABLE: StoryQuestDefinition = {
       stages: ['hearing'],
       roles: ['guard', 'gateGuard'],
       species: ['human'],
-      nextStage: 'decision',
+      uniqueActor: true,
+      incrementCounter: 'humanVoices',
+      counterBelow: { key: 'humanVoices', limit: 1 },
+      advanceWhenAll: {
+        counters: ['humanVoices', 'goblinVoices'],
+        atLeast: 1,
+        stage: 'decision',
+      },
     },
     {
       key: 'goblin-testimony',
@@ -425,7 +440,14 @@ export const THE_OPEN_TABLE: StoryQuestDefinition = {
       description: 'The merchants finally get to describe the road in their own words.',
       stages: ['hearing'],
       species: ['goblin'],
-      nextStage: 'decision',
+      uniqueActor: true,
+      incrementCounter: 'goblinVoices',
+      counterBelow: { key: 'goblinVoices', limit: 1 },
+      advanceWhenAll: {
+        counters: ['humanVoices', 'goblinVoices'],
+        atLeast: 1,
+        stage: 'decision',
+      },
     },
     {
       key: 'charter',
