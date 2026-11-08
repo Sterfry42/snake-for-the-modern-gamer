@@ -1739,6 +1739,10 @@ export default class SnakeScene extends Phaser.Scene {
           this.moveStructurePlacement(direction);
           return;
         }
+        if (this.snakeGame.getFarmTool()) {
+          this.moveFarmTool(direction);
+          return;
+        }
         this.setDir(direction.x, direction.y);
         if (this.isManualHouseMovementActive()) {
           this.consumeManualResumePause();
@@ -1752,6 +1756,10 @@ export default class SnakeScene extends Phaser.Scene {
         this.inputModeManager.markTouchInput();
         if (this.snakeGame.getStructurePlacement()) {
           this.cancelStructurePlacement();
+          return;
+        }
+        if (this.snakeGame.getFarmTool()) {
+          this.exitFarmTool();
           return;
         }
         this.togglePauseMenu();
@@ -2609,6 +2617,24 @@ export default class SnakeScene extends Phaser.Scene {
         }
       }
 
+      if (!this.paused && this.snakeGame.getFarmTool()) {
+        if (isKeyboardEventForAction(event, 'back.cancel')) {
+          this.exitFarmTool();
+          event.preventDefault();
+          return;
+        }
+        if (isKeyboardEventForAction(event, 'interact.confirm')) {
+          void this.performInteractAction();
+          event.preventDefault();
+          return;
+        }
+        if (controlDirection) {
+          this.moveFarmTool(controlDirection);
+          event.preventDefault();
+          return;
+        }
+      }
+
       if (!this.paused && this.snakeGame.getStructurePlacement()) {
         if (isKeyboardEventForAction(event, 'back.cancel')) {
           this.cancelStructurePlacement();
@@ -3441,6 +3467,11 @@ export default class SnakeScene extends Phaser.Scene {
     this.inputModeManager.markTouchInput();
     this.emitInputActionDebug(actionId, 'touch');
 
+    if (this.snakeGame.getFarmTool()) {
+      if (actionId === 'interact.confirm') void this.performInteractAction();
+      else if (actionId === 'back.cancel') this.exitFarmTool();
+      return;
+    }
     if (this.snakeGame.getStructurePlacement()) {
       if (actionId === 'interact.confirm') {
         this.confirmStructurePlacement();
@@ -3569,6 +3600,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private async performInteractAction(): Promise<void> {
+    if (await this.interactFarmTarget()) return;
     if (this.snakeGame.getStructurePlacement()) {
       this.confirmStructurePlacement();
       return;
@@ -3594,6 +3626,72 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.tryInteractBulletTrain()) return;
     if (this.tryInteractRollercoaster()) return;
     if (this.isInHouse()) this.openHouseUpgradeMenu();
+  }
+
+  private async interactFarmTarget(): Promise<boolean> {
+    const tool = this.snakeGame.getFarmTool();
+    const head = this.snakeGame.getSnakeBody()[0];
+    const pos = head && this.snakeGame.resolveRoomPosition(head);
+    if (!pos || !head || !this.farmingMenu) return false;
+    const facing = this.snakeGame.getFarmToolTarget();
+    const target = { dx: facing.x, dy: facing.y };
+    const cell = this.snakeGame.getFarmCells().find((entry) =>
+      entry.x === pos.localX + facing.x && entry.y === pos.localY + facing.y,
+    );
+    let action: 'till' | 'plant' | 'water' | 'harvest' | 'compost' | 'magicBed' | 'toggleGate' | undefined;
+    let seed: string | undefined;
+    if (tool === 'farm-hoe') action = 'till';
+    else if (tool === 'watering-can' || tool === 'garden-watering-can') action = 'water';
+    else if (tool === 'farm-compost' || tool === 'garden-fertilizer') action = 'compost';
+    else if (tool === 'farm-magic-bed') action = 'magicBed';
+    else if (tool?.startsWith('seed-')) { action = 'plant'; seed = tool; }
+    else if (cell?.crop?.stage === 'ready') action = 'harvest';
+    if (!action && !tool && this.snakeGame.placedStructures(this.currentRoomId).some(
+      (structure) => structure.cells.some((part) =>
+        part.localX === pos.localX + facing.x &&
+        part.localY === pos.localY + facing.y && part.tile === 'D',
+      ),
+    )) action = 'toggleGate';
+    if (!action) return false;
+    const result = await this.farmingMenu.perform(action, target, seed);
+    this.showQuestHintPopup(result.message, result.ok ? '#5dd6a2' : '#ffd166');
+    this.isDirty = true;
+    if (result.ok && seed && this.snakeGame.getInventory().getItemCount(seed) === 0) {
+      this.exitFarmTool();
+    }
+    return true;
+  }
+
+  private moveFarmTool(direction: Vector2Like): boolean {
+    if (this.sceneClient) {
+      void this.submitRemote({
+        type: 'farmToolAction', action: 'step', direction,
+        playerId: this.snakeGame.getLocalPlayerId(),
+      }).then((result) => {
+        if (!result.ok)
+          this.showQuestHintPopup(result.message ?? result.reason ?? 'Blocked.', '#ffd166');
+        this.isDirty = true;
+      });
+    } else {
+      const result = this.snakeGame.stepFarmToolMode(direction);
+      if (!result.ok) this.showQuestHintPopup(result.message, '#ffd166');
+      this.gameSession.refreshSnapshot();
+      this.isDirty = true;
+    }
+    return true;
+  }
+
+  private exitFarmTool(): void {
+    if (this.sceneClient) {
+      void this.submitRemote({
+        type: 'farmToolAction', action: 'exit',
+        playerId: this.snakeGame.getLocalPlayerId(),
+      });
+    } else {
+      this.snakeGame.exitFarmToolMode();
+      this.gameSession.refreshSnapshot();
+    }
+    this.isDirty = true;
   }
 
   private moveStructurePlacement(direction: Vector2Like): boolean {
@@ -10764,6 +10862,11 @@ export default class SnakeScene extends Phaser.Scene {
         color: result.color,
       }));
     const result = this.snakeGame.useInventoryItem(itemId);
+    if (result.ok && this.snakeGame.getFarmTool() === itemId) {
+      this.showQuestHintPopup(result.message, '#5dd6a2');
+      this.gameSession.refreshSnapshot();
+      this.isDirty = true;
+    }
     if (result.ok) {
       this.recordAchievementEvent({ type: 'item:consumed', itemId });
       this.applyEquipmentEffects();
@@ -11624,6 +11727,17 @@ export default class SnakeScene extends Phaser.Scene {
       }
       return this.skillTree.handleControllerCommand(command, this.paused);
     }
+    if (this.snakeGame.getFarmTool()) {
+      if (command === 'confirm' || command === 'primary') {
+        void this.performInteractAction();
+        return true;
+      }
+      if (command === 'cancel') { this.exitFarmTool(); return true; }
+      if (command === 'up') return this.moveFarmTool({ x: 0, y: -1 });
+      if (command === 'down') return this.moveFarmTool({ x: 0, y: 1 });
+      if (command === 'left') return this.moveFarmTool({ x: -1, y: 0 });
+      if (command === 'right') return this.moveFarmTool({ x: 1, y: 0 });
+    }
     if (this.snakeGame.getStructurePlacement()) {
       if (command === 'confirm' || command === 'primary') {
         this.confirmStructurePlacement();
@@ -11680,6 +11794,9 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.snakeGame.getStructurePlacement()) {
       return this.moveStructurePlacement(direction);
     }
+    if (this.snakeGame.getFarmTool()) {
+      return this.moveFarmTool(direction);
+    }
     this.emitInputActionDebug('move', 'controller', `${direction.x},${direction.y}`);
     this.setDir(direction.x, direction.y);
     if (this.isManualHouseMovementActive()) {
@@ -11731,6 +11848,7 @@ export default class SnakeScene extends Phaser.Scene {
   private shouldAdvanceAtmosphereForMode(mode: GameMode): boolean {
     return (
       this.farmingMenu?.isOpen() === true ||
+      (Boolean(this.snakeGame.getFarmTool()) && !this.paused) ||
       mode === 'action' ||
       mode === 'driving' ||
       mode === 'manual-room'
@@ -11778,7 +11896,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.drivingCar) {
       return 'driving';
     }
-    if (this.isManualHouseMovementActive()) {
+    if (this.snakeGame.getFarmTool() || this.isManualHouseMovementActive()) {
       return 'manual-room';
     }
     return 'action';
@@ -17149,6 +17267,10 @@ export default class SnakeScene extends Phaser.Scene {
         this.closeVillageShop();
         return;
       }
+      if (id === 'sell-inventory') {
+        this.showActorShopSelling(shop.actorId, 0, guildTownId);
+        return;
+      }
       if (id === 'sell-length') {
         const result = this.snakeGame.sellSnakeLengthToButcher(
           this.currentShopActorIdForRole('butcher'),
@@ -17440,11 +17562,18 @@ export default class SnakeScene extends Phaser.Scene {
 
   private showActorShopRoot(shop: ActorShopView, guildTownId?: string): void {
     this.paused = true;
-    const options = shop.categories.map((category) => ({
+    const options: NormalizedChoiceOption[] = shop.categories.map((category) => ({
       id: `actor-category:${category}`,
       title: actorShopCategoryTitle(category),
       description: actorShopCategoryDescription(category),
     }));
+    const saleOffers = this.snakeGame.getMerchantSellOffers(shop.actorId);
+    options.push({
+      id: 'sell-inventory',
+      title: `Sell inventory (${saleOffers.length} items)`,
+      description: 'All merchants buy goods; specialists pay more for their specialties.',
+      disabled: saleOffers.length === 0,
+    });
     if (hasSnakeSceneButcherSegmentSale(shop.role)) {
       options.push({
         id: 'sell-length',
@@ -17483,6 +17612,54 @@ export default class SnakeScene extends Phaser.Scene {
           guildTownId,
         );
       }
+    });
+  }
+
+  private showActorShopSelling(actorId: string, page = 0, guildTownId?: string): void {
+    const shop = this.snakeGame.getActorShopView(actorId);
+    if (!shop?.open) { this.closeVillageShop(); return; }
+    const offers = this.snakeGame.getMerchantSellOffers(actorId);
+    const pageSize = 5;
+    const pages = Math.max(1, Math.ceil(offers.length / pageSize));
+    const index = Math.max(0, Math.min(page, pages - 1));
+    const options: NormalizedChoiceOption[] = offers.slice(index * pageSize, (index + 1) * pageSize)
+      .map((offer) => ({
+        id: `sell:${offer.itemId}`,
+        title: `${offer.label} ×${offer.count} — ${offer.price} score each`,
+        description: offer.specialty ? 'Specialty merchant bonus included.' : 'General resale price.',
+      }));
+    if (index > 0) options.push({
+      id: `page:${index - 1}`, title: 'Previous', description: 'Earlier goods.',
+    });
+    if (index < pages - 1) options.push({
+      id: `page:${index + 1}`, title: 'More', description: 'More goods.',
+    });
+    options.push({ id: 'back', title: 'Back', description: 'Return to merchant.' });
+    this.villageShopPopup.show(`${shop.title} — Sell`, options, (id) => {
+      if (id === 'back') { this.showActorShopRoot(shop, guildTownId); return; }
+      if (id.startsWith('page:')) {
+        this.showActorShopSelling(actorId, Number(id.slice(5)), guildTownId); return;
+      }
+      const offer = offers.find((entry) => id === `sell:${entry.itemId}`);
+      if (!offer) return;
+      const quantities = [...new Set([1, 5, offer.count])].filter((n) => n <= offer.count);
+      this.villageShopPopup.show(`Sell ${offer.label}`, [
+        ...quantities.map((count) => ({
+          id: String(count),
+          title: `Sell ${count} — +${count * offer.price} score`,
+          description: `Receive ${offer.price} per item.`,
+        })),
+        { id: 'back', title: 'Back', description: 'Keep goods.' },
+      ], (choice) => {
+        if (choice === 'back') { this.showActorShopSelling(actorId, index, guildTownId); return; }
+        const count = Number(choice);
+        if (!Number.isSafeInteger(count) || !quantities.includes(count)) return;
+        void this.farmingMenu?.sellToMerchant(actorId, offer.itemId, count).then((result) => {
+          this.showQuestHintPopup(result.message ?? result.reason ?? 'Sale complete.',
+            result.ok ? '#5dd6a2' : '#ff6b6b');
+          this.showActorShopSelling(actorId, index, guildTownId);
+        });
+      });
     });
   }
 
@@ -17537,6 +17714,12 @@ export default class SnakeScene extends Phaser.Scene {
         return;
       }
       const offerId = id.slice('actor-offer:'.length);
+      const chosenOffer = offers.find((entry) => entry.id === offerId);
+      if (chosenOffer?.itemId?.startsWith('seed-') && !guildTownId &&
+          (chosenOffer.quantity ?? 1) > 1) {
+        this.showActorShopSeedQuantity(actorId, category, chosenOffer, safePage, guildTownId);
+        return;
+      }
       const result = await this.gameConnection.send(
         guildTownId
           ? {
@@ -17555,6 +17738,40 @@ export default class SnakeScene extends Phaser.Scene {
       );
       this.skillTree.getOverlay().refresh();
       this.showActorShopCategory(actorId, category, safePage, guildTownId);
+    });
+  }
+
+  private showActorShopSeedQuantity(
+    actorId: string, category: ActorShopOfferCategory,
+    offer: { id: string; label: string; price: number; quantity?: number },
+    page: number, guildTownId?: string,
+  ): void {
+    const stock = offer.quantity ?? 1;
+    const affordable = offer.price > 0 ? Math.floor(this.snakeGame.getScore() / offer.price) : stock;
+    const quantities = [...new Set([1, 5, 10, stock])].filter((n) =>
+      n <= stock && n <= affordable && n > 0,
+    );
+    this.villageShopPopup.show(`Buy ${offer.label}`, [
+      ...quantities.map((count) => ({
+        id: String(count),
+        title: `Buy ${count} — ${offer.price * count} score`,
+        description: `${stock} available today.`,
+      })),
+      { id: 'back', title: 'Back', description: 'Return to shop shelves.' },
+    ], (id) => {
+      if (id === 'back') {
+        this.showActorShopCategory(actorId, category, page, guildTownId); return;
+      }
+      const count = Number(id);
+      if (!quantities.includes(count)) return;
+      void this.gameConnection.send({
+        type: 'purchase', actorId, offerId: offer.id, count,
+        playerId: this.snakeGame.getLocalPlayerId(),
+      }).then((result) => {
+        this.showQuestHintPopup(result.message ?? result.reason ?? 'Purchase complete.',
+          result.ok ? '#5dd6a2' : '#ff6b6b');
+        this.showActorShopCategory(actorId, category, page, guildTownId);
+      });
     });
   }
 

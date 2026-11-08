@@ -63,18 +63,35 @@ describe('shop profile resolver', () => {
     expect(tabs.map((tab) => tab.id)).toEqual(['equipment', 'consumables', 'items']);
     expect(tabs.find((tab) => tab.id === 'equipment')?.offers).toHaveLength(2);
     expect(tabs.find((tab) => tab.id === 'consumables')?.offers).toHaveLength(4);
-    const farmSupplies = [
-      ...CROPS.filter((crop) => !crop.contraband).map((crop) => crop.seedItemId),
-      ...FARM_TOOLS.map((tool) => tool.id),
-    ];
-    expect(tabs.find((tab) => tab.id === 'items')?.offers).toHaveLength(1 + farmSupplies.length);
-    for (const id of farmSupplies)
-      expect(
-        tabs.flatMap((tab) => tab.offers).some((offer) => offer.itemId === id && offer.price > 0),
-      ).toBe(true);
+    const offers = tabs.find((tab) => tab.id === 'items')?.offers ?? [];
+    const selectedSeeds = offers.filter((offer) => offer.itemId?.startsWith('seed-'));
+    expect(selectedSeeds).toHaveLength(4);
+    expect(new Set(selectedSeeds.map((offer) => offer.itemId)).size).toBe(4);
+    expect(selectedSeeds.every((offer) =>
+      (offer.quantity ?? 0) >= 8 && (offer.quantity ?? 0) <= 15 &&
+      CROPS.some((crop) =>
+        crop.seedItemId === offer.itemId && !crop.contraband && crop.seasons.includes('spring'),
+      ),
+    )).toBe(true);
+    for (const tool of FARM_TOOLS)
+      expect(offers.some((offer) => offer.itemId === tool.id && offer.price > 0)).toBe(true);
+    expect(offers).toHaveLength(1 + 4 + FARM_TOOLS.length);
     expect(
       tabs.flatMap((tab) => tab.offers).some((offer) => offer.itemId === 'seed-cannabis'),
     ).toBe(false);
+  });
+
+  it('seed shelves are deterministic for a given day and vary across days', () => {
+    const a = resolveShopProfileTabs('general-merchant', { ...baseContext, season: 'autumn' });
+    const b = resolveShopProfileTabs('general-merchant', { ...baseContext, season: 'autumn' });
+    const seeds = (tabs: ReturnType<typeof resolveShopProfileTabs>) =>
+      tabs.flatMap((tab) => tab.offers)
+        .filter((offer) => offer.itemId?.startsWith('seed-'));
+    expect(seeds(a)).toEqual(seeds(b));
+    expect(seeds(a).every((offer) => (offer.quantity ?? 0) >= 8)).toBe(true);
+    expect(seeds(a)).not.toEqual(seeds(resolveShopProfileTabs('general-merchant', {
+      ...baseContext, season: 'winter', stockPeriod: 4,
+    })));
   });
 
   it('stock count and price modifiers are applied by the resolver', () => {
