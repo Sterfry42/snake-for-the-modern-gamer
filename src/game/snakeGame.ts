@@ -7300,6 +7300,7 @@ export class SnakeGame implements QuestRuntime {
   /** Farming uses inventory tools without consuming an armor/weapon slot. */
   getFarmTool(): string | undefined {
     const tool = this.getFlag<string>('farm.selectedTool');
+    if (!tool || this.inventory.getItemCount(tool) < 1) return undefined;
     return tool === 'farm-hoe' || tool === 'watering-can' ||
       tool === 'garden-watering-can' || tool === 'farm-compost' ||
       tool === 'garden-fertilizer' || tool === 'farm-magic-bed' ||
@@ -7312,6 +7313,7 @@ export class SnakeGame implements QuestRuntime {
 
   exitFarmToolMode(): { ok: boolean; message: string } {
     this.setFlag('farm.selectedTool', undefined);
+    this.setFlag('traversal.manualResumePending', undefined);
     return { ok: true, message: 'Put away farming tools.' };
   }
 
@@ -7405,11 +7407,15 @@ export class SnakeGame implements QuestRuntime {
       if (!Number.isInteger(dx) || !Number.isInteger(dy) || Math.abs(dx) + Math.abs(dy) > 1)
         return { ok: false, message: 'Choose an adjacent structure.' };
       const structure = this.construction.getStructureAt(room.id, local.x + dx, local.y + dy);
-      if (action.action === 'toggleGate')
+      if (action.action === 'toggleGate') {
+        const ok = this.construction.toggleGate(
+          room.id, local.x + dx, local.y + dy, this.localPlayerId,
+        );
         return {
-          ok: this.construction.toggleGate(room.id, local.x + dx, local.y + dy, this.localPlayerId),
-          message: 'Gate operation requires build permission.',
+          ok,
+          message: ok ? 'Gate toggled.' : 'Gate operation requires build permission.',
         };
+      }
       if (
         !structure ||
         !this.construction.can(room.id, this.localPlayerId, 'build') ||
