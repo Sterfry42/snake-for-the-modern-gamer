@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CROPS, FARM_TOOLS } from '../../farming/cropCatalog.js';
 import {
   DEFAULT_SHOP_OFFER_POOLS,
   DEFAULT_SHOP_PROFILES,
@@ -62,7 +63,18 @@ describe('shop profile resolver', () => {
     expect(tabs.map((tab) => tab.id)).toEqual(['equipment', 'consumables', 'items']);
     expect(tabs.find((tab) => tab.id === 'equipment')?.offers).toHaveLength(2);
     expect(tabs.find((tab) => tab.id === 'consumables')?.offers).toHaveLength(4);
-    expect(tabs.find((tab) => tab.id === 'items')?.offers).toHaveLength(1);
+    const farmSupplies = [
+      ...CROPS.filter((crop) => !crop.contraband).map((crop) => crop.seedItemId),
+      ...FARM_TOOLS.map((tool) => tool.id),
+    ];
+    expect(tabs.find((tab) => tab.id === 'items')?.offers).toHaveLength(1 + farmSupplies.length);
+    for (const id of farmSupplies)
+      expect(
+        tabs.flatMap((tab) => tab.offers).some((offer) => offer.itemId === id && offer.price > 0),
+      ).toBe(true);
+    expect(
+      tabs.flatMap((tab) => tab.offers).some((offer) => offer.itemId === 'seed-cannabis'),
+    ).toBe(false);
   });
 
   it('stock count and price modifiers are applied by the resolver', () => {

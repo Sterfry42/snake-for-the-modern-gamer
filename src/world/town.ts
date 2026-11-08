@@ -101,6 +101,7 @@ export type TownRoomTag =
   | 'hidden';
 
 export type TownCrimeKind =
+  | 'contraband'
   | 'theft'
   | 'assault'
   | 'murder'
@@ -1575,6 +1576,7 @@ function createGuildJobs(townId: string, rooms: TownRoomNode[]): ThievesGuildJob
 function getWantedDelta(crime: TownCrime): number {
   if (!crime.witnessed && crime.kind === 'theft') return 0;
   switch (crime.kind) {
+    case 'contraband':
     case 'theft':
     case 'breakIn':
     case 'refuseFine':
@@ -1596,6 +1598,8 @@ function getWantedDelta(crime: TownCrime): number {
 
 function getReputationDelta(crime: TownCrime): number {
   switch (crime.kind) {
+    case 'contraband':
+      return crime.witnessed ? -8 : 0;
     case 'theft':
       return crime.witnessed ? -2 : 0;
     case 'breakIn':

@@ -66,6 +66,7 @@ export type ClientCommand =
     };
 
 export interface CommandResult {
+  agricultureNonce?: number;
   ok: boolean;
   shop?: NonNullable<ReturnType<import('../game/snakeGame.js').SnakeGame['getActorShopView']>>;
   actorOutcome?: import('./ActorIntent.js').ActorOutcome;

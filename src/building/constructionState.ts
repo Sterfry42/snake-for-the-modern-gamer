@@ -9,12 +9,13 @@ import {
   type StructureStampPlan,
 } from './structureBlueprint.js';
 
-export type ConstructionPermission = 'build' | 'demolish';
+export type ConstructionPermission = 'build' | 'demolish' | 'farm' | 'harvest' | 'manage';
 
 export interface RoomClaim {
   roomId: string;
   ownerId: string;
   permissions: readonly ConstructionPermission[];
+  access?: Record<string, ConstructionPermission[]>;
 }
 
 export interface PlacedStructure {
@@ -26,6 +27,9 @@ export interface PlacedStructure {
   rotation: StructureRotation;
   cells: readonly StructureStampCell[];
   createdAt: number;
+  health?: number;
+  open?: boolean;
+  reinforced?: boolean;
 }
 
 export interface ConstructionSaveData {
@@ -50,6 +54,7 @@ export type PlacementConflictReason =
   | 'enemy'
   | 'boss'
   | 'large-vegetation';
+// Crop overlays remain independent of stamped geometry.
 
 export interface PlacementCellValidation {
   x: number;
@@ -73,12 +78,15 @@ export interface StructurePlacementContext {
   npcCells?: readonly Vector2Like[];
   enemyCells?: readonly Vector2Like[];
   bossCells?: readonly Vector2Like[];
+  cropCells?: readonly Vector2Like[];
+  municipalBuildAuthorized?: boolean;
 }
 
 export class ConstructionState {
   private readonly claims = new Map<string, RoomClaim>();
   private readonly structures = new Map<string, PlacedStructure>();
   private nextStructureNumber = 1;
+  private readonly cellIndex = new Map<string, PlacedStructure>();
 
   claimRoom(
     roomId: string,
@@ -86,7 +94,7 @@ export class ConstructionState {
     permissions: readonly ConstructionPermission[] = ['build', 'demolish'],
   ): RoomClaim {
     const existing = this.claims.get(roomId);
-    if (existing?.ownerId === ownerId) {
+    if (existing) {
       return existing;
     }
     const claim = { roomId, ownerId, permissions: [...permissions] };
@@ -101,7 +109,50 @@ export class ConstructionState {
 
   can(roomId: string, ownerId: string, permission: ConstructionPermission): boolean {
     const claim = this.claims.get(roomId);
-    return Boolean(claim?.ownerId === ownerId && claim.permissions.includes(permission));
+    return Boolean(
+      claim &&
+        (claim.ownerId === ownerId ||
+          (claim.access && Object.prototype.hasOwnProperty.call(claim.access, ownerId) &&
+            claim.access[ownerId]?.includes(permission))),
+    );
+  }
+
+  grant(
+    roomId: string,
+    ownerId: string,
+    grantee: string,
+    permission: ConstructionPermission,
+    enabled: boolean,
+  ): boolean {
+    const claim = this.claims.get(roomId);
+    if (
+      !claim ||
+      claim.ownerId !== ownerId ||
+      !grantee ||
+      grantee === '__proto__' ||
+      grantee === 'constructor'
+    )
+      return false;
+    const access = { ...claim.access };
+    const permissions = new Set(Object.prototype.hasOwnProperty.call(access, grantee) ? access[grantee] : []);
+    if (enabled) permissions.add(permission);
+    else permissions.delete(permission);
+    access[grantee] = [...permissions];
+    claim.access = access;
+    return true;
+  }
+
+  release(roomId: string, ownerId: string): boolean {
+    if (this.claims.get(roomId)?.ownerId !== ownerId || this.structuresInRoom(roomId).length)
+      return false;
+    return this.claims.delete(roomId);
+  }
+
+  ownedCount(ownerId: string): number {
+    return [...this.claims.values()].filter((claim) => claim.ownerId === ownerId).length;
+  }
+  getClaims(): RoomClaim[] {
+    return [...this.claims.values()].map(cloneClaim);
   }
 
   getStructures(roomId?: string): PlacedStructure[] {
@@ -116,9 +167,8 @@ export class ConstructionState {
   }
 
   getStructureAt(roomId: string, x: number, y: number): PlacedStructure | undefined {
-    return this.getStructures(roomId).find((structure) =>
-      structure.cells.some((cell) => cell.localX === x && cell.localY === y),
-    );
+    const structure = this.cellIndex.get(`${roomId}:${x},${y}`);
+    return structure ? cloneStructure(structure) : undefined;
   }
 
   effectiveCell(
@@ -126,9 +176,12 @@ export class ConstructionState {
     x: number,
     y: number,
   ): { tile: string | undefined; solid: boolean } {
-    const structure = this.structuresInRoom(room.id).find((entry) =>
-      entry.cells.some((cell) => cell.localX === x && cell.localY === y && cell.solid),
-    );
+    const indexed = this.cellIndex.get(`${room.id}:${x},${y}`);
+    const structure = indexed?.cells.some(
+      (cell) => cell.localX === x && cell.localY === y && cell.solid,
+    )
+      ? indexed
+      : undefined;
     if (structure) {
       const cell = structure.cells.find((entry) => entry.localX === x && entry.localY === y);
       return { tile: cell?.tile ?? '#', solid: true };
@@ -141,18 +194,26 @@ export class ConstructionState {
     return this.effectiveCell(room, x, y).solid;
   }
 
+  isCreatureSolid(room: RoomSnapshot, x: number, y: number): boolean {
+    const structure = this.cellIndex.get(`${room.id}:${x},${y}`);
+    const door =
+      structure?.blueprintId === 'greenhouse' &&
+      structure.cells.some(
+        (cell) => cell.localX === x && cell.localY === y && cell.kind === 'door',
+      );
+    return Boolean(door) || this.isEffectivelySolid(room, x, y);
+  }
+
   validatePlacement(context: StructurePlacementContext): StructurePlacementValidation {
-    const claimReason: PlacementConflictReason[] = this.can(
-      context.room.id,
-      context.ownerId,
-      'build',
-    )
-      ? []
-      : ['unclaimed-room'];
+    const claimReason: PlacementConflictReason[] =
+      context.municipalBuildAuthorized || this.can(context.room.id, context.ownerId, 'build')
+        ? []
+        : ['unclaimed-room'];
     const playerCells = toCellSet(context.playerCells);
     const npcCells = toCellSet(context.npcCells);
     const enemyCells = toCellSet(context.enemyCells);
     const bossCells = toCellSet(context.bossCells);
+    const cropCells = toCellSet(context.cropCells);
     const structureCells = new Set<string>();
     for (const structure of this.structuresInRoom(context.room.id)) {
       for (const cell of structure.cells) {
@@ -167,7 +228,12 @@ export class ConstructionState {
       } else {
         const key = vectorKey({ x: cell.localX, y: cell.localY });
         const tile = context.room.layout[cell.localY]?.[cell.localX];
-        if (cell.solid && isSolidTile(tile)) reasons.push('solid-terrain');
+        if (
+          (cell.solid ||
+            getStructureBlueprint(context.plan.blueprintId)?.agriculture?.climateControlled) &&
+          (isSolidTile(tile) || tile === '~')
+        )
+          reasons.push('solid-terrain');
         if (structureCells.has(key)) reasons.push('existing-structure');
         if (
           context.room.portals.some(
@@ -217,6 +283,7 @@ export class ConstructionState {
         if (npcCells.has(key)) reasons.push('npc');
         if (enemyCells.has(key)) reasons.push('enemy');
         if (bossCells.has(key)) reasons.push('boss');
+        if (cropCells.has(key)) reasons.push('reserved-cell');
       }
       return {
         x: cell.localX,
@@ -253,6 +320,7 @@ export class ConstructionState {
     };
     this.clearCommitVegetation(context.room, validation);
     this.structures.set(id, structure);
+    this.index(structure);
     return { ok: true, structure: cloneStructure(structure) };
   }
 
@@ -261,6 +329,39 @@ export class ConstructionState {
     const structure = this.structures.get(structureId);
     if (!structure || structure.roomId !== roomId) return false;
     this.structures.delete(structureId);
+    this.reindex();
+    return true;
+  }
+
+  damage(structureId: string, amount: number): boolean {
+    const structure = this.structures.get(structureId);
+    if (!structure || !Number.isFinite(amount) || amount <= 0) return false;
+    structure.health = Math.max(0, (structure.health ?? 100) - amount);
+    if (structure.health === 0) {
+      this.structures.delete(structureId);
+      this.reindex();
+    }
+    return true;
+  }
+  toggleGate(roomId: string, x: number, y: number, playerId: string): boolean {
+    const structure = this.cellIndex.get(`${roomId}:${x},${y}`);
+    if (!structure || structure.blueprintId !== 'farm-gate' || !this.can(roomId, playerId, 'build'))
+      return false;
+    structure.open = !structure.open;
+    structure.cells = structure.cells.map((cell) => ({
+      ...cell,
+      solid: !structure.open,
+      tile: structure.open ? 'D' : '#',
+      kind: 'door',
+    }));
+    this.reindex();
+    return true;
+  }
+  reinforce(structureId: string): boolean {
+    const structure = this.structures.get(structureId);
+    if (!structure || structure.blueprintId !== 'greenhouse' || structure.reinforced) return false;
+    structure.reinforced = true;
+    structure.health = 200;
     return true;
   }
 
@@ -275,6 +376,9 @@ export class ConstructionState {
         anchor: { ...structure.anchor },
         rotation: structure.rotation,
         createdAt: structure.createdAt,
+        health: structure.health,
+        open: structure.open,
+        reinforced: structure.reinforced,
       })),
       nextStructureNumber: this.nextStructureNumber,
     };
@@ -283,6 +387,7 @@ export class ConstructionState {
   load(save: ConstructionSaveData | undefined): void {
     this.claims.clear();
     this.structures.clear();
+    this.cellIndex.clear();
     this.nextStructureNumber = Math.max(1, Math.floor(save?.nextStructureNumber ?? 1));
     for (const claim of save?.claims ?? []) {
       if (claim.roomId && claim.ownerId) {
@@ -296,19 +401,35 @@ export class ConstructionState {
       this.structures.set(structure.id, {
         ...structure,
         anchor: { ...structure.anchor },
-        cells: plan.cells.map((cell) => ({ ...cell })),
+        cells: plan.cells.map((cell) => ({
+          ...cell,
+          ...(structure.blueprintId === 'farm-gate' && structure.open
+            ? { solid: false, tile: 'D', kind: 'door' as const }
+            : {}),
+        })),
       });
     }
+    this.reindex();
   }
 
   clear(): void {
     this.claims.clear();
     this.structures.clear();
+    this.cellIndex.clear();
     this.nextStructureNumber = 1;
   }
 
   private structuresInRoom(roomId: string): PlacedStructure[] {
     return [...this.structures.values()].filter((structure) => structure.roomId === roomId);
+  }
+
+  private index(structure: PlacedStructure): void {
+    for (const cell of structure.cells)
+      this.cellIndex.set(`${structure.roomId}:${cell.localX},${cell.localY}`, structure);
+  }
+  private reindex(): void {
+    this.cellIndex.clear();
+    for (const structure of this.structures.values()) this.index(structure);
   }
 
   private clearCommitVegetation(
@@ -353,7 +474,12 @@ function isProtectedLandmark(room: RoomSnapshot, x: number, y: number): boolean 
 }
 
 function cloneClaim(claim: RoomClaim): RoomClaim {
-  return { roomId: claim.roomId, ownerId: claim.ownerId, permissions: [...claim.permissions] };
+  return {
+    roomId: claim.roomId,
+    ownerId: claim.ownerId,
+    permissions: [...claim.permissions],
+    ...(claim.access ? { access: structuredClone(claim.access) } : {}),
+  };
 }
 
 function cloneStructure(structure: PlacedStructure): PlacedStructure {

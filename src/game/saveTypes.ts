@@ -79,6 +79,7 @@ export interface GameSaveData {
   activeVehicle?: DrivingCarState;
   layerInstances?: LayerInstance[];
   construction?: ConstructionSaveData;
+  farming?: import('../farming/farmingTypes.js').FarmingSaveData;
   rngState?: number;
 }
 

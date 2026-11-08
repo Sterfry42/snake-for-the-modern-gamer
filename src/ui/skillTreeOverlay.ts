@@ -68,6 +68,7 @@ import { uiColors, uiMotion } from './theme/uiTokens.js';
 import type { AchievementManager } from '../achievements/achievementManager.js';
 import type { AchievementUnlockResult } from '../achievements/achievementTypes.js';
 import { AchievementTreeOverlay } from './achievementTreeOverlay.js';
+import { WorldMapOverlay } from './worldMapOverlay.js';
 import type { AchievementZoomExtreme } from '../achievements/achievementZoomTracker.js';
 import {
   CONTROL_CATEGORIES,
@@ -378,10 +379,7 @@ export class SkillTreeOverlay {
   private readonly skillViewport: TreeViewportController;
   private readonly skillWorldPositions = new Map<string, TreePoint>();
   private skillViewportInitialized = false;
-  private readonly mapGraphics: Phaser.GameObjects.Graphics;
-  private readonly mapBackground: Phaser.GameObjects.Rectangle;
-  private readonly mapTitle: Phaser.GameObjects.Text;
-  private readonly mapContainer: Phaser.GameObjects.Container;
+  private readonly worldMap: WorldMapOverlay;
   private readonly graphGraphics: Phaser.GameObjects.Graphics;
   private readonly graphBackground: Phaser.GameObjects.Rectangle;
   private readonly graphTitle: Phaser.GameObjects.Text;
@@ -572,29 +570,6 @@ export class SkillTreeOverlay {
       this.connectionGraphics,
       this.connectionHighlight,
     ]);
-    // Map container and elements
-    const mapX = TREE_PADDING.horizontal;
-    const mapY = TREE_PADDING.top - 8;
-    const mapW =
-      this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2;
-    const mapH = this.options.height - mapY - TREE_PADDING.bottom + 4;
-    this.mapBackground = this.scene.add
-      .rectangle(mapX, mapY, mapW, mapH, 0x0b1622, 0.72)
-      .setStrokeStyle(1, 0x244155)
-      .setOrigin(0, 0)
-      .setVisible(false);
-    this.mapTitle = this.scene.add
-      .text(mapX + 10, mapY + 8, '', {
-        fontFamily: 'monospace',
-        fontSize: '16px',
-        color: '#9ad1ff',
-      })
-      .setVisible(false);
-    this.mapGraphics = this.scene.add.graphics();
-    this.mapContainer = this.scene.add
-      .container(0, 0, [this.mapBackground, this.mapTitle, this.mapGraphics])
-      .setVisible(false);
-
     const graphX = TREE_PADDING.horizontal;
     const graphY = TREE_PADDING.top - 8;
     const graphW =
@@ -1138,6 +1113,9 @@ export class SkillTreeOverlay {
         ) {
           return;
         }
+        if (this.visible && this.activeTab === 'map' && this.worldMap.handleWheel(_pointer, dy)) {
+          return;
+        }
         this.scrollActiveText(dy);
       },
     );
@@ -1167,7 +1145,6 @@ export class SkillTreeOverlay {
       this.structuredContainer,
       this.skillViewportBackground,
       this.skillTreeWorld,
-      this.mapContainer,
       this.graphContainer,
       this.cheatContainer,
       this.title,
@@ -1207,6 +1184,12 @@ export class SkillTreeOverlay {
           onUserZoomExtreme: (extreme) => this.handlers.onAchievementZoomExtreme?.(extreme),
         })
       : null;
+    this.worldMap = new WorldMapOverlay(this.scene, {
+      parent: this.container,
+      viewport: achievementLayout.main,
+      detail: achievementLayout.detail,
+      worldOffset: { x, y },
+    });
 
     this.buildTabs();
     this.buildNodes();
@@ -6005,6 +5988,7 @@ export class SkillTreeOverlay {
         this.cycleSecondaryTab(1);
         return true;
       case 'up':
+        if (this.activeTab === 'map') return this.worldMap.handleControllerSelect(0, -1);
         if (this.activeTab === 'achievements') {
           return this.achievementTree?.handleControllerSelect(0, -1) ?? false;
         }
@@ -6015,6 +5999,7 @@ export class SkillTreeOverlay {
         }
         return true;
       case 'down':
+        if (this.activeTab === 'map') return this.worldMap.handleControllerSelect(0, 1);
         if (this.activeTab === 'achievements') {
           return this.achievementTree?.handleControllerSelect(0, 1) ?? false;
         }
@@ -6025,6 +6010,7 @@ export class SkillTreeOverlay {
         }
         return true;
       case 'left':
+        if (this.activeTab === 'map') return this.worldMap.handleControllerSelect(-1, 0);
         if (this.activeTab === 'achievements') {
           return this.achievementTree?.handleControllerSelect(-1, 0) ?? false;
         }
@@ -6035,6 +6021,7 @@ export class SkillTreeOverlay {
         }
         return true;
       case 'right':
+        if (this.activeTab === 'map') return this.worldMap.handleControllerSelect(1, 0);
         if (this.activeTab === 'achievements') {
           return this.achievementTree?.handleControllerSelect(1, 0) ?? false;
         }
@@ -6045,6 +6032,7 @@ export class SkillTreeOverlay {
         }
         return true;
       case 'scrollUp':
+        if (this.activeTab === 'map') return this.worldMap.handleControllerZoom(0.2);
         if (this.activeTab === 'achievements') {
           return this.achievementTree?.handleControllerPan(0, 48) ?? false;
         }
@@ -6055,6 +6043,7 @@ export class SkillTreeOverlay {
         this.scrollActiveText(-48);
         return true;
       case 'scrollDown':
+        if (this.activeTab === 'map') return this.worldMap.handleControllerZoom(-0.2);
         if (this.activeTab === 'achievements') {
           return this.achievementTree?.handleControllerPan(0, -48) ?? false;
         }
@@ -6065,18 +6054,27 @@ export class SkillTreeOverlay {
         this.scrollActiveText(48);
         return true;
       case 'scrollLeft':
+        if (this.activeTab === 'map') {
+          this.worldMap.stepFloor(-1);
+          return true;
+        }
         if (this.activeTab === 'achievements') {
           return this.achievementTree?.handleControllerPan(48, 0) ?? false;
         }
         if (this.activeTab === 'skills') this.panSkillTree(0, -64);
         return true;
       case 'scrollRight':
+        if (this.activeTab === 'map') {
+          this.worldMap.stepFloor(1);
+          return true;
+        }
         if (this.activeTab === 'achievements') {
           return this.achievementTree?.handleControllerPan(-48, 0) ?? false;
         }
         if (this.activeTab === 'skills') this.panSkillTree(0, 64);
         return true;
       case 'confirm': {
+        if (this.activeTab === 'map') return this.worldMap.handleControllerConfirm();
         if (this.activeTab === 'achievements') {
           return this.achievementTree?.handleControllerConfirm() ?? false;
         }
@@ -7276,15 +7274,12 @@ export class SkillTreeOverlay {
       this.clearCustomizationHover();
     }
     const mapActive = this.activeTab === 'map';
-    this.mapContainer.setVisible(mapActive);
-    this.mapBackground.setVisible(mapActive);
-    this.mapTitle.setVisible(mapActive);
-    this.mapGraphics.setVisible(mapActive);
+    this.worldMap.setVisible(mapActive);
     if (mapActive) {
-      this.drawMapPanel();
-      this.populateMapDetailPanel();
-    } else {
-      this.mapGraphics.clear();
+      this.detailTitle.setVisible(false);
+      this.detailSubtitle.setVisible(false);
+      this.detailRankText.setVisible(false);
+      this.detailBody.setVisible(false);
     }
     this.graphContainer.setVisible(graphActive);
     this.graphBackground.setVisible(graphActive);
@@ -7989,277 +7984,6 @@ export class SkillTreeOverlay {
       );
     }
     return lines.join('\n').trimEnd();
-  }
-
-  private drawMapPanel(): void {
-    this.mapGraphics.clear();
-    const getter = this.scene as unknown as Record<
-      string,
-      (...args: unknown[]) => unknown | undefined
-    >;
-    const rooms: string[] = getter.getGeneratedRoomsOnCurrentLevel
-      ? ((getter.getGeneratedRoomsOnCurrentLevel() as string[] | undefined) ?? [])
-      : [];
-    const current: string = this.scene.currentRoomId ?? '0,0,0';
-
-    const level = Number(current.split(',')[2] ?? 0);
-    this.mapTitle.setText(`Map - Depth ${level}`);
-    const coords = rooms
-      .map((id) => id.split(',').map((n) => Number(n)) as number[])
-      .filter((c) => (c[2] ?? 0) === level);
-    const questMarkers =
-      typeof getter.getQuestMapMarkers === 'function'
-        ? (getter.getQuestMapMarkers() as Array<{
-            roomId: string;
-            label: string;
-            color: number;
-            kind: string;
-          }>)
-        : [];
-    const questMarkerCoords = questMarkers
-      .map((marker) => ({
-        marker,
-        coords: marker.roomId.split(',').map((n) => Number(n)) as number[],
-      }))
-      .filter((entry) => (entry.coords[2] ?? 0) === level);
-
-    // Ensure bounds include house and origin on their level for icon placement
-    const markerCoords: number[][] = [];
-    if (level === 0) {
-      markerCoords.push([0, 0, 0]); // origin/spawn
-      markerCoords.push([0, -1, 0]); // house
-    }
-    for (const entry of questMarkerCoords) {
-      markerCoords.push(entry.coords);
-    }
-
-    const allBounds = coords.concat(markerCoords);
-    if (allBounds.length === 0) {
-      this.mapGraphics
-        .lineStyle(1, 0x244155, 0.8)
-        .strokeRect(
-          this.mapBackground.x + 8,
-          this.mapBackground.y + 32,
-          this.mapBackground.width - 16,
-          this.mapBackground.height - 40,
-        );
-      this.mapGraphics.fillStyle(0x9ad1ff, 0.8);
-      this.mapGraphics.fillCircle(
-        this.mapBackground.x + this.mapBackground.width / 2,
-        this.mapBackground.y + this.mapBackground.height / 2,
-        2,
-      );
-      return;
-    }
-
-    let minX = Infinity,
-      maxX = -Infinity,
-      minY = Infinity,
-      maxY = -Infinity;
-    for (const [x, y] of allBounds) {
-      minX = Math.min(minX, x);
-      maxX = Math.max(maxX, x);
-      minY = Math.min(minY, y);
-      maxY = Math.max(maxY, y);
-    }
-
-    const margin = 16;
-    const areaW = this.mapBackground.width - margin * 2;
-    const areaH = this.mapBackground.height - margin * 2 - 24;
-    const spanX = Math.max(1, maxX - minX + 1);
-    const spanY = Math.max(1, maxY - minY + 1);
-    const cellSize = Math.max(6, Math.floor(Math.min(areaW / spanX, areaH / spanY)));
-    const originX = this.mapBackground.x + margin + (areaW - cellSize * spanX) / 2;
-    const originY = this.mapBackground.y + 24 + margin + (areaH - cellSize * spanY) / 2;
-
-    const drawCell = (
-      x: number,
-      y: number,
-      style: { fill: number; alpha: number; stroke?: number; strokeA?: number },
-      outline = true,
-    ) => {
-      const gx = originX + (x - minX) * cellSize;
-      const gy = originY + (y - minY) * cellSize;
-      this.mapGraphics
-        .fillStyle(style.fill, style.alpha)
-        .fillRect(gx + 1, gy + 1, cellSize - 2, cellSize - 2);
-      if (outline)
-        this.mapGraphics
-          .lineStyle(1, style.stroke ?? 0x244155, style.strokeA ?? 0.9)
-          .strokeRect(gx + 0.5, gy + 0.5, cellSize - 1, cellSize - 1);
-      return { gx, gy };
-    };
-
-    // Draw known rooms
-    const knownSet = new Set(coords.map((c) => `${c[0]},${c[1]},${level}`));
-    for (const [x, y] of coords) {
-      const id = `${x},${y},${level}`;
-      const isCurrent = id === current;
-      drawCell(x, y, { fill: isCurrent ? 0x5dd6a2 : 0x4da3ff, alpha: isCurrent ? 0.9 : 0.7 });
-    }
-
-    // Draw faint cells for markers if not already present
-    for (const [mx, my] of markerCoords) {
-      const id = `${mx},${my},${level}`;
-      if (!knownSet.has(id)) {
-        drawCell(mx, my, { fill: 0x203245, alpha: 0.35, stroke: 0x244155, strokeA: 0.6 });
-      }
-    }
-
-    // Icons
-    const iconPos = (x: number, y: number) => {
-      const gx = originX + (x - minX) * cellSize;
-      const gy = originY + (y - minY) * cellSize;
-      return { x: gx + 1, y: gy + 1, cx: gx + cellSize / 2, cy: gy + cellSize / 2 };
-    };
-    if (level === 0) {
-      // House icon at (0,-1,0) — small, centered, white
-      const h = iconPos(0, -1);
-      // 3x smaller than the previous icon: ~18% of cell size
-      const size = Math.max(3, Math.floor(cellSize * 0.18));
-      const baseH = Math.max(2, Math.floor(size * 0.55));
-      const baseW = size;
-      const baseX = h.cx - baseW / 2;
-      const baseY = h.cy + size * 0.1 - baseH / 2;
-      const roofTopX = h.cx;
-      const roofTopY = baseY - Math.max(1, Math.floor(size * 0.45));
-      const roofLeftX = baseX;
-      const roofRightX = baseX + baseW;
-      const roofBaseY = baseY;
-      this.mapGraphics.fillStyle(0xffffff, 0.95);
-      // roof
-      this.mapGraphics.fillTriangle(
-        roofLeftX,
-        roofBaseY,
-        roofRightX,
-        roofBaseY,
-        roofTopX,
-        roofTopY,
-      );
-      // base
-      this.mapGraphics.fillRect(baseX, baseY, baseW, baseH);
-
-      // Spawn icon at (0,0,0)
-      const s = iconPos(0, 0);
-      this.mapGraphics.lineStyle(1, 0xfff3a8, 0.95);
-      this.mapGraphics.beginPath();
-      this.mapGraphics.moveTo(s.cx - 2, s.cy);
-      this.mapGraphics.lineTo(s.cx + 2, s.cy);
-      this.mapGraphics.moveTo(s.cx, s.cy - 2);
-      this.mapGraphics.lineTo(s.cx, s.cy + 2);
-      this.mapGraphics.strokePath();
-    }
-
-    for (const {
-      marker,
-      coords: [qx, qy],
-    } of questMarkerCoords) {
-      const q = iconPos(qx, qy);
-      const color = marker.color ?? 0xffd166;
-      this.mapGraphics
-        .lineStyle(2, color, 0.95)
-        .strokeCircle(q.cx, q.cy, Math.max(3, cellSize * 0.34));
-      this.mapGraphics.fillStyle(color, 0.95);
-      if (marker.kind === 'turn-in') {
-        this.mapGraphics.fillTriangle(q.cx, q.cy - 4, q.cx - 4, q.cy + 3, q.cx + 4, q.cy + 3);
-      } else {
-        this.mapGraphics.fillCircle(q.cx, q.cy, Math.max(2, cellSize * 0.13));
-      }
-    }
-
-    const [currentX = 0, currentY = 0] = current.split(',').map((n) => Number(n));
-    const legendY = this.mapBackground.y + this.mapBackground.height - 22;
-    this.mapGraphics
-      .fillStyle(uiColors.panelBgInset, 0.82)
-      .fillRoundedRect(
-        this.mapBackground.x + 10,
-        legendY - 4,
-        this.mapBackground.width - 20,
-        18,
-        4,
-      );
-    this.mapGraphics.fillStyle(0x5dd6a2, 0.92).fillRect(this.mapBackground.x + 18, legendY, 8, 8);
-    this.mapGraphics.fillStyle(0x4da3ff, 0.78).fillRect(this.mapBackground.x + 82, legendY, 8, 8);
-    this.mapGraphics
-      .fillStyle(0xffd166, 0.95)
-      .fillCircle(this.mapBackground.x + 152, legendY + 4, 4);
-    this.mapGraphics
-      .fillStyle(0xffffff, 0.92)
-      .fillRect(this.mapBackground.x + 214, legendY + 1, 7, 7);
-    this.mapGraphics.fillStyle(uiColors.panelGlow, 0.92);
-    this.mapGraphics.fillRect(
-      this.mapBackground.x + this.mapBackground.width - 112,
-      legendY + 1,
-      92,
-      1,
-    );
-    this.mapTitle.setText(`Map - Depth ${level}   Room ${currentX}, ${currentY}`);
-  }
-
-  private populateMapDetailPanel(): void {
-    const current = this.scene.currentRoomId ?? '0,0,0';
-    const [x = 0, y = 0, z = 0] = current.split(',').map((n: string) => Number(n));
-    const room =
-      typeof this.scene.snakeGame?.getCurrentRoom === 'function'
-        ? (this.scene.snakeGame.getCurrentRoom() as unknown as Record<string, unknown>)
-        : {};
-    const biomeId = String(room.biomeId ?? 'unknown');
-    const biomeTitle = String(room.biomeTitle ?? this.titleCaseBiome(biomeId));
-    const tags: string[] = [];
-    if (room.town) tags.push('Town');
-    if (room.village) tags.push('Village');
-    if (room.goblinCamp) tags.push('Goblin Camp');
-    if (room.molemanDigSite) tags.push('Dig Site');
-    if (room.treasure) tags.push('Treasure');
-    if (room.powerup) tags.push('Powerup');
-
-    const hazards = this.inferRoomHazards(room, biomeId);
-    const features = this.inferRoomFeatures(room);
-    const pois = tags.length > 0 ? tags : ['No marked POIs'];
-
-    this.detailTitle.setText('Current Room').setVisible(true);
-    this.detailSubtitle.setText(`${biomeTitle} // ${x}, ${y}, ${z}`).setVisible(true);
-    this.detailRankText.setText(biomeId).setVisible(true);
-    this.detailBody
-      .setText(
-        [
-          'Hazards',
-          ...hazards.map((entry) => `- ${entry}`),
-          '',
-          'Features',
-          ...features.map((entry) => `- ${entry}`),
-          '',
-          'Points of Interest',
-          ...pois.map((entry) => `- ${entry}`),
-        ].join('\n'),
-      )
-      .setVisible(true);
-  }
-
-  private titleCaseBiome(id: string): string {
-    return id
-      .split('-')
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(' ');
-  }
-
-  private inferRoomHazards(room: Record<string, unknown>, biomeId: string): string[] {
-    const hazards: string[] = [];
-    if (biomeId.includes('ember') || biomeId.includes('badlands')) hazards.push('Heat');
-    if (biomeId.includes('sable') || biomeId.includes('frost')) hazards.push('Cold');
-    if (biomeId.includes('ocean') || biomeId.includes('sunken')) hazards.push('Water');
-    if (room.goblinCamp) hazards.push('Camp Hostility');
-    return hazards.length > 0 ? hazards : ['None detected'];
-  }
-
-  private inferRoomFeatures(room: Record<string, unknown>): string[] {
-    const features: string[] = [];
-    if (room.house) features.push('House');
-    if (room.town) features.push('Settlement');
-    if (room.village) features.push('Market Access');
-    if (room.layout) features.push('Generated Layout');
-    if (room.archetypeId) features.push(String(room.archetypeId));
-    return features.length > 0 ? features : ['Standard room'];
   }
 
   private drawLuckGraphPanel(): void {

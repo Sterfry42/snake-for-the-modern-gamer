@@ -146,6 +146,7 @@ export type AtmosphereAudioTag =
   | 'machinery';
 
 export interface AtmosphereState {
+  rngState?: number;
   worldDay: number;
   season: Season;
   dayPhase: DayPhase;

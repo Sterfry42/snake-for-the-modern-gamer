@@ -128,6 +128,27 @@ export function buildWorldPresentationScene(
     const placement = placements.get(entry.room.id);
     if (!placement) continue;
     pushRoomSprites(sprites, entry, placement, options.grid, options.assets);
+    for (const cell of entry.room.farm ?? []) {
+      if (!cell.crop) continue;
+      const position = localRenderPoint(cell, placement);
+      sprites.push({
+        id: `crop:${cell.crop.instanceId}`,
+        kind: 'vegetation',
+        x: position.x + 0.5,
+        y: position.y + 0.5,
+        width: cell.crop.stage === 'seeded' ? 0.2 : 0.55,
+        height: cell.crop.stage === 'ready' ? 0.65 : 0.4,
+        anchorY: 1,
+        color:
+          cell.crop.stage === 'withered'
+            ? 0x777777
+            : cell.crop.stage === 'ready'
+              ? 0xffd75c
+              : 0x6fce67,
+        visual: { defaultTextureKey: '' },
+        roomId: entry.room.id,
+      });
+    }
   }
   return { rooms, sprites, effects: [], atmosphere: options.atmosphere };
 }

@@ -54,6 +54,8 @@ Do not respond to every new mechanic by adding a toast, popup, tutorial paragrap
 
 If the abstraction is genuinely missing, create it intentionally as a reusable source of truth and migrate related behavior toward it rather than adding another isolated implementation.
 
+- **World Atlas Overlay `[World / UI]`:** The World → Map pause-menu tab uses `WorldMapOverlay` for pan/zoom, room selection with coordinates, layer switching, and focus shortcuts for player, home (0,-1,0), quest markers, and world origin (0,0,0). It displays cached visited-room summaries without generating unseen rooms. `worldMapGeometry.ts` owns testable coordinate transforms, and `TreeViewportController` owns the shared pan/zoom mechanics. **Usage Notes:** Extend this overlay for full-world map interactions; keep `minimapRenderer.ts` as the small tactical 3×3 HUD radar. **Link:** [`src/ui/worldMapOverlay.ts`](https://github.com/Sterfry42/snake-for-the-modern-gamer/blob/main/src/ui/worldMapOverlay.ts).
+
 ## Runtime & Composition
 
 - **Browser Entrypoint `[Runtime]`:** Bootstraps Phaser, debug runtime, the default game config, and `SnakeScene`. **Usage Notes:** Use this for application boot/configuration changes, not gameplay rules. **Link:** [`src/main.ts`](https://github.com/Sterfry42/snake-for-the-modern-gamer/blob/main/src/main.ts).

@@ -103,6 +103,8 @@ import { QuestHud } from '../ui/questHud.js';
 import { QuestPopup } from '../ui/questPopup.js';
 import { ChoicePopup } from '../ui/choicePopup.js';
 import type { NormalizedChoiceOption } from '../ui/choicePopupModel.js';
+import { FarmingMenu } from '../ui/farmingMenu.js';
+import { FarmOverlayRenderer } from '../ui/farmOverlayRenderer.js';
 import { SnakeRenderer, type RoomRenderEntry } from '../ui/snakeRenderer.js';
 import { FirstPersonRenderer } from '../ui/firstPerson/firstPersonRenderer.js';
 import type { FirstPersonMovementPresentationState } from '../ui/firstPerson/firstPersonTypes.js';
@@ -1236,6 +1238,8 @@ export default class SnakeScene extends Phaser.Scene {
   private questHud!: QuestHud;
   private questPopup!: QuestPopup;
   private villageShopPopup!: ChoicePopup;
+  private farmingMenu: FarmingMenu | null = null;
+  private farmOverlay: FarmOverlayRenderer | null = null;
   private datingScenePopup!: DatingScenePopup;
   private emoticonOverlay!: EmoticonOverlay;
   private partyOverlay: PartyOverlay | null = null;
@@ -1765,6 +1769,16 @@ export default class SnakeScene extends Phaser.Scene {
     });
     this.questPopup = new QuestPopup(this);
     this.villageShopPopup = new ChoicePopup(this);
+    this.farmingMenu = new FarmingMenu(
+      () => this.snakeGame,
+      () => this.gameConnection,
+      this.villageShopPopup,
+      (message) => {
+        this.showQuestHintPopup(message, '#a8df9a');
+        this.isDirty = true;
+      },
+    );
+    this.farmOverlay = new FarmOverlayRenderer(this, this.grid);
     await this.loadDatingPortraitAssets();
     this.datingScenePopup = new DatingScenePopup(this);
     this.emoticonOverlay = new EmoticonOverlay(this);
@@ -2623,6 +2637,17 @@ export default class SnakeScene extends Phaser.Scene {
       }
 
       // Tab: Cycle through emoticons
+      if (
+        key === 'j' &&
+        !this.paused &&
+        !this.deathCutscene &&
+        !this.titleVisible &&
+        !this.minecraftMode
+      ) {
+        event.preventDefault();
+        void this.farmingMenu?.open();
+        return;
+      }
       if (key === 'tab' && !this.paused && !this.deathCutscene && !this.titleVisible) {
         const owned = this.snakeGame.getEmoticonState()?.owned ?? [];
         if (owned.length > 0) {
@@ -3624,6 +3649,16 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private drawStructurePlacementPreview(visible: boolean): void {
+    const head = this.snakeGame.getSnakeBody()[0];
+    const local = head && this.snakeGame.resolveRoomPosition(head);
+    const target = this.farmingMenu?.getTarget();
+    this.farmOverlay?.render(
+      this.currentRoomId,
+      this.snakeGame.getFarmCells(),
+      this.snakeGame.placedStructures(this.currentRoomId),
+      visible,
+      local && target ? { x: local.localX + target.dx, y: local.localY + target.dy } : undefined,
+    );
     const graphics = this.structurePlacementGraphics;
     graphics.clear().setVisible(false);
     if (!visible || !this.snakeGame.getStructurePlacement()) return;
@@ -6725,6 +6760,9 @@ export default class SnakeScene extends Phaser.Scene {
     this.mobileControls?.destroy();
     this.mobileControls = null;
     this.minimapRenderer?.destroy();
+    this.farmOverlay?.destroy();
+    this.farmOverlay = null;
+    this.farmingMenu = null;
     this.minimapRenderer = null;
     this.levelUpDirectionUnlockTimer?.remove(false);
     this.levelUpDirectionUnlockTimer = null;
@@ -11695,7 +11733,12 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private shouldAdvanceAtmosphereForMode(mode: GameMode): boolean {
-    return mode === 'action' || mode === 'driving' || mode === 'manual-room';
+    return (
+      this.farmingMenu?.isOpen() === true ||
+      mode === 'action' ||
+      mode === 'driving' ||
+      mode === 'manual-room'
+    );
   }
 
   private getGameMode(): GameMode {
@@ -11717,6 +11760,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.datingScenePopup?.isVisible()) {
       return 'dating';
     }
+    if (this.farmingMenu?.isOpen()) return 'manual-room';
     if (this.villageShopPopup?.isVisible()) {
       return 'shop';
     }
@@ -12898,6 +12942,9 @@ export default class SnakeScene extends Phaser.Scene {
     this.minimapRenderer?.setVisible(minimapVisible);
     if (minimapVisible) {
       this.minimapRenderer?.render({
+        localPlayerId: this.snakeGame.getLocalPlayerId(),
+        claims: this.snakeGame.getRoomClaims(),
+        farmRoomIds: this.snakeGame.getFarmRoomIds(),
         currentRoomId: room.id,
         snakeSegments: renderedSnakeBody,
         otherPlayers: Object.values(snapshot.players).filter(
@@ -14875,12 +14922,9 @@ export default class SnakeScene extends Phaser.Scene {
     if (!purchases['garden']) {
       return '';
     }
-    if (this.getFlag<boolean>('house.garden.ready')) {
-      return 'ready';
-    }
-    const growthMs = Number(this.getFlag<number>('house.garden.growthMs') ?? 0);
-    const percent = Math.min(99, Math.floor((growthMs / 45000) * 100));
-    return `${percent}%`;
+    const cells = this.snakeGame.getFarmCells('0,-1,0');
+    const ready = cells.filter((cell) => cell.crop?.stage === 'ready').length;
+    return ready ? `${ready} ready` : `${cells.length} greenhouse beds`;
   }
 
   private async tryInteractHouseGarden(): Promise<boolean> {
@@ -14900,6 +14944,16 @@ export default class SnakeScene extends Phaser.Scene {
   private tryBuyHouse(
     kind: 'couch' | 'kitchen' | 'expand' | 'bed' | 'plant' | 'lamp' | 'garden',
   ): void {
+    if (this.sceneClient) {
+      void this.farmingMenu?.purchaseHouse(kind).then((result) => {
+        this.showQuestHintPopup(
+          result.message ?? 'House purchase rejected.',
+          result.ok ? '#9cff9c' : '#ff8578',
+        );
+        this.isDirty = true;
+      });
+      return;
+    }
     const ok = this.snakeGame.purchaseHouseItem(kind);
     if (ok) {
       this.playControllerFeedback('reward');

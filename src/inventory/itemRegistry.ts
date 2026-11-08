@@ -1,4 +1,5 @@
 import type { Item } from './item.js';
+import { FARM_ITEMS } from '../farming/cropCatalog.js';
 import { generateBiomeLocatorItems } from '../world/biomeLocators.js';
 import { generateStructureLocatorItems } from '../world/structureLocators.js';
 import { getRestaurantFoods } from '../shops/restaurants.js';
@@ -13,6 +14,7 @@ const RESTAURANT_FOOD_ITEMS: readonly Item[] = getRestaurantFoods().map((food) =
 }));
 
 export const ITEMS: readonly Item[] = [
+  ...FARM_ITEMS,
   ...generateBiomeLocatorItems(),
   ...generateStructureLocatorItems(),
   {

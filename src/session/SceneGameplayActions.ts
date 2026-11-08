@@ -27,6 +27,11 @@ export function executeSceneGameplayAction(
   >,
 ): CommandResult {
   switch (command.type) {
+    case 'houseAction':
+    case 'farmingAction':
+    case 'territoryAction':
+    case 'farmSellAction':
+      return game.executeAgricultureCommand(command);
     case 'guildAction':
       return executeGuildAction(game, command);
     case 'specialShopAction':
@@ -236,11 +241,7 @@ function executeConstructionAction(
 ): CommandResult {
   switch (command.action) {
     case 'claim': {
-      const claim = game.getRoomClaim();
-      if (claim && claim.ownerId !== command.playerId)
-        return { ok: false, reason: 'This room is already claimed.' };
-      game.claimRoom();
-      return { ok: true };
+      return game.purchaseCurrentRoomClaim();
     }
     case 'begin':
       return { ok: game.beginStructurePlacement(command.blueprintId) };

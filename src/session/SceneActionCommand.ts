@@ -17,6 +17,40 @@ export type PlayerInteraction =
 /** Intent payloads contain identifiers and input, never prices, rewards, or replacement state. */
 export type SceneActionCommand = { playerId: PlayerId } & (
   | {
+      type: 'houseAction';
+      nonce: number;
+      contextToken: string;
+      kind: 'couch' | 'kitchen' | 'expand' | 'bed' | 'plant' | 'lamp' | 'garden';
+    }
+  | ({
+      type: 'farmingAction';
+      nonce: number;
+      contextToken: string;
+    } & import('../farming/farmingTypes.js').FarmAction)
+  | {
+      type: 'territoryAction';
+      nonce: number;
+      contextToken: string;
+      action: 'claimCurrentRoom' | 'releaseCurrentRoom' | 'designateMunicipalFarm';
+      confirmed?: boolean;
+    }
+  | {
+      type: 'territoryAction';
+      nonce: number;
+      contextToken: string;
+      action: 'grant' | 'revoke';
+      granteePlayerId: string;
+      permission: import('../building/constructionState.js').ConstructionPermission;
+    }
+  | {
+      type: 'farmSellAction';
+      nonce: number;
+      contextToken: string;
+      merchantActorId: string;
+      itemId: string;
+      count: number;
+    }
+  | {
       type: 'deathEncounterAction';
       encounterId: string;
       revision: number;
@@ -124,6 +158,10 @@ export type SceneActionCommand = { playerId: PlayerId } & (
 
 export function isSceneActionCommand(command: ClientCommand): command is SceneActionCommand {
   return (
+    command.type === 'houseAction' ||
+    command.type === 'farmingAction' ||
+    command.type === 'territoryAction' ||
+    command.type === 'farmSellAction' ||
     command.type === 'deathEncounterAction' ||
     command.type === 'characterCreationAction' ||
     command.type === 'cosmeticAction' ||

@@ -45,8 +45,10 @@ export function executeGuildAction(
   }
   if (command.action === 'lower-wanted') return game.reduceCurrentTownWantedViaGuild();
   if (command.action === 'fence') {
-    game.addScore(6);
-    return { ok: true, message: 'The fence buys what nobody can prove was stolen. +6 score.' };
+    return {
+      ok: false,
+      reason: 'Choose actual produce in Farming → Sell at a nearby black-market merchant.',
+    };
   }
   if (command.action !== 'job') return { ok: false, reason: 'Unknown guild action.' };
   if (!town.guildJobs.some((job) => job.id === command.jobId && job.status === 'available'))

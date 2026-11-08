@@ -144,7 +144,15 @@ describe('scene state mirror and command facade', () => {
     const alice = session.registerConnection('alice', 'Alice');
     const bob = session.registerConnection('bob', 'Bob');
     const { client } = localClient(session);
-    expect(await client.claimRoom()).toEqual({ ok: true });
+    for (let attempt = 0; attempt < 20 && game.getEnemies(room.id).length; attempt++)
+      game.damageCarImpactAt(
+        room.id,
+        game.getEnemies(room.id).map((enemy) => enemy.position),
+      );
+    expect(game.getEnemies(room.id)).toHaveLength(0);
+    game.setScore(40);
+    expect(await client.claimRoom()).toMatchObject({ ok: true });
+    expect(game.getScore()).toBe(0);
     expect(client.getRoomClaim()?.ownerId).toBe(alice);
     expect(
       await session.executeCommand({ type: 'construction', action: 'claim', playerId: bob }),
@@ -178,7 +186,15 @@ describe('scene state mirror and command facade', () => {
     const alice = session.registerConnection('alice', 'Alice');
     const bob = session.registerConnection('bob', 'Bob');
     const { client } = localClient(session);
+    for (let attempt = 0; attempt < 20 && game.getEnemies(room.id).length; attempt++)
+      game.damageCarImpactAt(
+        room.id,
+        game.getEnemies(room.id).map((enemy) => enemy.position),
+      );
+    expect(game.getEnemies(room.id)).toHaveLength(0);
+    game.setScore(40);
     await client.claimRoom();
+    expect(game.getScore()).toBe(0);
     let valid = false;
     for (let y = 3; y < defaultGameConfig.grid.rows - 4 && !valid; y++) {
       for (let x = 3; x < defaultGameConfig.grid.cols - 4 && !valid; x++) {

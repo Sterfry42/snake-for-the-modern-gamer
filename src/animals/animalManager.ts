@@ -15,6 +15,7 @@ import { AnimalRegistry } from './animalRegistry.js';
 import { canTameAnimal } from './taming.js';
 
 interface AnimalStepParams {
+  farm?: import('../farming/farmInteractions.js').FarmInteractions;
   getRoom(roomId: string): RoomSnapshot;
   snake: readonly Vector2Like[];
   currentRoomId: string;
@@ -52,6 +53,7 @@ export interface SnakeAnimalResult {
 }
 
 export class AnimalManager {
+  private farm: import('../farming/farmInteractions.js').FarmInteractions | undefined;
   private readonly animals = new Map<string, AnimalInstance[]>();
   private nextId = 0;
 
@@ -255,6 +257,7 @@ export class AnimalManager {
       return result;
     }
 
+    this.farm = params.farm;
     const room = getRoom(currentRoomId);
     const headLocal = this.worldToLocal(currentRoomId, head);
     const nextAnimals: AnimalInstance[] = [];
@@ -274,6 +277,15 @@ export class AnimalManager {
       }
 
       next = this.moveAnimal(next, def, room, headLocal, snakeDirection, roomAnimals);
+      if (!animal.isTamed) {
+        if (def.behavior === 'graze')
+          this.farm?.contact(room.id, animal.id, next.position, 'graze');
+        if (
+          ['deer', 'bear', 'bison'].includes(animal.type) &&
+          (next.position.x !== animal.position.x || next.position.y !== animal.position.y)
+        )
+          this.farm?.contact(room.id, animal.id, next.position, 'trample');
+      }
       next.moveCooldown = def.moveInterval + Math.floor(this.rng() * def.moveInterval);
 
       nextAnimals.push(next);
@@ -370,6 +382,12 @@ export class AnimalManager {
     room: RoomSnapshot,
     headLocal: Vector2Like,
   ): AnimalInstance {
+    const target = this.farm?.target(room.id, animal.position, 'graze');
+    if (target) {
+      if (manhattanDistance(animal.position, target) <= 1) return animal;
+      const position = this.tryMoveToward(animal, room, target, this.isWalkableAnimalTile);
+      return position ? { ...animal, position } : animal;
+    }
     const next = this.tryMoveWander(animal, room, headLocal, this.isWalkableAnimalTile);
     return next ? { ...animal, position: next } : animal;
   }
@@ -524,6 +542,7 @@ export class AnimalManager {
       return false;
     }
     const tile = room.layout[next.y]?.[next.x];
+    if (this.farm?.isSolid(room, next.x, next.y)) return false;
     return tileCheck(tile, next.x, next.y);
   }
 

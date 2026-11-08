@@ -36,6 +36,66 @@ export type ServerMessage =
 export function isClientCommand(value: unknown): value is ClientCommand {
   if (!isRecord(value) || typeof value.playerId !== 'string') return false;
   switch (value.type) {
+    case 'houseAction':
+      return (
+        validFarmNonce(value.nonce) &&
+        validIdentifier(value.contextToken) &&
+        ['couch', 'kitchen', 'expand', 'bed', 'plant', 'lamp', 'garden'].includes(
+          String(value.kind),
+        )
+      );
+    case 'farmingAction': {
+      if (!validFarmNonce(value.nonce) || !validIdentifier(value.contextToken)) return false;
+      if (
+        value.target !== undefined &&
+        (!isRecord(value.target) ||
+          typeof value.target.dx !== 'number' ||
+          typeof value.target.dy !== 'number' ||
+          !Number.isInteger(value.target.dx) ||
+          !Number.isInteger(value.target.dy) ||
+          Math.abs(value.target.dx) + Math.abs(value.target.dy) > 1)
+      )
+        return false;
+      return (
+        [
+          'till',
+          'water',
+          'harvest',
+          'weed',
+          'compost',
+          'inspect',
+          'refillCan',
+          'magicBed',
+          'toggleGate',
+          'reinforce',
+        ].includes(String(value.action)) ||
+        (value.action === 'clear' &&
+          (value.confirmed === undefined || typeof value.confirmed === 'boolean')) ||
+        (value.action === 'plant' && validIdentifier(value.seedItemId))
+      );
+    }
+    case 'territoryAction':
+      return (
+        validFarmNonce(value.nonce) &&
+        validIdentifier(value.contextToken) &&
+        (value.action === 'claimCurrentRoom' ||
+          value.action === 'designateMunicipalFarm' ||
+          (value.action === 'releaseCurrentRoom' && typeof value.confirmed === 'boolean') ||
+          ((value.action === 'grant' || value.action === 'revoke') &&
+            validIdentifier(value.granteePlayerId) &&
+            ['build', 'demolish', 'farm', 'harvest', 'manage'].includes(String(value.permission))))
+      );
+    case 'farmSellAction':
+      return (
+        validFarmNonce(value.nonce) &&
+        validIdentifier(value.contextToken) &&
+        validIdentifier(value.merchantActorId) &&
+        validIdentifier(value.itemId) &&
+        typeof value.count === 'number' &&
+        Number.isSafeInteger(value.count) &&
+        value.count > 0 &&
+        value.count <= 10000
+      );
     case 'deathEncounterAction':
       return (
         validIdentifier(value.encounterId) &&
@@ -449,4 +509,8 @@ function isSnapshot(value: unknown): value is GameSnapshot {
     isRecord(value.viewport.rooms) &&
     typeof value.viewport.centerRoomId === 'string'
   );
+}
+
+function validFarmNonce(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 }

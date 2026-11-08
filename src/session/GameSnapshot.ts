@@ -65,6 +65,7 @@ export interface ClientRoomSnapshot {
   wallOutlineColor?: number;
   portals?: unknown[];
   structures?: unknown[];
+  farm?: readonly import('../farming/farmingTypes.js').FarmCell[];
   caveEntrances?: unknown[];
   layerEntrances?: unknown[];
   apples?: AppleSnapshot | null;
