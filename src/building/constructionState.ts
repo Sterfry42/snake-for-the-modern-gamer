@@ -111,9 +111,10 @@ export class ConstructionState {
     const claim = this.claims.get(roomId);
     return Boolean(
       claim &&
-        (claim.ownerId === ownerId ||
-          (claim.access && Object.prototype.hasOwnProperty.call(claim.access, ownerId) &&
-            claim.access[ownerId]?.includes(permission))),
+      (claim.ownerId === ownerId ||
+        (claim.access &&
+          Object.prototype.hasOwnProperty.call(claim.access, ownerId) &&
+          claim.access[ownerId]?.includes(permission))),
     );
   }
 
@@ -134,7 +135,9 @@ export class ConstructionState {
     )
       return false;
     const access = { ...claim.access };
-    const permissions = new Set(Object.prototype.hasOwnProperty.call(access, grantee) ? access[grantee] : []);
+    const permissions = new Set(
+      Object.prototype.hasOwnProperty.call(access, grantee) ? access[grantee] : [],
+    );
     if (enabled) permissions.add(permission);
     else permissions.delete(permission);
     access[grantee] = [...permissions];

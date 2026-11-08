@@ -2271,6 +2271,30 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
+  getRoomRevisions(): ReadonlyMap<string, number> {
+    return this.world.getRoomRevisions();
+  }
+
+  /**
+   * Local (non-hosted) snapshot replication view. Unlike the hosted
+   * neighborhood view, it tracks room revisions against the caller's last
+   * published set so per-step snapshots only ship rooms that changed.
+   * The player's room always stays in the set: its apple, farming
+   * projection, and structure placement must never render stale.
+   */
+  getLocalRoomReplication(
+    publishedRevisions?: ReadonlyMap<string, number> | null,
+  ): NonNullable<GameSnapshot['replication']> {
+    const roomRevisions: Record<string, number> = {};
+    for (const [id, revision] of this.world.getRoomRevisions()) {
+      if (publishedRevisions?.get(id) !== revision) roomRevisions[id] = revision;
+    }
+    const currentRoomId = this.snake.currentRoomId;
+    const currentRevision = this.world.getRoomRevision(currentRoomId);
+    if (currentRevision > 0) roomRevisions[currentRoomId] = currentRevision;
+    return { epoch: this.world.replicationId, roomRevisions };
+  }
+
   private replicaRoomEpoch: number | undefined;
   private readonly replicaRoomRevisions = new Map<string, number>();
   private readonly replicaSelectorSignatures = new Map<string, string>();
@@ -7441,7 +7465,14 @@ export class SnakeGame implements QuestRuntime {
         message: 'Only this town’s current mayor may designate a community bed.',
       };
     const local = this.worldToLocal(room.id, head);
-    if (!resolveSoilSubstrate(room, local.x, local.y, Boolean(this.farming.get(room.id, local.x, local.y))))
+    if (
+      !resolveSoilSubstrate(
+        room,
+        local.x,
+        local.y,
+        Boolean(this.farming.get(room.id, local.x, local.y)),
+      )
+    )
       return { ok: false, message: 'This is protected or unsuitable municipal terrain.' };
     this.farming.designate(room.id, local.x, local.y);
     return { ok: true, message: 'Community bed designated: public farming and harvest allowed.' };
@@ -14193,8 +14224,10 @@ export class SnakeGame implements QuestRuntime {
   }
 
   getSpecialStatsView(): SpecialStatsView {
-    if (this.replicaSnapshot?.clientState)
-      return structuredClone(this.replicaSnapshot.clientState.special);
+    // Replica reads return the projection reference; the read-replica guard
+    // view detaches results at the boundary. A second internal structuredClone
+    // per call only cost time and garbage on HUD paths.
+    if (this.replicaSnapshot?.clientState) return this.replicaSnapshot.clientState.special;
     const room = this.getCurrentRoom();
     return this.specialStats.getSpecialStatsView(
       {
@@ -14393,8 +14426,9 @@ export class SnakeGame implements QuestRuntime {
   }
 
   getAtmosphereState(): AtmosphereState {
-    if (this.replicaSnapshot?.clientState)
-      return structuredClone(this.replicaSnapshot.clientState.atmosphere);
+    // The scene refreshes atmosphere state every frame; the guard view's
+    // per-call detach replaces the old per-call structuredClone here.
+    if (this.replicaSnapshot?.clientState) return this.replicaSnapshot.clientState.atmosphere;
     return this.atmosphere.getState();
   }
 
@@ -14581,8 +14615,9 @@ export class SnakeGame implements QuestRuntime {
   }
 
   getAtmosphereForRoom(room: RoomSnapshot = this.getCurrentRoom()): ResolvedAtmosphereView {
-    if (this.replicaSnapshot?.clientState)
-      return structuredClone(this.replicaSnapshot.clientState.atmosphereView);
+    // draw() resolves the room atmosphere on every draw; the guard view's
+    // per-call detach replaces the old per-call structuredClone here.
+    if (this.replicaSnapshot?.clientState) return this.replicaSnapshot.clientState.atmosphereView;
     const biome = getBiomeDefinition(room.biomeId);
     const shelterMode = this.getShelterModeForRoom(room);
     const shelteredConfig = {
@@ -20410,9 +20445,13 @@ export class SnakeGame implements QuestRuntime {
     const restaurantHunger = getRestaurantFoodHunger(itemId);
     const produce = resolveProduce(itemId);
     const meal = FARM_RECIPES.find((recipe) => `food-${recipe.id}` === itemId);
-    const effect = meal ? { hunger: 90, heal: 1 }
-      : produce && !produce.crop.contraband ? { hunger: 25 }
-      : restaurantHunger === undefined ? effects[itemId] : { hunger: restaurantHunger };
+    const effect = meal
+      ? { hunger: 90, heal: 1 }
+      : produce && !produce.crop.contraband
+        ? { hunger: 25 }
+        : restaurantHunger === undefined
+          ? effects[itemId]
+          : { hunger: restaurantHunger };
     if (!effect) {
       return { ok: false, message: `${item.name} cannot be used right now.`, color: '#ffd166' };
     }

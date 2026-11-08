@@ -17,13 +17,22 @@ describe('municipal farming follows the actual office holder', () => {
     if (!town) throw new Error('Missing generated town');
     let target: { x: number; y: number } | undefined;
     const [hallX, hallY] = hall.room.id.split(',').map(Number);
-    const candidates = Array.from({length:49}, (_,i) => `${hallX! + i % 7 - 3},${hallY! + Math.floor(i / 7) - 3},0`);
+    const candidates = Array.from(
+      { length: 49 },
+      (_, i) => `${hallX! + (i % 7) - 3},${hallY! + Math.floor(i / 7) - 3},0`,
+    );
     for (const id of candidates) {
       room = scenario.getRoom(id);
       if (room.town?.id !== town.id) continue;
       for (let y = 2; y < room.layout.length - 2 && !target; y++) {
         for (let x = 2; x < room.layout[y]!.length - 2; x++) {
-          if (resolveSoilSubstrate(room, x, y, true) && !scenario.game.getActorSystem().getActorsInRoom(room.id).some(actor => actor.presence?.position.x === x && actor.presence.position.y === y)) {
+          if (
+            resolveSoilSubstrate(room, x, y, true) &&
+            !scenario.game
+              .getActorSystem()
+              .getActorsInRoom(room.id)
+              .some((actor) => actor.presence?.position.x === x && actor.presence.position.y === y)
+          ) {
             target = { x, y };
             break;
           }
@@ -35,11 +44,14 @@ describe('municipal farming follows the actual office holder', () => {
     room.vegetation ??= [];
     room.vegetation.push({ ...target, variant: 'grass-1' });
     scenario.enterRoom(room.id, target);
-    const game = scenario.game, playerId = game.getLocalPlayerId();
+    const game = scenario.game,
+      playerId = game.getLocalPlayerId();
     const runtime = createTownRuntimeState(town, new CivicService());
-    const elect = (id: string) => game.setFlag(`town.runtime.${town.id}`, {
-      ...runtime, civic: { ...runtime.civic, mayor: { kind: 'player', playerId: id } },
-    });
+    const elect = (id: string) =>
+      game.setFlag(`town.runtime.${town.id}`, {
+        ...runtime,
+        civic: { ...runtime.civic, mayor: { kind: 'player', playerId: id } },
+      });
     game.getInventory().addItem('farm-hoe');
     game.getInventory().addItem('seed-radish');
     elect('other-town-mayor');
@@ -78,34 +90,58 @@ describe('municipal farming follows the actual office holder', () => {
 });
 
 describe('farm food uses authoritative inventory and existing survival effects', () => {
-  it.each(FARM_RECIPES)('cooks and consumes $id once, retaining quality of unused ingredients', async recipe => {
-    const scenario = createHeadlessScenario({ seed: 'farm-food' });
-    const game = scenario.game, session = new AuthoritativeGameSession({ game });
-    const crop = getCrop(recipe.input)!;
-    const input = produceItem(crop, 'excellent'), output = `food-${recipe.id}`;
-    game.getInventory().addItem(input, 2);
-    expect(game.cookRecipe(recipe.id).ok).toBe(false);
-    expect(game.getInventory().getItemCount(input)).toBe(2);
-    game.moveToRoom('0,-1,0', { x: 10, y: 10 });
-    expect((await session.executeCommand({ type: 'inventoryAction', action: 'cook', recipeId: recipe.id, playerId: game.getLocalPlayerId() })).ok).toBe(true);
-    expect(game.getInventory().getItemCount(input)).toBe(1);
-    expect(game.getInventory().getItemCount(output)).toBe(1);
-    game.setFlag('timeSinceEat', 100);
-    game.setFlag('player.health', 1);
-    const use = () => session.executeCommand({ type: 'useItem', itemId: output, playerId: game.getLocalPlayerId() });
-    expect((await use()).ok).toBe(true);
-    expect(game.getFlag('timeSinceEat')).toBe(10);
-    expect(game.getPlayerHealth().current).toBe(2);
-    expect(game.getInventory().getItemCount(output)).toBe(0);
-    expect((await use()).ok).toBe(false);
-    expect(game.getPlayerHealth().current).toBe(2);
-  });
+  it.each(FARM_RECIPES)(
+    'cooks and consumes $id once, retaining quality of unused ingredients',
+    async (recipe) => {
+      const scenario = createHeadlessScenario({ seed: 'farm-food' });
+      const game = scenario.game,
+        session = new AuthoritativeGameSession({ game });
+      const crop = getCrop(recipe.input)!;
+      const input = produceItem(crop, 'excellent'),
+        output = `food-${recipe.id}`;
+      game.getInventory().addItem(input, 2);
+      expect(game.cookRecipe(recipe.id).ok).toBe(false);
+      expect(game.getInventory().getItemCount(input)).toBe(2);
+      game.moveToRoom('0,-1,0', { x: 10, y: 10 });
+      expect(
+        (
+          await session.executeCommand({
+            type: 'inventoryAction',
+            action: 'cook',
+            recipeId: recipe.id,
+            playerId: game.getLocalPlayerId(),
+          })
+        ).ok,
+      ).toBe(true);
+      expect(game.getInventory().getItemCount(input)).toBe(1);
+      expect(game.getInventory().getItemCount(output)).toBe(1);
+      game.setFlag('timeSinceEat', 100);
+      game.setFlag('player.health', 1);
+      const use = () =>
+        session.executeCommand({
+          type: 'useItem',
+          itemId: output,
+          playerId: game.getLocalPlayerId(),
+        });
+      expect((await use()).ok).toBe(true);
+      expect(game.getFlag('timeSinceEat')).toBe(10);
+      expect(game.getPlayerHealth().current).toBe(2);
+      expect(game.getInventory().getItemCount(output)).toBe(0);
+      expect((await use()).ok).toBe(false);
+      expect(game.getPlayerHealth().current).toBe(2);
+    },
+  );
   it('consumes raw ordinary produce once and restores 25 hunger', async () => {
     const scenario = createHeadlessScenario({ seed: 'farm-raw-food' });
-    const game = scenario.game, session = new AuthoritativeGameSession({ game });
+    const game = scenario.game,
+      session = new AuthoritativeGameSession({ game });
     game.getInventory().addItem('produce-radish');
     game.setFlag('timeSinceEat', 100);
-    const command = { type: 'useItem' as const, itemId: 'produce-radish', playerId: game.getLocalPlayerId() };
+    const command = {
+      type: 'useItem' as const,
+      itemId: 'produce-radish',
+      playerId: game.getLocalPlayerId(),
+    };
     expect((await session.executeCommand(command)).ok).toBe(true);
     expect(game.getFlag('timeSinceEat')).toBe(75);
     expect((await session.executeCommand(command)).ok).toBe(false);

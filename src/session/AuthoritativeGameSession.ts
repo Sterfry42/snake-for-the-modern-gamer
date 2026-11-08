@@ -713,6 +713,12 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   private readonly allowDebugCommands: boolean;
   private readonly snapshotHandlers = new Map<SnapshotHandler, PlayerId>();
   private readonly eventHandlers = new Set<EventHandler>();
+  /**
+   * Room revisions each player's last local snapshot already published.
+   * The read replica only follows the local player's stream, so streams
+   * never consume each other's published state (debug snakes included).
+   */
+  private readonly localRoomRevisions = new Map<PlayerId, Map<string, number>>();
   private lastSnapshot: GameSnapshot;
 
   get rng(): import('../core/rng.js').RandomGenerator {
@@ -741,7 +747,9 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     this.saveSlotId = args.saveSlotId ?? 'default';
     this.manageBasicFeatures = args.manageBasicFeatures ?? false;
     this.allowDebugCommands = args.allowDebugCommands ?? false;
-    this.lastSnapshot = this.buildSnapshot();
+    // The constructor's snapshot is internal; it must not consume the
+    // full-world publish that the first delivered snapshot owes a replica.
+    this.lastSnapshot = this.buildSnapshot(true, this.localPlayerId, false, false);
     for (const player of this.game.getPlayers())
       this.publishedRooms.set(player.id, player.snake.currentRoomId);
   }
@@ -1736,18 +1744,41 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     detach = true,
     playerId = this.localPlayerId,
     network = false,
+    consumeRoomPublish = true,
   ): GameSnapshot {
     if (this.game.getLocalPlayerId() !== playerId) {
-      return this.game.runForPlayer(playerId, () => this.buildSnapshot(detach, playerId, network));
+      return this.game.runForPlayer(playerId, () =>
+        this.buildSnapshot(detach, playerId, network, consumeRoomPublish),
+      );
     }
     const startedAt = performance.now();
     const snapshot = this.game.getSnapshot(playerId);
     snapshot.tick = this.getMovementTime();
     snapshot.movementSequence = this.movementSequence;
-    if (network || this.hosted) snapshot.replication = this.game.getNetworkRoomView();
-    snapshot.clientState = this.game.getSceneClientState(
-      snapshot.replication ? Object.keys(snapshot.replication.roomRevisions) : undefined,
-    );
+    if (network || this.hosted) {
+      snapshot.replication = this.game.getNetworkRoomView();
+      snapshot.clientState = this.game.getSceneClientState(
+        Object.keys(snapshot.replication.roomRevisions),
+      );
+    } else {
+      // Local presentation: ship only rooms that changed since the last
+      // published snapshot (the player's room always included) so the read
+      // replica merges by revision instead of re-hydrating the whole world
+      // per step. The first published snapshot for a player carries the full
+      // world (a fresh replica needs it) and starts revision tracking.
+      const published = this.localRoomRevisions.get(playerId);
+      snapshot.replication = this.game.getLocalRoomReplication(published);
+      const roomIds = Object.keys(snapshot.replication.roomRevisions);
+      snapshot.clientState = this.game.getSceneClientState(
+        roomIds.length > 0 ? roomIds : undefined,
+      );
+      if (consumeRoomPublish) {
+        // Track the full revision surface, not just the published subset:
+        // rooms skipped as unchanged must stay "seen", or the next snapshot
+        // would republish the entire world again.
+        this.localRoomRevisions.set(playerId, new Map(this.game.getRoomRevisions()));
+      }
+    }
     snapshot.forcedEncounter = this.game.getForcedEncounter();
     snapshot.lifecycle = this.game.getPlayer(playerId)?.lifecycle ?? { kind: 'active' };
     if (this.hosted)

@@ -493,9 +493,60 @@ function isServerMessage(value: unknown): value is ServerMessage {
 
 export function copyGameSnapshot(snapshot: GameSnapshot): GameSnapshot {
   // RoomSnapshotCache exposes proxies, which structuredClone cannot copy.
-  const value: unknown = JSON.parse(JSON.stringify(snapshot));
+  // A structural pass materializes proxies into plain data in a single walk;
+  // JSON.parse(JSON.stringify(...)) serialized the entire world twice per draw.
+  const value = materializeJsonValue(snapshot, new Set<object>());
   if (!isSnapshot(value)) throw new Error('Invalid game snapshot');
   return value;
+}
+
+/**
+ * Deep-copies a JSON-shaped value into plain objects, matching
+ * JSON.parse(JSON.stringify(value)) semantics for the snapshot contract:
+ * own enumerable string keys only, undefined/function values dropped,
+ * non-finite numbers become null, toJSON() is honored, cycles throw.
+ * Proxies (RoomSnapshotCache room views) read through their traps and
+ * land as plain data, so detached snapshots never alias live world state.
+ */
+function materializeJsonValue(value: unknown, seen: Set<object>): unknown {
+  if (value === null) return null;
+  switch (typeof value) {
+    case 'string':
+    case 'boolean':
+      return value;
+    case 'number':
+      return Number.isFinite(value) ? value : null;
+    case 'bigint':
+      // JSON.stringify rejects BigInt; keep the round-trip contract identical.
+      throw new Error('Invalid game snapshot');
+    case 'function':
+    case 'symbol':
+      return undefined;
+  }
+  const object = value as object;
+  if (seen.has(object)) throw new Error('Invalid game snapshot');
+  const withToJSON = object as { toJSON?: () => unknown };
+  if (typeof withToJSON.toJSON === 'function')
+    return materializeJsonValue(withToJSON.toJSON(), seen);
+  if (Array.isArray(object)) {
+    seen.add(object);
+    const copied: unknown[] = new Array(object.length);
+    for (let index = 0; index < object.length; index += 1) {
+      const element = object[index];
+      copied[index] = element === undefined ? null : materializeJsonValue(element, seen);
+    }
+    seen.delete(object);
+    return copied;
+  }
+  seen.add(object);
+  const copied: Record<string, unknown> = {};
+  for (const key of Object.keys(object)) {
+    const child = (object as Record<string, unknown>)[key];
+    if (child === undefined || typeof child === 'function') continue;
+    copied[key] = materializeJsonValue(child, seen);
+  }
+  seen.delete(object);
+  return copied;
 }
 
 function isSnapshot(value: unknown): value is GameSnapshot {

@@ -54,6 +54,10 @@ export class SimulationScheduler {
   }
 
   update(deltaMs: number, rules: ClockRules | (() => ClockRules)): void {
+    // Rules resolve once for the clock list, then re-evaluate before every
+    // step: a step may open a menu and flip the mode mid-update, and the
+    // scene's rules closure runs full UI-mode checks, so the per-frame call
+    // count stays at "1 + steps attempted", never 3x per clock.
     const currentRules = () => (typeof rules === 'function' ? rules() : rules);
     const clampedDelta = Math.max(0, Math.min(deltaMs, 250));
     for (const clock of this.clocks.values()) {
@@ -61,10 +65,7 @@ export class SimulationScheduler {
       clock.stepsLastUpdate = 0;
     }
     for (const id of Object.keys(currentRules())) {
-      if (currentRules()[id] !== true) {
-        continue;
-      }
-      this.advanceClock(id, clampedDelta, () => currentRules()[id] === true);
+      this.advanceClock(id, clampedDelta, currentRules);
     }
     this.diagnostics = {
       rawDeltaMs: deltaMs,
@@ -120,15 +121,20 @@ export class SimulationScheduler {
     return this.clocks.get(id)?.accumulatorMs ?? 0;
   }
 
-  private advanceClock(id: string, deltaMs: number, enabled: () => boolean): void {
+  private advanceClock(id: string, deltaMs: number, rules: () => ClockRules): void {
     const clock = this.clocks.get(id);
     if (!clock) {
+      return;
+    }
+    // Disabled clocks freeze their accumulator (matching the previous
+    // skip-in-update behavior); no catch-up is banked while a mode pauses them.
+    if (rules()[id] !== true) {
       return;
     }
     clock.accumulatorMs += deltaMs;
     const maxSteps = Math.max(1, Math.floor(clock.maxStepsPerUpdate ?? 8));
     while (clock.accumulatorMs >= clock.intervalMs && clock.stepsLastUpdate < maxSteps) {
-      if (!enabled()) {
+      if (rules()[id] !== true) {
         // A preceding step opened a menu. Do not bank catch-up work for resume.
         clock.accumulatorMs %= clock.intervalMs;
         return;

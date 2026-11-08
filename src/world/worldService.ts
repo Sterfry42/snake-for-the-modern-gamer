@@ -64,6 +64,10 @@ export class WorldService {
   getRoomRevision(id: string): number {
     return this.rooms.getRevision(id);
   }
+  /** Change counters for every known room; snapshots scope payloads by these. */
+  getRoomRevisions(): ReadonlyMap<string, number> {
+    return this.rooms.getRevisions();
+  }
   getKnownRoomCount(): number {
     return this.rooms.knownSize;
   }

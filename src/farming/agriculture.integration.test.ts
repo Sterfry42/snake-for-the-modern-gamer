@@ -217,31 +217,38 @@ describe('greenhouse, fences and world-owned farm incidents', () => {
 
 describe('house migration, atmosphere replay and authority', () => {
   it('retains cultivated world state after the room falls out of the hot cache', () => {
-    const scenario = createHeadlessScenario({seed:'farm-cache'}), game = scenario.game;
-    game.setFlag('house.purchases', {garden:true});
+    const scenario = createHeadlessScenario({ seed: 'farm-cache' }),
+      game = scenario.game;
+    game.setFlag('house.purchases', { garden: true });
     game.tickHouseGarden(1);
     const before = structuredClone(game.getFarmCells('0,-1,0'));
-    for (let i=0; i<150; i++) game.getRoom(`${i+50},50,0`);
+    for (let i = 0; i < 150; i++) game.getRoom(`${i + 50},50,0`);
     expect(game.getWorld().getCachedRoomCount()).toBeLessThanOrEqual(128);
     expect(game.getFarmCells('0,-1,0')).toEqual(before);
     game.getRoom('0,-1,0');
     expect(game.getFarmCells('0,-1,0')).toEqual(before);
   });
   it('advances an offscreen annex through inn rest exactly once using the same climate timeline', async () => {
-    const scenario = createHeadlessScenario({seed:'town-life-041-tavern-rest-time'}), game = scenario.game;
-    game.setFlag('house.purchases', {garden:true});
+    const scenario = createHeadlessScenario({ seed: 'town-life-041-tavern-rest-time' }),
+      game = scenario.game;
+    game.setFlag('house.purchases', { garden: true });
     game.tickHouseGarden(1);
-    const {room,entrance} = findGeneratedTownDoor(scenario,{templateId:'tavern'});
-    scenario.enterRoom(room.id, adjacentWalkableTile(room,entrance));
+    const { room, entrance } = findGeneratedTownDoor(scenario, { templateId: 'tavern' });
+    scenario.enterRoom(room.id, adjacentWalkableTile(room, entrance));
     expect(game.enterNearbyTownBuildingDoor().ok).toBe(true);
-    scenario.setDayPhase('night'); game.setScore(40);
-    const farms = new FarmingState(); farms.load(game.getFarmingState());
+    scenario.setDayPhase('night');
+    game.setScore(40);
+    const farms = new FarmingState();
+    farms.load(game.getFarmingState());
     const config = defaultGameConfig.atmosphere;
     if (!config) throw new Error('Missing atmosphere');
-    const clock = new WorldAtmosphereSystem(config,'rest-reference'); clock.hydrate(game.getAtmosphereState());
+    const clock = new WorldAtmosphereSystem(config, 'rest-reference');
+    clock.hydrate(game.getAtmosphereState());
     const rest = await game.restAtCurrentInnUntilDawn();
     expect(rest.ok).toBe(true);
-    clock.update(rest.elapsedMs, (duration, climate) => farms.advance(duration, climate, () => ({greenhouse:true})));
+    clock.update(rest.elapsedMs, (duration, climate) =>
+      farms.advance(duration, climate, () => ({ greenhouse: true })),
+    );
     expect(game.getFarmCells('0,-1,0')).toEqual(farms.cells('0,-1,0'));
     expect(game.getFarmingState().elapsedMs).toBe(farms.elapsedMs);
   });
