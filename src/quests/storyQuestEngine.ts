@@ -31,6 +31,8 @@ export interface StoryQuestAction {
   requiresCounter?: { key: string; atLeast: number };
   incrementCounter?: string;
   uniqueActor?: boolean;
+  bindGiver?: boolean;
+  requiresGiver?: boolean;
   nextStage?: string;
   advanceWhen?: { counter: string; atLeast: number; stage: string };
   outcome?: string;
@@ -90,6 +92,7 @@ export function availableStoryActions(
         return false;
       }
     }
+    if (action.requiresGiver && state.giverActorId !== target.actorId) return false;
     if (action.uniqueActor && state.usedActorIds.includes(target.actorId)) return false;
     return true;
   });
@@ -125,6 +128,7 @@ export function applyStoryAction(
         ? [...state.usedActorIds, target.actorId]
         : [...state.usedActorIds],
       ...(action.outcome ? { outcome: action.outcome } : {}),
+      ...(action.bindGiver ? { giverActorId: target.actorId } : {}),
     },
   };
 }
@@ -156,6 +160,7 @@ export const CRYSTAL_CLAUSE: StoryQuestDefinition = {
       description: 'The wizard gives you two binding crystals. His payment is suspiciously generous.',
       stages: ['offered'],
       roles: ['wizard'],
+      bindGiver: true,
       nextStage: 'hunting',
     },
     {
@@ -183,6 +188,7 @@ export const CRYSTAL_CLAUSE: StoryQuestDefinition = {
       description: 'Expose the illegal experiment. Modest reward; the goblins are released.',
       stages: ['hunting', 'ready'],
       roles: ['guard', 'gateGuard'],
+      species: ['human'],
       nextStage: 'completed',
       outcome: 'reported',
     },
@@ -202,6 +208,7 @@ export const CRYSTAL_CLAUSE: StoryQuestDefinition = {
       description: 'Collect a large payment, at the cost of two prisoners and your conscience.',
       stages: ['ready'],
       roles: ['wizard'],
+      requiresGiver: true,
       requiresCounter: { key: 'captured', atLeast: 2 },
       nextStage: 'completed',
       outcome: 'delivered',
@@ -221,6 +228,7 @@ export const CRYSTAL_AFTERMATH: StoryQuestDefinition = {
       description: 'Admit your part in the imprisonment to a town guard.',
       stages: ['followup'],
       roles: ['guard', 'gateGuard'],
+      species: ['human'],
       originOutcomes: ['delivered'],
       nextStage: 'completed',
       outcome: 'atoned',
@@ -231,6 +239,7 @@ export const CRYSTAL_AFTERMATH: StoryQuestDefinition = {
       description: 'Agree that the victims were simply a clerical misunderstanding.',
       stages: ['followup'],
       roles: ['wizard'],
+      requiresGiver: true,
       originOutcomes: ['delivered'],
       nextStage: 'completed',
       outcome: 'complicit',
@@ -240,7 +249,7 @@ export const CRYSTAL_AFTERMATH: StoryQuestDefinition = {
       label: 'Collect the goblins\' gratitude',
       description: 'The goblin merchants offer a ward for defending their people.',
       stages: ['followup'],
-      roles: ['goblinMerchant', 'goblinClerk', 'goblinPriest'],
+      species: ['goblin'],
       originOutcomes: ['reported', 'freed'],
       nextStage: 'completed',
       outcome: 'reconciled',

@@ -7993,7 +7993,11 @@ export class SnakeGame implements QuestRuntime {
     if (definition.id === CRYSTAL_CLAUSE.id) return createStoryQuestState(definition);
     const predecessor = this.storyQuestState(CRYSTAL_CLAUSE);
     return predecessor && nextStoryQuestId(CRYSTAL_CLAUSE, predecessor) === definition.id
-      ? createStoryQuestState(definition, predecessor.outcome)
+      ? {
+          ...createStoryQuestState(definition, predecessor.outcome),
+          giverActorId: predecessor.giverActorId,
+          giverRoomId: predecessor.giverRoomId,
+        }
       : null;
   }
 
@@ -22127,7 +22131,8 @@ export class SnakeGame implements QuestRuntime {
     }
     for (const [key, value] of Object.entries(this.snake.flags)) {
       if (
-        (key.startsWith('quest.story.') ||
+        (key.startsWith('quest.baseline.') ||
+          key.startsWith('quest.story.') ||
           key.startsWith('quest.crystal.') ||
           key.startsWith('town.runtime.') ||
           key.startsWith('house.') ||
