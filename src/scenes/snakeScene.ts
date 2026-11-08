@@ -104,6 +104,7 @@ import { QuestPopup } from '../ui/questPopup.js';
 import { ChoicePopup } from '../ui/choicePopup.js';
 import type { NormalizedChoiceOption } from '../ui/choicePopupModel.js';
 import { FarmingMenu } from '../ui/farmingMenu.js';
+import { CROPS, FARM_TOOLS } from '../farming/cropCatalog.js';
 import { FarmOverlayRenderer } from '../ui/farmOverlayRenderer.js';
 import { SnakeRenderer, type RoomRenderEntry } from '../ui/snakeRenderer.js';
 import { FirstPersonRenderer } from '../ui/firstPerson/firstPersonRenderer.js';
@@ -3686,7 +3687,10 @@ export default class SnakeScene extends Phaser.Scene {
       void this.submitRemote({
         type: 'farmToolAction', action: 'exit',
         playerId: this.snakeGame.getLocalPlayerId(),
-      });
+      }).then(() => this.submitRemote({
+        type: 'playerInteraction', mode: 'playing',
+        playerId: this.snakeGame.getLocalPlayerId(),
+      }));
     } else {
       this.snakeGame.exitFarmToolMode();
       this.gameSession.refreshSnapshot();
@@ -10856,11 +10860,21 @@ export default class SnakeScene extends Phaser.Scene {
         type: 'useItem',
         itemId,
         playerId: this.snakeGame.getLocalPlayerId(),
-      }).then((result) => ({
-        ok: result.ok,
-        message: result.message ?? result.reason ?? (result.ok ? 'Item used.' : 'Cannot use item.'),
-        color: result.color,
-      }));
+      }).then(async (result) => {
+        if (result.ok && (CROPS.some((crop) => crop.seedItemId === itemId) ||
+            (FARM_TOOLS.some((tool) => tool.id === itemId) && itemId !== 'farm-water-refill') ||
+            itemId === 'garden-watering-can' || itemId === 'garden-fertilizer')) {
+          await this.submitRemote({
+            type: 'playerInteraction', mode: 'manual',
+            playerId: this.snakeGame.getLocalPlayerId(),
+          });
+        }
+        return {
+          ok: result.ok,
+          message: result.message ?? result.reason ?? (result.ok ? 'Item used.' : 'Cannot use item.'),
+          color: result.color,
+        };
+      });
     const result = this.snakeGame.useInventoryItem(itemId);
     if (result.ok && this.snakeGame.getFarmTool() === itemId) {
       this.showQuestHintPopup(result.message, '#5dd6a2');
@@ -17267,10 +17281,6 @@ export default class SnakeScene extends Phaser.Scene {
         this.closeVillageShop();
         return;
       }
-      if (id === 'sell-inventory') {
-        this.showActorShopSelling(shop.actorId, 0, guildTownId);
-        return;
-      }
       if (id === 'sell-length') {
         const result = this.snakeGame.sellSnakeLengthToButcher(
           this.currentShopActorIdForRole('butcher'),
@@ -17587,6 +17597,10 @@ export default class SnakeScene extends Phaser.Scene {
         this.closeVillageShop();
         return;
       }
+      if (id === 'sell-inventory') {
+        this.showActorShopSelling(shop.actorId, 0, guildTownId);
+        return;
+      }
       if (id === 'sell-length') {
         const result = await this.gameConnection.send({
           type: 'specialShopAction',
@@ -17764,10 +17778,10 @@ export default class SnakeScene extends Phaser.Scene {
       }
       const count = Number(id);
       if (!quantities.includes(count)) return;
-      void this.gameConnection.send({
+      void Promise.resolve(this.gameConnection.send({
         type: 'purchase', actorId, offerId: offer.id, count,
         playerId: this.snakeGame.getLocalPlayerId(),
-      }).then((result) => {
+      })).then((result) => {
         this.showQuestHintPopup(result.message ?? result.reason ?? 'Purchase complete.',
           result.ok ? '#5dd6a2' : '#ff6b6b');
         this.showActorShopCategory(actorId, category, page, guildTownId);

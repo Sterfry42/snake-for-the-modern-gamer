@@ -3,7 +3,7 @@ import type { GameConnection } from '../session/GameConnection.js';
 import type { SceneActionCommand } from '../session/SceneActionCommand.js';
 import type { ChoicePopup } from './choicePopup.js';
 import type { NormalizedChoiceOption } from './choicePopupModel.js';
-import { CROPS, FARM_RECIPES, resolveProduce } from '../farming/cropCatalog.js';
+import { CROPS } from '../farming/cropCatalog.js';
 import { describeFarmCell } from '../farming/farmingActions.js';
 import { STRUCTURE_BLUEPRINTS } from '../building/structureBlueprint.js';
 
@@ -102,11 +102,11 @@ export class FarmingMenu {
     const game = this.game();
     this.active = false;
     this.popup.hide();
-    void this.connection().send({
+    void Promise.resolve(this.connection().send({
       type: 'useItem',
       itemId,
       playerId: game.getLocalPlayerId(),
-    }).then((result) => {
+    })).then((result) => {
       this.notify(result.message ?? result.reason ?? 'Tool selected.');
       void this.connection().send({
         type: 'playerInteraction', playerId: game.getLocalPlayerId(),
@@ -216,28 +216,6 @@ export class FarmingMenu {
     });
   }
 
-  private chooseTarget(): void {
-    const targets = [
-      { dx: 0, dy: 0 },
-      { dx: 0, dy: -1 },
-      { dx: 1, dy: 0 },
-      { dx: 0, dy: 1 },
-      { dx: -1, dy: 0 },
-    ];
-    this.popup.show(
-      'Choose stationary target',
-      targets.map((target, i) => ({
-        id: String(i),
-        title: ['Head', 'North', 'East', 'South', 'West'][i] ?? '',
-        description: `${target.dx}, ${target.dy}`,
-      })),
-      (id) => {
-        const target = targets[Number(id)];
-        if (target) this.target = target;
-        this.root();
-      },
-    );
-  }
   private seeds(): void {
     const owned = CROPS.filter((crop) =>
       this.game().getInventory().getItemCount(crop.seedItemId) > 0,
@@ -384,68 +362,5 @@ export class FarmingMenu {
       },
     );
   }
-  private sell(): void {
-    const game = this.game();
-    const merchant = game
-      .getActorsInCurrentRoom()
-      .find(
-        (actor) => game.canInteractWithActor(actor.id) && game.getActorShopView(actor.id)?.open,
-      );
-    if (!merchant) {
-      this.notify('Move beside an open merchant to sell.');
-      this.root();
-      return;
-    }
-    const goods = game
-      .getInventory()
-      .getAllItems()
-      .filter(([id, count]) => count > 0 && resolveProduce(id));
-    this.popup.show(
-      `Sell to ${merchant.displayName}`,
-      [
-        ...goods.map(([id, count]) => ({
-          id,
-          title: `${id} ×${count}`,
-          description: 'Sell this stack at the server-calculated quality price.',
-        })),
-        { id: 'back', title: 'Back', description: '' },
-      ],
-      (id) => {
-        if (id === 'back') return this.root();
-        void this.send({
-          type: 'farmSellAction',
-          merchantActorId: merchant.id,
-          itemId: id,
-          count: game.getInventory().getItemCount(id),
-        });
-      },
-    );
-  }
-  private cook(): void {
-    this.popup.show(
-      'Farm cooking',
-      [
-        ...FARM_RECIPES.map((recipe) => ({
-          id: recipe.id,
-          title: recipe.name,
-          description: `Uses one ${recipe.input} of any quality. Restores hunger and one heart.`,
-        })),
-        { id: 'back', title: 'Back', description: '' },
-      ],
-      (id) => {
-        if (id === 'back') return this.root();
-        void Promise.resolve(
-          this.connection().send({
-            type: 'inventoryAction',
-            action: 'cook',
-            recipeId: id,
-            playerId: this.game().getLocalPlayerId(),
-          }),
-        ).then((result) => {
-          this.notify(result.message ?? 'Cooking rejected.');
-          this.root();
-        });
-      },
-    );
-  }
+
 }
