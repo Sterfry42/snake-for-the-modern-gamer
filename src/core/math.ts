@@ -3,6 +3,14 @@ export interface Vector2Like {
   y: number;
 }
 
+/** Axis-aligned rectangle in tile coordinates. */
+export interface Rect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
 export function cloneVector(vec: Vector2Like): Vector2Like {
   return { x: vec.x, y: vec.y };
 }

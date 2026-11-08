@@ -83,7 +83,8 @@ export const paletteConfig: PaletteConfig = {
   },
 };
 
-function clampChannel(value: number): number {
+/** Clamp a value to the 0-255 byte range for an RGB channel. */
+export function clampChannel(value: number): number {
   return Math.max(0, Math.min(255, Math.round(value)));
 }
 

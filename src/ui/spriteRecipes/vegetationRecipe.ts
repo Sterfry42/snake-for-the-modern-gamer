@@ -1,5 +1,6 @@
 import type { RuntimeSpriteRecipe } from '../runtimeSpriteFactory.js';
 import type { VegetationType } from '../../world/types.js';
+import { drawPixels } from './spriteGeometry.js';
 
 export interface VegetationSpritePalette {
   biomeAccentColor: number;
@@ -118,26 +119,6 @@ function drawSprite(
   context.imageSmoothingEnabled = false;
   draw(pixelSize, baseColors.fill, baseColors.outline);
   context.restore();
-}
-
-function fillPixel(
-  context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  pixelSize: number,
-  color: string,
-): void {
-  context.fillStyle = color;
-  context.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
-}
-
-function drawPixels(
-  context: CanvasRenderingContext2D,
-  points: readonly [number, number][],
-  pixelSize: number,
-  color: string,
-): void {
-  points.forEach(([px, py]) => fillPixel(context, px, py, pixelSize, color));
 }
 
 function drawVariant(

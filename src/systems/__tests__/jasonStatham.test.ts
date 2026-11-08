@@ -163,4 +163,38 @@ describe('Jason Statham Boss', () => {
     const deleted = bossManager.getBoss(boss!.id);
     expect(deleted).toBeUndefined();
   });
+
+  it('keeps a unit direction when the dash fallback would be a zero vector', () => {
+    const bossManager = new BossManager(grid, () => 0.5);
+    bossManager.spawnJasonStatham('0,0,0');
+    const boss = bossManager.getBossesInRoom('0,0,0')[0]!;
+    // The boss faces left while the snake sits directly opposite on the same row,
+    // so the dash target is an exact reversal of the current heading.
+    boss.body = [{ x: 4, y: 6 }];
+    boss.direction = { x: -1, y: 0 };
+    boss.jasonPhase = 'attacking';
+    boss.jasonAttackingTimer = 10000;
+    boss.jasonAttackCooldown = 9999;
+    boss.jasonAttackStartOffset = 0;
+    boss.jasonMoveIndex = 0;
+
+    const deps = {
+      getRoom: (roomId: string) =>
+        ({
+          id: roomId,
+          layout: Array.from({ length: 12 }, () => Array(16).fill('.')),
+          portals: [],
+        }) as unknown as RoomSnapshot,
+      getSnakeBody: () => [{ x: 10, y: 6 }],
+      onEvent: () => {},
+      stepMs: 100,
+    };
+
+    bossManager.step(deps);
+
+    // The reverse-prevention fallback must not poison the heading with a zero vector.
+    expect(boss.direction.x * boss.direction.x + boss.direction.y * boss.direction.y).toBe(1);
+    // The dash keeps closing the gap along the current heading instead.
+    expect(boss.body[0]).toEqual({ x: 3, y: 6 });
+  });
 });

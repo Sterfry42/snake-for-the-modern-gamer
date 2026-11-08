@@ -9,13 +9,6 @@ import {
 } from './choicePopupModel.js';
 import { getDebugBus } from '../debug/debugRuntime.js';
 
-export interface ChoiceOption {
-  id: string;
-  title: string;
-  description: string;
-  disabled?: boolean;
-}
-
 interface ChoicePopupScene extends Phaser.Scene {
   registerChoicePopup?(popup: ChoicePopup): void;
   setChoicePopupVisible?(visible: boolean): void;
@@ -60,7 +53,7 @@ export class ChoicePopup {
     this.scene.registerChoicePopup?.(this);
   }
 
-  show(title: string, options: ChoiceOption[], onPick: (id: string) => void): void {
+  show(title: string, options: NormalizedChoiceOption[], onPick: (id: string) => void): void {
     this.onPick = onPick;
     this.scene.setChoicePopupVisible?.(true);
     this.titleText?.setText(title.trim() || 'Choose');

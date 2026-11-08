@@ -1,22 +1,17 @@
-export interface DetailRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
+import type { UiRect } from '../ui/core/UiLayout.js';
 
 export interface AchievementDetailLayout {
   portrait: { x: number; y: number; size: number };
-  title: DetailRect;
-  description: DetailRect;
-  status: DetailRect;
-  section: DetailRect;
-  category: DetailRect;
-  progress: DetailRect;
-  reward: DetailRect;
+  title: UiRect;
+  description: UiRect;
+  status: UiRect;
+  section: UiRect;
+  category: UiRect;
+  progress: UiRect;
+  reward: UiRect;
 }
 
-export function computeAchievementDetailLayout(panel: DetailRect): AchievementDetailLayout {
+export function computeAchievementDetailLayout(panel: UiRect): AchievementDetailLayout {
   const padding = 14;
   const gap = 6;
   const innerWidth = panel.width - padding * 2;

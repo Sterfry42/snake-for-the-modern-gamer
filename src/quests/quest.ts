@@ -63,3 +63,17 @@ export abstract class Quest {
     return `quest.baseline.${this.id}`;
   }
 }
+
+/**
+ * True once the player has crossed a room at least minDistance tiles in
+ * maxTravelMs ms or less, reading the roomTravelDistance/roomTravelMs flags.
+ */
+export function crossedRoomFastEnough(
+  runtime: QuestRuntime,
+  minDistance: number,
+  maxTravelMs: number,
+): boolean {
+  const distance = Number(runtime.getFlag<number>('roomTravelDistance') ?? 0);
+  const travelMs = Number(runtime.getFlag<number>('roomTravelMs') ?? Number.POSITIVE_INFINITY);
+  return distance >= minDistance && travelMs <= maxTravelMs;
+}

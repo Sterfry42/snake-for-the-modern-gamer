@@ -1,4 +1,5 @@
 import type { RuntimeSpriteRecipe } from '../runtimeSpriteFactory.js';
+import { drawPixels } from './spriteGeometry.js';
 
 export type QuestPortraitVariant =
   | 'sage-1'
@@ -32,28 +33,6 @@ const VARIANTS: readonly QuestPortraitVariant[] = [
   'ocean-fisher-neutral',
   'ocean-fisher-happy',
 ];
-
-function fillPixel(
-  context: CanvasRenderingContext2D,
-  px: number,
-  py: number,
-  pixelSize: number,
-  color: string,
-): void {
-  context.fillStyle = color;
-  context.fillRect(px * pixelSize, py * pixelSize, pixelSize, pixelSize);
-}
-
-function drawPixels(
-  context: CanvasRenderingContext2D,
-  points: readonly (readonly [number, number])[],
-  pixelSize: number,
-  color: string,
-): void {
-  for (const [x, y] of points) {
-    fillPixel(context, x, y, pixelSize, color);
-  }
-}
 
 const FRAME = [
   [0, 0],

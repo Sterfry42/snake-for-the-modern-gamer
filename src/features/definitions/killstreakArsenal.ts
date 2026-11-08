@@ -5,6 +5,7 @@ import Phaser from 'phaser';
 import { Feature } from '../feature.js';
 import type SnakeScene from '../../scenes/snakeScene.js';
 import { i18n } from '../../i18n/i18nManager.js';
+import { colorToCss } from '../../ui/colorUtils.js';
 
 interface TierConfig {
   threshold: number;
@@ -65,10 +66,6 @@ interface KillstreakState {
   multiplier: number;
   buffTicks: number;
   baseTickDelay?: number;
-}
-
-function toHex(color: number): string {
-  return `#${color.toString(16).padStart(6, '0')}`;
 }
 
 function estimateSeconds(ticks: number, tickDelay: number): number {
@@ -326,7 +323,7 @@ class KillstreakArsenalFeature extends Feature {
     const worldY = localY * cell + cell / 2;
 
     const config = this.state.tier > 0 ? TIER_CONFIGS[this.state.tier - 1] : null;
-    const color = config ? toHex(config.color) : '#5bc0eb';
+    const color = config ? colorToCss(config.color) : '#5bc0eb';
     const text = scene.add
       .text(
         worldX,
@@ -361,7 +358,7 @@ class KillstreakArsenalFeature extends Feature {
       .text(width / 2, 96, message, {
         fontFamily: 'monospace',
         fontSize: '26px',
-        color: toHex(color),
+        color: colorToCss(color),
         stroke: '#05060a',
         strokeThickness: 6,
       })

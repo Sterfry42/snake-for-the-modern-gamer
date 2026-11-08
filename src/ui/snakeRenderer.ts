@@ -32,6 +32,7 @@ import {
 } from './spriteRecipes/enemyRecipe.js';
 import {
   furnitureSpriteRecipe,
+  furnitureVariantForTile,
   type FurnitureSpritePalette,
   type FurnitureSpriteVariant,
 } from './spriteRecipes/furnitureRecipe.js';
@@ -2351,7 +2352,7 @@ export class SnakeRenderer {
     let index = startIndex;
     for (let y = 0; y < room.layout.length; y++) {
       for (let x = 0; x < room.layout[y].length; x++) {
-        const variant = this.furnitureVariantForTile(room.layout[y][x]);
+        const variant = furnitureVariantForTile(room.layout[y][x]);
         if (!variant) continue;
         const sprite = this.ensureFurnitureSprite(index);
         sprite
@@ -4206,27 +4207,6 @@ export class SnakeRenderer {
       case 'enemy':
       default:
         return this.buildEnemyPalette();
-    }
-  }
-
-  private furnitureVariantForTile(tile: string): FurnitureSpriteVariant | null {
-    switch (tile) {
-      case 'C':
-        return 'couch';
-      case 'K':
-        return 'kitchen';
-      case 'B':
-        return 'bed';
-      case 'P':
-        return 'plant';
-      case 'L':
-        return 'lamp';
-      case 'D':
-        return 'garden';
-      case 'R':
-        return 'gardenReady';
-      default:
-        return null;
     }
   }
 

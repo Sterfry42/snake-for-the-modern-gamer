@@ -9,7 +9,8 @@ import {
   type LayerTemplateId,
   type TownDoorKind,
 } from '../layers/layerTypes.js';
-import { fillRect, setTile } from './structurePlacement.js';
+import { fillRect, rowsToStrings, setTile } from './structurePlacement.js';
+import { parseCoordinateRoomId } from './roomAddress.js';
 import type { BiomeId } from './biomes.js';
 import { createHumanoidIdentity, type WorldHumanoidIdentity } from './humanoidSpawn.js';
 import { isSolidTile, tileHasTag } from './tiles.js';
@@ -569,11 +570,6 @@ class TownRoomBuildContext {
 
 function roomId(townId: string, kind: TownRoomKind): string {
   return `${townId}:${kind}`;
-}
-
-function parseCoordinateRoomId(id: string): { x: number; y: number; z: number } | null {
-  const [x, y, z = 0] = id.split(',').map(Number);
-  return Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z) ? { x, y, z } : null;
 }
 
 function roomIdOnSide(roomIdValue: string, side: TownGateSide): string {
@@ -1652,10 +1648,6 @@ function emptyRows(grid: GridConfig, fill = '.'): string[][] {
   return Array.from({ length: grid.rows }, () => Array.from({ length: grid.cols }, () => fill));
 }
 
-function rowsToStrings(layout: string[][]): string[] {
-  return layout.map((row) => row.join(''));
-}
-
 type ExitSide = 'north' | 'south' | 'east' | 'west';
 
 export const TOWN_GATE_WIDTH = 5;
@@ -1933,7 +1925,8 @@ function walkableDoorApproach(
   return undefined;
 }
 
-function isWalkableTownApproach(tile: string | undefined): boolean {
+/** A town tile the player can stand on: set, not void, not solid, not a blocking town tile. */
+export function isWalkableTownApproach(tile: string | undefined): boolean {
   return Boolean(tile && tile !== '~' && !isSolidTile(tile) && !isBlockingTownTile(tile));
 }
 

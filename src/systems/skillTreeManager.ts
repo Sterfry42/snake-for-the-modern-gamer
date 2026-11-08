@@ -435,6 +435,141 @@ export class SkillTreeManager implements SkillTreeRuntime {
     this.overlay.announce('Starlight Veil primed - it will absorb one fatal hit.', '#ffbdfd', 3200);
   }
 
+  castArcanePulseBlast(): { defeated: number; affected: number } {
+    return this.scene.snakeGame.castArcanePulseBlast();
+  }
+
+  castFirebolt(): { fired: boolean; directHit: boolean } {
+    const result = this.scene.snakeGame.castFirebolt();
+    if (result.fired) {
+      this.onSpellCastPresentation(0xffb36b, 10);
+    }
+    return result;
+  }
+
+  castMagicMissile(): { hit: boolean; defeated: string | null } {
+    const result = this.scene.snakeGame.castMagicMissile();
+    if (result.hit) {
+      this.onSpellCastPresentation(0xff6bd6, 10);
+    }
+    return result;
+  }
+
+  hasMagicMissileTarget(): boolean {
+    return this.scene.snakeGame.hasMagicMissileTarget();
+  }
+
+  castLightningStrike(): {
+    strikes: readonly { x: number; y: number }[];
+    defeated: readonly string[];
+  } {
+    const result = this.scene.snakeGame.castLightningStrike();
+    if (result.strikes.length > 0) {
+      this.onSpellCastPresentation(
+        0xbfe9ff,
+        14,
+        result.defeated.length > 0 ? 'Lightning strikes and chains!' : undefined,
+      );
+    }
+    return result;
+  }
+
+  hasLightningTarget(): boolean {
+    return this.scene.snakeGame.hasLightningTarget();
+  }
+
+  castFrostNova(): {
+    chilled: number;
+    affected: readonly { x: number; y: number }[];
+    defeated: readonly string[];
+  } {
+    const result = this.scene.snakeGame.castFrostNova();
+    if (result.chilled > 0) {
+      this.onSpellCastPresentation(0xbfe9ff, 18);
+    }
+    return result;
+  }
+
+  hasFrostNovaTargets(): boolean {
+    return this.scene.snakeGame.hasFrostNovaTargets();
+  }
+
+  castSwiftstep(): { moved: number } {
+    const result = this.scene.snakeGame.castSwiftstep();
+    if (result.moved > 0) {
+      this.onSpellCastPresentation(0xd6c9ff, 12);
+    }
+    return result;
+  }
+
+  canSwiftstep(): boolean {
+    return this.scene.snakeGame.canSwiftstep();
+  }
+
+  castHaste(): { magnitude: number } {
+    const result = this.scene.snakeGame.castHaste();
+    if (result.magnitude > 0) {
+      this.onSpellCastPresentation(0xd6ff9c, 12, 'Your steps begin to hum.');
+    }
+    return result;
+  }
+
+  castMirrorImage(): { magnitude: number } {
+    const result = this.scene.snakeGame.castMirrorImage();
+    if (result.magnitude > 0) {
+      this.onSpellCastPresentation(0xc9d6ff, 12, 'A mirror image takes the hit for you.');
+    }
+    return result;
+  }
+
+  castShimmerCloak(): { magnitude: number } {
+    const result = this.scene.snakeGame.castShimmerCloak();
+    if (result.magnitude > 0) {
+      this.onSpellCastPresentation(0xc9b8ff, 14, 'You shimmer into a veil of light.');
+    }
+    return result;
+  }
+
+  castHealingGlow(): { kind: 'vitality' | 'ward' } {
+    const result = this.scene.snakeGame.castHealingGlow();
+    this.onSpellCastPresentation(
+      0x9cff9c,
+      12,
+      result.kind === 'vitality'
+        ? 'Stored vitality banks in your veins.'
+        : 'You are already full; the glow holds a ward instead.',
+    );
+    return result;
+  }
+
+  castManaSip(): { magnitude: number } {
+    const result = this.scene.snakeGame.castManaSip();
+    if (result.magnitude > 0) {
+      this.onSpellCastPresentation(0x9ad1ff, 10, 'You sip the astral river.');
+    }
+    return result;
+  }
+
+  hasLightWisp(): boolean {
+    return this.scene.snakeGame.hasLightWisp();
+  }
+
+  castSummonLightWisp(): { ok: boolean; message: string; color: string } {
+    const result = this.scene.snakeGame.summonLightWisp(120);
+    if (result.ok) {
+      this.onSpellCastPresentation(0xc9b8ff, 12, 'A light wisp unfurls beside you.');
+    }
+    return result;
+  }
+
+  getLightWispManaRegen(): number {
+    return this.scene.snakeGame.getLightWispManaRegen();
+  }
+
+  getSpellStatusTicks(statusId: string): number {
+    return this.scene.snakeGame.getSpellStatusTicks(statusId);
+  }
+
   onArcanePulseCast(): void {
     const head = this.scene.snakeGame.getSnakeBody()[0];
     const cell = this.scene.grid.cell;
@@ -500,6 +635,33 @@ export class SkillTreeManager implements SkillTreeRuntime {
   onAstralNova(): void {
     this.scene.snakeGame.triggerProgressionShockwave(5, 6);
     this.juice.arcaneVeilBurst();
+  }
+
+  onSpellCastPresentation(color: number, radius = 12, message?: string): void {
+    const head = this.scene.snakeGame.getSnakeBody()[0];
+    const cell = this.scene.grid.cell;
+    const worldX = head ? head.x * cell + cell / 2 : (this.scene.grid.cols * cell) / 2;
+    const worldY = head ? head.y * cell + cell / 2 : (this.scene.grid.rows * cell) / 2;
+
+    this.juice.arcaneSpellUnlocked();
+
+    const ring = this.scene.add
+      .circle(worldX, worldY, radius, color, 0.45)
+      .setDepth(26)
+      .setBlendMode(Phaser.BlendModes.ADD);
+
+    this.scene.tweens.add({
+      targets: ring,
+      scale: 2.6,
+      alpha: 0,
+      duration: 300,
+      ease: 'Cubic.easeOut',
+      onComplete: () => ring.destroy(),
+    });
+
+    if (message && this.overlay.isVisible()) {
+      this.overlay.announce(message, '#ffbdfd', 2200);
+    }
   }
 
   onSummonFamiliarCast(): void {

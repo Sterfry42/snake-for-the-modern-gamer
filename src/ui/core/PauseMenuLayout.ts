@@ -1,11 +1,5 @@
 import { uiSpacing } from '../theme/uiSpacing.js';
-
-export interface UiRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
+import type { UiRect } from './UiLayout.js';
 
 export interface PauseMenuLayout {
   shell: UiRect;

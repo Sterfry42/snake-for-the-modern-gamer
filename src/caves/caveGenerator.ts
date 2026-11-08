@@ -7,6 +7,7 @@ import { tryPlaceQuestHouse } from '../world/questHouse.js';
 import { tryPlaceShrine } from '../world/shrine.js';
 import { tryPlaceSnakeMcDonalds } from '../world/snakeMcDonalds.js';
 import type { RoomSnapshot } from '../world/types.js';
+import { rowsToStrings } from '../world/structurePlacement.js';
 import { tryPlaceVillage } from '../world/village.js';
 import {
   CAVE_EXIT_TILE,
@@ -44,7 +45,7 @@ export function generateCave(args: {
 
   const room: RoomSnapshot = {
     id: caveId,
-    layout: rows(layout),
+    layout: rowsToStrings(layout),
     portals: [],
     biomeId: 'verdigris-basin',
     biomeTitle: template.label,
@@ -94,7 +95,7 @@ export function generateCave(args: {
 
   clearAround(layout, exit, 1);
   setTile(layout, exit.x, exit.y, CAVE_EXIT_TILE);
-  room.layout = rows(layout);
+  room.layout = rowsToStrings(layout);
   const instance: CaveInstance = {
     id: caveId,
     parentRoomId,
@@ -516,10 +517,6 @@ function clearAround(layout: string[][], center: Vector2Like, radius: number): v
       }
     }
   }
-}
-
-function rows(layout: string[][]): string[] {
-  return layout.map((row) => row.join(''));
 }
 
 function setTile(layout: string[][], x: number, y: number, tile: string): void {

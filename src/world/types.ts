@@ -1,7 +1,7 @@
 /**
  * World Types
  */
-import type { Vector2Like } from '../core/math.js';
+import type { Rect, Vector2Like } from '../core/math.js';
 import type { BiomeId } from './biomes.js';
 import type { TownStructure } from './town.js';
 import type {
@@ -79,12 +79,7 @@ export interface PortalConfig {
   destY: number;
 }
 
-export interface RoomArea {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}
+export type RoomArea = Rect;
 
 export interface WorldHumanoidSpawn {
   id: string;

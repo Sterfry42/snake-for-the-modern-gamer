@@ -1,4 +1,5 @@
 import type { RuntimeSpriteRecipe } from '../runtimeSpriteFactory.js';
+import { drawPixels } from './spriteGeometry.js';
 
 export type QuestGiverSpriteVariant = 'idle' | 'blink';
 
@@ -10,26 +11,6 @@ export interface QuestGiverSpritePalette {
 }
 
 const VARIANTS: readonly QuestGiverSpriteVariant[] = ['idle', 'blink'];
-
-function fillPixel(
-  context: CanvasRenderingContext2D,
-  px: number,
-  py: number,
-  pixelSize: number,
-  color: string,
-): void {
-  context.fillStyle = color;
-  context.fillRect(px * pixelSize, py * pixelSize, pixelSize, pixelSize);
-}
-
-function drawPixels(
-  context: CanvasRenderingContext2D,
-  points: readonly (readonly [number, number])[],
-  pixelSize: number,
-  color: string,
-): void {
-  points.forEach(([x, y]) => fillPixel(context, x, y, pixelSize, color));
-}
 
 const OUTLINE = [
   [2, 1],

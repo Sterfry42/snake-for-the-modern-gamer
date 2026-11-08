@@ -22,6 +22,9 @@ import {
   AP_PHASE_2_APPLE_TYPES,
   AP_PHASE_2_ARTIFACT_LOCATIONS,
   AP_PHASE_2_BOSS_LOCATIONS,
+  AP_PHASE_1_GAME_NAME,
+  AP_PHASE_1_ITEM_BASE_ID,
+  AP_PHASE_1_LOCATION_BASE_ID,
   AP_PHASE_2_CARD_LOCATIONS,
   AP_PHASE_2_CARD_TABLE_LOCATIONS,
   AP_PHASE_2_CORE_ITEM_IDS,
@@ -33,10 +36,6 @@ import {
   type ArchipelagoItemDefinition,
   type ArchipelagoLocationDefinition,
 } from './archipelagoCheckManifest.js';
-
-export const AP_WORLD_GAME_NAME = 'Snaked. Revised. Revamped.';
-export const AP_WORLD_LOCATION_BASE_ID = 912000000;
-export const AP_WORLD_ITEM_BASE_ID = 913000000;
 
 function pyString(value: string): string {
   return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')}"`;
@@ -128,7 +127,7 @@ repackage the world. The test suite fails when this file is out of sync.
 from BaseClasses import Location
 
 
-LOCATION_BASE_ID = ${AP_WORLD_LOCATION_BASE_ID}
+LOCATION_BASE_ID = ${AP_PHASE_1_LOCATION_BASE_ID}
 
 
 CORE_ITEM_IDS = ${coreItemIds}
@@ -164,7 +163,7 @@ location_groups = {
 
 
 class SnakedLocation(Location):
-    game = ${pyString(AP_WORLD_GAME_NAME)}
+    game = ${pyString(AP_PHASE_1_GAME_NAME)}
 `;
 }
 
@@ -199,7 +198,7 @@ repackage the world. The test suite fails when this file is out of sync.
 from BaseClasses import Item, ItemClassification
 
 
-ITEM_BASE_ID = ${AP_WORLD_ITEM_BASE_ID}
+ITEM_BASE_ID = ${AP_PHASE_1_ITEM_BASE_ID}
 
 
 item_table = ${itemTable}
@@ -220,7 +219,7 @@ item_groups = {
 
 
 class SnakedItem(Item):
-    game = ${pyString(AP_WORLD_GAME_NAME)}
+    game = ${pyString(AP_PHASE_1_GAME_NAME)}
 
 
 def get_item_classification(name: str) -> ItemClassification:

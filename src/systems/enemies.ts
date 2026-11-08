@@ -1,8 +1,10 @@
 import type { GridConfig } from '../config/gameConfig.js';
+import { hslToHex } from '../config/palette.js';
 import type { RoamingSnakeConfig } from '../config/roamingSnakeConfig.js';
 import type { Vector2Like } from '../core/math.js';
 import { isCaveRoomId } from '../caves/caveGenerator.js';
 import type { RandomGenerator } from '../core/rng.js';
+import { colorToCss } from '../ui/colorUtils.js';
 import type { RoomSnapshot } from '../world/types.js';
 import { getBiomeDefinition, getBiomeEnemySpawnChance } from '../world/biomes.js';
 import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
@@ -19,6 +21,7 @@ export interface EnemyInstance {
   moveCooldown: number;
   aimDirection: Vector2Like;
   flashTicks: number;
+  chillTicks?: number;
   name?: string;
   currentHearts?: number;
   maxHearts?: number;
@@ -560,7 +563,7 @@ export class EnemyManager {
     const hue = Math.floor(rng() * 360);
     const saturation = 0.65 + rng() * 0.25;
     const lightness = 0.45 + rng() * 0.15;
-    const colorHex = this.hslToHex(hue, saturation, lightness);
+    const colorHex = colorToCss(hslToHex(hue, saturation, lightness));
 
     const id = `roaming-snake-${this.idCounter++}`;
     const roaming: EnemyInstance = {
@@ -650,41 +653,6 @@ export class EnemyManager {
     }
 
     return null;
-  }
-
-  private hslToHex(h: number, s: number, l: number): string {
-    const hue = (h % 360) / 360;
-    const chroma = (1 - Math.abs(2 * l - 1)) * s;
-    const hPrime = hue * 6;
-    const x = chroma * (1 - Math.abs((hPrime % 2) - 1));
-    let r = 0,
-      g = 0,
-      b = 0;
-
-    if (hPrime >= 0 && hPrime < 1) {
-      r = chroma;
-      g = x;
-    } else if (hPrime >= 1 && hPrime < 2) {
-      r = x;
-      g = chroma;
-    } else if (hPrime >= 2 && hPrime < 3) {
-      g = chroma;
-      b = x;
-    } else if (hPrime >= 3 && hPrime < 4) {
-      g = x;
-      b = chroma;
-    } else if (hPrime >= 4 && hPrime < 5) {
-      r = x;
-      b = chroma;
-    } else {
-      r = chroma;
-      b = x;
-    }
-
-    const m = l - chroma / 2;
-    const toChannel = (v: number) => Math.max(0, Math.min(255, Math.round((v + m) * 255)));
-
-    return `#${((toChannel(r) << 16) | (toChannel(g) << 8) | toChannel(b)).toString(16).padStart(6, '0')}`;
   }
 
   step(params: EnemyStepParams): EnemyStepResult {
@@ -810,6 +778,16 @@ export class EnemyManager {
           fireCooldown: 999,
           moveCooldown: enemy.moveCooldown,
           flashTicks: Math.max(0, enemy.flashTicks - 1),
+        });
+        continue;
+      }
+
+      if ((enemy.chillTicks ?? 0) > 0) {
+        // Chilled enemies hold position, aim, and breath until the rime thaws.
+        nextEnemies.push({
+          ...enemy,
+          flashTicks: Math.max(0, enemy.flashTicks - 1),
+          chillTicks: Math.max(0, (enemy.chillTicks ?? 0) - 1),
         });
         continue;
       }
@@ -1061,6 +1039,83 @@ export class EnemyManager {
     }
     const defeated = this.damageEnemyById(roomId, target.id, damage);
     return { hit: true, defeated };
+  }
+
+  isEnemyChilled(enemyId: string): boolean {
+    for (const enemies of this.enemies.values()) {
+      const enemy = enemies.find((candidate) => candidate.id === enemyId);
+      if (enemy) {
+        return (enemy.chillTicks ?? 0) > 0;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Freeze every enemy within Manhattan `radius` of the world origin.
+   * Chilled enemies hold still, hold their aim, and hold their breath.
+   */
+  applyChill(roomId: string, worldOrigin: Vector2Like, radius: number, ticks: number): number {
+    const origin = globalToLocal(roomId, worldOrigin, this.grid);
+    const enemies = this.enemies.get(roomId) ?? [];
+    const radiusClamped = Math.max(0, Math.floor(radius));
+    const duration = Math.max(0, Math.floor(ticks));
+    if (duration <= 0) {
+      return 0;
+    }
+    let chilled = 0;
+    const next = enemies.map((enemy) => {
+      const distance =
+        Math.abs(enemy.position.x - origin.x) + Math.abs(enemy.position.y - origin.y);
+      if (distance > radiusClamped) {
+        return enemy;
+      }
+      chilled += 1;
+      return {
+        ...enemy,
+        chillTicks: Math.max(duration, enemy.chillTicks ?? 0),
+        flashTicks: Math.max(enemy.flashTicks, 1),
+      };
+    });
+    if (chilled > 0) {
+      this.enemies.set(roomId, next);
+    }
+    return chilled;
+  }
+
+  /**
+   * Frost Nova: rime passes through the room, nipping every enemy in radius
+   * and leaving them chilled for the given number of enemy steps.
+   */
+  frostNova(
+    roomId: string,
+    worldOrigin: Vector2Like,
+    radius: number,
+    damage = 1,
+    chillTicks = 5,
+  ): { chilled: number; affected: Vector2Like[]; defeated: EnemyInstance[] } {
+    const origin = globalToLocal(roomId, worldOrigin, this.grid);
+    const enemies = this.enemies.get(roomId) ?? [];
+    const radiusClamped = Math.max(0, Math.floor(radius));
+    const inRadius = enemies.filter((enemy) => {
+      const distance =
+        Math.abs(enemy.position.x - origin.x) + Math.abs(enemy.position.y - origin.y);
+      return distance <= radiusClamped;
+    });
+    const affected: Vector2Like[] = [];
+    const defeated: EnemyInstance[] = [];
+    for (const enemy of inRadius) {
+      const world = localToGlobal(roomId, enemy.position, this.grid);
+      const hit = this.damageEnemyAt(roomId, world, Math.max(1, Math.floor(damage)));
+      affected.push({ x: enemy.position.x, y: enemy.position.y });
+      if (hit.defeated) {
+        defeated.push(hit.defeated);
+      }
+    }
+    if (affected.length > 0) {
+      this.applyChill(roomId, worldOrigin, radiusClamped, chillTicks);
+    }
+    return { chilled: affected.length, affected, defeated };
   }
 
   getDuelBossInRoom(roomId: string): DuelBossDisplay | null {

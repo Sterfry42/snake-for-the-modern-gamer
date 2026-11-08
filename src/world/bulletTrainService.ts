@@ -219,23 +219,6 @@ export function createBulletTrainStation(
   return station;
 }
 
-/** Generate transit room IDs for a bullet train journey. */
-export function generateTransitRooms(
-  stationRoomId: string,
-  destinationRoomId: string,
-  rng: RandomGenerator,
-): string[] {
-  const transitRooms: string[] = [];
-  const count = 1 + Math.floor(rng() * 2); // 1-2 transit rooms
-
-  for (let i = 0; i < count; i++) {
-    const transitId = `transit:${stationRoomId}:${destinationRoomId}:${i}`;
-    transitRooms.push(transitId);
-  }
-
-  return transitRooms;
-}
-
 /** Build a weighted list of destination choices for the player to pick from. */
 export function buildDestinationChoices(
   destinations: BulletTrainDestination[],

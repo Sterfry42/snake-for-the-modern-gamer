@@ -1,4 +1,4 @@
-import { stableStringHashPositive } from '../core/math.js';
+import { clamp, stableStringHashPositive } from '../core/math.js';
 import { isTownGuardRole } from '../world/townRoles.js';
 import type {
   CivicOfficeHolder,
@@ -179,8 +179,4 @@ function deterministicUncertainty(seed: string): number {
 
 function deterministicPollingError(seed: string): number {
   return ((stableStringHashPositive(seed) % 17) - 8) / 100;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
 }

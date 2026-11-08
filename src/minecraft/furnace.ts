@@ -1,3 +1,4 @@
+import { blockCellKey } from './cellKey.js';
 import type { MinecraftPlayer } from './player.js';
 
 export interface SmeltingRecipe {
@@ -76,7 +77,7 @@ export function tryLoadFurnace(
   roomId: string,
   itemId: string,
 ): { success: boolean; message?: string } {
-  const key = `${x},${y},${roomId}`;
+  const key = blockCellKey(x, y, roomId);
   const furnace = furnaces.get(key);
   if (!furnace) {
     return { success: false, message: 'No furnace here.' };
@@ -177,7 +178,7 @@ export function tryPlaceFurnace(
   y: number,
   roomId: string,
 ): { success: boolean; message?: string } {
-  const key = `${x},${y},${roomId}`;
+  const key = blockCellKey(x, y, roomId);
   if (furnaces.has(key)) {
     return { success: false, message: 'A furnace is already here.' };
   }
@@ -192,7 +193,7 @@ export function tryCollectFurnaceOutput(
   y: number,
   roomId: string,
 ): { success: boolean; message?: string } {
-  const key = `${x},${y},${roomId}`;
+  const key = blockCellKey(x, y, roomId);
   const furnace = furnaces.get(key);
   if (!furnace) {
     return { success: false, message: 'No furnace here.' };

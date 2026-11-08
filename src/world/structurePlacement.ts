@@ -1,12 +1,13 @@
 import type { GridConfig } from '../config/gameConfig.js';
-import { vectorKey } from '../core/math.js';
+import { clamp, vectorKey, type Rect, type Vector2Like } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 
-export interface StructureBounds {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
+export type StructureBounds = Rect;
+
+/** Common options for structure placers: forbidden cells and edge margin. */
+export interface StructurePlacementOptions {
+  forbiddenCells?: ReadonlySet<string>;
+  margin?: number;
 }
 
 export interface RandomRectPlacementOptions {
@@ -22,6 +23,11 @@ export function setTile(layout: string[][], x: number, y: number, ch: string): v
   const row = layout[y];
   if (!row || x < 0 || x >= row.length) return;
   row[x] = ch;
+}
+
+/** Join a tile-character grid into row strings for storage/comparison. */
+export function rowsToStrings(layout: string[][]): string[] {
+  return layout.map((row) => row.join(''));
 }
 
 export function fillRect(
@@ -89,6 +95,36 @@ export function findRandomRectPlacement(
   return null;
 }
 
+/**
+ * Place a rect via up to `attempts` random positions, falling back to the
+ * fixed candidate positions (clearing that area) when the room is crowded.
+ * Returns null when no candidate fits.
+ */
+export function placeRectWithFallback(
+  layout: string[][],
+  grid: GridConfig,
+  width: number,
+  height: number,
+  rng: RandomGenerator,
+  options: StructurePlacementOptions & { attempts?: number } = {},
+): StructureBounds | null {
+  const margin = options.margin ?? 5;
+  const attempts = options.attempts ?? 80;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const left = randomIntInRange(rng, margin, Math.max(margin + 1, grid.cols - width - margin));
+    const top = randomIntInRange(rng, margin, Math.max(margin + 1, grid.rows - height - margin));
+    const candidate: StructureBounds = { left, top, width, height };
+    if (canPlaceRect(layout, candidate, options.forbiddenCells, 1)) {
+      return candidate;
+    }
+  }
+
+  const fallback = findFallbackRectPlacement(layout, grid, width, height, options.forbiddenCells);
+  if (!fallback) return null;
+  clearRect(layout, fallback, 1);
+  return fallback;
+}
+
 export function findFallbackRectPlacement(
   layout: string[][],
   grid: GridConfig,
@@ -109,8 +145,8 @@ export function findFallbackRectPlacement(
 
   for (const candidate of candidates) {
     const bounds = {
-      left: clampInt(candidate.left, 1, grid.cols - width - 1),
-      top: clampInt(candidate.top, 1, grid.rows - height - 1),
+      left: clamp(candidate.left, 1, grid.cols - width - 1),
+      top: clamp(candidate.top, 1, grid.rows - height - 1),
       width,
       height,
     };
@@ -145,6 +181,78 @@ function canClearRect(
   return true;
 }
 
-function clampInt(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
+/** Positions shared by the goblin and tengu camp skeletons. */
+export interface CampScaffold {
+  camp: StructureBounds;
+  center: Vector2Like;
+  safeArea: StructureBounds;
+  tents: Vector2Like[];
+  fires: Vector2Like[];
+  leaderSpot: Vector2Like;
+  guardSpots: Vector2Like[];
+}
+
+/**
+ * Place the common camp skeleton: an 8x4 core inside a 5-tile padded safe
+ * area (both filled with 'E'), three tents, two fires, a leader spot, and
+ * two guard spots. Camp-specific tile art and spawns are drawn by the
+ * caller using the returned positions.
+ */
+export function placeCampScaffold(
+  layout: string[][],
+  grid: GridConfig,
+  rng: RandomGenerator,
+  options: StructurePlacementOptions = {},
+): CampScaffold | null {
+  if (grid.cols < 24 || grid.rows < 18) return null;
+
+  const coreWidth = 8;
+  const coreHeight = 4;
+  const safeAreaPadding = 5;
+  const camp = findRandomRectPlacement(layout, grid, rng, {
+    width: coreWidth + safeAreaPadding * 2,
+    height: coreHeight + safeAreaPadding * 2,
+    margin: options.margin ?? 5,
+    attempts: 32,
+    forbiddenCells: options.forbiddenCells,
+  });
+  if (!camp) return null;
+
+  const center: Vector2Like = {
+    x: camp.left + Math.floor(camp.width / 2),
+    y: camp.top + Math.floor(camp.height / 2),
+  };
+  const safeArea: StructureBounds = {
+    left: camp.left,
+    top: camp.top,
+    width: camp.width,
+    height: camp.height,
+  };
+
+  fillRect(layout, safeArea.left, safeArea.top, safeArea.width, safeArea.height, 'E');
+  fillRect(
+    layout,
+    camp.left + safeAreaPadding,
+    camp.top + safeAreaPadding,
+    coreWidth,
+    coreHeight,
+    'E',
+  );
+
+  const tents: Vector2Like[] = [
+    { x: camp.left + 1, y: camp.top + 1 },
+    { x: camp.left + camp.width - 4, y: camp.top + 1 },
+    { x: camp.left + 2, y: camp.top + camp.height - 4 },
+  ];
+  const fires: Vector2Like[] = [
+    { x: center.x - 1, y: center.y },
+    { x: center.x + 2, y: center.y + 1 },
+  ];
+  const leaderSpot: Vector2Like = { x: center.x, y: center.y - 1 };
+  const guardSpots: Vector2Like[] = [
+    { x: center.x - 3, y: center.y + 1 },
+    { x: center.x + 4, y: center.y - 1 },
+  ];
+
+  return { camp, center, safeArea, tents, fires, leaderSpot, guardSpots };
 }

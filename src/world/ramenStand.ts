@@ -1,7 +1,13 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import type { RandomGenerator } from '../core/rng.js';
 import { createHumanoidSpawn } from './humanoidSpawn.js';
-import { fillRect, findRandomRectPlacement, pickOne, setTile } from './structurePlacement.js';
+import {
+  fillRect,
+  findRandomRectPlacement,
+  pickOne,
+  setTile,
+  type StructurePlacementOptions,
+} from './structurePlacement.js';
 import type { RoomSnapshot } from './types.js';
 
 const CHEF_NAMES = ['Goro', 'Tetsu', 'Shin', 'Katsu', 'Ryu', 'Hiro', 'Kenji'] as const;
@@ -9,16 +15,11 @@ const RAMEN_STAND_ATTEMPTS = 24;
 const RAMEN_STAND_MARGIN = 5;
 const SAFE_AREA_PADDING = 4;
 
-interface RamenStandPlacementOptions {
-  forbiddenCells?: ReadonlySet<string>;
-  margin?: number;
-}
-
 export function tryPlaceRamenStand(
   layout: string[][],
   grid: GridConfig,
   rng: RandomGenerator,
-  options: RamenStandPlacementOptions = {},
+  options: StructurePlacementOptions = {},
 ): NonNullable<RoomSnapshot['ramenStand']> | null {
   if (grid.cols < 16 || grid.rows < 14) return null;
 

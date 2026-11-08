@@ -485,6 +485,30 @@ export const ITEMS: readonly Item[] = [
     category: 'consumable',
   },
   {
+    id: 'mana-potion',
+    name: 'Mana Potion',
+    description:
+      'A pale blue draught that tastes faintly of starlight. Restores 30 mana when the astral river allows.',
+    kind: 'consumable',
+    category: 'consumable',
+  },
+  {
+    id: 'mana-crystal',
+    name: 'Mana Crystal',
+    description:
+      'A shard of compressed night sky. Dissolves permanently into +5 max mana and +0.5 regen. A wizard says you can hold three before the sky gets nervous.',
+    kind: 'consumable',
+    category: 'consumable',
+  },
+  {
+    id: 'wizard-lesson',
+    name: "Wizard's Lesson",
+    description:
+      'An hour under the wizard\u2019s patient, slightly terrifying instruction. Teaches you one spell you do not yet know.',
+    kind: 'consumable',
+    category: 'charm',
+  },
+  {
     id: 'life-tonic',
     name: 'Life Tonic',
     description: 'A rare tonic that adds one extra-life charge for this run.',

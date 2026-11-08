@@ -2,6 +2,7 @@ import type { GridConfig } from '../../../config/gameConfig.js';
 import { vectorKey } from '../../../core/math.js';
 import type { BiomeMap } from '../biomeMap.js';
 import type { ProtectedCells } from '../types.js';
+import { hashRoomCoordinates } from '../worldHash.js';
 
 type ForestSide = 'north' | 'south' | 'west' | 'east';
 
@@ -199,14 +200,14 @@ export class ForestOperations {
       });
       if (edgeCandidates.length > 0) {
         const forced =
-          edgeCandidates[this.hashRoom(roomX, roomY, roomZ, 0x65d) % edgeCandidates.length];
+          edgeCandidates[hashRoomCoordinates(roomX, roomY, roomZ, 0x65d) % edgeCandidates.length];
         exits[forced] = true;
       }
     }
 
     const center = {
-      x: Math.floor(grid.cols / 2) - 2 + (this.hashRoom(roomX, roomY, roomZ, 0x671) % 5),
-      y: Math.floor(grid.rows / 2) - 2 + (this.hashRoom(roomX, roomY, roomZ, 0x67f) % 5),
+      x: Math.floor(grid.cols / 2) - 2 + (hashRoomCoordinates(roomX, roomY, roomZ, 0x671) % 5),
+      y: Math.floor(grid.rows / 2) - 2 + (hashRoomCoordinates(roomX, roomY, roomZ, 0x67f) % 5),
     };
     return { exits, exitPositions, center };
   }
@@ -223,12 +224,12 @@ export class ForestOperations {
     protectedCells?: ProtectedCells,
   ): void {
     const straightLength =
-      10 + (this.hashRoom(roomX, roomY, roomZ, this.forestSideSalt(side, 0x683)) % 4);
+      10 + (hashRoomCoordinates(roomX, roomY, roomZ, this.forestSideSalt(side, 0x683)) % 4);
     const staging = this.forestEntranceStagingPoint(side, to, straightLength, grid);
     this.carveLocalRectBetween(layout, to.x, to.y, staging.x, staging.y, '.', protectedCells);
 
     const bendFirstHorizontal =
-      this.hashRoom(roomX, roomY, roomZ, this.forestSideSalt(side, 0x691)) % 100 < 50;
+      hashRoomCoordinates(roomX, roomY, roomZ, this.forestSideSalt(side, 0x691)) % 100 < 50;
     if (bendFirstHorizontal) {
       this.carveLocalRectBetween(layout, from.x, from.y, staging.x, from.y, '.', protectedCells);
       this.carveLocalRectBetween(
@@ -253,11 +254,13 @@ export class ForestOperations {
       );
     }
 
-    if (this.hashRoom(roomX, roomY, roomZ, this.forestSideSalt(side, 0x6b1)) % 100 < 34) {
+    if (hashRoomCoordinates(roomX, roomY, roomZ, this.forestSideSalt(side, 0x6b1)) % 100 < 34) {
       const branchLength =
-        4 + (this.hashRoom(roomX, roomY, roomZ, this.forestSideSalt(side, 0x6c1)) % 8);
+        4 + (hashRoomCoordinates(roomX, roomY, roomZ, this.forestSideSalt(side, 0x6c1)) % 8);
       const branchDir =
-        this.hashRoom(roomX, roomY, roomZ, this.forestSideSalt(side, 0x6d3)) % 2 === 0 ? -1 : 1;
+        hashRoomCoordinates(roomX, roomY, roomZ, this.forestSideSalt(side, 0x6d3)) % 2 === 0
+          ? -1
+          : 1;
       const branchStart = {
         x: Math.floor((from.x + staging.x) / 2),
         y: Math.floor((from.y + staging.y) / 2),
@@ -294,19 +297,21 @@ export class ForestOperations {
     roomZ: number,
     protectedCells?: ProtectedCells,
   ): void {
-    const count = 2 + (this.hashRoom(roomX, roomY, roomZ, 0x701) % 3);
+    const count = 2 + (hashRoomCoordinates(roomX, roomY, roomZ, 0x701) % 3);
     for (let index = 0; index < count; index += 1) {
-      if (this.hashRoom(roomX, roomY, roomZ, 0x711 + index) % 100 >= 55) {
+      if (hashRoomCoordinates(roomX, roomY, roomZ, 0x711 + index) % 100 >= 55) {
         continue;
       }
-      const width = 2 + (this.hashRoom(roomX, roomY, roomZ, 0x721 + index) % 4);
-      const height = 2 + (this.hashRoom(roomX, roomY, roomZ, 0x731 + index) % 4);
+      const width = 2 + (hashRoomCoordinates(roomX, roomY, roomZ, 0x721 + index) % 4);
+      const height = 2 + (hashRoomCoordinates(roomX, roomY, roomZ, 0x731 + index) % 4);
       const x =
         2 +
-        (this.hashRoom(roomX, roomY, roomZ, 0x741 + index) % Math.max(1, grid.cols - width - 4));
+        (hashRoomCoordinates(roomX, roomY, roomZ, 0x741 + index) %
+          Math.max(1, grid.cols - width - 4));
       const y =
         2 +
-        (this.hashRoom(roomX, roomY, roomZ, 0x751 + index) % Math.max(1, grid.rows - height - 4));
+        (hashRoomCoordinates(roomX, roomY, roomZ, 0x751 + index) %
+          Math.max(1, grid.rows - height - 4));
       this.carveLocalRect(layout, x, y, width, height, '.', protectedCells);
     }
   }
@@ -488,15 +493,15 @@ export class ForestOperations {
     salt: number,
   ): number {
     if (side === 'east') {
-      return this.hashRoom(roomX, roomY, roomZ, salt + 11);
+      return hashRoomCoordinates(roomX, roomY, roomZ, salt + 11);
     }
     if (side === 'west') {
-      return this.hashRoom(roomX - 1, roomY, roomZ, salt + 11);
+      return hashRoomCoordinates(roomX - 1, roomY, roomZ, salt + 11);
     }
     if (side === 'south') {
-      return this.hashRoom(roomX, roomY, roomZ, salt + 29);
+      return hashRoomCoordinates(roomX, roomY, roomZ, salt + 29);
     }
-    return this.hashRoom(roomX, roomY - 1, roomZ, salt + 29);
+    return hashRoomCoordinates(roomX, roomY - 1, roomZ, salt + 29);
   }
 
   private forestNeighbor(roomX: number, roomY: number, side: ForestSide): { x: number; y: number } {
@@ -540,16 +545,5 @@ export class ForestOperations {
 
   private forestSides(): ForestSide[] {
     return ['north', 'south', 'west', 'east'];
-  }
-
-  private hashRoom(roomX: number, roomY: number, roomZ: number, salt: number): number {
-    let hash = 2166136261;
-    hash ^= roomX + 0x9e3779b9;
-    hash = Math.imul(hash, 16777619);
-    hash ^= roomY + 0x85ebca6b;
-    hash = Math.imul(hash, 16777619);
-    hash ^= roomZ + salt;
-    hash = Math.imul(hash, 16777619);
-    return hash >>> 0;
   }
 }

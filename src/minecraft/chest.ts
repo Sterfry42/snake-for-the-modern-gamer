@@ -1,3 +1,4 @@
+import { blockCellKey } from './cellKey.js';
 import type { MinecraftPlayer } from './player.js';
 
 const CHEST_SIZE = 27;
@@ -31,7 +32,7 @@ export function tryPlaceChest(
   y: number,
   roomId: string,
 ): { success: boolean; message?: string } {
-  const key = `${x},${y},${roomId}`;
+  const key = blockCellKey(x, y, roomId);
   if (chests.has(key)) {
     return { success: false, message: 'A chest is already here.' };
   }
@@ -62,7 +63,7 @@ export function tryDepositToChest(
   itemId: string,
   count: number,
 ): { success: boolean; message?: string } {
-  const key = `${x},${y},${roomId}`;
+  const key = blockCellKey(x, y, roomId);
   const chest = chests.get(key);
   if (!chest) {
     return { success: false, message: 'No chest here.' };
@@ -108,7 +109,7 @@ export function tryWithdrawFromChest(
   itemId: string,
   count: number,
 ): { success: boolean; message?: string } {
-  const key = `${x},${y},${roomId}`;
+  const key = blockCellKey(x, y, roomId);
   const chest = chests.get(key);
   if (!chest) {
     return { success: false, message: 'No chest here.' };
@@ -149,7 +150,7 @@ export function tryBreakChest(
   y: number,
   roomId: string,
 ): { success: boolean; message?: string } {
-  const key = `${x},${y},${roomId}`;
+  const key = blockCellKey(x, y, roomId);
   const chest = chests.get(key);
   if (!chest) {
     return { success: false, message: 'No chest here.' };
@@ -172,7 +173,7 @@ export function getChestContents(
   y: number,
   roomId: string,
 ): ChestSlot[] | null {
-  const key = `${x},${y},${roomId}`;
+  const key = blockCellKey(x, y, roomId);
   const chest = chests.get(key);
   if (!chest) return null;
   return chest.slots;

@@ -1,7 +1,13 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import type { RandomGenerator } from '../core/rng.js';
 import { createHumanoidIdentity } from './humanoidSpawn.js';
-import { fillRect, findRandomRectPlacement, pickOne, setTile } from './structurePlacement.js';
+import {
+  fillRect,
+  findRandomRectPlacement,
+  pickOne,
+  setTile,
+  type StructurePlacementOptions,
+} from './structurePlacement.js';
 import type { RoomSnapshot } from './types.js';
 
 const JACKALOPE_LODGE_NAMES = [
@@ -24,16 +30,11 @@ const JACKALOPE_NPC_NAMES = [
   'Ranger Maybe',
 ] as const;
 
-interface PlacementOptions {
-  forbiddenCells?: ReadonlySet<string>;
-  margin?: number;
-}
-
 export function tryPlaceJackalopeLodge(
   layout: string[][],
   grid: GridConfig,
   rng: RandomGenerator,
-  options: PlacementOptions = {},
+  options: StructurePlacementOptions = {},
 ): NonNullable<RoomSnapshot['jackalopeLodge']> | null {
   if (grid.cols < 24 || grid.rows < 18) return null;
 

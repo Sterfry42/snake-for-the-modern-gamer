@@ -2,20 +2,12 @@ import type { GridConfig } from '../config/gameConfig.js';
 import type { RandomGenerator } from '../core/rng.js';
 import { CAR_HEIGHT_TILES, CAR_WIDTH_TILES, type GarageStructure } from '../vehicles/car.js';
 import {
-  canPlaceRect,
-  clearRect,
   fillRect,
-  findFallbackRectPlacement,
+  placeRectWithFallback,
   pickOne,
-  randomIntInRange,
   setTile,
   type StructureBounds,
 } from './structurePlacement.js';
-
-interface PlacementOptions {
-  forbiddenCells?: ReadonlySet<string>;
-  margin?: number;
-}
 
 const GARAGE_NAMES = ['Piston Saint Garage', 'Curbside Crown Auto', 'Two-Tile Motors'] as const;
 const MECHANIC_NAMES = ['Rita Ratchet', 'Sal Bolt', 'Mina Clutch', 'Frankie Fuel'] as const;
@@ -24,28 +16,12 @@ export function tryPlaceGarage(
   layout: string[][],
   grid: GridConfig,
   rng: RandomGenerator,
-  options: PlacementOptions = {},
+  options: { forbiddenCells?: ReadonlySet<string>; margin?: number } = {},
 ): GarageStructure | null {
   const width = 12;
   const height = 8;
-  const margin = options.margin ?? 5;
-  let bounds: StructureBounds | null = null;
-
-  for (let attempt = 0; attempt < 80; attempt += 1) {
-    const left = randomIntInRange(rng, margin, Math.max(margin + 1, grid.cols - width - margin));
-    const top = randomIntInRange(rng, margin, Math.max(margin + 1, grid.rows - height - margin));
-    const candidate = { left, top, width, height };
-    if (canPlaceRect(layout, candidate, options.forbiddenCells, 1)) {
-      bounds = candidate;
-      break;
-    }
-  }
-
-  if (!bounds) {
-    bounds = findFallbackRectPlacement(layout, grid, width, height, options.forbiddenCells);
-    if (!bounds) return null;
-    clearRect(layout, bounds, 1);
-  }
+  const bounds = placeRectWithFallback(layout, grid, width, height, rng, options);
+  if (!bounds) return null;
 
   stampGarage(layout, bounds);
   const mechanic = {

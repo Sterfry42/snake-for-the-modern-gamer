@@ -520,7 +520,7 @@ export class SnakeState {
         (apple) => apple.x === finalLocalHeadX && apple.y === finalLocalHeadY,
       ),
     );
-    const bodyForSelfCollision = appleEaten ? this.body : this.getBodyWithoutMovingTailStack();
+    const bodyForSelfCollision = appleEaten ? this.body : this.getBodyWithoutMovingTail();
     const koiFlowActive = this.isKoiFlowActive();
     const selfCollisionIndex = verticalRoomChanged
       ? -1
@@ -747,20 +747,15 @@ export class SnakeState {
     return { x: head.x + stumble.x, y: head.y + stumble.y };
   }
 
-  private getBodyWithoutMovingTailStack(): Vector2Like[] {
-    const tail = this.body[this.body.length - 1];
-    if (!tail) {
-      return this.body;
-    }
-    let movingTailStart = this.body.length - 1;
-    while (
-      movingTailStart > 0 &&
-      this.body[movingTailStart - 1].x === tail.x &&
-      this.body[movingTailStart - 1].y === tail.y
-    ) {
-      movingTailStart -= 1;
-    }
-    return this.body.slice(0, movingTailStart);
+  /**
+   * Body checked for self-collision on a step that does not grow.
+   *
+   * Exactly one tail segment is popped per step, so only that final segment
+   * moves away and may be entered. Stacked tail segments left over from
+   * growth (or save padding) all remain in place and must still count.
+   */
+  private getBodyWithoutMovingTail(): Vector2Like[] {
+    return this.body.slice(0, -1);
   }
 
   private sliceSnakeAtIndex(index: number): void {

@@ -1,3 +1,4 @@
+import { blockCellKey } from './cellKey.js';
 import type { MinecraftPlayer } from './player.js';
 
 export interface BedState {
@@ -13,7 +14,7 @@ export function tryPlaceBed(
   y: number,
   roomId: string,
 ): { success: boolean; message?: string } {
-  const key = `${x},${y},${roomId}`;
+  const key = blockCellKey(x, y, roomId);
   if (beds.has(key)) {
     return { success: false, message: 'A bed is already here.' };
   }
@@ -31,7 +32,7 @@ export function trySleep(
   onSkipNight: () => void,
   onSetSpawn: (x: number, y: number, roomId: string) => void,
 ): { success: boolean; message?: string } {
-  const key = `${x},${y},${roomId}`;
+  const key = blockCellKey(x, y, roomId);
   const bed = beds.get(key);
   if (!bed) {
     return { success: false, message: 'No bed here.' };
@@ -66,7 +67,7 @@ export function tryBreakBed(
   y: number,
   roomId: string,
 ): { success: boolean; message?: string } {
-  const key = `${x},${y},${roomId}`;
+  const key = blockCellKey(x, y, roomId);
   if (!beds.has(key)) {
     return { success: false, message: 'No bed here.' };
   }

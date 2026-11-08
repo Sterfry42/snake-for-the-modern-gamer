@@ -35,12 +35,18 @@ describe('shop profile resolver', () => {
     const wizardTabs = resolveShopProfileTabs('wizard', baseContext);
     const potionTabs = resolveShopProfileTabs('potion-maker', baseContext);
 
-    expect(wizardTabs.map((tab) => tab.id)).toEqual(['consumables', 'items']);
-    expect(wizardTabs.find((tab) => tab.id === 'consumables')?.offers).toHaveLength(2);
-    expect(wizardTabs.find((tab) => tab.id === 'items')?.offers).toHaveLength(6);
+    expect(wizardTabs.map((tab) => tab.id)).toEqual(['consumables', 'items', 'services']);
+    expect(wizardTabs.find((tab) => tab.id === 'consumables')?.offers).toHaveLength(3);
+    expect(wizardTabs.find((tab) => tab.id === 'items')?.offers).toHaveLength(7);
+    expect(wizardTabs.find((tab) => tab.id === 'services')?.offers).toEqual([
+      expect.objectContaining({ id: 'wizard-lesson', itemId: 'wizard-lesson' }),
+    ]);
     expect(wizardTabs.find((tab) => tab.id === 'items')?.offers[0]?.id).toBe('alchemy-station');
     expect(wizardTabs.flatMap((tab) => tab.offers).map((offer) => offer.id)).toContain(
       'spell-tome-arcane-pulse',
+    );
+    expect(wizardTabs.flatMap((tab) => tab.offers).map((offer) => offer.id)).toContain(
+      'mana-potion',
     );
     expect(wizardTabs.flatMap((tab) => tab.offers).map((offer) => offer.id)).not.toEqual(
       potionTabs.flatMap((tab) => tab.offers).map((offer) => offer.id),
@@ -78,7 +84,7 @@ describe('shop profile resolver', () => {
     expect(tabs.flatMap((tab) => tab.offers).map((offer) => offer.id)).not.toContain(
       'alchemy-station',
     );
-    expect(tabs.find((tab) => tab.id === 'items')?.offers).toHaveLength(5);
+    expect(tabs.find((tab) => tab.id === 'items')?.offers).toHaveLength(6);
   });
 
   it('can resolve a new test profile and pool without role-specific runtime code', () => {

@@ -1,7 +1,13 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import type { RandomGenerator } from '../core/rng.js';
 import { createHumanoidIdentity } from './humanoidSpawn.js';
-import { fillRect, findRandomRectPlacement, pickOne, setTile } from './structurePlacement.js';
+import {
+  fillRect,
+  findRandomRectPlacement,
+  pickOne,
+  setTile,
+  type StructurePlacementOptions,
+} from './structurePlacement.js';
 import type { RoomSnapshot } from './types.js';
 
 const MONUMENT_NAMES = [
@@ -21,16 +27,11 @@ const RANGER_NAMES = ['Ranger Buck', 'Volunteer Connie', 'Plaque Tammy', 'Docent
 const MONUMENT_ATTEMPTS = 32;
 const MONUMENT_MARGIN = 5;
 
-interface PlacementOptions {
-  forbiddenCells?: ReadonlySet<string>;
-  margin?: number;
-}
-
 export function tryPlaceRoadsideMonument(
   layout: string[][],
   grid: GridConfig,
   rng: RandomGenerator,
-  options: PlacementOptions = {},
+  options: StructurePlacementOptions = {},
 ): NonNullable<RoomSnapshot['roadsideMonument']> | null {
   if (grid.cols < 24 || grid.rows < 18) return null;
 

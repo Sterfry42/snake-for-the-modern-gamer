@@ -408,7 +408,9 @@ describe('Town life commerce hardening stories', () => {
 
       const view = scenario.game.getActorShopView(actor.id);
       expect(view?.open).toBe(true);
-      expect(view?.categories).toEqual(['consumables', 'items']);
+      expect(view?.categories).toEqual(
+        entry.role === 'wizard' ? ['consumables', 'items', 'services'] : ['consumables', 'items'],
+      );
       expect(view?.offers.map((offer) => offer.id)).not.toContain('half-price-revolver');
       if (entry.role === 'potionMaker') {
         expect(view?.offers.map((offer) => offer.id)).toEqual(
@@ -426,7 +428,7 @@ describe('Town life commerce hardening stories', () => {
             'spell-tome-arcane-pulse',
             'recipe-scroll-shield',
             'recipe-scroll-phase',
-            'ingredient-pearl-apple',
+            'wizard-lesson',
           ]),
         );
       }
@@ -517,7 +519,9 @@ describe('Town life commerce hardening stories', () => {
         throw new Error(`Expected shop interaction to open for ${entry.role}.`);
       }
       expect(opened.shop).toEqual(scenario.game.getActorShopView(actor.id));
-      expect(opened.shop.categories).toEqual(['consumables', 'items']);
+      expect(opened.shop.categories).toEqual(
+        entry.role === 'wizard' ? ['consumables', 'items', 'services'] : ['consumables', 'items'],
+      );
       expect(opened.shop.offers.map((offer) => offer.id)).not.toContain('half-price-revolver');
 
       const purchase = scenario.game.purchaseActorShopOffer(actor.id, 'alchemy-station');

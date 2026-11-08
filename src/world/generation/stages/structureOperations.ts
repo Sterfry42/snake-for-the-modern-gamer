@@ -44,6 +44,7 @@ import {
 } from '../townStructureResolver.js';
 import { formatRoomId } from '../multiRoomStructures.js';
 import type { RoomGenerationContext } from '../types.js';
+import { hashRoomCoordinates, positiveMod } from '../worldHash.js';
 
 type SettlementKind =
   | 'village'
@@ -919,30 +920,15 @@ export class StructureOperations {
     const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(',').map(Number);
     const chunkX = Math.floor(roomX / SETTLEMENT_ANCHOR_SPACING);
     const chunkY = Math.floor(roomY / SETTLEMENT_ANCHOR_SPACING);
-    const hash = this.hashRoom(chunkX, chunkY, roomZ, 0x5e771e);
-    const targetX = this.positiveMod(hash, SETTLEMENT_ANCHOR_SPACING);
-    const targetY = this.positiveMod(
+    const hash = hashRoomCoordinates(chunkX, chunkY, roomZ, 0x5e771e);
+    const targetX = positiveMod(hash, SETTLEMENT_ANCHOR_SPACING);
+    const targetY = positiveMod(
       Math.floor(hash / SETTLEMENT_ANCHOR_SPACING),
       SETTLEMENT_ANCHOR_SPACING,
     );
     return (
-      this.positiveMod(roomX, SETTLEMENT_ANCHOR_SPACING) === targetX &&
-      this.positiveMod(roomY, SETTLEMENT_ANCHOR_SPACING) === targetY
+      positiveMod(roomX, SETTLEMENT_ANCHOR_SPACING) === targetX &&
+      positiveMod(roomY, SETTLEMENT_ANCHOR_SPACING) === targetY
     );
-  }
-
-  private positiveMod(value: number, modulo: number): number {
-    return ((value % modulo) + modulo) % modulo;
-  }
-
-  private hashRoom(roomX: number, roomY: number, roomZ: number, salt: number): number {
-    let hash = 2166136261;
-    hash ^= roomX + 0x9e3779b9;
-    hash = Math.imul(hash, 16777619);
-    hash ^= roomY + 0x85ebca6b;
-    hash = Math.imul(hash, 16777619);
-    hash ^= roomZ + salt;
-    hash = Math.imul(hash, 16777619);
-    return hash >>> 0;
   }
 }

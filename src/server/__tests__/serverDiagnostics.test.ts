@@ -116,11 +116,15 @@ describe('operational server logging', () => {
     cleanup.push(() => socket.terminate());
     socket.once('open', () => socket.send('{}'));
     await new Promise((resolve) => socket.once('close', resolve));
-    expect(records).toContainEqual(
-      expect.objectContaining({
-        event: 'connection.closed',
-        fields: expect.objectContaining({ code: 1008, cause: 'invalid-resume-hello' }),
-      }),
+    // The server's close event only fires after the client echoes the close
+    // frame, so wait for the record instead of asserting on the client's close.
+    await vi.waitFor(() =>
+      expect(records).toContainEqual(
+        expect.objectContaining({
+          event: 'connection.closed',
+          fields: expect.objectContaining({ code: 1008, cause: 'invalid-resume-hello' }),
+        }),
+      ),
     );
     expect(JSON.stringify(records)).not.toContain('keep-this-private');
   });

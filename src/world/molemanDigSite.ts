@@ -3,22 +3,13 @@ import type { GridConfig } from '../config/gameConfig.js';
 import type { RandomGenerator } from '../core/rng.js';
 import { createHumanoidSpawn } from './humanoidSpawn.js';
 import {
-  canPlaceRect,
-  clearRect,
   fillRect,
-  findFallbackRectPlacement,
+  placeRectWithFallback,
   pickOne,
-  randomIntInRange,
   setTile,
   type StructureBounds,
 } from './structurePlacement.js';
 import type { RoomSnapshot } from './types.js';
-
-interface PlacementOptions {
-  forbiddenCells?: ReadonlySet<string>;
-  margin?: number;
-  biomeId?: string;
-}
 
 const FOREMAN_NAMES = [
   'Foreman Grub',
@@ -32,28 +23,15 @@ export function tryPlaceMolemanDigSite(
   layout: string[][],
   grid: GridConfig,
   rng: RandomGenerator,
-  options: PlacementOptions = {},
+  options: { forbiddenCells?: ReadonlySet<string>; margin?: number; biomeId?: string } = {},
 ): NonNullable<RoomSnapshot['molemanDigSite']> | null {
   const width = 12;
   const height = 9;
-  const margin = options.margin ?? 4;
-  let bounds: StructureBounds | null = null;
-
-  for (let attempt = 0; attempt < 80; attempt += 1) {
-    const left = randomIntInRange(rng, margin, Math.max(margin + 1, grid.cols - width - margin));
-    const top = randomIntInRange(rng, margin, Math.max(margin + 1, grid.rows - height - margin));
-    const candidate = { left, top, width, height };
-    if (canPlaceRect(layout, candidate, options.forbiddenCells, 1)) {
-      bounds = candidate;
-      break;
-    }
-  }
-
-  if (!bounds) {
-    bounds = findFallbackRectPlacement(layout, grid, width, height, options.forbiddenCells);
-    if (!bounds) return null;
-    clearRect(layout, bounds, 1);
-  }
+  const bounds = placeRectWithFallback(layout, grid, width, height, rng, {
+    forbiddenCells: options.forbiddenCells,
+    margin: options.margin ?? 4,
+  });
+  if (!bounds) return null;
 
   stampDigSite(layout, bounds);
   const variant = chooseDigSiteVariant(options.biomeId ?? '', rng);

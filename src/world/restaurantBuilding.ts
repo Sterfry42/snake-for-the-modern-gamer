@@ -15,11 +15,6 @@ export interface RestaurantBuildingPlacement {
   bottom: number;
 }
 
-export interface RestaurantBuildingOptions {
-  forbiddenCells?: ReadonlySet<string>;
-  margin?: number;
-}
-
 export const DEFAULT_RESTAURANT_BUILDING = {
   width: 16,
   height: 12,
@@ -31,7 +26,7 @@ export function findRestaurantBuildingPlacement(
   layout: string[][],
   grid: GridConfig,
   rng: RandomGenerator,
-  options: RestaurantBuildingOptions = {},
+  options: { forbiddenCells?: ReadonlySet<string>; margin?: number } = {},
 ): RestaurantBuildingPlacement | null {
   const bounds = findRandomRectPlacement(layout, grid, rng, {
     width: DEFAULT_RESTAURANT_BUILDING.width,
