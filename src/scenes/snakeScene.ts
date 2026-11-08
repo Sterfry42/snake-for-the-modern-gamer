@@ -164,6 +164,15 @@ import { i18n } from '../i18n/i18nManager.js';
 import { AVAILABLE_LANGUAGES } from '../i18n/types.js';
 import { createMobileControls, type MobileControls } from '../ui/mobileControls.js';
 import {
+  createBrowserTouchEnvironment,
+  loadTouchControlsPreference,
+  nextTouchControlsPreference,
+  observeRuntimeTouch,
+  saveTouchControlsPreference,
+  shouldShowTouchControls,
+  type TouchControlsPreference,
+} from '../input/touchDetection.js';
+import {
   getPrimaryBindingLabelForDisplay,
   isKeyboardEventForAction,
   type ControlActionId,
@@ -555,6 +564,9 @@ interface SnakeE2EWindowApi {
   getFlag<T = unknown>(key: string): T | undefined;
   getInventoryCount(itemId: string): number;
   getScore(): number;
+  syncMobileControls(): void;
+  getTouchControlsPreference(): import('../input/touchDetection.js').TouchControlsPreference;
+  getStartChoicesOpen(): boolean;
 }
 
 declare global {
@@ -1268,6 +1280,8 @@ export default class SnakeScene extends Phaser.Scene {
   private pauseUI!: PauseUI;
   private autosaveTimer: Phaser.Time.TimerEvent | null = null;
   private mobileControls: MobileControls | null = null;
+  private runtimeTouchUnsubscribe: (() => void) | null = null;
+  private titleTouchControlsButton: Phaser.GameObjects.Container | null = null;
   private readonly inputModeManager = new InputModeManager();
   private readonly controllerInput = new ControllerInput();
   private readonly controllerFeedback = new ControllerFeedback();
@@ -1725,40 +1739,12 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.setupInputHandlers();
 
-    this.mobileControls = createMobileControls({
-      onDirection: (x, y) => {
-        if (this.titleVisible || !this.runtimeReady) return;
-        this.inputModeManager.markTouchInput();
-        if (this.awaitingLevelUpDirection && !this.resumeAfterLevelUpDirection()) {
-          return;
-        }
-        const mappedDirection = this.resolveFirstPersonDirection({ x, y });
-        if (this.isFirstPersonPresentationRequested() && !mappedDirection) return;
-        const direction = mappedDirection ?? { x, y };
-        if (this.snakeGame.getStructurePlacement()) {
-          this.moveStructurePlacement(direction);
-          return;
-        }
-        this.setDir(direction.x, direction.y);
-        if (this.isManualHouseMovementActive()) {
-          this.consumeManualResumePause();
-          this.takeManualTurn();
-        } else if (this.minecraftMode && !this.deathCutscene) {
-          this.takeManualTurn();
-        }
-      },
-      onTogglePause: () => {
-        if (this.titleVisible || !this.runtimeReady) return;
-        this.inputModeManager.markTouchInput();
-        if (this.snakeGame.getStructurePlacement()) {
-          this.cancelStructurePlacement();
-          return;
-        }
-        this.togglePauseMenu();
-      },
-      onAction: (actionId) => {
-        this.handleMobileControlAction(actionId);
-      },
+    this.syncMobileControls();
+    // Some browsers (e.g. WebKitGTK on KDE Plasma Mobile) expose no static
+    // touch signals at all. The first real tap proves the device has a
+    // touchscreen, so grow the deck on demand when auto-detect said "no".
+    this.runtimeTouchUnsubscribe = observeRuntimeTouch(() => {
+      this.syncMobileControls();
     });
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
@@ -3486,6 +3472,87 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * Creates or destroys the touch control deck according to the saved
+   * preference (auto/on/off) and the browser's touch signals.
+   */
+  syncMobileControls(): void {
+    // The deck never exists while the title screen is up: it would eat the
+    // play area on a phone, and the shell sizing watches for the deck.
+    const shouldShow =
+      !this.titleVisible &&
+      shouldShowTouchControls(loadTouchControlsPreference(), createBrowserTouchEnvironment());
+    if (shouldShow && !this.mobileControls) {
+      this.mobileControls = createMobileControls(this.buildMobileControlsCallbacks());
+    } else if (!shouldShow && this.mobileControls) {
+      this.mobileControls.destroy();
+      this.mobileControls = null;
+    }
+  }
+
+  private buildMobileControlsCallbacks() {
+    return {
+      onDirection: (x: number, y: number) => {
+        if (this.titleVisible || !this.runtimeReady) return;
+        this.inputModeManager.markTouchInput();
+        if (this.awaitingLevelUpDirection && !this.resumeAfterLevelUpDirection()) {
+          return;
+        }
+        const mappedDirection = this.resolveFirstPersonDirection({ x, y });
+        if (this.isFirstPersonPresentationRequested() && !mappedDirection) return;
+        const direction = mappedDirection ?? { x, y };
+        if (this.snakeGame.getStructurePlacement()) {
+          this.moveStructurePlacement(direction);
+          return;
+        }
+        this.setDir(direction.x, direction.y);
+        if (this.isManualHouseMovementActive()) {
+          this.consumeManualResumePause();
+          this.takeManualTurn();
+        } else if (this.minecraftMode && !this.deathCutscene) {
+          this.takeManualTurn();
+        }
+      },
+      onTogglePause: () => {
+        if (this.titleVisible || !this.runtimeReady) return;
+        this.inputModeManager.markTouchInput();
+        this.emitInputActionDebug('menu.pause', 'touch');
+        if (this.snakeGame.getStructurePlacement()) {
+          this.cancelStructurePlacement();
+          return;
+        }
+        this.togglePauseMenu();
+      },
+      onAction: (actionId: ControlActionId) => {
+        this.handleMobileControlAction(actionId);
+      },
+    };
+  }
+
+  private setTouchControlsPreference(preference: TouchControlsPreference): void {
+    saveTouchControlsPreference(preference);
+    this.syncMobileControls();
+    this.refreshTitleTouchControlsButton();
+  }
+
+  private refreshTitleTouchControlsButton(): void {
+    const button = this.titleTouchControlsButton;
+    if (!button) {
+      return;
+    }
+    const preference = loadTouchControlsPreference();
+    const label =
+      preference === 'on'
+        ? 'Touch Controls: On'
+        : preference === 'off'
+          ? 'Touch Controls: Off'
+          : 'Touch Controls: Auto';
+    button.setData('titleBaseLabel', label);
+    const text = button.getData('titleLabelText') as Phaser.GameObjects.Text | undefined;
+    this.setTitleButtonSelected(button, preference !== 'auto');
+    text?.setText(label);
+  }
+
   private useContextProgressionAbility(): boolean {
     if (this.paused || this.titleVisible || this.deathCutscene) return false;
     if (this.sceneClient) {
@@ -4010,6 +4077,9 @@ export default class SnakeScene extends Phaser.Scene {
       getFlag: (key) => this.snakeGame.getFlag(key),
       getInventoryCount: (itemId) => this.snakeGame.getInventory().getItemCount(itemId),
       getScore: () => this.snakeGame.getScore(),
+      syncMobileControls: () => this.syncMobileControls(),
+      getTouchControlsPreference: () => loadTouchControlsPreference(),
+      getStartChoicesOpen: () => Boolean(this.getFlag('run.startChoicesReady')),
     };
   }
 
@@ -6752,6 +6822,8 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.mobileControls?.destroy();
     this.mobileControls = null;
+    this.runtimeTouchUnsubscribe?.();
+    this.runtimeTouchUnsubscribe = null;
     this.minimapRenderer?.destroy();
     this.farmOverlay?.destroy();
     this.farmOverlay = null;
@@ -8215,6 +8287,7 @@ export default class SnakeScene extends Phaser.Scene {
   private showTitleScreen(mode: TitleMenuMode = 'main', message = ''): void {
     this.paused = true;
     this.titleVisible = true;
+    this.syncMobileControls();
     getDebugBus()?.setRunPhase('title');
     this.skillTree.hideOverlay();
     this.questPopup.hide();
@@ -8254,6 +8327,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     this.titleVisible = false;
+    this.syncMobileControls();
     getDebugBus()?.setRunPhase(this.paused ? 'paused' : 'playing');
     this.titleContainer?.setVisible(false);
     this.titleGitHubButton?.setVisible(false);
@@ -8786,8 +8860,15 @@ export default class SnakeScene extends Phaser.Scene {
     main.add(buttons);
 
     const settings = this.add.container(0, 0).setVisible(false);
+    const touchControlsButton = this.createTitleButton(
+      width / 2 - 105,
+      height / 2 + 96,
+      'Touch Controls',
+      () =>
+        this.setTouchControlsPreference(nextTouchControlsPreference(loadTouchControlsPreference())),
+    );
     const settingsPanel = this.add
-      .rectangle(width / 2, height / 2 + 44, 330, 306, 0x071019, 0.88)
+      .rectangle(width / 2, height / 2 + 96, 330, 360, 0x071019, 0.88)
       .setStrokeStyle(2, 0x8fb7ff)
       .setOrigin(0.5);
     const settingsTitle = this.add
@@ -8806,17 +8887,20 @@ export default class SnakeScene extends Phaser.Scene {
       this.createTitleButton(width / 2 - 105, height / 2 + 44, 'Difficulty', () =>
         this.showTitleScreen('settings-difficulty'),
       ),
+      touchControlsButton,
       isDlss5Supported()
-        ? this.createTitleButton(width / 2 - 105, height / 2 + 96, 'DLSS 5', () =>
+        ? this.createTitleButton(width / 2 - 105, height / 2 + 148, 'DLSS 5', () =>
             this.showTitleScreen('settings-dlss5'),
           )
-        : this.createTitleButton(width / 2 - 105, height / 2 + 96, 'DLSS 5', () => undefined, {
+        : this.createTitleButton(width / 2 - 105, height / 2 + 148, 'DLSS 5', () => undefined, {
             disabled: true,
           }),
-      this.createTitleButton(width / 2 - 105, height / 2 + 148, 'Back', () =>
+      this.createTitleButton(width / 2 - 105, height / 2 + 200, 'Back', () =>
         this.showTitleScreen('main'),
       ),
     ]);
+    this.titleTouchControlsButton = touchControlsButton;
+    this.refreshTitleTouchControlsButton();
 
     const resolutionSettings = this.add.container(0, 0).setVisible(false);
     const resolutionPanel = this.add

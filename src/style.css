@@ -450,8 +450,8 @@ body {
   }
 }
 
-@media (pointer: fine) {
-  .mobile-controls {
-    display: none;
-  }
-}
+/*
+  No blanket `@media (pointer: fine)` hide here: whether the deck exists is
+  decided in JS (touch detection + the Touch Controls setting), so a user
+  who forces the deck on in settings is not outsmarted by a fine pointer.
+*/
