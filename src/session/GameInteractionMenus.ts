@@ -300,7 +300,11 @@ export class GameInteractionMenus {
         description: [menu.subtitle, menu.moodSummary].filter(Boolean).join('\n'),
         options: [
           ...menu.options
-            .filter((option) => (ACTOR_ACTIONS.has(option.id) || option.id.startsWith('quest:')) && option.id !== 'leave')
+            .filter(
+              (option) =>
+                (ACTOR_ACTIONS.has(option.id) || option.id.startsWith('quest:')) &&
+                option.id !== 'leave',
+            )
             .map((option) => ({
               id: option.id,
               label: option.label,

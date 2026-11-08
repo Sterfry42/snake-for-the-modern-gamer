@@ -111,7 +111,6 @@ class DeepDiverQuest extends Quest {
     return (runtime.getFlag<number>('archaeology:maxDepth') ?? 0) >= 20;
   }
 
-
   override onReward(runtime: QuestRuntime): void {
     runtime.addScore(300);
     runtime.addItem('gloves-mason', 1);
@@ -132,7 +131,6 @@ class ChainReactionQuest extends Quest {
     return (runtime.getFlag<number>('archaeology:bestChain') ?? 0) >= 10;
   }
 
-
   override onReward(runtime: QuestRuntime): void {
     runtime.addScore(250);
     runtime.addItem('cloak-veil', 1);
@@ -146,7 +144,11 @@ class ChainReactionQuest extends Quest {
  */
 class LegendaryExplorerQuest extends Quest {
   constructor() {
-    super('archaeology.legendary-explorer', 'Legendary Explorer', 'Recover an archaeology artifact');
+    super(
+      'archaeology.legendary-explorer',
+      'Legendary Explorer',
+      'Recover an archaeology artifact',
+    );
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {
@@ -170,7 +172,11 @@ class LegendaryExplorerQuest extends Quest {
  */
 class MuseumMasterQuest extends Quest {
   constructor() {
-    super('archaeology.museum-master', 'Museum Master', 'Complete 10 excavations and recover 5 artifacts');
+    super(
+      'archaeology.museum-master',
+      'Museum Master',
+      'Complete 10 excavations and recover 5 artifacts',
+    );
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {

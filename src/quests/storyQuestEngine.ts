@@ -71,14 +71,20 @@ export function availableStoryActions(
   state: StoryQuestState,
   target: StoryQuestTarget,
 ): StoryQuestAction[] {
-  if (state.questId !== definition.id || state.stage === 'completed' || state.stage === 'declined') {
+  if (
+    state.questId !== definition.id ||
+    state.stage === 'completed' ||
+    state.stage === 'declined'
+  ) {
     return [];
   }
   return definition.actions.filter((action) => {
     if (!action.stages.includes(state.stage)) return false;
     if (action.roles && !action.roles.includes(target.role)) return false;
     if (action.species && !action.species.includes(target.species)) return false;
-    if (action.originOutcomes && !action.originOutcomes.includes(state.originOutcome ?? '')) return false;
+    if (action.originOutcomes && !action.originOutcomes.includes(state.originOutcome ?? '')) {
+      return false;
+    }
     if (action.requiresCounter) {
       if ((state.counters[action.requiresCounter.key] ?? 0) < action.requiresCounter.atLeast) {
         return false;

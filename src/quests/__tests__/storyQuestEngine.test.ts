@@ -36,7 +36,12 @@ describe('data-driven story quest actions', () => {
   });
 
   it('allows an ethical alternative even after imprisoning a goblin', () => {
-    const start = applyStoryAction(CRYSTAL_CLAUSE, createStoryQuestState(CRYSTAL_CLAUSE), wizard, 'accept')!.state;
+    const start = applyStoryAction(
+      CRYSTAL_CLAUSE,
+      createStoryQuestState(CRYSTAL_CLAUSE),
+      wizard,
+      'accept',
+    )!.state;
     const one = applyStoryAction(CRYSTAL_CLAUSE, start, goblin('a'), 'imprison')!.state;
     const reported = applyStoryAction(CRYSTAL_CLAUSE, one, guard, 'report')!.state;
     expect(reported.outcome).toBe('reported');
@@ -46,11 +51,18 @@ describe('data-driven story quest actions', () => {
   });
 
   it('supports declining and follow-up forks without reoffering completed choices', () => {
-    const declined = applyStoryAction(CRYSTAL_CLAUSE, createStoryQuestState(CRYSTAL_CLAUSE), wizard, 'decline')!.state;
+    const declined = applyStoryAction(
+      CRYSTAL_CLAUSE,
+      createStoryQuestState(CRYSTAL_CLAUSE),
+      wizard,
+      'decline',
+    )!.state;
     expect(nextStoryQuestId(CRYSTAL_CLAUSE, declined)).toBeNull();
     expect(availableStoryActions(CRYSTAL_CLAUSE, declined, wizard)).toEqual([]);
     const aftermath = createStoryQuestState(CRYSTAL_AFTERMATH, 'delivered');
-    expect(availableStoryActions(CRYSTAL_AFTERMATH, aftermath, guard).map((a) => a.key)).toEqual(['confess']);
+    expect(availableStoryActions(CRYSTAL_AFTERMATH, aftermath, guard).map((a) => a.key)).toEqual([
+      'confess',
+    ]);
     expect(availableStoryActions(CRYSTAL_AFTERMATH, aftermath, goblin('a'))).toEqual([]);
     const ended = applyStoryAction(CRYSTAL_AFTERMATH, aftermath, guard, 'confess')!.state;
     expect(ended.outcome).toBe('atoned');

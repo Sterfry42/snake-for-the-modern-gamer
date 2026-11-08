@@ -35,12 +35,16 @@ function setup() {
       species,
       flags: { ...current.flags, source: 'story-test' },
     }));
-    game.getActorSystem().setPresence(id, {
-      roomId,
-      position: { x: 10, y: 9 },
-      materialized: true,
-      stationary: true,
-    }, 'story-test');
+    game.getActorSystem().setPresence(
+      id,
+      {
+        roomId,
+        position: { x: 10, y: 9 },
+        materialized: true,
+        stationary: true,
+      },
+      'story-test',
+    );
     return id;
   }
   return {
@@ -112,7 +116,7 @@ describe('crystal quest end-to-end using authoritative actor actions', () => {
     expect(game.getFlag('quest.crystal.wizardReported')).toBe(true);
     expect(game.getActorSystem().getActor(goblinA)?.flags.questCrystalBound).toBe(false);
     expect(game.getKarmaView().value).toBeGreaterThan(beforeKarma);
-    expect(game.getSaveData().flags?.['quest.story.crystal-clause']).toMatchObject({
+    expect(game.getSaveData().flags['quest.story.crystal-clause']).toMatchObject({
       outcome: 'reported',
       stage: 'completed',
     });

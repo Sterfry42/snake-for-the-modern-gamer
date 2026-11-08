@@ -8003,8 +8003,14 @@ export class SnakeGame implements QuestRuntime {
       actor.health?.state === 'dead' ||
       actor.hostility === 'dead' ||
       actor.hostility === 'hostile'
-    ) return [];
-    const target: StoryQuestTarget = { actorId: actor.id, role: actor.role, species: actor.species };
+    ) {
+      return [];
+    }
+    const target: StoryQuestTarget = {
+      actorId: actor.id,
+      role: actor.role,
+      species: actor.species,
+    };
     return STORY_QUESTS.flatMap((definition) => {
       const state = this.storyQuestState(definition);
       if (!state) return [];
@@ -8154,7 +8160,9 @@ export class SnakeGame implements QuestRuntime {
               this,
               this.snake.currentRoomId,
             )
-          ) return unavailable();
+          ) {
+            return unavailable();
+          }
         }
       }
       const next = {
@@ -8217,7 +8225,13 @@ export class SnakeGame implements QuestRuntime {
         targetActorIds: [actor.id],
         severity: next.outcome ? 35 : 12,
         loudness: 12,
-        tags: ['quest', 'story', definition.id, key, ...(actor.species === 'goblin' ? ['goblin'] : [])],
+        tags: [
+          'quest',
+          'story',
+          definition.id,
+          key,
+          ...(actor.species === 'goblin' ? ['goblin'] : []),
+        ],
         summary: message,
         createdAtRoomNumber: this.getRoomsVisitedCount(),
         data: { questId: definition.id, action: key, outcome: next.outcome },
@@ -8236,7 +8250,12 @@ export class SnakeGame implements QuestRuntime {
         });
       }
       this.setFlag('ui.questInteraction', { message });
-      return { ok: true, actorId: actor.id, action: actionId as `quest:${string}`, message };
+      return {
+        ok: true,
+        actorId: actor.id,
+        action: actionId as `quest:${string}`,
+        message,
+      };
     }
     return unavailable();
   }
@@ -17228,13 +17247,15 @@ export class SnakeGame implements QuestRuntime {
         (roomId) => Boolean(this.world.peekCachedRoom(roomId)?.goblinCamp),
       );
       const destination = crystal.stage === 'ready' ? crystal.giverRoomId : knownCamp;
-      if (destination) markers.push({
-        questId: CRYSTAL_CLAUSE.id,
-        roomId: destination,
-        kind: crystal.stage === 'ready' ? 'turn-in' : 'target',
-        label: crystal.stage === 'ready' ? 'Crystal Wizard' : 'Goblin Camp',
-        color: crystal.stage === 'ready' ? 0x5dd6a2 : 0xffd166,
-      });
+      if (destination) {
+        markers.push({
+          questId: CRYSTAL_CLAUSE.id,
+          roomId: destination,
+          kind: crystal.stage === 'ready' ? 'turn-in' : 'target',
+          label: crystal.stage === 'ready' ? 'Crystal Wizard' : 'Goblin Camp',
+          color: crystal.stage === 'ready' ? 0x5dd6a2 : 0xffd166,
+        });
+      }
     }
     return markers;
   }
@@ -17244,9 +17265,12 @@ export class SnakeGame implements QuestRuntime {
       const story = this.storyQuestState(CRYSTAL_CLAUSE);
       if (!story) return [];
       if (story.stage === 'declined') return ['[x] Declined the commission'];
-      if (story.stage === 'completed') return [`[x] ${story.outcome ?? 'Completed'} - consequences recorded`];
+      if (story.stage === 'completed') {
+        return [`[x] ${story.outcome ?? 'Completed'} - consequences recorded`];
+      }
+      const bound = story.counters.captured ?? 0;
       return [
-        `[${(story.counters.captured ?? 0) >= 2 ? 'x' : ' '}] Bind two goblins in crystals (${story.counters.captured ?? 0}/2)`,
+        `[${bound >= 2 ? 'x' : ' '}] Bind two goblins in crystals (${bound}/2)`,
         story.stage === 'ready'
           ? '[ ] Return to the wizard for payment, report him to guards, or free the goblins'
           : '[ ] Capture goblins or report the wizard to a guard',
@@ -22103,7 +22127,9 @@ export class SnakeGame implements QuestRuntime {
     }
     for (const [key, value] of Object.entries(this.snake.flags)) {
       if (
-        (key.startsWith('town.runtime.') ||
+        (key.startsWith('quest.story.') ||
+          key.startsWith('quest.crystal.') ||
+          key.startsWith('town.runtime.') ||
           key.startsWith('house.') ||
           key.startsWith('farm.') ||
           key.startsWith('town.gateOpened.') ||

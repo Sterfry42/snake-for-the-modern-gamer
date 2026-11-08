@@ -7,7 +7,9 @@ class CounterQuest extends Quest {
   constructor(id: string) {
     super(id, id, 'Collect three apples.');
   }
-  protected override baselineKeys(): readonly string[] { return ['applesEaten']; }
+  protected override baselineKeys(): readonly string[] {
+    return ['applesEaten'];
+  }
   override isCompleted(runtime: QuestRuntime): boolean {
     return this.progressSinceAccept(runtime, 'applesEaten') >= 3;
   }
