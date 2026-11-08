@@ -44,7 +44,7 @@ describe('operational server logging', () => {
     const stop = client.onMovement!(() => {
       throw new Error('Presentation failure');
     });
-    await session.advance(100);
+    session.start(() => {});
     await vi.waitFor(() =>
       expect(
         records.some(
@@ -258,6 +258,8 @@ describe('operational server logging', () => {
         expect(received).toHaveBeenCalledWith({
           type: 'setDirection',
           inputSequence: 1,
+          intendedRevision: 1,
+          estimatedServerTimeMs: expect.any(Number),
           playerId: id,
           direction: { x: 0, y: 1 },
         }),

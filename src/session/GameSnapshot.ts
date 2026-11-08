@@ -93,6 +93,9 @@ export interface PlayerSnapshot {
   activity?: 'playing' | 'creating-character' | 'death-encounter';
   movementIntervalMs?: number;
   movementAccumulatorMs?: number;
+  movementPhaseAtMs?: number;
+  movementGraceMs?: number;
+  movementAppliedTurnRevision?: number;
   movementPredictionAllowed?: boolean;
   movementGrid?: import('../config/gameConfig.js').GridConfig;
   directionQueue?: import('../systems/snakeDirectionQueue.js').SnakeDirectionQueue;

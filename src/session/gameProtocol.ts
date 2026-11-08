@@ -7,7 +7,7 @@ import { SPECIAL_STAT_IDS } from '../stats/specialTypes.js';
 import { EQUIPMENT_SLOTS } from '../inventory/item.js';
 import { isMovementUpdate } from './MovementUpdate.js';
 
-export const GAME_PROTOCOL_VERSION = 5;
+export const GAME_PROTOCOL_VERSION = 6;
 
 export interface CommandMessage {
   type: 'command';
@@ -16,6 +16,7 @@ export interface CommandMessage {
 }
 
 export type ServerMessage =
+  | { type: 'movementClock'; clientTimeMs: number; serverTimeMs: number }
   | {
       type: 'welcome';
       version: number;
@@ -281,6 +282,14 @@ export function isClientCommand(value: unknown): value is ClientCommand {
           (typeof value.inputSequence === 'number' &&
             Number.isSafeInteger(value.inputSequence) &&
             value.inputSequence > 0)) &&
+        (value.intendedRevision === undefined ||
+          (value.type === 'setDirection' &&
+            Number.isSafeInteger(value.intendedRevision) &&
+            Number(value.intendedRevision) > 0 &&
+            Number.isSafeInteger(value.inputSequence) &&
+            typeof value.estimatedServerTimeMs === 'number' &&
+            Number.isFinite(value.estimatedServerTimeMs) &&
+            value.estimatedServerTimeMs >= 0)) &&
         isRecord(direction) &&
         typeof direction.x === 'number' &&
         typeof direction.y === 'number' &&
@@ -401,6 +410,14 @@ function isServerMessage(value: unknown): value is ServerMessage {
       );
     case 'movement':
       return isMovementUpdate(value.update);
+    case 'movementClock':
+      return (
+        typeof value.clientTimeMs === 'number' &&
+        Number.isFinite(value.clientTimeMs) &&
+        typeof value.serverTimeMs === 'number' &&
+        Number.isFinite(value.serverTimeMs) &&
+        value.serverTimeMs >= 0
+      );
     case 'event':
       return isRecord(value.event) && typeof value.event.type === 'string';
     case 'result':

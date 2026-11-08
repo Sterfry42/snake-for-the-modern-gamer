@@ -33,7 +33,11 @@ export class SnapshotDeltaEncoder {
   private readonly flags = new Map<string, string>();
   private readonly selectors = new Map<keyof SceneClientState, string>();
 
-  encode(snapshot: GameSnapshot, movementDriven = false): SnapshotDelta {
+  encode(
+    snapshot: GameSnapshot,
+    movementDriven = false,
+    forceMovementResync = false,
+  ): SnapshotDelta {
     const { viewport, clientState, persistence, ...hotState } = snapshot;
     const state: SnapshotDelta['state'] = hotState;
     if (!clientState || !snapshot.replication)
@@ -51,7 +55,7 @@ export class SnapshotDeltaEncoder {
     }
     let movementResync: boolean | undefined;
     if (movementDriven) {
-      const resync = snapshot.tick - this.resyncAt >= 1000;
+      const resync = forceMovementResync || snapshot.tick - this.resyncAt >= 1000;
       movementResync = resync;
       if (resync) this.resyncAt = snapshot.tick;
       const movementKeys = new Set<keyof PlayerSnapshot>([
@@ -59,8 +63,8 @@ export class SnapshotDeltaEncoder {
         'direction',
         'directionQueue',
         'movementRevision',
-        'movementAccumulatorMs',
         'movementIntervalMs',
+        'movementGraceMs',
         'movementPredictionAllowed',
         'movementGrid',
         'acknowledgedDirectionSequence',
@@ -73,7 +77,12 @@ export class SnapshotDeltaEncoder {
           const compare = <K extends keyof PlayerSnapshot>(key: K) => {
             if (!resync && previous && movementKeys.has(key)) return;
             const signature = JSON.stringify(player[key]);
-            if (signatures.get(key) !== signature || (resync && movementKeys.has(key))) {
+            if (
+              key === 'movementAccumulatorMs' ||
+              key === 'movementPhaseAtMs' ||
+              signatures.get(key) !== signature ||
+              (resync && movementKeys.has(key))
+            ) {
               patch[key] = player[key];
               signatures.set(key, signature);
             }

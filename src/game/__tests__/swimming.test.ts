@@ -11,6 +11,7 @@ function floodNextTile(game: SnakeGame): { before: { x: number; y: number } } {
   const room = game.getCurrentRoom();
   room.apple = undefined;
   room.apples = [];
+  room.portals = [];
   room.powerup = undefined;
   const row = room.layout[info.localY];
   room.layout[info.localY] = `${row.slice(0, info.localX)}~${row.slice(info.localX + 1)}`;
@@ -19,12 +20,18 @@ function floodNextTile(game: SnakeGame): { before: { x: number; y: number } } {
 
 describe('SnakeGame swimming grace', () => {
   it('allows three baseline water steps, warns progressively, then drowns on the fourth', () => {
-    const game = new SnakeGame(defaultGameConfig, new QuestRegistry(), {});
+    const game = new SnakeGame(
+      { ...defaultGameConfig, rng: { seed: 'run:mw78txk0:0zkh4p51fx0grf' } },
+      new QuestRegistry(),
+      {},
+    );
     game.forceDirection(1, 0);
     const head = game.getSnakeBody()[0]!;
     const room = game.getCurrentRoom();
     room.apple = undefined;
     room.apples = [];
+    // This seed has a portal on the fourth test tile; the arena must remain water.
+    room.portals = [];
     for (let offset = 1; offset <= 4; offset += 1) {
       const info = game.resolveRoomPosition({ x: head.x + offset, y: head.y })!;
       const row = room.layout[info.localY]!;

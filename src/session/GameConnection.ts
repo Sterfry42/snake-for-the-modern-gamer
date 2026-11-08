@@ -13,6 +13,9 @@ export interface GameConnection {
   onStatus?(handler: (status: 'connected' | 'reconnecting' | 'closed') => void): () => void;
   onDisconnect?(handler: (reason: string) => void): () => void;
   getMovementPresentation?(): import('./ClientMovementPredictor.js').PredictedSnake | null;
+  getMovementDiagnostics?(): ReturnType<
+    import('./ClientMovementPredictor.js').ClientMovementPredictor['getDiagnostics']
+  >;
   getPeerMovementPresentation?(
     playerId: string,
   ): import('./ClientMovementPredictor.js').PredictedSnake | null;

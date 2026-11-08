@@ -266,9 +266,11 @@ describe('player lifecycle cutover', () => {
     expect(await session.executeCommand({ type: 'restartRun', playerId: alice })).toMatchObject({
       ok: false,
     });
-    const peer = session.getSnapshot(bob).players[bob];
+    const peerBeforeTick = session.getSnapshot(bob).players[bob];
     await session.advance(100);
     const tick = session.getSnapshot().tick;
+    const peer = session.getSnapshot(bob).players[bob];
+    expect(peer).toEqual({ ...peerBeforeTick, movementPhaseAtMs: tick });
     expect(await choose(session, alice, 'continue')).toEqual({ ok: true });
     expect(encounter(session, alice).stage).toBe('afterlife');
     await choose(session, alice, 'continue');

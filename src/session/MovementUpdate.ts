@@ -1,4 +1,5 @@
 import type { GameSnapshot, PlayerSnapshot } from './GameSnapshot.js';
+import { TURN_COMMIT_GRACE_MS } from './MovementTurnAuthority.js';
 import { isRecord } from '../core/saveNormalize.js';
 import type { Vector2Like } from '../core/math.js';
 
@@ -15,6 +16,9 @@ export type MovementPlayer = Pick<
   | 'movementRevision'
   | 'movementIntervalMs'
   | 'movementAccumulatorMs'
+  | 'movementPhaseAtMs'
+  | 'movementGraceMs'
+  | 'movementAppliedTurnRevision'
   | 'acknowledgedDirectionSequence'
   | 'directionQueue'
   | 'movementPredictionAllowed'
@@ -109,6 +113,19 @@ export function isMovementUpdate(value: unknown): value is MovementUpdate {
     player.movementIntervalMs >= 20 &&
     typeof player.movementAccumulatorMs === 'number' &&
     Number.isFinite(player.movementAccumulatorMs) &&
-    player.movementAccumulatorMs >= 0
+    player.movementAccumulatorMs >= 0 &&
+    (player.movementPhaseAtMs === undefined ||
+      (typeof player.movementPhaseAtMs === 'number' &&
+        Number.isFinite(player.movementPhaseAtMs) &&
+        player.movementPhaseAtMs >= 0)) &&
+    (player.movementAppliedTurnRevision === undefined ||
+      (Number.isSafeInteger(player.movementAppliedTurnRevision) &&
+        Number(player.movementAppliedTurnRevision) >= 0 &&
+        Number(player.movementAppliedTurnRevision) <= Number(player.movementRevision))) &&
+    (player.movementGraceMs === undefined ||
+      (typeof player.movementGraceMs === 'number' &&
+        Number.isFinite(player.movementGraceMs) &&
+        player.movementGraceMs >= 0 &&
+        player.movementGraceMs <= TURN_COMMIT_GRACE_MS))
   );
 }

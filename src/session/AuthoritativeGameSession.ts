@@ -1,4 +1,5 @@
 import type { DiagnosticSink, SessionDiagnostic } from './SessionDiagnostic.js';
+import { MovementTurnAuthority, TURN_COMMIT_GRACE_MS } from './MovementTurnAuthority.js';
 import type { MovementUpdate, MovementPlayer } from './MovementUpdate.js';
 import { AuthoritativeDeaths } from './AuthoritativeDeaths.js';
 import { AuthoritativeCharacterCreation } from './AuthoritativeCharacterCreation.js';
@@ -114,6 +115,8 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
 
   private publishMovementChanges(): void {
+    for (const [id, authority] of this.turnAuthorities)
+      authority.observeInterval(this.movementInterval(id), this.getMovementClockTime());
     if (!this.movementHandlers.size) return;
     const epoch = this.game.getReplicationEpoch();
     if (epoch !== this.movementEpoch) {
@@ -140,19 +143,26 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
           movementRevision: this.movementRevisions.get(id) ?? 0,
           acknowledgedDirectionSequence: this.directionSequences.get(id),
           movementIntervalMs: this.movementInterval(id),
-          movementAccumulatorMs: this.actionElapsed.get(id) ?? 0,
+          movementAccumulatorMs: this.movementPhase(id),
+          movementPhaseAtMs: this.getMovementTime(),
+          movementGraceMs: this.turnGrace(id),
+          movementAppliedTurnRevision: this.appliedTurnRevisions.get(id),
           directionQueue: runtime.snake.directionQueue,
           movementPredictionAllowed: !this.suspended.has(id) && this.predictionAllowed(id),
           movementGrid: this.game.config.grid,
         };
         // Phase alone does not publish; clients advance their own discrete clock.
-        const signature = JSON.stringify({ ...player, movementAccumulatorMs: 0 });
+        const signature = JSON.stringify({
+          ...player,
+          movementAccumulatorMs: 0,
+          movementPhaseAtMs: 0,
+        });
         if (this.movementSignatures.get(id) === signature) return;
         this.movementSignatures.set(id, signature);
         const update = {
           epoch,
           sequence: ++this.movementSequence,
-          tick: Number(this.game.getFlag('timeMs') ?? 0),
+          tick: this.getMovementTime(),
           player,
         };
         for (const handler of this.movementHandlers) handler(update);
@@ -252,6 +262,54 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   >();
   private readonly movementRevisions = new Map<PlayerId, number>();
   private readonly directionSequences = new Map<PlayerId, number>();
+  private readonly turnAuthorities = new Map<PlayerId, MovementTurnAuthority>();
+  private readonly appliedTurnRevisions = new Map<PlayerId, number>();
+  private movementClockAnchorAt: number | null = null;
+
+  getMovementTime(): number {
+    return Number(this.game.getPlayer(this.clockPlayerId)?.snake.flags.timeMs ?? 0);
+  }
+
+  /** Probe time includes the fraction since the last real simulation update. */
+  getMovementClockTime(): number {
+    const tick = this.getMovementTime();
+    if (
+      !this.timer ||
+      this.paused ||
+      this.movementClockAnchorAt === null ||
+      (this.hosted && !this.connections.size)
+    )
+      return tick;
+    return tick + Math.min(20, Math.max(0, performance.now() - this.movementClockAnchorAt));
+  }
+
+  enableMovementGrace(playerId: PlayerId): Promise<void> {
+    return this.enqueue(async () => {
+      if (!this.manageBasicFeatures || this.turnAuthorities.has(playerId)) return;
+      this.turnAuthorities.set(playerId, new MovementTurnAuthority());
+      this.turnAuthorities
+        .get(playerId)!
+        .observeInterval(this.movementInterval(playerId), this.getMovementClockTime());
+      this.actionElapsed.set(
+        playerId,
+        (this.actionElapsed.get(playerId) ?? 0) - TURN_COMMIT_GRACE_MS,
+      );
+    }, 'movement-grace');
+  }
+
+  private movementPhase(playerId: PlayerId): number {
+    const grace = this.turnGrace(playerId);
+    return Math.max(
+      0,
+      (this.actionElapsed.get(playerId) ?? -grace) +
+        grace +
+        (grace ? this.scheduler.getClockAccumulator('action') : 0),
+    );
+  }
+
+  private turnGrace(playerId: PlayerId): number {
+    return this.turnAuthorities.has(playerId) ? TURN_COMMIT_GRACE_MS : 0;
+  }
   private readonly publishedMovementRevisions = new Map<
     string,
     Array<{ revision: number; at: number }>
@@ -296,6 +354,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     return this.enqueue(async () => {
       const peer = this.connections.get(connectionId);
       if (!peer || this.suspended.has(peer.playerId)) return;
+      this.turnAuthorities.get(peer.playerId)?.clear();
       const now = Date.now();
       const eligible = this.game.runForPlayer(peer.playerId, () =>
         this.predictionAllowed(peer.playerId),
@@ -401,9 +460,12 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     }
     const elapsed = Math.min(MOVEMENT_GRACE_MS, Date.now() - suspension.startedAt);
     // A client cannot invent extra time or bank an arbitrary burst of movement.
-    const budget = Math.min(
-      MAX_PREDICTED_STEPS,
-      Math.floor((suspension.accumulator + elapsed) / suspension.interval),
+    const budget = Math.max(
+      0,
+      Math.min(
+        MAX_PREDICTED_STEPS,
+        Math.floor((suspension.accumulator + elapsed) / suspension.interval),
+      ),
     );
     const speculativeSteps = Math.max(0, replay.steps - alreadyApplied);
     const requestedSteps = Math.min(speculativeSteps, budget);
@@ -464,7 +526,10 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       this.actionElapsed.set(
         playerId,
         completed === requestedSteps && this.predictionAllowed(playerId)
-          ? Math.min(this.movementInterval(playerId) - 1, Math.max(0, available - spent))
+          ? Math.min(
+              this.movementInterval(playerId) - 1,
+              Math.max(0 - this.turnGrace(playerId), available - spent),
+            )
           : 0,
       );
     });
@@ -495,8 +560,11 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       }
     const resuming = this.suspended.delete(playerId);
     this.directionSequences.delete(playerId);
+    if (resuming && this.turnAuthorities.has(playerId))
+      this.turnAuthorities.set(playerId, new MovementTurnAuthority());
     const returning = this.retainedPlayers.has(playerId);
     const player = this.game.addConnectedPlayer(playerId, normalizeDisplayName(displayName));
+    player.snake.flags.timeMs = this.getMovementTime();
     if (this.requireCharacterCreation)
       this.game.runForPlayer(playerId, () => this.creation.ensure());
     if (this.manageBasicFeatures)
@@ -554,6 +622,8 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     this.archaeology.reset(peer.playerId);
     this.progression.delete(peer.playerId);
     this.actionElapsed.delete(peer.playerId);
+    this.turnAuthorities.delete(peer.playerId);
+    this.appliedTurnRevisions.delete(peer.playerId);
     this.administrators.delete(peer.playerId);
     this.expressions.delete(peer.playerId);
     this.emit({ type: 'party.presence', name: peer.displayName, status: 'left' });
@@ -635,6 +705,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   private legacyActionElapsed = 0;
   private readonly interactions: GameInteractionMenus;
   private readonly localPlayerId: PlayerId;
+  private readonly clockPlayerId: PlayerId;
   private readonly saveStore?: SaveStore<GameSaveData>;
   private readonly saveSlotId: string;
   private checkpoint: GameSaveData | null = null;
@@ -664,7 +735,8 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       this.emit({ type: 'archaeology.outcome', playerId, outcome });
     });
     this.interactions = new GameInteractionMenus(this.game);
-    this.localPlayerId = args.localPlayerId ?? this.game.getLocalPlayerId();
+    this.clockPlayerId = this.game.getLocalPlayerId();
+    this.localPlayerId = args.localPlayerId ?? this.clockPlayerId;
     this.saveStore = args.saveStore;
     this.saveSlotId = args.saveSlotId ?? 'default';
     this.manageBasicFeatures = args.manageBasicFeatures ?? false;
@@ -738,6 +810,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
           });
           this.playerInteractions.delete(command.playerId);
           this.actionElapsed.delete(command.playerId);
+          this.turnAuthorities.get(command.playerId)?.clear();
           this.movementRevisions.set(
             command.playerId,
             (this.movementRevisions.get(command.playerId) ?? 0) + 1,
@@ -808,6 +881,10 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         const result = this.game.runForPlayer(command.playerId, () => {
           if (command.type === 'playerInteraction') {
             this.playerInteractions.set(command.playerId, command.mode);
+            if (command.mode !== 'playing') {
+              this.turnAuthorities.get(command.playerId)?.clear();
+              this.actionElapsed.set(command.playerId, 0 - this.turnGrace(command.playerId));
+            }
             return { ok: true };
           }
           if (!this.game.getPlayer(command.playerId)?.alive)
@@ -929,6 +1006,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
             this.checkpoint = structuredClone(data);
             this.progression.clear();
             this.actionElapsed.clear();
+            for (const authority of this.turnAuthorities.values()) authority.clear();
             for (const player of this.game.getPlayers())
               this.movementRevisions.set(
                 player.id,
@@ -969,6 +1047,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
 
   advance(deltaMs: number): Promise<void> {
+    const requestedAt = performance.now();
     return this.enqueue(async () => {
       const updateStartedAt = performance.now();
       if (!Number.isFinite(deltaMs) || deltaMs < 0) throw new Error('Invalid simulation delta');
@@ -986,6 +1065,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       if (running) {
         this.advanceEnvironment(deltaMs);
       }
+      this.movementClockAnchorAt = requestedAt;
       this.scheduler.update(deltaMs, {
         boss: running,
         action: running,
@@ -1034,6 +1114,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   start(onError: (error: unknown) => void): void {
     if (this.timer) return;
     let last = performance.now();
+    this.movementClockAnchorAt = last;
     let advancing = false;
     this.timer = setInterval(() => {
       if (advancing) return;
@@ -1150,6 +1231,18 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       return result;
     }
 
+    if (
+      command.type === 'forceDirection' &&
+      this.turnAuthorities.has(command.playerId) &&
+      !isManualMovementArea(
+        this.game.getCurrentRoom(),
+        this.game.getSnakeBody()[0],
+        this.game.config.grid,
+      ) &&
+      !this.game.getFlag<boolean>('traversal.manualResumePending')
+    )
+      return { ok: false, reason: 'movement-requires-intended-step' };
+
     if (command.type === 'restartRun' && this.connections.size > 0) {
       for (const peer of this.connections.values())
         if (peer.playerId === command.playerId)
@@ -1158,6 +1251,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       this.minigames.reset(command.playerId);
       this.archaeology.reset(command.playerId);
       this.actionElapsed.delete(command.playerId);
+      this.turnAuthorities.get(command.playerId)?.clear();
       this.movementRevisions.set(
         command.playerId,
         (this.movementRevisions.get(command.playerId) ?? 0) + 1,
@@ -1177,6 +1271,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       this.archaeology.reset();
       this.progression.clear();
       this.actionElapsed.clear();
+      for (const authority of this.turnAuthorities.values()) authority.clear();
       for (const player of this.game.getPlayers())
         this.movementRevisions.set(player.id, (this.movementRevisions.get(player.id) ?? 0) + 1);
       for (const suspension of this.suspended.values()) suspension.eligible = false;
@@ -1192,7 +1287,13 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       return { ok: true };
     }
 
-    if (command.type === 'pause') this.paused = true;
+    if (command.type === 'pause') {
+      this.paused = true;
+      for (const [id, authority] of this.turnAuthorities) {
+        authority.clear();
+        this.actionElapsed.set(id, -TURN_COMMIT_GRACE_MS);
+      }
+    }
     if (command.type === 'resume') this.paused = false;
     if (command.type === 'interact') this.game.resolveQuestInteraction();
     if (command.type === 'chooseOption') this.game.resolveQuestInteraction(command.choiceId);
@@ -1229,6 +1330,33 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       return { ok: true, cleared: true };
     }
 
+    if (
+      command.type === 'setDirection' &&
+      this.turnAuthorities.has(command.playerId) &&
+      this.predictionAllowed(command.playerId)
+    ) {
+      const revision = this.movementRevisions.get(command.playerId) ?? 0;
+      const reason = this.turnAuthorities
+        .get(command.playerId)!
+        .submit(
+          command,
+          revision,
+          this.movementPhase(command.playerId) - TURN_COMMIT_GRACE_MS,
+          this.movementInterval(command.playerId),
+          this.getMovementTime(),
+        );
+      this.diagnose('movement.turn', {
+        playerId: command.playerId,
+        inputSequence: command.inputSequence,
+        intendedRevision: command.intendedRevision,
+        serverRevision: revision,
+        inputLatencyMs:
+          this.getMovementTime() - (command.estimatedServerTimeMs ?? this.getMovementTime()),
+        graceMs: TURN_COMMIT_GRACE_MS,
+        reason: reason ?? 'scheduled',
+      });
+      return { ok: reason === null || reason === 'duplicate-turn', reason: reason ?? undefined };
+    }
     if (
       command.type === 'setDirection' &&
       command.inputSequence !== undefined &&
@@ -1274,17 +1402,24 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     for (const player of this.simulationPlayers())
       this.game.runForPlayer(player.id, () => {
         this.getProgression(player.id).refreshIfNeeded();
+        this.turnAuthorities
+          .get(player.id)
+          ?.observeInterval(this.movementInterval(player.id), this.getMovementClockTime());
         if (this.playerHeld(player.id)) {
-          this.actionElapsed.set(player.id, 0);
+          this.actionElapsed.set(player.id, 0 - this.turnGrace(player.id));
+          this.turnAuthorities.get(player.id)?.clear();
           return;
         }
-        let elapsed = (this.actionElapsed.get(player.id) ?? 0) + deltaMs;
+        let elapsed = (this.actionElapsed.get(player.id) ?? -this.turnGrace(player.id)) + deltaMs;
         let interval = this.movementInterval(player.id);
         while (elapsed >= interval && player.alive && !this.playerHeld(player.id)) {
           elapsed -= interval;
           this.actionElapsed.set(player.id, elapsed);
           this.stepPlayerAction(false, player.id);
           interval = this.movementInterval(player.id);
+          this.turnAuthorities
+            .get(player.id)
+            ?.observeInterval(interval, this.getMovementClockTime());
         }
         this.actionElapsed.set(player.id, elapsed);
       });
@@ -1302,6 +1437,25 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
 
   private stepPlayerAction(paused: boolean, playerId: PlayerId): StepResult {
+    if (!paused) {
+      const revision = (this.movementRevisions.get(playerId) ?? 0) + 1;
+      for (const turn of this.turnAuthorities.get(playerId)?.take(revision) ?? []) {
+        this.game.handleCommand(turn);
+        this.directionSequences.set(playerId, turn.inputSequence);
+        this.appliedTurnRevisions.set(playerId, revision);
+        const next = this.game.getPlayer(playerId)!.snake.nextDirectionVector;
+        this.diagnose('movement.turn-applied', {
+          playerId,
+          inputSequence: turn.inputSequence,
+          intendedRevision: turn.intendedRevision,
+          appliedRevision: revision,
+          reason:
+            next.x === turn.direction.x && next.y === turn.direction.y
+              ? 'applied'
+              : 'illegal-turn-or-movement-lock',
+        });
+      }
+    }
     const scoreBefore = this.game.getScore();
     const lengthBefore = this.game.getSnakeLength();
     const result = this.game.actionStep(paused, { advanceBombs: !this.manageBasicFeatures });
@@ -1588,6 +1742,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     }
     const startedAt = performance.now();
     const snapshot = this.game.getSnapshot(playerId);
+    snapshot.tick = this.getMovementTime();
     snapshot.movementSequence = this.movementSequence;
     if (network || this.hosted) snapshot.replication = this.game.getNetworkRoomView();
     snapshot.clientState = this.game.getSceneClientState(
@@ -1646,8 +1801,11 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         player.acknowledgedDirectionSequence = this.directionSequences.get(player.id);
       player.movementIntervalMs = this.movementInterval(player.id);
       player.movementAccumulatorMs = this.manageBasicFeatures
-        ? (this.actionElapsed.get(player.id) ?? 0)
+        ? this.movementPhase(player.id)
         : this.legacyActionElapsed;
+      player.movementGraceMs = this.turnGrace(player.id);
+      player.movementPhaseAtMs = this.getMovementTime();
+      player.movementAppliedTurnRevision = this.appliedTurnRevisions.get(player.id);
       player.directionQueue = this.game.getPlayer(player.id)?.snake.directionQueue;
       if (player.id === playerId) {
         player.movementPredictionAllowed =

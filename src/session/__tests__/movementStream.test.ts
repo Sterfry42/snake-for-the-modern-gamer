@@ -11,6 +11,7 @@ import type { MovementUpdate } from '../MovementUpdate.js';
 import { isMovementUpdate } from '../MovementUpdate.js';
 import { SceneGameClient } from '../SceneGameClient.js';
 import { parseCommandMessage } from '../gameProtocol.js';
+import { TURN_COMMIT_GRACE_MS } from '../MovementTurnAuthority.js';
 import { SceneReadReplica } from '../SceneReadReplica.js';
 import { ActorRegistry } from '../../actors/actorRegistry.js';
 
@@ -114,14 +115,16 @@ describe('discrete movement stream', () => {
       const snapshot = vi.fn();
       client.onSnapshot(snapshot);
       snapshot.mockClear();
-      expect(
-        await client.send({
-          type: 'setDirection',
-          playerId: id,
-          inputSequence: 1,
-          direction: { x: 0, y: 1 },
-        }),
-      ).toEqual({ ok: true });
+      const steering = client.send({
+        type: 'setDirection',
+        playerId: id,
+        inputSequence: 1,
+        direction: { x: 0, y: 1 },
+      });
+      expect(client.getMovementDiagnostics().intendedRevision).toBeGreaterThan(0);
+      expect(await steering).toEqual({ ok: true });
+      // The commit grace delays startup once; subsequent movement keeps its exact cadence.
+      await session.advance(TURN_COMMIT_GRACE_MS);
       for (let frame = 0; frame < 10; frame++) await session.advance(20);
       await new Promise<void>((resolve) => {
         const check = () => {

@@ -1,4 +1,5 @@
 import { parseClientDiagnostic } from '../session/ClientDiagnostic.js';
+import { isRecord } from '../core/saveNormalize.js';
 import type { DiagnosticSink, SessionDiagnostic } from '../session/SessionDiagnostic.js';
 import { ProcessPerformance } from './ProcessPerformance.js';
 import { createServer } from 'node:http';
@@ -404,6 +405,8 @@ export function createGameServer(
         await session.detachConnection(connectionId);
         return;
       }
+      if (endpoint.searchParams.get('turnSteps') === '1')
+        await session.enableMovementGrace(playerId);
       const snapshot = await session.getConnectionSnapshot(playerId);
       if (socket.readyState !== WebSocket.OPEN) return;
       socketDetails.get(socket)!.roomId = snapshot.viewport.centerRoomId;
@@ -431,12 +434,35 @@ export function createGameServer(
       });
       let diagnosticWindowAt = performance.now();
       let clientReports = 0;
+      let lastClockProbeAt = -Infinity;
       socket.on('message', (data, binary) => {
         if (active.get(playerId)?.connectionId !== connectionId) return;
         const receivedAt = performance.now();
         const state = socketDetails.get(socket)!;
         state.lastReceivedAt = receivedAt;
         const raw = binary ? '' : data.toString();
+        let clock: unknown;
+        try {
+          clock = JSON.parse(raw);
+        } catch {
+          clock = null;
+        }
+        if (
+          isRecord(clock) &&
+          clock.type === 'movementClock' &&
+          typeof clock.clientTimeMs === 'number' &&
+          Number.isFinite(clock.clientTimeMs)
+        ) {
+          if (receivedAt - lastClockProbeAt >= 250) {
+            lastClockProbeAt = receivedAt;
+            publish(socket, {
+              type: 'movementClock',
+              clientTimeMs: clock.clientTimeMs,
+              serverTimeMs: session.getMovementClockTime(),
+            });
+          }
+          return;
+        }
         const message = binary ? null : parseCommandMessage(raw);
         if (!message) {
           const diagnostic = binary ? null : parseClientDiagnostic(raw);
@@ -493,7 +519,10 @@ export function createGameServer(
               // authority queue. Domain commands publish their changed UI before ack.
               if (!['setDirection', 'forceDirection'].includes(command.type)) {
                 const current = await session.getConnectionSnapshot(playerId);
-                publish(socket, { type: 'delta', delta: channel.encoder.encode(current, true) });
+                publish(socket, {
+                  type: 'delta',
+                  delta: channel.encoder.encode(current, true, true),
+                });
                 flushEvents(channel);
               }
               acknowledge(socket, command, result);

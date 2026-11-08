@@ -5,6 +5,7 @@ import { QuestRegistry } from '../../src/quests/questRegistry.js';
 import { AuthoritativeGameSession } from '../../src/session/AuthoritativeGameSession.js';
 import { createGameServer } from '../../src/server/createGameServer.js';
 import type { SessionDiagnostic } from '../../src/session/SessionDiagnostic.js';
+import { serverCredentialKey } from '../../src/session/connectionSettings.js';
 
 test('two normal clients use discrete variable-speed steps, rapid turns, grid corrections and browser lifecycle resume', async ({
   page,
@@ -21,11 +22,21 @@ test('two normal clients use discrete variable-speed steps, rapid turns, grid co
   room.layout = room.layout.map((row) => '.'.repeat(row.length));
   room.portals = [];
   const session = new AuthoritativeGameSession({ game, manageBasicFeatures: true });
+  expect(session.handleCommand({ type: 'pause', playerId: game.getLocalPlayerId() }).ok).toBe(true);
   const records: SessionDiagnostic[] = [];
-  const server = createGameServer(session, { onDiagnostic: (record) => records.push(record) });
+  const hostToken = 'discrete-movement-browser-host';
+  const server = createGameServer(session, {
+    hostToken,
+    onDiagnostic: (record) => records.push(record),
+  });
   const port = await server.listen(0);
+  await page.addInitScript(({ key, token }) => localStorage.setItem(key, token), {
+    key: `${serverCredentialKey(`ws://127.0.0.1:${port}/game`)}:host`,
+    token: hostToken,
+  });
   const bob = await browser.newPage({ baseURL: test.info().project.use.baseURL });
   const errors: string[] = [];
+  session.start((error) => errors.push(String(error)));
   const kinds: string[] = [];
   for (const client of [page, bob]) client.on('pageerror', (error) => errors.push(error.message));
   page.on('websocket', (socket) =>
@@ -38,7 +49,7 @@ test('two normal clients use discrete variable-speed steps, rapid turns, grid co
     for (const client of [page, bob])
       await expect
         .poll(() => client.evaluate(() => window.snakeE2E?.getLifecycle().mode))
-        .toBe('action');
+        .toMatch(/action|paused/);
     const alice = session.getSnapshot().localPlayerId;
     const bobId = Object.values(session.getSnapshot().connections!).find(
       (peer) => peer.displayName === 'Bob',
@@ -56,11 +67,19 @@ test('two normal clients use discrete variable-speed steps, rapid turns, grid co
         });
       });
     await session.advance(0);
+    expect((await session.executeCommand({ type: 'resume', playerId: alice })).ok).toBe(true);
     session.refreshSnapshot();
+    await expect
+      .poll(() =>
+        page.evaluate(() => window.snakeE2E?.getPresentation().movementDiagnostics?.intervalMs),
+      )
+      .toBe(50);
     await page.keyboard.press('ArrowDown', { delay: 30 });
     await page.keyboard.press('ArrowLeft', { delay: 30 });
-    for (let frame = 0; frame < 8; frame++) await session.advance(20);
-    expect(session.getSnapshot(alice).players[alice].direction).toEqual({ x: -1, y: 0 });
+    await expect
+      .poll(() => session.getSnapshot(alice).players[alice].direction)
+      .toEqual({ x: -1, y: 0 });
+    session.stop();
     await expect.poll(() => kinds.filter((kind) => kind === 'movement').length).toBeGreaterThan(3);
     for (const interval of [50, 70, 100, 200]) {
       game.runForPlayer(alice, () =>
@@ -144,6 +163,7 @@ test('two normal clients use discrete variable-speed steps, rapid turns, grid co
     await page.screenshot({ path: 'test-results/discrete-multiplayer-movement.png' });
     expect(errors).toEqual([]);
   } finally {
+    session.stop();
     await page.close();
     await bob.close();
     await server.close();

@@ -21,6 +21,7 @@ type ConnectionStatus = 'connected' | 'reconnecting' | 'closed';
 
 export class WebSocketGameConnection implements GameConnection {
   readonly ready: Promise<void>;
+  private readyResolved = false;
   private readonly predictor = new ClientMovementPredictor();
   private readonly peers = new PeerMovementPresentation();
   private readonly directionInputs = new Map<number, Vector2Like>();
@@ -30,7 +31,6 @@ export class WebSocketGameConnection implements GameConnection {
   playerId: string | null = null;
   private readonly assembler = new SnapshotDeltaAssembler();
   private snapshot: GameSnapshot | null = null;
-  private lastLocalMovement: MovementUpdate | null = null;
   private diagnosticsEnabled = false;
   private lastSnapshotAt = performance.now();
   private readonly diagnostics: ClientDiagnostic[] = [];
@@ -44,6 +44,7 @@ export class WebSocketGameConnection implements GameConnection {
   private pageSuspended = false;
   private removeLifecycleListeners?: () => void;
   private handshakeTimer?: ReturnType<typeof setTimeout>;
+  private clockTimer?: ReturnType<typeof setInterval>;
   private readonly snapshots = new Set<(snapshot: GameSnapshot) => void>();
   private readonly movements = new Set<(update: MovementUpdate) => void>();
   private readonly events = new Set<(event: GameEvent) => void>();
@@ -111,6 +112,7 @@ export class WebSocketGameConnection implements GameConnection {
     const endpoint = new URL(this.url);
     endpoint.searchParams.set('name', this.displayName);
     endpoint.searchParams.set('prediction', '1');
+    endpoint.searchParams.set('turnSteps', '1');
     if (this.resumeToken) endpoint.searchParams.set('resume', this.resumeToken);
     const host = loadServerCredential(this.url, 'host');
     if (host) endpoint.searchParams.set('hostToken', host);
@@ -142,20 +144,33 @@ export class WebSocketGameConnection implements GameConnection {
             this.attempt = 0;
             this.directionInputs.clear();
             this.predictor.discardReplayedInputs();
-            this.lastLocalMovement = null;
             this.assembler.reset(message.snapshot);
             this.publish(message.snapshot);
             this.setStatus('connected');
+            clearInterval(this.clockTimer);
+            const probe = () => {
+              if (socket.readyState === WebSocket.OPEN)
+                socket.send(
+                  JSON.stringify({ type: 'movementClock', clientTimeMs: performance.now() }),
+                );
+            };
+            probe();
+            this.clockTimer = setInterval(probe, 1000);
             this.flushDiagnostics();
             for (const direction of this.handoffDirections.splice(0))
               void this.send({ type: 'setDirection', playerId: message.playerId, direction });
             resolve();
+            this.readyResolved = true;
+            break;
+          case 'movementClock':
+            this.predictor.synchronizeClock(
+              message.clientTimeMs,
+              performance.now(),
+              message.serverTimeMs,
+            );
             break;
           case 'delta':
-            this.publish(
-              this.assembler.apply(message.delta),
-              message.delta.movementResync !== false,
-            );
+            this.publish(this.assembler.apply(message.delta));
             break;
           case 'snapshot':
             this.publish(message.snapshot);
@@ -165,7 +180,6 @@ export class WebSocketGameConnection implements GameConnection {
             if (!next) break;
             this.snapshot = next;
             if (message.update.player.id === this.playerId) {
-              this.lastLocalMovement = message.update;
               this.acknowledgeDirections(next);
               this.predictor.accept(
                 next.players[next.localPlayerId],
@@ -185,7 +199,13 @@ export class WebSocketGameConnection implements GameConnection {
           case 'result': {
             if (!message.result.ok) {
               this.directionInputs.delete(message.id);
-              this.predictor.rejectDirection(message.id);
+              this.predictor.rejectDirection(message.id, message.result.reason);
+              if (this.snapshot)
+                this.predictor.seedFrom(
+                  this.snapshot,
+                  performance.now(),
+                  this.desiredHold === 'playing',
+                );
             }
             const request = this.pending.get(message.id);
             if (request) {
@@ -204,6 +224,7 @@ export class WebSocketGameConnection implements GameConnection {
     socket.onerror = () => socket.close(4000, 'Transport error');
     socket.onclose = (event) => {
       if (socket !== this.socket) return;
+      clearInterval(this.clockTimer);
       clearTimeout(this.handshakeTimer);
       if (!this.closed && this.playerId && ![1000, 1008, 4001].includes(event.code))
         this.reportDiagnostic({
@@ -234,7 +255,7 @@ export class WebSocketGameConnection implements GameConnection {
   }
 
   async send(command: ClientCommand): Promise<CommandResult> {
-    await this.ready;
+    if (!this.readyResolved) await this.ready;
     if (command.type === 'playerInteraction') {
       this.desiredHold = command.mode;
       if (command.mode !== 'playing') this.predictor.cancel();
@@ -262,9 +283,12 @@ export class WebSocketGameConnection implements GameConnection {
       return { ok: false, reason: 'Reconnecting to server. Please wait.' };
     const id = ++this.nextId;
     if (command.type === 'setDirection') {
-      this.predictor.direction(command.direction, performance.now(), id);
+      const accepted = this.predictor.direction(command.direction, performance.now(), id);
+      const intent = this.predictor.turnIntent;
+      if (!accepted && this.snapshot?.players[command.playerId]?.movementPredictionAllowed)
+        return { ok: true };
       this.directionInputs.set(id, { ...command.direction });
-      command = { ...command, inputSequence: id };
+      command = { ...command, inputSequence: id, ...intent };
     }
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -356,6 +380,10 @@ export class WebSocketGameConnection implements GameConnection {
     return player ? this.predictor.presentation(player) : null;
   }
 
+  getMovementDiagnostics() {
+    return this.predictor.getDiagnostics();
+  }
+
   getPeerMovementPresentation(playerId: string) {
     return this.peers.sample(playerId);
   }
@@ -395,6 +423,7 @@ export class WebSocketGameConnection implements GameConnection {
     this.closed = true;
     clearTimeout(this.retryTimer);
     clearTimeout(this.handshakeTimer);
+    clearInterval(this.clockTimer);
     this.rejectPending(new Error('Game connection closed'));
     this.socket?.close(1000, 'Left server');
     this.diagnostics.length = 0;
@@ -414,25 +443,18 @@ export class WebSocketGameConnection implements GameConnection {
     this.status = status;
     this.notify(this.statuses, status, 'status');
   }
-  private publish(snapshot: GameSnapshot, movementResync = true): void {
+  private publish(snapshot: GameSnapshot): void {
     this.lastSnapshotAt = performance.now();
     this.acknowledgeDirections(snapshot);
-    const movement = this.lastLocalMovement;
-    const timingSnapshot =
-      !movementResync &&
-      movement &&
-      movement.epoch === snapshot.replication?.epoch &&
-      movement.player.movementRevision ===
-        snapshot.players[snapshot.localPlayerId]?.movementRevision
-        ? { ...snapshot, tick: movement.tick }
-        : snapshot;
-    this.predictor.seedFrom(timingSnapshot, performance.now(), this.desiredHold === 'playing');
+    this.predictor.seedFrom(snapshot, performance.now(), this.desiredHold === 'playing');
     this.peers.accept(snapshot);
     this.snapshot = snapshot;
     for (const handler of this.snapshots)
       this.notify([handler], structuredClone(snapshot), 'snapshot');
   }
   private acknowledgeDirections(snapshot: GameSnapshot): void {
+    if (!snapshot.players[snapshot.localPlayerId]?.movementPredictionAllowed)
+      this.directionInputs.clear();
     const acknowledged =
       snapshot.players[snapshot.localPlayerId]?.acknowledgedDirectionSequence ?? 0;
     for (const sequence of this.directionInputs.keys())

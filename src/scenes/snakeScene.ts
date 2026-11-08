@@ -525,6 +525,9 @@ interface SnakeE2EWindowApi {
     choice: ReturnType<ChoicePopup['getPresentationState']>;
     players: ReturnType<SnakeRenderer['getPlayerPresentation']>;
     movement: import('../session/ClientMovementPredictor.js').PredictedSnake | null;
+    movementDiagnostics: ReturnType<
+      import('../session/ClientMovementPredictor.js').ClientMovementPredictor['getDiagnostics']
+    > | null;
     lifecycle: GameSnapshot['lifecycle'];
   };
 
@@ -1798,6 +1801,7 @@ export default class SnakeScene extends Phaser.Scene {
         deathCutscene: Boolean(this.deathCutscene),
         lives: this.getDebugLivesState(),
         lifecycle: this.getLifecycleDiagnostics(),
+        movementAuthority: this.gameConnection?.getMovementDiagnostics?.() ?? null,
         game: this.snakeGame && !this.titleVisible ? this.snakeGame.getDebugSnapshot() : null,
       }),
     });
@@ -3953,6 +3957,7 @@ export default class SnakeScene extends Phaser.Scene {
         choice: this.villageShopPopup.getPresentationState(),
         players: this.snakeRenderer.getPlayerPresentation(),
         movement: this.gameConnection?.getMovementPresentation?.() ?? null,
+        movementDiagnostics: this.gameConnection?.getMovementDiagnostics?.() ?? null,
         lifecycle: this.currentSnapshot?.lifecycle,
       }),
       getPauseState: () => this.skillTree.getOverlay().getNavigationState(),
@@ -16555,6 +16560,7 @@ export default class SnakeScene extends Phaser.Scene {
         modalState: this.getDebugModalState(),
         lives: this.getDebugLivesState(),
         lifecycle: this.getLifecycleDiagnostics(),
+        movementAuthority: this.gameConnection?.getMovementDiagnostics?.() ?? null,
         game: this.snakeGame.getDebugSnapshot(),
         archaeology: this.archaeologySession
           ? this.serializeArchaeologyDebugSnapshot(this.archaeologySession.getSnapshot())

@@ -116,6 +116,10 @@ export class SimulationScheduler {
     };
   }
 
+  getClockAccumulator(id: string): number {
+    return this.clocks.get(id)?.accumulatorMs ?? 0;
+  }
+
   private advanceClock(id: string, deltaMs: number, enabled: () => boolean): void {
     const clock = this.clocks.get(id);
     if (!clock) {
