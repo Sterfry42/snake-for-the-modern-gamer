@@ -1,3 +1,5 @@
+import type { ActorPersonalityTag } from '../actors/actorTypes.js';
+
 /**
  * Data-driven staged stories. The game owns actor state, karma, currencies and events;
  * this module only decides which contextual verbs exist and advances quest state.
@@ -18,6 +20,14 @@ export interface StoryQuestTarget {
   actorId: string;
   role: string;
   species: string;
+  personality?: readonly ActorPersonalityTag[];
+  trust?: number;
+  score?: number;
+}
+
+export interface StoryQuestPrerequisite {
+  questId: string;
+  outcomes: readonly string[];
 }
 
 export interface StoryQuestAction {
@@ -28,6 +38,12 @@ export interface StoryQuestAction {
   roles?: readonly string[];
   species?: readonly string[];
   originOutcomes?: readonly string[];
+  requiresOutcomes?: readonly StoryQuestPrerequisite[];
+  personalityAny?: readonly ActorPersonalityTag[];
+  minTrust?: number;
+  minScore?: number;
+  characterLines?: Partial<Record<ActorPersonalityTag, string>>;
+  acceptQuest?: boolean;
   requiresCounter?: { key: string; atLeast: number };
   incrementCounter?: string;
   uniqueActor?: boolean;
@@ -44,6 +60,10 @@ export interface StoryQuestDefinition {
   initialStage: string;
   actions: readonly StoryQuestAction[];
   nextQuest?: { id: string; outcomes: readonly string[] };
+  prerequisites?: readonly StoryQuestPrerequisite[];
+  inheritGiver?: boolean;
+  objectives?: Readonly<Record<string, readonly string[]>>;
+  returnStages?: readonly string[];
 }
 
 export interface StoryQuestTransition {
@@ -68,10 +88,63 @@ export function storyActionId(questId: string, actionKey: string): string {
   return `quest:${questId}:${actionKey}`;
 }
 
+export type StoryQuestStateLookup = (questId: string) => StoryQuestState | null;
+
+export function storyQuestIsUnlocked(
+  definition: StoryQuestDefinition,
+  lookup: StoryQuestStateLookup,
+): boolean {
+  return (definition.prerequisites ?? []).every((requirement) => {
+    const previous = lookup(requirement.questId);
+    return previous?.stage === 'completed' &&
+      Boolean(previous.outcome && requirement.outcomes.includes(previous.outcome));
+  });
+}
+
+export function initializeUnlockedStory(
+  definition: StoryQuestDefinition,
+  lookup: StoryQuestStateLookup,
+): StoryQuestState | null {
+  if (!storyQuestIsUnlocked(definition, lookup)) return null;
+  const first = definition.prerequisites?.[0];
+  const previous = first ? lookup(first.questId) : null;
+  return {
+    ...createStoryQuestState(definition, previous?.outcome),
+    ...(definition.inheritGiver && previous?.giverActorId
+      ? { giverActorId: previous.giverActorId, giverRoomId: previous.giverRoomId }
+      : {}),
+  };
+}
+
+export function storyQuestCharacterLine(
+  action: StoryQuestAction,
+  target: StoryQuestTarget,
+): string | undefined {
+  for (const tag of target.personality ?? []) {
+    const line = action.characterLines?.[tag];
+    if (line) return line;
+  }
+  return undefined;
+}
+
+export function storyQuestObjectives(
+  definition: StoryQuestDefinition,
+  state: StoryQuestState,
+): string[] {
+  if (state.stage === 'completed') {
+    return [`[x] ${state.outcome ?? 'Resolved'} — the world remembers`];
+  }
+  if (state.stage === 'declined') return ['[x] Refused'];
+  return (definition.objectives?.[state.stage] ?? ['[ ] Speak with someone involved']).map(
+    (line) => line.replaceAll('{captured}', String(state.counters.captured ?? 0)),
+  );
+}
+
 export function availableStoryActions(
   definition: StoryQuestDefinition,
   state: StoryQuestState,
   target: StoryQuestTarget,
+  lookup: StoryQuestStateLookup = () => null,
 ): StoryQuestAction[] {
   if (
     state.questId !== definition.id ||
@@ -87,6 +160,15 @@ export function availableStoryActions(
     if (action.originOutcomes && !action.originOutcomes.includes(state.originOutcome ?? '')) {
       return false;
     }
+    if (action.requiresOutcomes?.some((requirement) => {
+      const previous = lookup(requirement.questId);
+      return previous?.stage !== 'completed' ||
+        !previous.outcome || !requirement.outcomes.includes(previous.outcome);
+    })) return false;
+    if (action.personalityAny &&
+      !action.personalityAny.some((tag) => target.personality?.includes(tag))) return false;
+    if (action.minTrust !== undefined && (target.trust ?? 0) < action.minTrust) return false;
+    if (action.minScore !== undefined && (target.score ?? 0) < action.minScore) return false;
     if (action.requiresCounter) {
       if ((state.counters[action.requiresCounter.key] ?? 0) < action.requiresCounter.atLeast) {
         return false;
@@ -104,8 +186,9 @@ export function applyStoryAction(
   state: StoryQuestState,
   target: StoryQuestTarget,
   actionKey: string,
+  lookup: StoryQuestStateLookup = () => null,
 ): StoryQuestTransition | null {
-  const action = availableStoryActions(definition, state, target).find(
+  const action = availableStoryActions(definition, state, target, lookup).find(
     (candidate) => candidate.key === actionKey,
   );
   if (!action) return null;
@@ -148,6 +231,15 @@ export const CRYSTAL_CLAUSE: StoryQuestDefinition = {
   id: 'crystal-clause',
   label: 'The Crystal Clause',
   initialStage: 'offered',
+  objectives: {
+    offered: ['[ ] Speak with a wizard about the crystal commission'],
+    hunting: ['[ ] Bind two goblins ({captured}/2) or report the wizard'],
+    ready: [
+      '[x] Bound goblins ({captured}/2)',
+      '[ ] Deliver crystals, report the wizard, or free the prisoners',
+    ],
+  },
+  returnStages: ['ready'],
   nextQuest: {
     id: 'crystal-aftermath',
     outcomes: ['delivered', 'reported', 'freed'],
@@ -161,6 +253,7 @@ export const CRYSTAL_CLAUSE: StoryQuestDefinition = {
       stages: ['offered'],
       roles: ['wizard'],
       bindGiver: true,
+      acceptQuest: true,
       nextStage: 'hunting',
     },
     {
@@ -221,6 +314,11 @@ export const CRYSTAL_AFTERMATH: StoryQuestDefinition = {
   id: 'crystal-aftermath',
   label: 'After the Crystals',
   initialStage: 'followup',
+  inheritGiver: true,
+  prerequisites: [{ questId: 'crystal-clause', outcomes: ['delivered', 'reported', 'freed'] }],
+  objectives: {
+    followup: ['[ ] Settle the consequences of the bound goblins'],
+  },
   actions: [
     {
       key: 'confess',
