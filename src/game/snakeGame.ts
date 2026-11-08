@@ -19911,14 +19911,17 @@ export class SnakeGame implements QuestRuntime {
     const options: AlchemyStationInteractionView['options'] = getReleasedAlchemyRecipes()
       .filter((recipe) => state.knownRecipes.includes(recipe.id))
       .map((recipe) => {
-        const missing = recipe.ingredients.find(
-          (requirement) => this.inventory.getItemCount(requirement.itemId) < requirement.quantity,
-        );
+        const missing = recipe.ingredients
+          .filter((requirement) => this.inventory.getItemCount(requirement.itemId) < requirement.quantity)
+          .map((requirement) => {
+            const needed = requirement.quantity - this.inventory.getItemCount(requirement.itemId);
+            return `${needed} ${getItem(requirement.itemId)?.name ?? requirement.itemId}`;
+          });
         return {
           id: `brew:${recipe.id}`,
           title: `Brew ${recipe.name}`,
-          enabled: !missing,
-          reason: missing ? `Needs ${getItem(missing.itemId)?.name ?? missing.itemId}.` : undefined,
+          enabled: missing.length === 0,
+          reason: missing.length > 0 ? `Needs ${missing.join(', ')}.` : undefined,
         };
       });
     if (context.source === 'placed') {
@@ -20326,10 +20329,12 @@ export class SnakeGame implements QuestRuntime {
     }
 
     if (itemId === ALCHEMY_STATION_ITEM_ID) {
+      this.setFlag('alchemy.placementArmed', true);
       return {
-        ok: false,
-        message: 'Choose a nearby empty tile to set up the Alchemy Station.',
-        color: '#ffd166',
+        ok: true,
+        message: 'Station ready. Close inventory, then Interact to select an adjacent placement tile.',
+        color: '#9cff9c',
+        consume: false,
       };
     }
 

@@ -3569,6 +3569,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private async performInteractAction(): Promise<void> {
+    if (this.tryPlaceAlchemyStation()) return;
     if (this.snakeGame.getStructurePlacement()) {
       this.confirmStructurePlacement();
       return;
@@ -10767,7 +10768,7 @@ export default class SnakeScene extends Phaser.Scene {
       }));
     const result = this.snakeGame.useInventoryItem(itemId);
     if (result.ok) {
-      this.recordAchievementEvent({ type: 'item:consumed', itemId });
+      if (result.consume !== false) this.recordAchievementEvent({ type: 'item:consumed', itemId });
       this.applyEquipmentEffects();
       this.setFlag('status.alchemyEffectsDirty', undefined);
     }
@@ -16290,6 +16291,60 @@ export default class SnakeScene extends Phaser.Scene {
     ];
   }
 
+  /** The station is selected in inventory, then deployed through a validated world intent. */
+  private tryPlaceAlchemyStation(): boolean {
+    if (!this.snakeGame.getFlag<boolean>('alchemy.placementArmed')) return false;
+    if (this.paused || this.offeredQuest || this.choicePopupVisible) return true;
+    const head = this.snakeGame.getSnakeBody()[0];
+    const local = head ? this.snakeGame.resolveRoomPosition(head) : null;
+    if (!local) return false;
+
+    const directions = [
+      { id: 'north', title: 'North', dx: 0, dy: -1 },
+      { id: 'east', title: 'East', dx: 1, dy: 0 },
+      { id: 'south', title: 'South', dx: 0, dy: 1 },
+      { id: 'west', title: 'West', dx: -1, dy: 0 },
+    ];
+    this.paused = true;
+    this.villageShopPopup.show('Deploy Alchemy Station', [
+      ...directions.map((direction) => ({
+        id: direction.id,
+        title: `Place ${direction.title}`,
+        description: 'Place the station on the neighboring tile.',
+      })),
+      { id: 'cancel', title: 'Cancel', description: 'Put the station away without placing it.' },
+    ], async (id) => {
+      if (id === 'cancel') {
+        await this.gameConnection.send({
+          type: 'worldInteraction',
+          action: 'alchemy-cancel',
+          playerId: this.snakeGame.getLocalPlayerId(),
+        });
+        this.paused = false;
+        return;
+      }
+      const direction = directions.find((entry) => entry.id === id);
+      if (!direction) {
+        this.paused = false;
+        return;
+      }
+      const result = await this.gameConnection.send({
+        type: 'worldInteraction',
+        action: 'alchemy-place',
+        target: { x: local.localX + direction.dx, y: local.localY + direction.dy },
+        playerId: this.snakeGame.getLocalPlayerId(),
+      });
+      this.showQuestHintPopup(
+        result.message ?? result.reason ?? 'Could not place the station.',
+        result.ok ? '#5dd6a2' : '#ff6b6b',
+      );
+      this.skillTree.getOverlay().refresh();
+      this.isDirty = true;
+      this.paused = false;
+    });
+    return true;
+  }
+
   private tryInteractAlchemyStation(): boolean {
     if (this.paused || this.offeredQuest || this.choicePopupVisible) {
       return false;
@@ -20371,11 +20426,12 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.paused || this.offeredQuest || this.choicePopupVisible) {
       return false;
     }
+    // Ensure scenery-backed NPC actors are materialized before looking up verbs.
+    this.snakeGame.getActorsInCurrentRoom();
     const profile = this.getNearbyRelationshipProfile();
     if (!profile) {
       return false;
     }
-    this.snakeGame.getActorsInCurrentRoom();
     this.showRelationshipRoot(profile);
     return true;
   }

@@ -116,6 +116,18 @@ const POTION_MAKER_SUPPLIES: readonly VillageShopSupplyOffer[] = [
     note: 'Common alchemy component. Dawn in a jar, somehow legal.',
   },
   {
+    id: 'ingredient-pearl-apple',
+    itemId: 'ingredient-pearl-apple',
+    price: 11,
+    note: 'Starter Phase and Shield reagent.',
+  },
+  {
+    id: 'ingredient-quartz',
+    itemId: 'ingredient-quartz',
+    price: 8,
+    note: 'Crushed quartz for the starter Phase recipe.',
+  },
+  {
     id: 'ingredient-yuzu-apple',
     itemId: 'ingredient-yuzu-apple',
     price: 9,
@@ -290,7 +302,11 @@ export const DEFAULT_SHOP_PROFILES: ReadonlyMap<string, ShopProfile> = new Map(
     }),
     profile('potion-maker', {
       consumables: { poolId: 'potion-maker-consumables', randomCount: 4 },
-      items: { poolId: 'potion-maker-items', anchored: ['alchemy-station'], randomCount: 3 },
+      items: {
+        poolId: 'potion-maker-items',
+        anchored: ['alchemy-station', 'ingredient-pearl-apple', 'ingredient-quartz', 'ingredient-dew'],
+        randomCount: 3,
+      },
     }),
     profile('wizard', {
       consumables: { poolId: 'wizard-consumables', randomCount: 4 },
@@ -367,14 +383,17 @@ const DEFAULT_SHOP_OFFER_POOL_LIST: ShopOfferPool[] = [
     'potion-maker-items',
     'items',
     POTION_MAKER_SUPPLIES.filter((offer) =>
-      ['alchemy-station', 'ingredient-honey', 'ingredient-dew', 'ingredient-yuzu-apple'].includes(
-        offer.id,
-      ),
+      [
+        'alchemy-station', 'ingredient-honey', 'ingredient-dew',
+        'ingredient-pearl-apple', 'ingredient-quartz', 'ingredient-yuzu-apple',
+      ].includes(offer.id),
     ),
     {
       'alchemy-station': 2,
       'ingredient-honey': 18,
       'ingredient-dew': 20,
+      'ingredient-pearl-apple': 15,
+      'ingredient-quartz': 18,
       'ingredient-yuzu-apple': 12,
     },
   ),

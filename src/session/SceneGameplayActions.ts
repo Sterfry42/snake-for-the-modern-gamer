@@ -82,6 +82,35 @@ export function executeSceneGameplayAction(
           return command.optionId
             ? game.chooseAlchemyStationInteraction(command.optionId)
             : { ok: false, reason: 'Choose a brew.' };
+        case 'alchemy-cancel':
+          game.setFlag('alchemy.placementArmed', undefined);
+          return { ok: true, message: 'Station put away.' };
+        case 'alchemy-place': {
+          const head = game.getSnakeBody()[0];
+          const local = head ? game.resolveRoomPosition(head) : null;
+          if (
+            !game.getFlag<boolean>('alchemy.placementArmed') ||
+            !local ||
+            !Number.isInteger(command.target.x) ||
+            !Number.isInteger(command.target.y) ||
+            Math.abs(command.target.x - local.localX) +
+              Math.abs(command.target.y - local.localY) !== 1 ||
+            game.getPlayerHealth().current <= 0
+          ) {
+            return { ok: false, reason: 'Choose an adjacent tile while carrying a station.' };
+          }
+          const placed = game.deployAlchemyStation(command.target);
+          if (placed.ok) {
+            game.setFlag('alchemy.placementArmed', undefined);
+          }
+          return {
+            ok: placed.ok,
+            reason: placed.ok ? undefined : placed.reason,
+            message: placed.ok
+              ? 'Alchemy Station deployed.'
+              : `Cannot deploy Alchemy Station: ${placed.reason}.`,
+          };
+        }
         case 'town-door':
           return game.enterNearbyTownBuildingDoor();
         case 'town-grate':
