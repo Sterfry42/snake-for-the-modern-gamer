@@ -1113,11 +1113,7 @@ export class SkillTreeOverlay {
         ) {
           return;
         }
-        if (
-          this.visible &&
-          this.activeTab === 'map' &&
-          this.worldMap.handleWheel(_pointer, dy)
-        ) {
+        if (this.visible && this.activeTab === 'map' && this.worldMap.handleWheel(_pointer, dy)) {
           return;
         }
         this.scrollActiveText(dy);

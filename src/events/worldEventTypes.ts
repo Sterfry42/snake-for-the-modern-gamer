@@ -1,4 +1,10 @@
 export type WorldEventType =
+  | 'farm-raided'
+  | 'farm-claimed'
+  | 'crop-harvested'
+  | 'contraband-sale'
+  | 'greenhouse-destroyed'
+  | 'municipal-garden-designated'
   | 'actor-spawned'
   | 'actor-talked'
   | 'actor-asked-around'

@@ -2,6 +2,18 @@
  * Snake Game Core
  */
 import { findSafePlayerSpawn } from '../players/safePlayerSpawn.js';
+import { FarmingState } from '../farming/farmingState.js';
+import { processFarmDawn } from '../farming/farmingIncidents.js';
+import { applyFarmContact, farmCreatureTarget } from '../farming/farmingCreatures.js';
+import { executeFarmAction, farmShelter } from '../farming/farmingActions.js';
+import type { FarmAction } from '../farming/farmingTypes.js';
+import {
+  CROPS,
+  FARM_RECIPES,
+  resolveProduce,
+  QUALITY_MULTIPLIERS,
+} from '../farming/cropCatalog.js';
+import { isWildernessRoom, resolveSoilSubstrate } from '../farming/soilResolver.js';
 import type { PlayerCheckpoint } from '../players/playerCheckpoint.js';
 import { isPlayerInWorld } from '../players/playerLifecycle.js';
 import { applyMovementUpdate, type MovementUpdate } from '../session/MovementUpdate.js';
@@ -1029,9 +1041,6 @@ interface CollisionEntityDebug {
 
 const POST_DEATH_INVULNERABILITY_TICKS = 30;
 const HOUSE_ROOM_ID = '0,-1,0';
-const HOUSE_GARDEN_GROW_MS = 45000;
-const HOUSE_GARDEN_SCORE_REWARD = 5;
-const HOUSE_GARDEN_GROWTH_REWARD = 1;
 const LARGE_TOWN_QUEST_IDS = new Set([
   'tax-collector-future-body',
   'green-purchase',
@@ -1363,6 +1372,7 @@ export class SnakeGame implements QuestRuntime {
   private readonly bombs = new Map<string, BombInstance[]>();
   private bombIdCounter = 0;
   private readonly construction = new ConstructionState();
+  private readonly farming = new FarmingState();
   private constructionPlacement: { blueprintId: string; roomId: string } | null = null;
   private replicaSnapshot: GameSnapshot | null = null;
 
@@ -1473,6 +1483,7 @@ export class SnakeGame implements QuestRuntime {
     this.bombIdCounter = 0;
     this.animals.clearAll();
     this.construction.clear();
+    this.farming.clear();
     this.constructionPlacement = null;
     this.questController.reset(this);
     this.actors.reset();
@@ -2170,6 +2181,7 @@ export class SnakeGame implements QuestRuntime {
             wallOutlineColor: room.wallOutlineColor,
             portals: room.portals,
             structures: this.placedStructures(roomId),
+            farm: this.getFarmCells(roomId),
             caveEntrances: room.caveEntrances,
             layerEntrances: room.layerEntrances,
             apples: this.getApple(roomId),
@@ -2342,9 +2354,11 @@ export class SnakeGame implements QuestRuntime {
     if (changed('maneuvers', state.flags['maneuvers.state']))
       this.maneuvers.restore(state.flags['maneuvers.state']);
     if (changed('atmosphere', state.atmosphere)) this.atmosphere.hydrate(state.atmosphere);
+    if (changed('farming', state.farming)) this.farming.load(state.farming, this.config.grid);
     if (changed('construction', state.construction))
       this.construction.load({
-        claims: state.construction.claim ? [state.construction.claim] : [],
+        claims:
+          state.construction.claims ?? (state.construction.claim ? [state.construction.claim] : []),
         structures: state.construction.structures,
       });
     this.constructionPlacement = structuredClone(state.construction.placement);
@@ -2393,6 +2407,7 @@ export class SnakeGame implements QuestRuntime {
         stashedTotal: this.raccoonStashedTotal,
       },
       worldSeed: this.worldSeed,
+      farming: this.farming.projection(roomIds ?? [this.snake.currentRoomId], this.localPlayerId),
       flags: roomIds
         ? Object.fromEntries(
             Object.entries(this.snake.flags).filter(
@@ -2430,6 +2445,7 @@ export class SnakeGame implements QuestRuntime {
         preview: this.previewStructurePlacement(),
         structures: this.placedStructures(),
         claim: this.getRoomClaim(),
+        claims: this.getRoomClaims(),
       },
       actors: this.getActorsInCurrentRoom(),
       town: this.getCurrentTown(),
@@ -3371,6 +3387,7 @@ export class SnakeGame implements QuestRuntime {
           method: 'eaten',
         });
         if (enemyEat.enemy) {
+          this.markEnemyActorDefeated(enemyEat.enemy);
           this.noteBanditRaidDefeat(enemyEat.enemy, true);
         }
         const eatenName = enemyEat.enemy?.name;
@@ -4526,6 +4543,7 @@ export class SnakeGame implements QuestRuntime {
   } {
     this.tickFactionRaidGameplay();
     const enemyStepResult = this.enemies.stepEnemies({
+      farm: this.farmInteractions(),
       getRoom: (roomId: string) => this.world.getRoom(roomId),
       snake: this.getPhysicalSnakeBody(),
       currentRoomId: this.snake.currentRoomId,
@@ -4536,6 +4554,7 @@ export class SnakeGame implements QuestRuntime {
       hitStyle: enemyStepResult.hitStyle,
     };
     const animalStep = this.animals.step({
+      farm: this.farmInteractions(),
       getRoom: (roomId: string) => this.world.getRoom(roomId),
       snake: this.getPhysicalSnakeBody(),
       currentRoomId: this.snake.currentRoomId,
@@ -4845,7 +4864,10 @@ export class SnakeGame implements QuestRuntime {
       const targetRoom = this.world.getRoom(newRoomId);
       const targetLocal = newHead;
       const tile = targetRoom.layout[targetLocal.y]?.[targetLocal.x];
-      if (tile === '#' || tile === '~') {
+      if (
+        this.construction.isCreatureSolid(targetRoom, targetLocal.x, targetLocal.y) ||
+        tile === '~'
+      ) {
         snake.moveCooldown = 1;
         this.enemies.updateEnemy(snake);
         continue;
@@ -5203,7 +5225,12 @@ export class SnakeGame implements QuestRuntime {
     }
     const room = this.world.getRoom(roomId);
     const tile = room.layout[local.y]?.[local.x];
-    return Boolean(tile && tile !== '#' && tile !== '~' && !isBlockingTownTile(tile));
+    return Boolean(
+      tile &&
+      !this.construction.isCreatureSolid(room, local.x, local.y) &&
+      tile !== '~' &&
+      !isBlockingTownTile(tile),
+    );
   }
 
   private getRivalAppleOccupiedSegments(roomId: string): Vector2Like[] {
@@ -7225,6 +7252,429 @@ export class SnakeGame implements QuestRuntime {
     return this.construction.getClaim(roomId);
   }
 
+  getRoomClaims() {
+    return this.construction.getClaims();
+  }
+  getFarmRoomIds() {
+    return this.farming.roomIds();
+  }
+  getFarmingState(roomIds?: readonly string[]) {
+    return this.farming.save(roomIds);
+  }
+  getFarmJournal() {
+    return CROPS.map((crop) => ({
+      ...crop,
+      ownedSeeds: this.inventory.getItemCount(crop.seedItemId),
+    }));
+  }
+  getFarmCells(roomId = this.snake.currentRoomId) {
+    return this.farming.cells(roomId);
+  }
+  getFarmContextToken(): string {
+    const head = this.snake.bodySegments[0];
+    return `${this.snake.currentRoomId}:${head?.x}:${head?.y}:${this.getRoomsVisitedCount()}`;
+  }
+
+  executeAgricultureCommand(
+    command: Extract<
+      import('../session/SceneActionCommand.js').SceneActionCommand,
+      { type: 'farmingAction' | 'territoryAction' | 'farmSellAction' | 'houseAction' }
+    >,
+  ) {
+    const result = this.farming.transact(this.localPlayerId, command.nonce, () => {
+      if (command.contextToken !== this.getFarmContextToken())
+        return {
+          ok: false,
+          message: 'The player moved or changed rooms. Choose the current target again.',
+        };
+      if (command.type === 'farmingAction') return this.performFarmAction(command);
+      if (command.type === 'houseAction') {
+        const ok =
+          this.snake.currentRoomId === HOUSE_ROOM_ID && this.purchaseHouseItem(command.kind);
+        return {
+          ok,
+          message: ok
+            ? 'House upgrade installed.'
+            : 'House purchase requires the house, enough score and an available upgrade.',
+        };
+      }
+      if (command.type === 'farmSellAction')
+        return this.sellFarmProduce(command.merchantActorId, command.itemId, command.count);
+      if (command.action === 'claimCurrentRoom') return this.purchaseCurrentRoomClaim();
+      if (command.action === 'releaseCurrentRoom')
+        return this.releaseCurrentRoomClaim(command.confirmed === true);
+      if (command.action === 'designateMunicipalFarm') return this.designateMunicipalFarm();
+      if (command.action === 'grant' || command.action === 'revoke')
+        return this.setRoomPermission(
+          command.granteePlayerId,
+          command.permission,
+          command.action === 'grant',
+        );
+      return { ok: false, message: 'Unknown territory action.' };
+    });
+    return { ...result, agricultureNonce: this.farming.actionNonce(this.localPlayerId) };
+  }
+
+  performFarmAction(action: FarmAction) {
+    if (action.action !== 'inspect')
+      this.farming.flush((roomId, cell) => ({
+        greenhouse:
+          (roomId === HOUSE_ROOM_ID && cell.substrate === 'artificial') ||
+          farmShelter(this.construction, roomId, cell).greenhouse,
+      }));
+    const room = this.getCurrentRoom();
+    const head = this.snake.bodySegments[0];
+    if (!head) return { ok: false, message: 'No player head.' };
+    const local = this.worldToLocal(room.id, head);
+    if (action.action === 'toggleGate' || action.action === 'reinforce') {
+      const dx = action.target?.dx ?? 0,
+        dy = action.target?.dy ?? 0;
+      if (!Number.isInteger(dx) || !Number.isInteger(dy) || Math.abs(dx) + Math.abs(dy) > 1)
+        return { ok: false, message: 'Choose an adjacent structure.' };
+      const structure = this.construction.getStructureAt(room.id, local.x + dx, local.y + dy);
+      if (action.action === 'toggleGate')
+        return {
+          ok: this.construction.toggleGate(room.id, local.x + dx, local.y + dy, this.localPlayerId),
+          message: 'Gate operation requires build permission.',
+        };
+      if (
+        !structure ||
+        !this.construction.can(room.id, this.localPlayerId, 'build') ||
+        this.getScore() < 50 ||
+        !this.construction.reinforce(structure.id)
+      )
+        return {
+          ok: false,
+          message:
+            'Reinforcement requires an unreinforced greenhouse, build permission and 50 score.',
+        };
+      this.addScore(-50);
+      return { ok: true, message: 'Greenhouse reinforced: durability 200.' };
+    }
+    const previousCrop = this.farming.get(
+      room.id,
+      local.x + (action.target?.dx ?? 0),
+      local.y + (action.target?.dy ?? 0),
+    )?.crop?.cropId;
+    const result = executeFarmAction(
+      {
+        playerId: this.localPlayerId,
+        room,
+        head: this.worldToLocal(room.id, head),
+        alive: this.isLocalPlayerInWorld() && this.getPlayerHealth().current > 0,
+        inventory: this.inventory,
+        construction: this.construction,
+        farms: this.farming,
+        climate: this.atmosphere.getState(),
+        canFarmMunicipal: (x, y, harvest) => this.canFarmMunicipalCell(room, x, y, harvest),
+        occupied: (x, y) =>
+          [
+            ...this.collectActorOccupancy(room.id),
+            ...this.collectEnemyOccupancy(room.id),
+            ...this.collectBossOccupancy(room.id),
+          ].some((cell) => cell.x === x && cell.y === y),
+        getCharges: () => Number(this.getFlag<number>('farm.canCharges') ?? 8),
+        setCharges: (value) => this.setFlag('farm.canCharges', value),
+      },
+      action,
+    );
+    if (
+      result.ok &&
+      (action.seedItemId === 'seed-cannabis' ||
+        (action.action === 'harvest' && previousCrop === 'cannabis'))
+    )
+      this.observeContraband(local);
+    return result;
+  }
+
+  private observeContraband(position: Vector2Like): void {
+    const room = this.getCurrentRoom();
+    if (!room.town) return;
+    const witnessed = this.actors.getActorsInRoom(room.id).some((actor) => {
+      const presence = actor.presence;
+      if (!presence?.materialized || !isTownGuardRole(actor.role) || actor.health?.state === 'dead')
+        return false;
+      const distance =
+        Math.abs(presence.position.x - position.x) + Math.abs(presence.position.y - position.y);
+      if (distance > 6) return false;
+      const steps = Math.max(
+        Math.abs(presence.position.x - position.x),
+        Math.abs(presence.position.y - position.y),
+      );
+      for (let i = 1; i < steps; i++) {
+        const x = Math.round(
+          presence.position.x + ((position.x - presence.position.x) * i) / steps,
+        );
+        const y = Math.round(
+          presence.position.y + ((position.y - presence.position.y) * i) / steps,
+        );
+        if (this.isEffectivelySolidCell(room, x, y)) return false;
+      }
+      return true;
+    });
+    if (witnessed) this.applyCurrentTownCrime('contraband', true, 1);
+  }
+
+  private canFarmMunicipalCell(
+    room: RoomSnapshot,
+    x: number,
+    y: number,
+    harvest: boolean,
+  ): boolean {
+    const town = room.town ?? this.findTownById(room.townPerimeter?.townId);
+    if (!town) return false;
+    const mayor = this.getTownCivicState(town).mayor;
+    return (
+      (mayor.kind === 'player' && mayor.playerId === this.localPlayerId) ||
+      Boolean(this.farming.municipal(room.id, x, y)?.[harvest ? 'harvest' : 'farm'])
+    );
+  }
+
+  designateMunicipalFarm() {
+    const room = this.getCurrentRoom(),
+      head = this.snake.bodySegments[0];
+    const town = room.town ?? this.findTownById(room.townPerimeter?.townId);
+    const mayor = town && this.getTownCivicState(town).mayor;
+    if (!head || mayor?.kind !== 'player' || mayor.playerId !== this.localPlayerId)
+      return {
+        ok: false,
+        message: 'Only this town’s current mayor may designate a community bed.',
+      };
+    const local = this.worldToLocal(room.id, head);
+    if (!resolveSoilSubstrate(room, local.x, local.y, Boolean(this.farming.get(room.id, local.x, local.y))))
+      return { ok: false, message: 'This is protected or unsuitable municipal terrain.' };
+    this.farming.designate(room.id, local.x, local.y);
+    return { ok: true, message: 'Community bed designated: public farming and harvest allowed.' };
+  }
+
+  purchaseCurrentRoomClaim() {
+    const room = this.getCurrentRoom();
+    const old = this.construction.getClaim(room.id);
+    if (old)
+      return {
+        ok: old.ownerId === this.localPlayerId,
+        message:
+          old.ownerId === this.localPlayerId
+            ? 'Already owned; no charge.'
+            : 'Claim denied: another player owns this room.',
+      };
+    if (!this.isLocalPlayerInWorld() || this.getPlayerHealth().current <= 0)
+      return { ok: false, message: 'Claim denied: player is not alive.' };
+    if (!isWildernessRoom(room))
+      return { ok: false, message: 'Claim denied: only ordinary wilderness can be purchased.' };
+    const hostile = this.actors
+      .getActorsInRoom(room.id)
+      .some(
+        (actor) =>
+          actor.health?.state !== 'dead' &&
+          (actor.hostility === 'hostile' || actor.playerHostility?.state === 'hostile'),
+      );
+    if (
+      hostile ||
+      this.enemies.getEnemiesInRoom(room.id).length ||
+      this.bosses.getBossesInRoom(room.id).length ||
+      this.isCurrentRoomRaidActive()
+    )
+      return {
+        ok: false,
+        message: 'Claim denied: clear hostile actors, enemies and bosses first.',
+      };
+    const cost = 40 + 20 * this.construction.ownedCount(this.localPlayerId);
+    if (this.getScore() < cost) return { ok: false, message: `Claim costs ${cost} score.` };
+    this.construction.claimRoom(room.id, this.localPlayerId);
+    this.addScore(-cost);
+    return {
+      ok: true,
+      message: `Room claimed for ${cost} score. Ownership provides no immunity from raids.`,
+    };
+  }
+
+  releaseCurrentRoomClaim(confirmed: boolean) {
+    if (!confirmed)
+      return { ok: false, message: 'Confirm release: no refund; crops become public.' };
+    return {
+      ok: this.construction.release(this.snake.currentRoomId, this.localPlayerId),
+      message: 'Release requires ownership and demolition of all remaining structures. No refund.',
+    };
+  }
+  setRoomPermission(grantee: string, permission: ConstructionPermission, enabled: boolean) {
+    return {
+      ok: this.construction.grant(
+        this.snake.currentRoomId,
+        this.localPlayerId,
+        grantee,
+        permission,
+        enabled,
+      ),
+    };
+  }
+
+  private farmInteractions(): import('../farming/farmInteractions.js').FarmInteractions {
+    return {
+      carrying: (actorId) => this.farming.carrying(actorId),
+      departed: (roomId, actorId, destination, position) => {
+        this.actors.registry.update(`enemy:${roomId}:${actorId}`, (actor) => ({
+          ...actor,
+          currentRoomId: destination,
+          presence: { roomId: destination, position, materialized: false },
+          flags: { ...actor.flags, farmLootCarried: true },
+        }));
+        this.recordFarmIncident({
+          id: `departed:${actorId}:${this.atmosphere.getState().worldDay}`,
+          roomId,
+          x: position.x,
+          y: position.y,
+          worldDay: this.atmosphere.getState().worldDay,
+          actorId,
+          kind: 'stolen',
+          cropId: '',
+          summary:
+            'A bandit left this room carrying stolen produce. Its loot remains recoverable if defeated.',
+        });
+      },
+      isSolid: (room, x, y) => this.construction.isCreatureSolid(room, x, y),
+      target: (roomId, position, kind) =>
+        farmCreatureTarget(
+          {
+            farms: this.farming,
+            construction: this.construction,
+            worldDay: this.atmosphere.getState().worldDay,
+            record: (event) => this.recordFarmIncident(event),
+          },
+          roomId,
+          position,
+          kind,
+        ),
+      contact: (roomId, actorId, position, kind) =>
+        applyFarmContact(
+          {
+            farms: this.farming,
+            construction: this.construction,
+            worldDay: this.atmosphere.getState().worldDay,
+            record: (event) => this.recordFarmIncident(event),
+          },
+          roomId,
+          actorId,
+          position,
+          kind,
+        ),
+    };
+  }
+
+  private tickFarmDawn(day: number): void {
+    this.farming.dawn(day, () => {
+      const before = new Set(this.farming.incidents().map((event) => event.id));
+      for (const roomId of this.farming.roomIds())
+        processFarmDawn({
+          room: this.world.getRoom(roomId),
+          construction: this.construction,
+          farms: this.farming,
+          worldDay: day,
+          seed: this.worldSeed,
+          raiders: this.enemies.getEnemiesInRoom(roomId).map((enemy) => ({
+            id: enemy.id,
+            position: enemy.position,
+            kind: enemy.id.toLowerCase().includes('bandit')
+              ? ('steal' as const)
+              : ('destroy' as const),
+          })),
+          occupied: this.getPlayers().some(
+            (player) => isPlayerInWorld(player) && player.snake.currentRoomId === roomId,
+          ),
+        });
+      for (const event of this.farming.incidents())
+        if (!before.has(event.id)) this.announceFarmAlarm(event);
+    });
+  }
+
+  private recordFarmIncident(event: import('../farming/farmingTypes.js').FarmIncident): boolean {
+    if (!this.farming.incident(event)) return false;
+    this.announceFarmAlarm(event);
+    return true;
+  }
+  private announceFarmAlarm(event: import('../farming/farmingTypes.js').FarmIncident): void {
+    const alarm = this.construction
+      .getStructures(event.roomId)
+      .some(
+        (structure) =>
+          structure.blueprintId === 'farm-alarm' &&
+          Math.abs(structure.anchor.x - event.x) + Math.abs(structure.anchor.y - event.y) <= 8,
+      );
+    if (
+      !alarm ||
+      !this.farming.incident({
+        ...event,
+        id: `alarm:${event.roomId}:${event.worldDay}`,
+        summary: `Farm alarm: ${event.summary}`,
+      })
+    )
+      return;
+    this.emitWorldEvent({
+      type: 'farm-raided',
+      roomId: event.roomId,
+      severity: 35,
+      loudness: 40,
+      tags: ['farm', 'alarm', event.kind],
+      summary: `Farm alarm: ${event.summary}`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+    });
+  }
+
+  private recoverFarmLoot(actorId: string): void {
+    for (const loot of this.farming.takeLoot(actorId))
+      this.inventory.addItem(loot.itemId, loot.count);
+  }
+  private markEnemyActorDefeated(enemy: EnemyInstance): void {
+    const actorId = enemy.actorId ?? actorIdForEnemy(enemy.roomId, enemy.id);
+    this.actors.registry.update(actorId, (actor) => ({
+      ...actor,
+      health: { current: 0, max: actor.health?.max ?? 1, state: 'dead' },
+      hostility: 'dead',
+      presence: undefined,
+      flags: { ...actor.flags, dead: true },
+    }));
+    this.recoverFarmLoot(enemy.id);
+  }
+
+  sellFarmProduce(actorId: string, itemId: string, count: number) {
+    const goods = resolveProduce(itemId),
+      actor = this.actors.getActor(actorId);
+    const shop = actor && this.getActorShopView(actorId);
+    if (!this.canInteractWithActor(actorId) || !shop?.open || !actor)
+      return { ok: false, message: 'Move beside an open merchant.' };
+    const market = actor.shopProfileId ?? defaultShopProfileIdForRole(actor.role);
+    if (
+      !goods ||
+      !Number.isSafeInteger(count) ||
+      count <= 0 ||
+      count > 10000 ||
+      this.inventory.getItemCount(itemId) < count
+    )
+      return { ok: false, message: 'Invalid produce or quantity; no goods exchanged.' };
+    if (
+      goods.crop.contraband
+        ? market !== 'black-market'
+        : !['general-merchant', 'butcher', 'bartender', 'black-market'].includes(market ?? '')
+    )
+      return {
+        ok: false,
+        message: goods.crop.contraband
+          ? 'Ordinary merchants refuse contraband.'
+          : 'This merchant does not buy produce.',
+      };
+    const price = Math.floor(goods.crop.value * QUALITY_MULTIPLIERS[goods.quality]);
+    this.inventory.removeItem(itemId, count);
+    this.addScore(price * count);
+    if (goods.crop.contraband) {
+      const head = this.snake.bodySegments[0];
+      if (head) this.observeContraband(this.worldToLocal(this.snake.currentRoomId, head));
+    }
+    return {
+      ok: true,
+      message: `Sold ${count} ${goods.crop.label} (${goods.quality}) for ${price * count} score.`,
+    };
+  }
+
   beginStructurePlacement(blueprintId: string): boolean {
     if (!getStructureBlueprint(blueprintId)) {
       this.setFlag('construction.lastRejection', { reason: 'unknown-blueprint', blueprintId });
@@ -7256,6 +7706,13 @@ export class SnakeGame implements QuestRuntime {
     if (!context) {
       return { ok: false, validation: null };
     }
+    const price = getStructureBlueprint(context.plan.blueprintId)?.price ?? 0;
+    if (this.getScore() < price || context.room.id !== this.snake.currentRoomId) {
+      this.setFlag('construction.lastRejection', {
+        reason: `Requires ${price} score and the original room.`,
+      });
+      return { ok: false, validation: null };
+    }
     const result = this.construction.placeStructure(context);
     if (!result.ok) {
       this.setFlag('construction.lastRejection', {
@@ -7267,6 +7724,7 @@ export class SnakeGame implements QuestRuntime {
       });
       return result;
     }
+    this.addScore(-price);
     this.constructionPlacement = null;
     this.setFlag('construction.mode', undefined);
     this.setFlag('construction.lastPlaced', {
@@ -7336,12 +7794,29 @@ export class SnakeGame implements QuestRuntime {
       room,
       ownerId: this.localPlayerId,
       plan,
-      playerCells: this.snake.bodySegments.map((segment) =>
-        this.worldToLocal(this.snake.currentRoomId, segment),
-      ),
-      npcCells: this.collectActorOccupancy(room.id),
+      playerCells: this.getPlayers()
+        .filter((player) => isPlayerInWorld(player) && player.snake.currentRoomId === room.id)
+        .flatMap((player) =>
+          player.snake.bodySegments.map((segment) => this.worldToLocal(room.id, segment)),
+        ),
+      npcCells: [
+        ...this.collectActorOccupancy(room.id),
+        ...this.animals.getAnimalsInRoom(room.id).map((animal) => animal.position),
+      ],
       enemyCells: this.collectEnemyOccupancy(room.id),
       bossCells: this.collectBossOccupancy(room.id),
+      cropCells: this.farming
+        .cells(room.id)
+        .filter((cell) => cell.crop)
+        .map((cell) => ({ x: cell.x, y: cell.y })),
+      municipalBuildAuthorized: Boolean(
+        (room.town || room.townPerimeter) &&
+        plan.cells.every(
+          (cell) =>
+            resolveSoilSubstrate(room, cell.localX, cell.localY) &&
+            this.canFarmMunicipalCell(room, cell.localX, cell.localY, false),
+        ),
+      ),
     };
   }
 
@@ -8939,6 +9414,7 @@ export class SnakeGame implements QuestRuntime {
 
   private handlePlayerBulletDefeats(defeatedEnemies: readonly EnemyInstance[]): void {
     for (const enemy of defeatedEnemies) {
+      this.markEnemyActorDefeated(enemy);
       this.setFlag('achievement.enemyDefeated', { enemyId: enemy.id, method: 'gun' });
       this.setFlag('achievement.gunKill', { targetId: enemy.id });
       const defeatedRaidBandit = enemy.id.startsWith('npc-hostile:raidBandit-');
@@ -12129,7 +12605,7 @@ export class SnakeGame implements QuestRuntime {
     const tile = room.layout[position.y]?.[position.x];
     if (
       !tile ||
-      this.isEffectivelySolidCell(room, position.x, position.y) ||
+      this.construction.isCreatureSolid(room, position.x, position.y) ||
       tile === '~' ||
       tile === 'S' ||
       isBlockingTownTile(tile)
@@ -13206,7 +13682,7 @@ export class SnakeGame implements QuestRuntime {
     const tile = room.layout[position.y]?.[position.x];
     if (
       !tile ||
-      this.isEffectivelySolidCell(room, position.x, position.y) ||
+      this.construction.isCreatureSolid(room, position.x, position.y) ||
       tile === '~' ||
       tile === 'S' ||
       isBlockingTownTile(tile)
@@ -13765,7 +14241,14 @@ export class SnakeGame implements QuestRuntime {
 
   updateAtmosphere(deltaMs: number): AtmosphereState {
     const before = this.atmosphere.getState();
-    const after = this.atmosphere.update(deltaMs);
+    const after = this.atmosphere.update(deltaMs, (duration, climate) => {
+      if (climate.dayPhase === 'dawn') this.tickFarmDawn(climate.worldDay);
+      this.farming.advance(duration, climate, (roomId, cell) => ({
+        greenhouse:
+          (roomId === HOUSE_ROOM_ID && cell.substrate === 'artificial') ||
+          farmShelter(this.construction, roomId, cell).greenhouse,
+      }));
+    });
     if (after.dayPhase !== before.dayPhase || after.worldDay !== before.worldDay) {
       this.actors.markSchedulesDirty();
       this.handleWorldTimeTransition(before, after);
@@ -17844,6 +18327,7 @@ export class SnakeGame implements QuestRuntime {
         CAR_IMPACT_DAMAGE_HEARTS,
       );
       if (hit.defeated) {
+        this.markEnemyActorDefeated(hit.defeated);
         result.defeated.push(hit.defeated.id);
         this.setFlag('achievement.enemyDefeated', {
           enemyId: hit.defeated.id,
@@ -19714,7 +20198,6 @@ export class SnakeGame implements QuestRuntime {
     if (itemId === 'bomb') {
       return this.placeBombAtHead();
     }
-
     if (itemId.startsWith('recipe-scroll-')) {
       const result = this.learnAlchemyRecipeFromScroll(itemId);
       if (result.ok) {
@@ -19925,7 +20408,11 @@ export class SnakeGame implements QuestRuntime {
     }
 
     const restaurantHunger = getRestaurantFoodHunger(itemId);
-    const effect = restaurantHunger === undefined ? effects[itemId] : { hunger: restaurantHunger };
+    const produce = resolveProduce(itemId);
+    const meal = FARM_RECIPES.find((recipe) => `food-${recipe.id}` === itemId);
+    const effect = meal ? { hunger: 90, heal: 1 }
+      : produce && !produce.crop.contraband ? { hunger: 25 }
+      : restaurantHunger === undefined ? effects[itemId] : { hunger: restaurantHunger };
     if (!effect) {
       return { ok: false, message: `${item.name} cannot be used right now.`, color: '#ffd166' };
     }
@@ -19983,6 +20470,19 @@ export class SnakeGame implements QuestRuntime {
     consume?: boolean;
     roomsChanged?: string[];
   } {
+    const farmRecipe = FARM_RECIPES.find((recipe) => recipe.id === recipeId);
+    if (farmRecipe) {
+      if (!this.getCurrentCookingSource())
+        return { ok: false, message: 'No cooking source nearby.' };
+      const ingredient = this.inventory
+        .getAllItems()
+        .find(([id, count]) => count > 0 && resolveProduce(id)?.crop.id === farmRecipe.input);
+      if (!ingredient)
+        return { ok: false, message: `Requires ${farmRecipe.input} produce (any grade).` };
+      this.inventory.removeItem(ingredient[0]);
+      this.inventory.addItem(`food-${farmRecipe.id}`);
+      return { ok: true, message: `Cooked ${farmRecipe.name}.`, consume: true };
+    }
     const recipes: Record<
       string,
       { input: string; output: string; label: string; sourceRequired?: boolean }
@@ -21338,6 +21838,8 @@ export class SnakeGame implements QuestRuntime {
     for (const [key, value] of Object.entries(this.snake.flags)) {
       if (
         (key.startsWith('town.runtime.') ||
+          key.startsWith('house.') ||
+          key.startsWith('farm.') ||
           key.startsWith('town.gateOpened.') ||
           key.startsWith('town.doorClosure.') ||
           key.startsWith('inn.') ||
@@ -21378,6 +21880,7 @@ export class SnakeGame implements QuestRuntime {
       levelProgression: this.levelProgression,
       layerInstances: this.world.getLayerInstances(),
       construction: this.construction.save(),
+      farming: this.farming.save(),
       questsActive: this.questController.getActive().map((q: Quest) => q.id),
       questsCompleted: this.questController.getCompletedIds(),
       questsAccepted: this.questController.getAcceptedIds(),
@@ -21667,6 +22170,7 @@ export class SnakeGame implements QuestRuntime {
       }
       if (data.hosted) this.world.restoreAuthoritativeRooms(data.hosted.rooms);
       this.construction.load(data.construction);
+      this.farming.load(data.farming, this.config.grid);
       this.atmosphere.hydrate(data.atmosphere);
       if (data.snakeBody?.length && data.snakeDirection && data.snakeRoomId) {
         this.snake.restoreFromSave(
@@ -21759,6 +22263,7 @@ export class SnakeGame implements QuestRuntime {
       this.factionEvents.load(this.getFlag<FactionSaveData>('factions.v2.save'));
       this.resolveDueMayoralElections(this.getAtmosphereState());
       this.migrateWorldEffectCardsToItems();
+      this.migrateHouseGreenhouse();
 
       this.questController.restoreQuestIds(
         {
@@ -22942,7 +23447,7 @@ export class SnakeGame implements QuestRuntime {
       bed: 12,
       plant: 8,
       lamp: 14,
-      garden: 6,
+      garden: 25,
     } as const as Record<string, number>;
 
     const cost = costs[kind];
@@ -23010,9 +23515,14 @@ export class SnakeGame implements QuestRuntime {
       if (purchases[kind]) return false;
       const bbox = this.getHouseBoundingBox(room);
       if (!bbox) return false;
-      const y = bbox.top + 3;
-      const startX = bbox.left + 2;
-      for (let x = startX; x < startX + 2; x += 1) setChar(x, y, 'D');
+      const free = room.layout
+        .slice(bbox.top + 1, bbox.bottom)
+        .reduce(
+          (count, row) =>
+            count + [...row.slice(bbox.left + 1, bbox.right)].filter((tile) => tile === 'W').length,
+          0,
+        );
+      if (free < 2) return false;
       purchases[kind] = true;
       this.setFlag('house.garden.growthMs', 0);
       this.setFlag('house.garden.ready', undefined);
@@ -23021,60 +23531,81 @@ export class SnakeGame implements QuestRuntime {
     // Deduct points and persist state
     this.addScore(-cost);
     this.setFlag('house.purchases', purchases);
+    if (kind === 'garden') this.migrateHouseGreenhouse();
     const purchaseCount = Number(this.getFlag<number>('house.itemsPurchased') ?? 0);
     this.setFlag('house.itemsPurchased', purchaseCount + 1);
     return true;
   }
 
   tickHouseGarden(deltaMs: number): boolean {
-    if (this.snake.currentRoomId !== HOUSE_ROOM_ID) {
-      return false;
+    if (!Number.isFinite(deltaMs) || deltaMs <= 0) return false;
+    // Compatibility hook: the atmosphere owns all growth, including annex beds.
+    return this.migrateHouseGreenhouse();
+  }
+
+  private migrateHouseGreenhouse(): boolean {
+    const purchases = this.getFlag<Record<string, unknown>>('house.purchases');
+    if (!purchases?.garden || this.farming.hasAnnex(this.localPlayerId)) return false;
+    const room = this.world.getRoom(HOUSE_ROOM_ID);
+    const bbox = this.getHouseBoundingBox(room);
+    if (!bbox) return false;
+    const candidates: Vector2Like[] = [];
+    // Only recover actual old beds or empty annex cells; never stamp over furniture.
+    for (let y = bbox.top + 1; y < bbox.bottom; y++)
+      for (let x = bbox.left + 1; x < bbox.right; x++)
+        if (['D', 'R'].includes(room.layout[y]?.[x] ?? '') && !this.farming.get(room.id, x, y))
+          candidates.push({ x, y });
+    for (let y = bbox.top + 1; y < bbox.bottom && candidates.length < 2; y++)
+      for (let x = bbox.left + 1; x < bbox.right && candidates.length < 2; x++)
+        if (
+          room.layout[y]?.[x] === 'W' &&
+          !this.farming.get(room.id, x, y) &&
+          !candidates.some((cell) => cell.x === x && cell.y === y)
+        )
+          candidates.push({ x, y });
+    if (candidates.length < 2) return false;
+    const ready = this.getFlag<boolean>('house.garden.ready') === true;
+    const growth = Number(this.getFlag<number>('house.garden.growthMs') ?? 0);
+    for (const position of candidates.slice(0, 2)) {
+      const cell = this.farming.till(room.id, room.biomeId, position.x, position.y, 'artificial');
+      if (cell && !cell.crop) {
+        cell.annexOwnerId = this.localPlayerId;
+        const migrated = this.farming.plant(cell, 'radish', this.localPlayerId);
+        migrated.progress = ready
+          ? 1
+          : Number.isFinite(growth)
+            ? Math.max(0, Math.min(0.99, growth / 45000))
+            : 0;
+        migrated.stage = ready ? 'ready' : 'seeded';
+      }
+      const row = room.layout[position.y];
+      if (row && ['D', 'R'].includes(row[position.x] ?? ''))
+        room.layout[position.y] = row.slice(0, position.x) + 'W' + row.slice(position.x + 1);
     }
-    const purchases = (this.getFlag<Record<string, unknown>>('house.purchases') ?? {}) as Record<
-      string,
-      unknown
-    >;
-    if (!purchases['garden'] || this.getFlag<boolean>('house.garden.ready')) {
-      return false;
-    }
-    const growthMs = Math.min(
-      HOUSE_GARDEN_GROW_MS,
-      Number(this.getFlag<number>('house.garden.growthMs') ?? 0) + Math.max(0, deltaMs),
-    );
-    this.setFlag('house.garden.growthMs', growthMs);
-    if (growthMs < HOUSE_GARDEN_GROW_MS) {
-      return false;
-    }
-    this.setFlag('house.garden.ready', true);
-    return this.replaceHouseGardenTiles('D', 'R');
+    this.farming.markAnnex(this.localPlayerId);
+    this.setFlag('house.garden.ready', undefined);
+    this.setFlag('house.garden.growthMs', undefined);
+    return true;
   }
 
   interactHouseGarden(): { ok: boolean; message?: string } {
-    if (this.snake.currentRoomId !== HOUSE_ROOM_ID) {
-      return { ok: false };
-    }
+    if (this.snake.currentRoomId !== HOUSE_ROOM_ID) return { ok: false };
     const head = this.snake.bodySegments[0];
-    if (!head) {
-      return { ok: false };
-    }
-    const [roomX, roomY] = HOUSE_ROOM_ID.split(',').map(Number);
-    const local = {
-      x: head.x - roomX * this.config.grid.cols,
-      y: head.y - roomY * this.config.grid.rows,
-    };
-    const adjacentReady = this.findAdjacentHouseGardenTile(local, 'R');
-    if (!adjacentReady || !this.getFlag<boolean>('house.garden.ready')) {
-      return { ok: false };
-    }
-    this.addScore(HOUSE_GARDEN_SCORE_REWARD);
-    this.growSnake(HOUSE_GARDEN_GROWTH_REWARD);
-    this.setFlag('house.garden.growthMs', 0);
-    this.setFlag('house.garden.ready', undefined);
-    this.replaceHouseGardenTiles('R', 'D');
-    return {
-      ok: true,
-      message: `Garden harvest +${HOUSE_GARDEN_SCORE_REWARD} score, +${HOUSE_GARDEN_GROWTH_REWARD} length.`,
-    };
+    if (!head) return { ok: false };
+    const local = this.worldToLocal(HOUSE_ROOM_ID, head);
+    const cell = this.farming
+      .cells(HOUSE_ROOM_ID)
+      .find(
+        (cell) =>
+          cell.crop?.stage === 'ready' &&
+          Math.abs(cell.x - local.x) + Math.abs(cell.y - local.y) <= 1,
+      );
+    return cell
+      ? this.performFarmAction({
+          action: 'harvest',
+          target: { dx: cell.x - local.x, dy: cell.y - local.y },
+        })
+      : { ok: false, message: 'Use Farming (J) to tend greenhouse beds.' };
   }
 
   placeHomeArcadeCabinet(): { x: number; y: number } | null {
@@ -23164,31 +23695,6 @@ export class SnakeGame implements QuestRuntime {
     ['C', 'K', 'B', 'P', 'L', 'D', 'R', 'Z'].forEach(tryPlace);
 
     room.layout = layout.map((r) => r.join(''));
-  }
-
-  private replaceHouseGardenTiles(from: string, to: string): boolean {
-    const room = this.world.getRoom(HOUSE_ROOM_ID);
-    let changed = false;
-    room.layout = room.layout.map((row) => {
-      if (!row.includes(from)) {
-        return row;
-      }
-      changed = true;
-      return row.split(from).join(to);
-    });
-    return changed;
-  }
-
-  private findAdjacentHouseGardenTile(local: Vector2Like, tile: 'D' | 'R'): Vector2Like | null {
-    const room = this.world.getRoom(HOUSE_ROOM_ID);
-    const positions = [
-      local,
-      { x: local.x + 1, y: local.y },
-      { x: local.x - 1, y: local.y },
-      { x: local.x, y: local.y + 1 },
-      { x: local.x, y: local.y - 1 },
-    ];
-    return positions.find((position) => room.layout[position.y]?.[position.x] === tile) ?? null;
   }
 
   private isImmortal(): boolean {

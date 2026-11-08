@@ -15,6 +15,7 @@ export interface SceneClientState {
   levelProgression: import('../stats/levelProgression.js').LevelProgressionState;
   raccoon: { weight: number; hungerTimerMs: number; banditMeter: number; stashedTotal: number };
   worldSeed: string;
+  farming?: import('../farming/farmingTypes.js').FarmingSaveData;
   flags: Record<string, unknown>;
   inventory: Record<string, number>;
   equipment: Partial<Record<EquipmentSlot, string>>;
@@ -40,6 +41,7 @@ export interface SceneClientState {
     preview: ReturnType<SnakeGame['previewStructurePlacement']>;
     structures: ReturnType<SnakeGame['placedStructures']>;
     claim: ReturnType<SnakeGame['getRoomClaim']>;
+    claims?: ReturnType<SnakeGame['getRoomClaims']>;
   };
   actors: ReturnType<SnakeGame['getActorsInCurrentRoom']>;
   town: ReturnType<SnakeGame['getCurrentTown']>;

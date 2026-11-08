@@ -1,0 +1,29 @@
+{
+  "measuredAt": "2026-11-08T08:15:35.288Z",
+  "node": "v22.20.0",
+  "scope": "CPU microbenchmark; empty agriculture baseline versus 1000 plots / 20 rooms / 200 visible. Seven measured repetitions after two warmups. Not browser FPS.",
+  "tenSeconds600Frames": {
+    "empty": {
+      "medianMs": 0.687,
+      "integratedCells": 0,
+      "visibleProjectionBytes": 0
+    },
+    "farm": {
+      "medianMs": 3.494,
+      "integratedCells": 9000,
+      "visibleProjectionBytes": 0
+    }
+  },
+  "hundredVisibleProjections": {
+    "empty": {
+      "medianMs": 0.41,
+      "integratedCells": 0,
+      "visibleProjectionBytes": 168
+    },
+    "farm": {
+      "medianMs": 62.254,
+      "integratedCells": 0,
+      "visibleProjectionBytes": 54834
+    }
+  }
+}

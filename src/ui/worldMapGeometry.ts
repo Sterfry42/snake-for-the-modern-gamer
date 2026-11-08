@@ -15,11 +15,7 @@ export function roomToMapPoint(room: Pick<RoomCoordinate, 'x' | 'y'>): Vector2Li
   };
 }
 
-export function mapPointToRoom(
-  point: Vector2Like,
-  view: WorldMapView,
-  z: number,
-): RoomCoordinate {
+export function mapPointToRoom(point: Vector2Like, view: WorldMapView, z: number): RoomCoordinate {
   const roomSize = WORLD_MAP_ROOM_SIZE * view.zoom;
   return {
     x: Math.floor((point.x - view.pan.x) / roomSize),

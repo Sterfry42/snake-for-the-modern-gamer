@@ -1,4 +1,4 @@
-import { createRng, type RandomGenerator } from '../core/rng.js';
+import { createRng, type StatefulRandomGenerator, type RandomGenerator } from '../core/rng.js';
 import { clamp, clamp01, smoothstep } from '../core/math.js';
 
 import type {
@@ -68,7 +68,7 @@ export function createDefaultAtmosphereState(seed = 0): AtmosphereState {
 export class WorldAtmosphereSystem {
   private state: AtmosphereState;
   private elapsedPhaseMs = 0;
-  private rng: RandomGenerator;
+  private rng: StatefulRandomGenerator;
 
   constructor(
     private readonly config: AtmosphereConfig,
@@ -79,7 +79,7 @@ export class WorldAtmosphereSystem {
   }
 
   getState(): AtmosphereState {
-    return { ...this.state };
+    return { ...this.state, rngState: this.rng.getState() };
   }
 
   reset(seed: string | number): void {
@@ -108,7 +108,7 @@ export class WorldAtmosphereSystem {
       ),
       remainingWeatherPhaseTicks: clampInt(
         saved.remainingWeatherPhaseTicks,
-        this.config.minWeatherPhases,
+        1,
         this.config.maxWeatherPhases,
       ),
       weatherSeed: clampInt(saved.weatherSeed, 0, Number.MAX_SAFE_INTEGER),
@@ -116,19 +116,30 @@ export class WorldAtmosphereSystem {
       skyEvent: hydrateSkyEvent(saved.skyEvent, this.nextWeatherSeed()),
     };
     this.elapsedPhaseMs = this.state.phaseProgress * this.getCurrentPhaseDurationMs();
+    if (typeof saved.rngState === 'number' && Number.isFinite(saved.rngState))
+      this.rng.setState(saved.rngState);
   }
 
-  update(deltaMs: number): AtmosphereState {
+  update(
+    deltaMs: number,
+    onSegment?: (durationMs: number, state: AtmosphereState) => void,
+  ): AtmosphereState {
     if (!this.config.enabled) {
       return this.getState();
     }
-    this.elapsedPhaseMs += Math.max(0, deltaMs);
-    let phaseDuration = this.getCurrentPhaseDurationMs();
-    while (this.elapsedPhaseMs >= phaseDuration) {
-      this.elapsedPhaseMs -= phaseDuration;
-      this.advancePhase();
-      phaseDuration = this.getCurrentPhaseDurationMs();
+    let remaining = Number.isFinite(deltaMs) ? Math.max(0, deltaMs) : 0;
+    while (remaining > 0) {
+      const phaseDuration = this.getCurrentPhaseDurationMs();
+      const segment = Math.min(remaining, phaseDuration - this.elapsedPhaseMs);
+      onSegment?.(segment, this.getState());
+      this.elapsedPhaseMs += segment;
+      remaining -= segment;
+      if (this.elapsedPhaseMs >= phaseDuration) {
+        this.elapsedPhaseMs = 0;
+        this.advancePhase();
+      }
     }
+    const phaseDuration = this.getCurrentPhaseDurationMs();
     this.state.phaseProgress = clamp01(this.elapsedPhaseMs / phaseDuration);
     if (this.state.weatherTransitionProgress < 1) {
       this.state.weatherTransitionProgress = Math.max(

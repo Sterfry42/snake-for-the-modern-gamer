@@ -32,8 +32,11 @@ describe('world map geometry', () => {
   });
 
   it('renders only rooms near the screen rather than every explored room', () => {
-    expect(
-      visibleMapRooms(400, 320, { pan: { x: 0, y: 0 }, zoom: 1 }),
-    ).toEqual({ minX: -1, maxX: 11, minY: -1, maxY: 9 });
+    expect(visibleMapRooms(400, 320, { pan: { x: 0, y: 0 }, zoom: 1 })).toEqual({
+      minX: -1,
+      maxX: 11,
+      minY: -1,
+      maxY: 9,
+    });
   });
 });

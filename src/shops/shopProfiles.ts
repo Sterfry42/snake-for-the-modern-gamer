@@ -1,6 +1,7 @@
 import { getCardDefinition, CARD_SHOP_OFFERS, type CardId } from '../cards/cardGame.js';
 import { stableStringHashUnsigned } from '../core/math.js';
 import { getItem } from '../inventory/itemRegistry.js';
+import { CROPS, FARM_TOOLS } from '../farming/cropCatalog.js';
 import type { ActorRole } from '../actors/actorTypes.js';
 import type { BiomeId } from '../world/biomes.js';
 import { buildMapperStock } from './mapperShop.js';
@@ -579,6 +580,35 @@ export function resolveShopProfileTabs(
     if (offers.length > 0) {
       tabs.push({ id: tabId, offers });
     }
+  }
+  if (!context.profiles && (profileId === 'general-merchant' || profileId === 'black-market')) {
+    const crops = CROPS.filter((crop) =>
+      profileId === 'black-market' ? crop.contraband : !crop.contraband,
+    );
+    const offers: ShopOfferView[] = crops.map((crop) => ({
+      id: crop.seedItemId,
+      itemId: crop.seedItemId,
+      category: 'items',
+      label: `${crop.label} Seeds`,
+      price: crop.seedCost,
+      quantity: 1,
+      note: `${crop.growDays} world days; ${crop.seasons.join('/')}. Yield ${crop.yield}; produce sells for ${crop.value} each.`,
+    }));
+    if (profileId === 'general-merchant')
+      offers.push(
+        ...FARM_TOOLS.map((tool) => ({
+          id: tool.id,
+          itemId: tool.id,
+          category: 'items' as const,
+          label: tool.name,
+          price: tool.price,
+          quantity: 1,
+          note: 'Use from Farming (J). Free cultivation on suitable wilderness.',
+        })),
+      );
+    const items = tabs.find((tab) => tab.id === 'items');
+    if (items) items.offers.push(...offers);
+    else tabs.push({ id: 'items', offers });
   }
   return tabs;
 }

@@ -170,11 +170,8 @@ export class WorldMapOverlay {
       ' QUEST ',
       () => this.focusQuest(),
     );
-    this.addButton(
-      left + (compact ? 86 : 241),
-      bottom + (compact ? 28 : 0),
-      ' 0,0,0 ',
-      () => this.focus({ x: 0, y: 0, z: 0 }),
+    this.addButton(left + (compact ? 86 : 241), bottom + (compact ? 28 : 0), ' 0,0,0 ', () =>
+      this.focus({ x: 0, y: 0, z: 0 }),
     );
 
     viewportZone.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
@@ -350,13 +347,15 @@ export class WorldMapOverlay {
   }
 
   private rebuildBounds(): void {
-    const rooms = this.scene.getGeneratedRoomsOnCurrentLevel()
+    const rooms = this.scene
+      .getGeneratedRoomsOnCurrentLevel()
       .map((id) => parseCoordinateRoomId(id))
       .filter((room): room is NonNullable<typeof room> => room !== null && room.z === this.floor);
     this.known = new Set(rooms.map((room) => room.roomId));
     const points: RoomCoordinate[] = [
       ...rooms,
-      ...this.scene.getQuestMapMarkers()
+      ...this.scene
+        .getQuestMapMarkers()
         .map((marker) => parseCoordinateRoomId(marker.roomId))
         .filter((room): room is NonNullable<typeof room> => room !== null && room.z === this.floor),
     ];
@@ -392,6 +391,9 @@ export class WorldMapOverlay {
     const selectedId = this.selected ? formatRoomId(this.selected) : '';
     const markers = this.scene.getQuestMapMarkers();
     const markerRooms = new Set(markers.map((marker) => marker.roomId));
+    const claims = new Map(this.scene.snakeGame.getRoomClaims().map(claim => [claim.roomId, claim]));
+    const farmRooms = new Set(this.scene.snakeGame.getFarmRoomIds());
+    const playerId = this.scene.snakeGame.getLocalPlayerId();
 
     for (let y = bounds.minY; y <= bounds.maxY; y += 1) {
       for (let x = bounds.minX; x <= bounds.maxX; x += 1) {
@@ -417,6 +419,15 @@ export class WorldMapOverlay {
             highlighted ? 1 : 0.45,
           )
           .strokeRect(topLeft.x + 0.5, topLeft.y + 0.5, size - 1, size - 1);
+        const claim = claims.get(id);
+        if (claim) {
+          graphics.lineStyle(2, claim.ownerId === playerId ? 0x80dc82 : 0xf5aa60, 1)
+            .strokeRect(topLeft.x + 3, topLeft.y + 3, Math.max(1, size - 6), Math.max(1, size - 6));
+        }
+        if (farmRooms.has(id)) {
+          graphics.fillStyle(0xa2d879, 1).fillCircle(topLeft.x + size * 0.75, topLeft.y + size * 0.75, Math.max(2, size * 0.08));
+        }
+
       }
     }
 
@@ -475,9 +486,8 @@ export class WorldMapOverlay {
     const explored = this.known.has(id);
     const room = explored ? this.scene.snakeGame.peekCachedRoom(id) : undefined;
     const current = this.current();
-    const status = id === formatRoomId(current)
-      ? 'YOUR LOCATION'
-      : explored ? 'DISCOVERED' : 'UNCHARTED';
+    const status =
+      id === formatRoomId(current) ? 'YOUR LOCATION' : explored ? 'DISCOVERED' : 'UNCHARTED';
     const biome = room?.biomeId
       ? room.biomeId.replace(/-/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
       : 'Unknown region';
@@ -492,6 +502,10 @@ export class WorldMapOverlay {
     if (selected.z === 0 && selected.x === 0 && selected.y === -1) points.push('Home');
     if (selected.z === 0 && selected.x === 0 && selected.y === 0) points.push('World origin');
 
+    const claim = this.scene.snakeGame.getRoomClaims().find(entry => entry.roomId === id);
+    if (claim) points.push(claim.ownerId === this.scene.snakeGame.getLocalPlayerId() ? 'Your land claim' : `Land claimed by ${claim.ownerId}`);
+    if (this.scene.snakeGame.getFarmRoomIds().includes(id)) points.push('Cultivated land');
+
     this.detailsTitle.setText(status);
     this.detailsCoordinates.setText('ROOM  ' + id + '\n' + biome);
     const lines = [
@@ -499,8 +513,12 @@ export class WorldMapOverlay {
       'X  ' + selected.x + '   Y  ' + selected.y + '   Z  ' + selected.z,
       '',
       'From player',
-      'X  ' + (selected.x - current.x) + '   Y  ' + (selected.y - current.y) +
-        '   Z  ' + (selected.z - current.z),
+      'X  ' +
+        (selected.x - current.x) +
+        '   Y  ' +
+        (selected.y - current.y) +
+        '   Z  ' +
+        (selected.z - current.z),
       '',
       'Points of interest',
       ...(points.length > 0 ? points : ['None marked']),

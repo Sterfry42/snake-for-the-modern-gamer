@@ -15,6 +15,9 @@ export interface MinimapRendererOptions {
 }
 
 export interface MinimapSnapshot {
+  localPlayerId?: string;
+  claims?: readonly { roomId: string; ownerId: string }[];
+  farmRoomIds?: readonly string[];
   currentRoomId: string;
   snakeSegments: readonly Vector2Like[];
   otherPlayers?: readonly { roomId: string; body: readonly Vector2Like[] }[];
@@ -95,6 +98,18 @@ export class MinimapRenderer {
       this.terrainSignature = signature;
     }
     this.snakeGraphics.clear();
+    for (const offset of ROOM_OFFSETS) {
+      const id = makeRoomId(current.x + offset.dx, current.y + offset.dy, current.z);
+      const claim = snapshot.claims?.find((claim) => claim.roomId === id);
+      const x = this.options.x + (offset.dx + 1) * this.roomWidth;
+      const y = this.options.y + (offset.dy + 1) * this.roomHeight;
+      if (claim)
+        this.snakeGraphics
+          .lineStyle(2, claim.ownerId === snapshot.localPlayerId ? 0x69e597 : 0xe79675, 1)
+          .strokeRect(x + 2, y + 2, this.roomWidth - 4, this.roomHeight - 4);
+      if (snapshot.farmRoomIds?.includes(id))
+        this.snakeGraphics.fillStyle(0xe6cf61, 1).fillRect(x + 5, y + 5, 5, 5);
+    }
     for (const player of snapshot.otherPlayers ?? []) {
       const room = parseCoordinateRoomId(player.roomId);
       const head = player.body[0];

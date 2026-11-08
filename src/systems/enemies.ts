@@ -62,6 +62,7 @@ export interface DuelBossDisplay {
 }
 
 interface EnemyStepParams {
+  farm?: import('../farming/farmInteractions.js').FarmInteractions;
   getRoom(roomId: string): RoomSnapshot;
   snake: readonly Vector2Like[];
   currentRoomId: string;
@@ -115,6 +116,7 @@ function canHumanoidSlash(kind: EnemyInstance['encounterKind']): boolean {
 }
 
 export class EnemyManager {
+  private farm: import('../farming/farmInteractions.js').FarmInteractions | undefined;
   private readonly enemies = new Map<string, EnemyInstance[]>();
   private readonly bullets = new Map<string, BulletInstance[]>();
   private idCounter = 0;
@@ -752,6 +754,7 @@ export class EnemyManager {
   }
 
   stepEnemies(params: EnemyStepParams): EnemyStepResult {
+    this.farm = params.farm;
     const { getRoom, snake, currentRoomId, snakeDirection } = params;
     const head = snake[0];
     if (!head) {
@@ -772,6 +775,71 @@ export class EnemyManager {
     occupied.add(`${headLocal.x},${headLocal.y}`);
 
     for (const enemy of roomEnemies) {
+      if (this.farm?.carrying?.(enemy.id)) {
+        occupied.delete(`${enemy.position.x},${enemy.position.y}`);
+        if (enemy.moveCooldown > 0) {
+          nextEnemies.push({ ...enemy, moveCooldown: enemy.moveCooldown - 1 });
+          continue;
+        }
+        const exits = [
+          { x: 0, y: enemy.position.y },
+          { x: this.grid.cols - 1, y: enemy.position.y },
+          { x: enemy.position.x, y: 0 },
+          { x: enemy.position.x, y: this.grid.rows - 1 },
+        ];
+        exits.sort(
+          (a, b) =>
+            Math.abs(a.x - enemy.position.x) +
+            Math.abs(a.y - enemy.position.y) -
+            Math.abs(b.x - enemy.position.x) -
+            Math.abs(b.y - enemy.position.y),
+        );
+        const exit = exits[0];
+        const onBoundary =
+          enemy.position.x === 0 ||
+          enemy.position.x === this.grid.cols - 1 ||
+          enemy.position.y === 0 ||
+          enemy.position.y === this.grid.rows - 1;
+        const position = onBoundary
+          ? enemy.position
+          : exit
+            ? this.tryMoveEnemyAway(
+                enemy,
+                room,
+                { x: 2 * enemy.position.x - exit.x, y: 2 * enemy.position.y - exit.y },
+                occupied,
+              )
+            : enemy.position;
+        const [rx, ry, rz] = currentRoomId.split(',').map(Number);
+        const dx = position.x === 0 ? -1 : position.x === this.grid.cols - 1 ? 1 : 0;
+        const dy = dx ? 0 : position.y === 0 ? -1 : position.y === this.grid.rows - 1 ? 1 : 0;
+        const destination = `${rx + dx},${ry + dy},${rz}`;
+        const arrival = {
+          x: dx ? (dx < 0 ? this.grid.cols - 1 : 0) : position.x,
+          y: dy ? (dy < 0 ? this.grid.rows - 1 : 0) : position.y,
+        };
+        if (
+          (dx || dy) &&
+          Number.isFinite(rx) &&
+          !this.farm.isSolid(getRoom(destination), arrival.x, arrival.y) &&
+          getRoom(destination).layout[arrival.y]?.[arrival.x] !== '~'
+        ) {
+          const visitors = this.enemies.get(destination) ?? [];
+          visitors.push({
+            ...enemy,
+            actorId: enemy.actorId ?? `enemy:${currentRoomId}:${enemy.id}`,
+            roomId: destination,
+            position: arrival,
+            moveCooldown: 5,
+          });
+          this.enemies.set(destination, visitors);
+          this.farm.departed?.(currentRoomId, enemy.id, destination, arrival);
+          continue;
+        }
+        nextEnemies.push({ ...enemy, position, moveCooldown: 5 });
+        occupied.add(`${position.x},${position.y}`);
+        continue;
+      }
       if (enemy.encounterKind === 'rival-snake' || enemy.encounterKind === 'roaming-snake') {
         nextEnemies.push({
           ...enemy,
@@ -811,13 +879,23 @@ export class EnemyManager {
 
       occupied.delete(`${enemy.position.x},${enemy.position.y}`);
       if (moveCooldown <= 0) {
+        const bandit = enemy.id.toLowerCase().includes('bandit');
+        const cropTarget = bandit ? this.farm?.target(room.id, enemy.position, 'steal') : undefined;
         if (enemy.encounterKind === 'shark') {
           position = this.tryMoveShark(enemy, room, headLocal, occupied);
         } else {
-          position = snakeCharging
-            ? this.tryMoveEnemyAway(enemy, room, headLocal, occupied)
-            : this.tryMoveEnemy(enemy, room, headLocal, occupied);
+          position = cropTarget
+            ? this.tryMoveEnemyAway(
+                enemy,
+                room,
+                { x: 2 * enemy.position.x - cropTarget.x, y: 2 * enemy.position.y - cropTarget.y },
+                occupied,
+              )
+            : snakeCharging
+              ? this.tryMoveEnemyAway(enemy, room, headLocal, occupied)
+              : this.tryMoveEnemy(enemy, room, headLocal, occupied);
         }
+        this.farm?.contact(room.id, enemy.id, position, bandit ? 'steal' : 'destroy');
         moveCooldown =
           enemy.encounterKind === 'shark'
             ? 2 + Math.floor(this.rng() * 2)
@@ -1293,7 +1371,10 @@ export class EnemyManager {
       if (next.x < 0 || next.x >= this.grid.cols || next.y < 0 || next.y >= this.grid.rows) {
         continue;
       }
-      if (!this.isDryEnemyTile(room.layout[next.y]?.[next.x])) {
+      if (
+        !this.isDryEnemyTile(room.layout[next.y]?.[next.x]) ||
+        this.farm?.isSolid(room, next.x, next.y)
+      ) {
         continue;
       }
       if (next.x === headLocal.x && next.y === headLocal.y) {
@@ -1351,7 +1432,8 @@ export class EnemyManager {
         next.x >= this.grid.cols ||
         next.y < 0 ||
         next.y >= this.grid.rows ||
-        !this.isDryEnemyTile(room.layout[next.y]?.[next.x])
+        !this.isDryEnemyTile(room.layout[next.y]?.[next.x]) ||
+        this.farm?.isSolid(room, next.x, next.y)
       ) {
         continue;
       }

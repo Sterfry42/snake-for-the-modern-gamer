@@ -17,6 +17,13 @@ export interface StructureBlueprint {
   name: string;
   anchor: Vector2Like;
   cells: readonly StructureBlueprintCell[];
+  price?: number;
+  agriculture?: {
+    climateControlled?: boolean;
+    deterrentRadius?: number;
+    sprinklerRadius?: number;
+    alarmRadius?: number;
+  };
 }
 
 export interface StructureStampCell extends StructureBlueprintCell {
@@ -48,6 +55,33 @@ export const STRUCTURE_BLUEPRINTS: readonly StructureBlueprint[] = [
     x: 2,
     y: 3,
   }),
+  {
+    ...blueprintFromPattern(
+      'greenhouse',
+      'Greenhouse',
+      ['#####', '#GGG#', '#GGG#', '#GGG#', '##D##'],
+      { x: 2, y: 4 },
+    ),
+    price: 90,
+    agriculture: { climateControlled: true },
+  },
+  { ...blueprintFromPattern('farm-fence', 'Fence', ['#'], { x: 0, y: 0 }), price: 5 },
+  { ...blueprintFromPattern('farm-gate', 'Lockable Gate', ['#'], { x: 0, y: 0 }), price: 20 },
+  {
+    ...blueprintFromPattern('scarecrow', 'Scarecrow', ['B'], { x: 0, y: 0 }),
+    price: 25,
+    agriculture: { deterrentRadius: 5 },
+  },
+  {
+    ...blueprintFromPattern('sprinkler', 'Sprinkler', ['B'], { x: 0, y: 0 }),
+    price: 35,
+    agriculture: { sprinklerRadius: 2 },
+  },
+  {
+    ...blueprintFromPattern('farm-alarm', 'Farm Alarm', ['B'], { x: 0, y: 0 }),
+    price: 30,
+    agriculture: { alarmRadius: 8 },
+  },
 ];
 
 export function getStructureBlueprint(id: string): StructureBlueprint | undefined {
