@@ -1,3 +1,17 @@
+import { storyQuestConsequence } from '../quests/storyQuestConsequences.js';
+import {
+  CRYSTAL_CLAUSE,
+  CRYSTAL_AFTERMATH,
+  STORY_QUESTS,
+  availableStoryActions,
+  applyStoryAction,
+  createStoryQuestState,
+  nextStoryQuestId,
+  storyActionId,
+  type StoryQuestDefinition,
+  type StoryQuestState,
+  type StoryQuestTarget,
+} from '../quests/storyQuestEngine.js';
 /**
  * Snake Game Core
  */
@@ -815,6 +829,12 @@ export type ActorInteractionDispatchResult =
     }
   | {
       ok: true;
+      action: `quest:${string}`;
+      actorId: string;
+      message: string;
+    }
+  | {
+      ok: true;
       action: 'shop';
       actorId: string;
       shop: ActorShopView;
@@ -1048,8 +1068,14 @@ const LARGE_TOWN_QUEST_IDS = new Set([
   'goblin-ledger-debt',
   'freak-you',
   'starforged-heliopause',
+  'crystal-clause',
+  'crystal-aftermath',
 ]);
-const TOWN_QUEST_EXCLUDED_IDS = new Set(['deep-lying-bouquet']);
+const TOWN_QUEST_EXCLUDED_IDS = new Set([
+  'deep-lying-bouquet',
+  'crystal-clause',
+  'crystal-aftermath',
+]);
 
 interface MomentumComputedConfig {
   enabled: boolean;
@@ -7916,6 +7942,7 @@ export class SnakeGame implements QuestRuntime {
     return Boolean(
       actor &&
       presence &&
+      actor.flags.questCrystalBound !== true &&
       this.getPlayer(this.localPlayerId)?.alive &&
       presence.materialized &&
       presence.roomId === this.snake.currentRoomId &&
@@ -7940,7 +7967,7 @@ export class SnakeGame implements QuestRuntime {
     }
     const room = this.world.getRoom(this.snake.currentRoomId);
     const canPickpocket = Boolean(room.town) && this.canPickpocketForCurrentTownGuild();
-    return buildActorInteractionMenu(actor, {
+    const menu = buildActorInteractionMenu(actor, {
       crime: {
         thievesGuildUnlocked: Boolean(room.town?.thievesGuild?.discovered),
         canPickpocket,
@@ -7954,6 +7981,40 @@ export class SnakeGame implements QuestRuntime {
         tavernRest: actor.role === 'bartender' ? this.getCurrentInnServiceView() : undefined,
       },
       civic: this.getCivicInteractionContext(actor, room.town),
+    });
+    menu.options.push(...this.getStoryQuestActorOptions(actor));
+    menu.options.sort((a, b) => b.priority - a.priority);
+    return menu;
+  }
+
+  private storyQuestState(definition: StoryQuestDefinition): StoryQuestState | null {
+    const existing = this.getFlag<StoryQuestState>(`quest.story.${definition.id}`);
+    if (existing?.questId === definition.id) return existing;
+    if (definition.id === CRYSTAL_CLAUSE.id) return createStoryQuestState(definition);
+    const predecessor = this.storyQuestState(CRYSTAL_CLAUSE);
+    return predecessor && nextStoryQuestId(CRYSTAL_CLAUSE, predecessor) === definition.id
+      ? createStoryQuestState(definition, predecessor.outcome)
+      : null;
+  }
+
+  private getStoryQuestActorOptions(actor: Actor): ActorInteractionMenuModel['options'] {
+    if (
+      actor.flags.questCrystalBound === true ||
+      actor.health?.state === 'dead' ||
+      actor.hostility === 'dead' ||
+      actor.hostility === 'hostile'
+    ) return [];
+    const target: StoryQuestTarget = { actorId: actor.id, role: actor.role, species: actor.species };
+    return STORY_QUESTS.flatMap((definition) => {
+      const state = this.storyQuestState(definition);
+      if (!state) return [];
+      return availableStoryActions(definition, state, target).map((action) => ({
+        id: storyActionId(definition.id, action.key) as `quest:${string}`,
+        label: action.label,
+        enabled: true,
+        reason: action.description,
+        priority: 93,
+      }));
     });
   }
 
@@ -8004,6 +8065,9 @@ export class SnakeGame implements QuestRuntime {
         message: 'No one is there.',
         reason: 'missing-actor',
       };
+    }
+    if (actionId.startsWith('quest:')) {
+      return this.chooseStoryQuestActorAction(actor, actionId);
     }
     if (actionId === 'shop') {
       const shop = this.getActorShopView(actorId);
@@ -8056,6 +8120,125 @@ export class SnakeGame implements QuestRuntime {
       message: `${actor.displayName} cannot do that right now.`,
       reason: 'unsupported-action',
     };
+  }
+
+  private chooseStoryQuestActorAction(
+    actor: Actor,
+    actionId: string,
+  ): ActorInteractionDispatchResult {
+    const unavailable = (): ActorInteractionDispatchResult => ({
+      ok: false,
+      action: actionId,
+      actorId: actor.id,
+      message: 'That quest interaction is no longer available.',
+      reason: 'unsupported-action',
+    });
+    if (!this.canInteractWithActor(actor.id)) return unavailable();
+    const target: StoryQuestTarget = {
+      actorId: actor.id,
+      role: actor.role,
+      species: actor.species,
+    };
+    for (const definition of STORY_QUESTS) {
+      const state = this.storyQuestState(definition);
+      if (!state || !actionId.startsWith(`quest:${definition.id}:`)) continue;
+      const key = actionId.slice(`quest:${definition.id}:`.length);
+      const transition = applyStoryAction(definition, state, target, key);
+      if (!transition) return unavailable();
+      if (key === 'accept' || definition.id === CRYSTAL_AFTERMATH.id) {
+        // The existing controller enforces capacity and owns accepted/completed ids.
+        if (!this.questController.getAcceptedIds().includes(definition.id)) {
+          if (
+            !this.questController.acceptSpecificQuestById(
+              definition.id,
+              this,
+              this.snake.currentRoomId,
+            )
+          ) return unavailable();
+        }
+      }
+      const next = {
+        ...transition.state,
+        giverRoomId:
+          definition.id === CRYSTAL_CLAUSE.id && key === 'accept'
+            ? this.snake.currentRoomId
+            : state.giverRoomId,
+        giverActorId:
+          definition.id === CRYSTAL_CLAUSE.id && key === 'accept'
+            ? actor.id
+            : state.giverActorId,
+      };
+      this.setFlag(`quest.story.${definition.id}`, next);
+      const consequence = storyQuestConsequence(definition.id, key);
+      let message = consequence?.message ?? transition.action.description;
+      if (consequence?.bindActor) {
+        this.actors.registry.update(actor.id, (current) => ({
+          ...current,
+          flags: { ...current.flags, questCrystalBound: true },
+          presence: current.presence ? { ...current.presence, materialized: false } : undefined,
+        }));
+      }
+      if (consequence?.releaseCaptives) {
+        const imprisoned = this.storyQuestState(CRYSTAL_CLAUSE)?.usedActorIds ?? [];
+        for (const captiveId of imprisoned) {
+          this.actors.registry.update(captiveId, (current) => ({
+            ...current,
+            flags: { ...current.flags, questCrystalBound: false },
+            presence: current.presence
+              ? {
+                  ...current.presence,
+                  materialized: current.presence.roomId === this.snake.currentRoomId,
+                }
+              : undefined,
+          }));
+        }
+        this.setFlag('quest.crystal.goblinsFreed', true);
+      }
+      if (consequence?.wizardReported) this.setFlag('quest.crystal.wizardReported', true);
+      if (consequence?.score) this.addScore(consequence.score);
+      if (consequence?.karma) {
+        this.changeKarma(consequence.karma, `story:${definition.id}:${key}`);
+      }
+      for (const change of consequence?.factionChanges ?? []) {
+        this.adjustFactionAlignment(change.id, change.amount);
+      }
+      if (consequence?.wallWards) {
+        const wards = this.getWardContracts();
+        this.setFlag('wards.contracts', {
+          ...wards,
+          wall: (wards.wall ?? 0) + consequence.wallWards,
+        });
+      }
+      message = message.replace('{actor}', actor.displayName);
+      message = message.replace('{count}', String(next.counters.captured ?? 0));
+      this.emitWorldEvent({
+        type: 'quest-story-action',
+        roomId: this.snake.currentRoomId,
+        targetActorIds: [actor.id],
+        severity: next.outcome ? 35 : 12,
+        loudness: 12,
+        tags: ['quest', 'story', definition.id, key, ...(actor.species === 'goblin' ? ['goblin'] : [])],
+        summary: message,
+        createdAtRoomNumber: this.getRoomsVisitedCount(),
+        data: { questId: definition.id, action: key, outcome: next.outcome },
+      });
+      if (next.stage === 'completed') {
+        this.questController.completeQuestById(definition.id, this);
+        this.emitWorldEvent({
+          type: 'quest-completed',
+          roomId: this.snake.currentRoomId,
+          severity: 25,
+          loudness: 10,
+          tags: ['quest', 'story', definition.id, next.outcome ?? ''],
+          summary: `${definition.label} ended: ${next.outcome ?? 'completed'}.`,
+          createdAtRoomNumber: this.getRoomsVisitedCount(),
+          data: { questId: definition.id, outcome: next.outcome },
+        });
+      }
+      this.setFlag('ui.questInteraction', { message });
+      return { ok: true, actorId: actor.id, action: actionId as `quest:${string}`, message };
+    }
+    return unavailable();
   }
 
   private chooseCivicActorInteraction(
@@ -11352,7 +11535,8 @@ export class SnakeGame implements QuestRuntime {
       actor.health?.state !== 'dead' &&
       actor.hostility !== 'dead' &&
       actor.flags.dead !== true &&
-      actor.flags.eaten !== true,
+      actor.flags.eaten !== true &&
+      actor.flags.questCrystalBound !== true,
     );
   }
 
@@ -16883,11 +17067,21 @@ export class SnakeGame implements QuestRuntime {
       questId === 'green-purchase' ||
       questId === 'find-my-baby' ||
       questId === 'goblin-ledger-debt' ||
-      questId === 'freak-you'
+      questId === 'freak-you' ||
+      questId === 'crystal-clause' ||
+      questId === 'crystal-aftermath'
     );
   }
 
   canOfferQuestFromGiver(questId: string, giverRoomId: string): boolean {
+    if (questId === 'crystal-clause') {
+      return this.getActorsInCurrentRoom().some((actor) =>
+        actor.role === 'wizard' && actor.presence?.roomId === giverRoomId,
+      );
+    }
+    if (questId === 'crystal-aftermath') {
+      return this.storyQuestState(CRYSTAL_AFTERMATH) !== null;
+    }
     if (questId === 'green-purchase') {
       return this.findForestRoomNear(giverRoomId, 10, 12) !== null;
     }
@@ -17028,10 +17222,43 @@ export class SnakeGame implements QuestRuntime {
         });
       }
     }
+    const crystal = this.storyQuestState(CRYSTAL_CLAUSE);
+    if (crystal && (crystal.stage === 'hunting' || crystal.stage === 'ready')) {
+      const knownCamp = this.getGeneratedRoomIds().find(
+        (roomId) => Boolean(this.world.peekCachedRoom(roomId)?.goblinCamp),
+      );
+      const destination = crystal.stage === 'ready' ? crystal.giverRoomId : knownCamp;
+      if (destination) markers.push({
+        questId: CRYSTAL_CLAUSE.id,
+        roomId: destination,
+        kind: crystal.stage === 'ready' ? 'turn-in' : 'target',
+        label: crystal.stage === 'ready' ? 'Crystal Wizard' : 'Goblin Camp',
+        color: crystal.stage === 'ready' ? 0x5dd6a2 : 0xffd166,
+      });
+    }
     return markers;
   }
 
   getQuestSubtasks(questId: string): string[] {
+    if (questId === CRYSTAL_CLAUSE.id) {
+      const story = this.storyQuestState(CRYSTAL_CLAUSE);
+      if (!story) return [];
+      if (story.stage === 'declined') return ['[x] Declined the commission'];
+      if (story.stage === 'completed') return [`[x] ${story.outcome ?? 'Completed'} - consequences recorded`];
+      return [
+        `[${(story.counters.captured ?? 0) >= 2 ? 'x' : ' '}] Bind two goblins in crystals (${story.counters.captured ?? 0}/2)`,
+        story.stage === 'ready'
+          ? '[ ] Return to the wizard for payment, report him to guards, or free the goblins'
+          : '[ ] Capture goblins or report the wizard to a guard',
+      ];
+    }
+    if (questId === CRYSTAL_AFTERMATH.id) {
+      const story = this.storyQuestState(CRYSTAL_AFTERMATH);
+      if (!story) return [];
+      return story.stage === 'completed'
+        ? [`[x] ${story.outcome ?? 'Resolved'}`]
+        : [`[ ] Settle the aftermath of the crystals (${story.originOutcome ?? 'unknown'})`];
+    }
     const instance = this.getStagedQuestInstances().find((quest) => quest.questId === questId);
     if (!instance) {
       return [];

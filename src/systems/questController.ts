@@ -70,6 +70,7 @@ export class QuestController {
     state: { active?: string[]; completed?: string[]; accepted?: string[] },
     runtime: QuestRuntime,
   ): void {
+    void runtime;
     const completed = Array.from(new Set(state.completed ?? []));
     const accepted = Array.from(
       new Set([...(state.accepted ?? []), ...(state.active ?? []), ...completed]),
@@ -83,7 +84,8 @@ export class QuestController {
       if (!quest || active.some((entry) => entry.id === id)) {
         continue;
       }
-      quest.onAccept(runtime);
+      // Restoring an accepted quest must never recapture its progress baseline.
+      // Flags were restored from the save before this controller is hydrated.
       active.push(quest);
     }
     this.active = active;
@@ -115,6 +117,10 @@ export class QuestController {
       return null;
     }
     const quest = this.offered;
+    // Do not consume the offer or mark the quest accepted when capacity is full.
+    if (this.active.length >= this.maxActiveQuests && !quest.isCompleted(runtime)) {
+      return null;
+    }
     this.offered = null;
     const giverRoomId = this.offeredByRoomId;
     this.offeredByRoomId = undefined;
