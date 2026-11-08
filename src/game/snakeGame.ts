@@ -19322,6 +19322,8 @@ export class SnakeGame implements QuestRuntime {
     const result = learnAlchemyRecipeFromScroll(state, { inventory: this.inventory }, scrollItemId);
     this.setFlag(ALCHEMY_STATE_FLAG, state);
     if (result.ok) {
+      // Quests measure discoveries made after acceptance, not scroll purchases.
+      this.setFlag('recipesDiscovered', Number(this.getFlag<number>('recipesDiscovered') ?? 0) + 1);
       this.setFlag('ui.itemUsed', {
         itemId: scrollItemId,
         itemName: getItem(scrollItemId)?.name,
@@ -19894,6 +19896,7 @@ export class SnakeGame implements QuestRuntime {
     );
     this.setFlag(ALCHEMY_STATE_FLAG, state);
     if (result.ok) {
+      this.setFlag('potionsCrafted', Number(this.getFlag<number>('potionsCrafted') ?? 0) + result.quantity);
       this.setFlag('ui.itemReward', { itemId: result.outputItemId, count: result.quantity });
     }
     return result;
@@ -20098,6 +20101,9 @@ export class SnakeGame implements QuestRuntime {
       this.applyAlchemyStatusEffect(effect),
     );
     this.setFlag(ALCHEMY_STATE_FLAG, state);
+    if (result.ok) {
+      this.setFlag('potionsUsed', Number(this.getFlag<number>('potionsUsed') ?? 0) + 1);
+    }
     return result;
   }
 

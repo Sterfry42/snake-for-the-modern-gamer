@@ -10,18 +10,18 @@ class AlchemyApprenticeQuest extends Quest {
     super(
       'alchemy-apprentice',
       'Alchemy Apprentice',
-      'Craft 5 different types of potions and discover 3 new recipes.',
+      'Brew 5 alchemy potions and use 2 of them.',
     );
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {
     const potionsCrafted = this.progressSinceAccept(runtime, 'potionsCrafted');
-    const recipesDiscovered = this.progressSinceAccept(runtime, 'recipesDiscovered');
-    return potionsCrafted >= 5 && recipesDiscovered >= 3;
+    const potionsUsed = this.progressSinceAccept(runtime, 'potionsUsed');
+    return potionsCrafted >= 5 && potionsUsed >= 2;
   }
 
   protected override baselineKeys(): readonly string[] {
-    return ['potionsCrafted', 'recipesDiscovered'];
+    return ['potionsCrafted', 'potionsUsed'];
   }
 
   override onReward(runtime: QuestRuntime): void {
