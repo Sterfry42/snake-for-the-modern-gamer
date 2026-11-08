@@ -75,15 +75,15 @@ describe('the world story chapters', () => {
       worldCounters: { 'archaeology:excavationsCompleted': 6 },
     };
     expect(keys(THE_BORROWED_BONES, active, afterDig)).toContain('file-findings');
-    expect(storyQuestObjectives(
-      THE_BORROWED_BONES,
-      active,
-      afterDig.worldCounters,
-    )[1]).toContain('(1/1)');
-    expect(availableStoryActions(THE_BORROWED_BONES, active, {
-      ...afterDig,
-      actorId: 'different-mapmaker',
-    }).map((action) => action.key)).not.toContain('file-findings');
+    expect(storyQuestObjectives(THE_BORROWED_BONES, active, afterDig.worldCounters)[1]).toContain(
+      '(1/1)',
+    );
+    expect(
+      availableStoryActions(THE_BORROWED_BONES, active, {
+        ...afterDig,
+        actorId: 'different-mapmaker',
+      }).map((action) => action.key),
+    ).not.toContain('file-findings');
     const ready = applyStoryAction(THE_BORROWED_BONES, active, afterDig, 'file-findings')!.state;
     const completedQuest = applyStoryAction(THE_BORROWED_BONES, ready, mapper, 'publish')!.state;
     expect(completedQuest.outcome).toBe('published');
@@ -94,16 +94,22 @@ describe('the world story chapters', () => {
     const offered = initializeUnlockedStory(THE_BORROWED_BONES, lookup([]))!;
     const active = applyStoryAction(THE_BORROWED_BONES, offered, mapper, 'commission')!.state;
     expect(applyStoryAction(THE_BORROWED_BONES, active, scribe, 'forge-findings')).toBeNull();
-    const dishonest = applyStoryAction(THE_BORROWED_BONES, active, {
-      ...scribe, score: 35,
-    }, 'forge-findings')!.state;
+    const dishonest = applyStoryAction(
+      THE_BORROWED_BONES,
+      active,
+      {
+        ...scribe,
+        score: 35,
+      },
+      'forge-findings',
+    )!.state;
     expect(dishonest.choiceHistory?.fieldwork).toBe('forge-findings');
-    expect(availableStoryActions(THE_BORROWED_BONES, dishonest, mapper).map(
-      (action) => action.key,
-    )).not.toContain('publish');
-    expect(availableStoryActions(THE_BORROWED_BONES, dishonest, scribe).map(
-      (action) => action.key,
-    )).toContain('launder');
+    expect(
+      availableStoryActions(THE_BORROWED_BONES, dishonest, mapper).map((action) => action.key),
+    ).not.toContain('publish');
+    expect(
+      availableStoryActions(THE_BORROWED_BONES, dishonest, scribe).map((action) => action.key),
+    ).toContain('launder');
     const sold = applyStoryAction(THE_BORROWED_BONES, dishonest, guild, 'sell')!.state;
     expect(sold.outcome).toBe('sold');
     expect(storyQuestConsequence('the-borrowed-bones', 'forge-findings')?.score).toBe(-35);
@@ -113,36 +119,49 @@ describe('the world story chapters', () => {
   it('allows a forged museum claim to be exposed or turned into a counterfeit gallery', () => {
     const offered = initializeUnlockedStory(THE_BORROWED_BONES, lookup([]))!;
     const active = applyStoryAction(THE_BORROWED_BONES, offered, mapper, 'commission')!.state;
-    const fabricated = applyStoryAction(THE_BORROWED_BONES, active, {
-      ...scribe, score: 40,
-    }, 'forge-findings')!.state;
+    const fabricated = applyStoryAction(
+      THE_BORROWED_BONES,
+      active,
+      {
+        ...scribe,
+        score: 40,
+      },
+      'forge-findings',
+    )!.state;
     const falsified = applyStoryAction(THE_BORROWED_BONES, fabricated, scribe, 'launder')!.state;
     expect(falsified.outcome).toBe('laundered');
-    const followup = initializeUnlockedStory(
-      THE_MUSEUM_THAT_SHOULDNT_BE,
-      lookup([falsified]),
-    )!;
-    expect(availableStoryActions(THE_MUSEUM_THAT_SHOULDNT_BE, followup, guard).map(
-      (action) => action.key,
-    )).toEqual(['admit-forgery']);
-    expect(availableStoryActions(THE_MUSEUM_THAT_SHOULDNT_BE, followup, guild).map(
-      (action) => action.key,
-    )).toEqual(['fake-gallery']);
+    const followup = initializeUnlockedStory(THE_MUSEUM_THAT_SHOULDNT_BE, lookup([falsified]))!;
+    expect(
+      availableStoryActions(THE_MUSEUM_THAT_SHOULDNT_BE, followup, guard).map(
+        (action) => action.key,
+      ),
+    ).toEqual(['admit-forgery']);
+    expect(
+      availableStoryActions(THE_MUSEUM_THAT_SHOULDNT_BE, followup, guild).map(
+        (action) => action.key,
+      ),
+    ).toEqual(['fake-gallery']);
   });
 
   it('follows the excavation ending with different museum decisions', () => {
     const history = lookup([completed('the-borrowed-bones', 'returned')]);
     const restored = initializeUnlockedStory(THE_MUSEUM_THAT_SHOULDNT_BE, history)!;
-    expect(availableStoryActions(THE_MUSEUM_THAT_SHOULDNT_BE, restored, goblin).map(
-      (action) => action.key,
-    )).toEqual(['goblin-archive']);
-    const sold = initializeUnlockedStory(THE_MUSEUM_THAT_SHOULDNT_BE, lookup([
-      completed('the-borrowed-bones', 'sold'),
-    ]))!;
+    expect(
+      availableStoryActions(THE_MUSEUM_THAT_SHOULDNT_BE, restored, goblin).map(
+        (action) => action.key,
+      ),
+    ).toEqual(['goblin-archive']);
+    const sold = initializeUnlockedStory(
+      THE_MUSEUM_THAT_SHOULDNT_BE,
+      lookup([completed('the-borrowed-bones', 'sold')]),
+    )!;
     expect(availableStoryActions(THE_MUSEUM_THAT_SHOULDNT_BE, sold, scribe)).toEqual([]);
-    expect(availableStoryActions(THE_MUSEUM_THAT_SHOULDNT_BE, sold, {
-      ...scribe, score: 75,
-    }).map((action) => action.key)).toEqual(['buy-back']);
+    expect(
+      availableStoryActions(THE_MUSEUM_THAT_SHOULDNT_BE, sold, {
+        ...scribe,
+        score: 75,
+      }).map((action) => action.key),
+    ).toEqual(['buy-back']);
   });
 
   it('lets debtors testify, then follows an exploitative guild choice into a second moral choice', () => {
@@ -154,12 +173,12 @@ describe('the world story chapters', () => {
     const enforced = applyStoryAction(THE_VELVET_LEDGER, evidence, guild, 'enforce')!.state;
     expect(enforced.outcome).toBe('enforced');
     const debt = initializeUnlockedStory(CLEAN_HANDS_DIRTY_MONEY, lookup([enforced]))!;
-    expect(availableStoryActions(CLEAN_HANDS_DIRTY_MONEY, debt, guard).map(
-      (action) => action.key,
-    )).toEqual(['turn-in']);
-    expect(availableStoryActions(CLEAN_HANDS_DIRTY_MONEY, debt, merchant).map(
-      (action) => action.key,
-    )).toEqual(['take-protection']);
+    expect(
+      availableStoryActions(CLEAN_HANDS_DIRTY_MONEY, debt, guard).map((action) => action.key),
+    ).toEqual(['turn-in']);
+    expect(
+      availableStoryActions(CLEAN_HANDS_DIRTY_MONEY, debt, merchant).map((action) => action.key),
+    ).toEqual(['take-protection']);
   });
 
   it('requires testimony from both cooks and prevents duplicate testimony', () => {
@@ -173,9 +192,9 @@ describe('the world story chapters', () => {
     const resolved = applyStoryAction(THE_SOUP_OFFENSIVE, second, bartender, 'reconcile')!.state;
     expect(resolved.outcome).toBe('reconciled');
     const aftermath = initializeUnlockedStory(SECOND_HELPINGS, lookup([resolved]))!;
-    expect(availableStoryActions(SECOND_HELPINGS, aftermath, bartender).map(
-      (action) => action.key,
-    )).toEqual(['soup-kitchen']);
+    expect(
+      availableStoryActions(SECOND_HELPINGS, aftermath, bartender).map((action) => action.key),
+    ).toEqual(['soup-kitchen']);
   });
 
   it('requires three separately resolved arcs, then exactly three voices for the final feast', () => {
@@ -196,16 +215,25 @@ describe('the world story chapters', () => {
     const first = applyStoryAction(THE_PEOPLES_POTLUCK, gathering, mapper, 'history-voice')!.state;
     const second = applyStoryAction(THE_PEOPLES_POTLUCK, first, merchant, 'merchants-voice')!.state;
     expect(second.stage).toBe('gathering');
-    expect(availableStoryActions(THE_PEOPLES_POTLUCK, second, {
-      ...mapper, actorId: 'another-mapmaker',
-    }).map((action) => action.key)).not.toContain('history-voice');
+    expect(
+      availableStoryActions(THE_PEOPLES_POTLUCK, second, {
+        ...mapper,
+        actorId: 'another-mapmaker',
+      }).map((action) => action.key),
+    ).not.toContain('history-voice');
     const decision = applyStoryAction(THE_PEOPLES_POTLUCK, second, thief, 'guild-voice')!.state;
     expect(decision.stage).toBe('decision');
-    expect(availableStoryActions(THE_PEOPLES_POTLUCK, decision, official, lookup(finals)).map(
-      (action) => action.key,
-    )).toEqual(['commons', 'private-club', 'goblin-table']);
+    expect(
+      availableStoryActions(THE_PEOPLES_POTLUCK, decision, official, lookup(finals)).map(
+        (action) => action.key,
+      ),
+    ).toEqual(['commons', 'private-club', 'goblin-table']);
     const end = applyStoryAction(
-      THE_PEOPLES_POTLUCK, decision, official, 'goblin-table', lookup(finals),
+      THE_PEOPLES_POTLUCK,
+      decision,
+      official,
+      'goblin-table',
+      lookup(finals),
     )!.state;
     expect(end.outcome).toBe('cooperative');
   });
@@ -224,18 +252,40 @@ describe('the world story chapters', () => {
     const context = lookup([...originals, ...aftermaths]);
     const offered = initializeUnlockedStory(THE_PEOPLES_POTLUCK, context)!;
     const gathered = applyStoryAction(THE_PEOPLES_POTLUCK, offered, official, 'assemble')!.state;
-    const withHistory = applyStoryAction(THE_PEOPLES_POTLUCK, gathered, mapper, 'history-voice')!.state;
-    const withMerchant = applyStoryAction(
-      THE_PEOPLES_POTLUCK, withHistory, merchant, 'merchants-voice',
+    const withHistory = applyStoryAction(
+      THE_PEOPLES_POTLUCK,
+      gathered,
+      mapper,
+      'history-voice',
     )!.state;
-    const decision = applyStoryAction(THE_PEOPLES_POTLUCK, withMerchant, guild, 'guild-voice')!.state;
-    expect(availableStoryActions(THE_PEOPLES_POTLUCK, decision, official, context).map(
-      (action) => action.key,
-    )).toContain('grand-exposure');
-    expect(availableStoryActions(THE_PEOPLES_POTLUCK, decision, official, lookup([
-      completed('the-borrowed-bones', 'published'),
-      ...originals.slice(1),
-      ...aftermaths,
-    ])).map((action) => action.key)).not.toContain('grand-exposure');
+    const withMerchant = applyStoryAction(
+      THE_PEOPLES_POTLUCK,
+      withHistory,
+      merchant,
+      'merchants-voice',
+    )!.state;
+    const decision = applyStoryAction(
+      THE_PEOPLES_POTLUCK,
+      withMerchant,
+      guild,
+      'guild-voice',
+    )!.state;
+    expect(
+      availableStoryActions(THE_PEOPLES_POTLUCK, decision, official, context).map(
+        (action) => action.key,
+      ),
+    ).toContain('grand-exposure');
+    expect(
+      availableStoryActions(
+        THE_PEOPLES_POTLUCK,
+        decision,
+        official,
+        lookup([
+          completed('the-borrowed-bones', 'published'),
+          ...originals.slice(1),
+          ...aftermaths,
+        ]),
+      ).map((action) => action.key),
+    ).not.toContain('grand-exposure');
   });
 });

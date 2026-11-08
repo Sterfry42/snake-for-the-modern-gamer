@@ -84,7 +84,7 @@ export const THE_BORROWED_BONES: StoryQuestDefinition = {
     {
       key: 'steal-survey',
       label: 'Buy a stolen excavation survey',
-      description: 'The thieves will provide someone else\'s field notes for 45 score.',
+      description: "The thieves will provide someone else's field notes for 45 score.",
       stages: ['fieldwork'],
       roles: ['thief', 'thiefContact', 'guildContact', 'blackMarketMerchant'],
       minScore: 45,
@@ -104,7 +104,7 @@ export const THE_BORROWED_BONES: StoryQuestDefinition = {
     {
       key: 'repatriate',
       label: 'Give the record to the goblins',
-      description: 'The trader keeps the record, not the kingdom\'s trophy cabinet.',
+      description: "The trader keeps the record, not the kingdom's trophy cabinet.",
       stages: ['evidence'],
       requiresChoice: { stage: 'fieldwork', actions: ['file-findings', 'steal-survey'] },
       species: ['goblin'],
@@ -153,7 +153,10 @@ export const THE_MUSEUM_THAT_SHOULDNT_BE: StoryQuestDefinition = {
   description: 'The disputed excavation has become a fight over who can own history.',
   initialStage: 'reckoning',
   prerequisites: [
-    { questId: 'the-borrowed-bones', outcomes: ['published', 'returned', 'sold', 'buried', 'laundered'] },
+    {
+      questId: 'the-borrowed-bones',
+      outcomes: ['published', 'returned', 'sold', 'buried', 'laundered'],
+    },
   ],
   objectives: {
     reckoning: ['[ ] Decide whether the excavation belongs in an archive, a camp, or a vault'],
@@ -235,7 +238,8 @@ export const THE_MUSEUM_THAT_SHOULDNT_BE: StoryQuestDefinition = {
     {
       key: 'fake-gallery',
       label: 'Build a museum of counterfeit wonders',
-      description: 'A black-market merchant offers exclusive tickets to exhibits that never existed.',
+      description:
+        'A black-market merchant offers exclusive tickets to exhibits that never existed.',
       stages: ['reckoning'],
       roles: ['blackMarketMerchant', 'guildContact'],
       originOutcomes: ['laundered'],
@@ -295,7 +299,7 @@ export const THE_VELVET_LEDGER: StoryQuestDefinition = {
     {
       key: 'decline',
       label: 'Decline the guild job',
-      description: 'The book stays in someone else\'s hands.',
+      description: "The book stays in someone else's hands.",
       stages: ['offered'],
       roles: ['thiefContact', 'guildContact'],
       nextStage: 'declined',
@@ -303,7 +307,7 @@ export const THE_VELVET_LEDGER: StoryQuestDefinition = {
     },
     {
       key: 'debtor',
-      label: 'Hear a shopkeeper\'s side of the debt',
+      label: "Hear a shopkeeper's side of the debt",
       description: 'The shopkeeper says the interest was added after the debt was paid.',
       stages: ['pressure'],
       roles: ['shopkeeper', 'butcher', 'innkeeper'],
@@ -323,7 +327,7 @@ export const THE_VELVET_LEDGER: StoryQuestDefinition = {
     },
     {
       key: 'enforce',
-      label: 'Become the guild\'s collector',
+      label: "Become the guild's collector",
       description: 'The guild pays for names, threats and convenient silence.',
       stages: ['decision'],
       roles: ['thiefContact', 'guildContact'],
@@ -385,7 +389,7 @@ export const CLEAN_HANDS_DIRTY_MONEY: StoryQuestDefinition = {
     {
       key: 'turn-in',
       label: 'Turn on the guild before it collects',
-      description: 'The guard records the racket and clears the shopkeepers\' debts.',
+      description: "The guard records the racket and clears the shopkeepers' debts.",
       stages: ['aftermath'],
       roles: ['guard', 'gateGuard'],
       species: ['human'],
@@ -405,7 +409,7 @@ export const CLEAN_HANDS_DIRTY_MONEY: StoryQuestDefinition = {
     },
     {
       key: 'retaliate',
-      label: 'Sell the informant\'s identity back to the guild',
+      label: "Sell the informant's identity back to the guild",
       description: 'Betray the people who trusted you and get paid for it.',
       stages: ['aftermath'],
       roles: ['thiefContact', 'guildContact', 'blackMarketMerchant'],
@@ -463,7 +467,7 @@ export const THE_SOUP_OFFENSIVE: StoryQuestDefinition = {
   initialStage: 'offered',
   objectives: {
     offered: ['[ ] Ask a bartender about the soup feud'],
-    tasting: ['[ ] Hear the butcher and the potion maker\'s accounts'],
+    tasting: ["[ ] Hear the butcher and the potion maker's accounts"],
     judgement: ['[ ] Settle the kitchen feud, or make a fortune from the recipe'],
   },
   actions: [
@@ -492,7 +496,7 @@ export const THE_SOUP_OFFENSIVE: StoryQuestDefinition = {
     },
     {
       key: 'butcher',
-      label: 'Hear the butcher\'s recipe',
+      label: "Hear the butcher's recipe",
       description: 'The butcher accuses the potion maker of changing the stock.',
       stages: ['tasting'],
       roles: ['butcher'],
@@ -510,7 +514,7 @@ export const THE_SOUP_OFFENSIVE: StoryQuestDefinition = {
     },
     {
       key: 'alchemist',
-      label: 'Hear the potion maker\'s recipe',
+      label: "Hear the potion maker's recipe",
       description: 'The alchemist says the butcher served a bad batch and blamed the herbs.',
       stages: ['tasting'],
       roles: ['potionMaker'],
@@ -644,7 +648,7 @@ export const SECOND_HELPINGS: StoryQuestDefinition = {
     },
     {
       key: 'exonerate',
-      label: 'Clear the butcher\'s name',
+      label: "Clear the butcher's name",
       description: 'The watch accepts fresh testimony and dismisses the false accusation.',
       stages: ['aftermath'],
       roles: ['guard', 'gateGuard'],
@@ -669,29 +673,49 @@ export const SECOND_HELPINGS: StoryQuestDefinition = {
 export const THE_PEOPLES_POTLUCK: StoryQuestDefinition = {
   id: 'the-peoples-potluck',
   label: "The People's Potluck",
-  description: 'A feast at which the town must decide who owns its history, its shops and its soup.',
+  description:
+    'A feast at which the town must decide who owns its history, its shops and its soup.',
   initialStage: 'offered',
   prerequisites: [
     {
       questId: 'the-museum-that-shouldnt-be',
       outcomes: [
-        'commons', 'privatized', 'self-governed', 'appropriated',
-        'recovered', 'hidden', 'confessed', 'protected',
-        'fraud-exposed', 'counterfeit-gallery',
+        'commons',
+        'privatized',
+        'self-governed',
+        'appropriated',
+        'recovered',
+        'hidden',
+        'confessed',
+        'protected',
+        'fraud-exposed',
+        'counterfeit-gallery',
       ],
     },
     {
       questId: 'clean-hands-dirty-money',
       outcomes: [
-        'protection', 'defected', 'sheltered', 'retaliated',
-        'amnesty', 'restored', 'exposed', 'doubled',
+        'protection',
+        'defected',
+        'sheltered',
+        'retaliated',
+        'amnesty',
+        'restored',
+        'exposed',
+        'doubled',
       ],
     },
     {
       questId: 'second-helpings',
       outcomes: [
-        'community', 'commercialized', 'restored',
-        'franchised', 'cured', 'concealed', 'vindicated', 'profited',
+        'community',
+        'commercialized',
+        'restored',
+        'franchised',
+        'cured',
+        'concealed',
+        'vindicated',
+        'profited',
       ],
     },
   ],
@@ -702,13 +726,13 @@ export const THE_PEOPLES_POTLUCK: StoryQuestDefinition = {
       '[ ] Invite a shopkeeper or butcher ({merchantsVoice}/1)',
       '[ ] Invite an outlaw ({guildVoice}/1)',
     ],
-    decision: ['[ ] Make the final decision about the town\'s future'],
+    decision: ["[ ] Make the final decision about the town's future"],
   },
   returnStages: ['decision'],
   actions: [
     {
       key: 'assemble',
-      label: 'Call the People\'s Potluck',
+      label: "Call the People's Potluck",
       description: 'The official calls together the archaeologists, merchants, cooks and guild.',
       stages: ['offered'],
       roles: ['civicOfficial'],
@@ -773,7 +797,7 @@ export const THE_PEOPLES_POTLUCK: StoryQuestDefinition = {
     },
     {
       key: 'commons',
-      label: 'Declare the town\'s records and kitchens public commons',
+      label: "Declare the town's records and kitchens public commons",
       description: 'The town opens its books, protects its merchants, and feeds its people.',
       stages: ['decision'],
       roles: ['civicOfficial'],
@@ -794,7 +818,8 @@ export const THE_PEOPLES_POTLUCK: StoryQuestDefinition = {
     {
       key: 'grand-exposure',
       label: 'Expose every buried ledger at the banquet',
-      description: 'When the museum, guild and soup schemes share the same sponsors, the evidence is explosive.',
+      description:
+        'When the museum, guild and soup schemes share the same sponsors, the evidence is explosive.',
       stages: ['decision'],
       roles: ['civicOfficial'],
       requiresGiver: true,
@@ -809,7 +834,8 @@ export const THE_PEOPLES_POTLUCK: StoryQuestDefinition = {
     {
       key: 'goblin-table',
       label: 'Make the feast a goblin-human co-op',
-      description: 'The traders supply wards, the merchants supply food, and the city gives up its monopoly.',
+      description:
+        'The traders supply wards, the merchants supply food, and the city gives up its monopoly.',
       stages: ['decision'],
       roles: ['civicOfficial'],
       requiresGiver: true,

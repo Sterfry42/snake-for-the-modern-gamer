@@ -39,15 +39,19 @@ function setup() {
       species,
       personality,
     }));
-    game.getActorSystem().setPresence(
-      id,
-      { roomId, position: { x: 10, y: 9 }, materialized: true, stationary: true },
-      'world-story-test',
-    );
+    game
+      .getActorSystem()
+      .setPresence(
+        id,
+        { roomId, position: { x: 10, y: 9 }, materialized: true, stationary: true },
+        'world-story-test',
+      );
     return id;
   }
   return {
-    game, config, registry,
+    game,
+    config,
+    registry,
     mapper: make('the-mapper', 'mapper', 'human', ['idealistic']),
     scribe: make('the-scribe', 'scribe', 'human', ['bureaucratic']),
     guild: make('the-guild', 'guildContact', 'human', ['greedy']),
@@ -79,63 +83,75 @@ describe('world story chapters on authoritative SnakeGame', () => {
     const { game, mapper, official, config, registry } = setup();
     game.setFlag('archaeology:excavationsCompleted', 2);
     await choose(game, mapper, 'the-borrowed-bones', 'commission');
-    expect(story(game, 'the-borrowed-bones').worldBaselines?.[
-      'archaeology:excavationsCompleted'
-    ]).toBe(2);
-    expect(game.getQuestSubtasks('the-borrowed-bones').some(
-      (line) => line.includes('(0/1)'),
-    )).toBe(true);
+    expect(
+      story(game, 'the-borrowed-bones').worldBaselines?.['archaeology:excavationsCompleted'],
+    ).toBe(2);
+    expect(game.getQuestSubtasks('the-borrowed-bones').some((line) => line.includes('(0/1)'))).toBe(
+      true,
+    );
     const premature = await game.chooseActorInteraction(
-      mapper, 'quest:the-borrowed-bones:file-findings',
+      mapper,
+      'quest:the-borrowed-bones:file-findings',
     );
     expect(premature.ok).toBe(false);
     game.setFlag('archaeology:excavationsCompleted', 3);
-    expect(game.getQuestSubtasks('the-borrowed-bones').some(
-      (line) => line.includes('(1/1)'),
-    )).toBe(true);
+    expect(game.getQuestSubtasks('the-borrowed-bones').some((line) => line.includes('(1/1)'))).toBe(
+      true,
+    );
     await choose(game, mapper, 'the-borrowed-bones', 'file-findings');
     const start = game.getScore();
     await choose(game, mapper, 'the-borrowed-bones', 'publish');
     expect(game.getScore()).toBe(start + 170);
     expect(story(game, 'the-borrowed-bones').outcome).toBe('published');
-    expect(game.getActorInteractionMenu(official)?.options.some(
-      (option) => option.id === 'quest:the-museum-that-shouldnt-be:public-museum',
-    )).toBe(true);
+    expect(
+      game
+        .getActorInteractionMenu(official)
+        ?.options.some((option) => option.id === 'quest:the-museum-that-shouldnt-be:public-museum'),
+    ).toBe(true);
     await choose(game, official, 'the-museum-that-shouldnt-be', 'public-museum');
     expect(story(game, 'the-museum-that-shouldnt-be').outcome).toBe('commons');
     const save = game.getSaveData();
     const restored = new SnakeGame(config, registry, {});
     expect(restored.loadFromSaveData(save)).toBe(true);
-    expect(restored.getFlag<StoryQuestState>('quest.story.the-borrowed-bones')?.worldBaselines).toEqual({
+    expect(
+      restored.getFlag<StoryQuestState>('quest.story.the-borrowed-bones')?.worldBaselines,
+    ).toEqual({
       'archaeology:excavationsCompleted': 2,
     });
-    expect(restored.getActorSystem().getActor(mapper)?.memory.some(
-      (entry) => entry.id.includes('the-borrowed-bones:publish'),
-    )).toBe(true);
+    expect(
+      restored
+        .getActorSystem()
+        .getActor(mapper)
+        ?.memory.some((entry) => entry.id.includes('the-borrowed-bones:publish')),
+    ).toBe(true);
   });
 
   it('charges for false paperwork and never double-pays a terminal outcome', async () => {
     const { game, mapper, scribe, blackMarket } = setup();
     await choose(game, mapper, 'the-borrowed-bones', 'commission');
-    expect((await game.chooseActorInteraction(
-      scribe, 'quest:the-borrowed-bones:forge-findings',
-    )).ok).toBe(false);
+    expect(
+      (await game.chooseActorInteraction(scribe, 'quest:the-borrowed-bones:forge-findings')).ok,
+    ).toBe(false);
     game.addScore(60);
     const before = game.getScore();
     await choose(game, scribe, 'the-borrowed-bones', 'forge-findings');
     expect(game.getScore()).toBe(before - 35);
     expect(story(game, 'the-borrowed-bones').choiceHistory?.fieldwork).toBe('forge-findings');
-    expect(game.getActorInteractionMenu(mapper)?.options.some(
-      (option) => option.id === 'quest:the-borrowed-bones:publish',
-    )).toBe(false);
-    expect(game.getActorInteractionMenu(scribe)?.options.some(
-      (option) => option.id === 'quest:the-borrowed-bones:launder',
-    )).toBe(true);
+    expect(
+      game
+        .getActorInteractionMenu(mapper)
+        ?.options.some((option) => option.id === 'quest:the-borrowed-bones:publish'),
+    ).toBe(false);
+    expect(
+      game
+        .getActorInteractionMenu(scribe)
+        ?.options.some((option) => option.id === 'quest:the-borrowed-bones:launder'),
+    ).toBe(true);
     await choose(game, blackMarket, 'the-borrowed-bones', 'sell');
     const reward = game.getScore();
-    expect((await game.chooseActorInteraction(
-      blackMarket, 'quest:the-borrowed-bones:sell',
-    )).ok).toBe(false);
+    expect(
+      (await game.chooseActorInteraction(blackMarket, 'quest:the-borrowed-bones:sell')).ok,
+    ).toBe(false);
     expect(game.getScore()).toBe(reward);
     expect(story(game, 'the-borrowed-bones').outcome).toBe('sold');
   });
@@ -158,9 +174,9 @@ describe('world story chapters on authoritative SnakeGame', () => {
     await choose(game, bartender, 'the-soup-offensive', 'taste');
     await choose(game, butcher, 'the-soup-offensive', 'butcher');
     expect(story(game, 'the-soup-offensive').stage).toBe('tasting');
-    expect((await game.chooseActorInteraction(
-      butcher, 'quest:the-soup-offensive:butcher',
-    )).ok).toBe(false);
+    expect(
+      (await game.chooseActorInteraction(butcher, 'quest:the-soup-offensive:butcher')).ok,
+    ).toBe(false);
     await choose(game, alchemist, 'the-soup-offensive', 'alchemist');
     expect(story(game, 'the-soup-offensive').stage).toBe('judgement');
     await choose(game, bartender, 'the-soup-offensive', 'reconcile');
@@ -188,18 +204,22 @@ describe('world story chapters on authoritative SnakeGame', () => {
         usedActorIds: [],
       } satisfies StoryQuestState);
     }
-    expect(game.getActorInteractionMenu(official)?.options.some(
-      (option) => option.id === 'quest:the-peoples-potluck:assemble',
-    )).toBe(true);
+    expect(
+      game
+        .getActorInteractionMenu(official)
+        ?.options.some((option) => option.id === 'quest:the-peoples-potluck:assemble'),
+    ).toBe(true);
     await choose(game, official, 'the-peoples-potluck', 'assemble');
     await choose(game, mapper, 'the-peoples-potluck', 'history-voice');
     await choose(game, merchant, 'the-peoples-potluck', 'merchants-voice');
     expect(story(game, 'the-peoples-potluck').stage).toBe('gathering');
     await choose(game, guild, 'the-peoples-potluck', 'guild-voice');
     expect(story(game, 'the-peoples-potluck').stage).toBe('decision');
-    expect(game.getActorInteractionMenu(official)?.options.some(
-      (option) => option.id === 'quest:the-peoples-potluck:goblin-table',
-    )).toBe(true);
+    expect(
+      game
+        .getActorInteractionMenu(official)
+        ?.options.some((option) => option.id === 'quest:the-peoples-potluck:goblin-table'),
+    ).toBe(true);
     await choose(game, official, 'the-peoples-potluck', 'goblin-table');
     expect(story(game, 'the-peoples-potluck').outcome).toBe('cooperative');
     expect(game.getCompletedQuestIds()).toContain('the-peoples-potluck');

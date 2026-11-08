@@ -17303,7 +17303,12 @@ export class SnakeGame implements QuestRuntime {
       if (definition.id === CRYSTAL_CLAUSE.id) continue;
       const state = this.storyQuestState(definition);
       const travel = definition.worldDestination;
-      if (state && travel && state.stage === travel.stage && this.getAcceptedQuestIds().includes(definition.id)) {
+      if (
+        state &&
+        travel &&
+        state.stage === travel.stage &&
+        this.getAcceptedQuestIds().includes(definition.id)
+      ) {
         const baseline = state.worldBaselines?.[travel.counter.key];
         const current = this.getFlag<number>(travel.counter.key) ?? 0;
         const isReady = baseline !== undefined && current - baseline >= travel.counter.increase;

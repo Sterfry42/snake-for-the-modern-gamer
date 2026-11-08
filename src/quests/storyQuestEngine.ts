@@ -74,7 +74,9 @@ export interface StoryQuestDefinition {
   prerequisites?: readonly StoryQuestPrerequisite[];
   inheritGiver?: boolean;
   objectives?: Readonly<Record<string, readonly string[]>>;
-  worldObjectives?: Readonly<Record<string, readonly { key: string; increase: number; label: string }[]>>;
+  worldObjectives?: Readonly<
+    Record<string, readonly { key: string; increase: number; label: string }[]>
+  >;
   /** A discovered feature that can be visited to satisfy real gameplay objectives. */
   worldDestination?: {
     stage: string;
@@ -165,9 +167,7 @@ export function storyQuestObjectives(
     const baseline = state.worldBaselines?.[goal.key];
     const current = worldCounters[goal.key];
     const earned =
-      baseline === undefined || !Number.isFinite(current)
-        ? 0
-        : Math.max(0, current - baseline);
+      baseline === undefined || !Number.isFinite(current) ? 0 : Math.max(0, current - baseline);
     return `[${earned >= goal.increase ? 'x' : ' '}] ${goal.label} (${Math.min(earned, goal.increase)}/${goal.increase})`;
   });
   return [...stages, ...progress];
@@ -211,9 +211,13 @@ export function availableStoryActions(
       return false;
     if (action.minTrust !== undefined && (target.trust ?? 0) < action.minTrust) return false;
     if (action.minScore !== undefined && (target.score ?? 0) < action.minScore) return false;
-    if (action.requiresChoice && !action.requiresChoice.actions.includes(
-      state.choiceHistory?.[action.requiresChoice.stage] ?? '',
-    )) return false;
+    if (
+      action.requiresChoice &&
+      !action.requiresChoice.actions.includes(
+        state.choiceHistory?.[action.requiresChoice.stage] ?? '',
+      )
+    )
+      return false;
     if (action.requiresWorldProgress) {
       const baseline = state.worldBaselines?.[action.requiresWorldProgress.key];
       const current = target.worldCounters?.[action.requiresWorldProgress.key];

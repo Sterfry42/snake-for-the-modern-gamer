@@ -6,7 +6,7 @@ import type { StoryQuestConsequence } from './storyQuestConsequences.js';
  */
 export const WORLD_STORY_CONSEQUENCES: Readonly<Record<string, StoryQuestConsequence>> = {
   'the-borrowed-bones:commission': {
-    message: '{actor} points to a map where the excavation\'s original owners have been erased.',
+    message: "{actor} points to a map where the excavation's original owners have been erased.",
     actorResponse: { trust: 6, respect: 4 },
   },
   'the-borrowed-bones:decline': {
@@ -23,13 +23,13 @@ export const WORLD_STORY_CONSEQUENCES: Readonly<Record<string, StoryQuestConsequ
     actorResponse: { respect: 6, resentment: 2 },
   },
   'the-borrowed-bones:steal-survey': {
-    message: 'A thief delivers someone else\'s field notes for 45 score.',
+    message: "A thief delivers someone else's field notes for 45 score.",
     score: -45,
     karma: -7,
     actorResponse: { respect: 7 },
   },
   'the-borrowed-bones:publish': {
-    message: 'The findings are published with the owners\' names. You receive 170 score.',
+    message: "The findings are published with the owners' names. You receive 170 score.",
     score: 170,
     karma: 16,
     factionChanges: [
@@ -107,7 +107,7 @@ export const WORLD_STORY_CONSEQUENCES: Readonly<Record<string, StoryQuestConsequ
     actorResponse: { respect: 8, resentment: 6 },
   },
   'the-museum-that-shouldnt-be:buy-back': {
-    message: 'You pay 75 score to restore the artifact\'s provenance to the public record.',
+    message: "You pay 75 score to restore the artifact's provenance to the public record.",
     score: -75,
     karma: 19,
     factionChanges: [
@@ -159,7 +159,7 @@ export const WORLD_STORY_CONSEQUENCES: Readonly<Record<string, StoryQuestConsequ
     actorResponse: { trust: 7, respect: 4 },
   },
   'the-velvet-ledger:decline': {
-    message: 'You decline the guild\'s offer. The debt book stays with the thieves.',
+    message: "You decline the guild's offer. The debt book stays with the thieves.",
   },
   'the-velvet-ledger:debtor': {
     message: '{actor} shows you a paid receipt. The guild still wants payment.',
@@ -217,7 +217,7 @@ export const WORLD_STORY_CONSEQUENCES: Readonly<Record<string, StoryQuestConsequ
     actorResponse: { trust: 17 },
   },
   'clean-hands-dirty-money:retaliate': {
-    message: 'You sell the informant\'s name back to the guild for 235 score.',
+    message: "You sell the informant's name back to the guild for 235 score.",
     score: 235,
     karma: -28,
     factionChanges: [{ id: 'hearthbound-remnant', amount: -22 }],
@@ -388,7 +388,8 @@ export const WORLD_STORY_CONSEQUENCES: Readonly<Record<string, StoryQuestConsequ
     actorResponse: { respect: 8, resentment: 15 },
   },
   'the-peoples-potluck:grand-exposure': {
-    message: 'Every buried ledger is read aloud. The guild, museum and kitchen scandal become one public case.',
+    message:
+      'Every buried ledger is read aloud. The guild, museum and kitchen scandal become one public case.',
     score: 390,
     karma: 29,
     factionChanges: [
@@ -398,7 +399,8 @@ export const WORLD_STORY_CONSEQUENCES: Readonly<Record<string, StoryQuestConsequ
     actorResponse: { respect: 24 },
   },
   'the-peoples-potluck:goblin-table': {
-    message: 'The merchants and goblins form a shared cooperative over the road, records and kitchens.',
+    message:
+      'The merchants and goblins form a shared cooperative over the road, records and kitchens.',
     score: 525,
     karma: 37,
     wallWards: 1,
