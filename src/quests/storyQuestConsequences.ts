@@ -1,3 +1,4 @@
+import { WORLD_STORY_CONSEQUENCES } from './storyQuestWorldConsequences.js';
 import type { StoryActorResponse } from './storyQuestCharacter.js';
 import type { FactionId } from '../factions/factions.js';
 
@@ -300,5 +301,5 @@ export function storyQuestConsequence(
   questId: string,
   actionKey: string,
 ): StoryQuestConsequence | undefined {
-  return EFFECTS[`${questId}:${actionKey}`];
+  return EFFECTS[`${questId}:${actionKey}`] ?? WORLD_STORY_CONSEQUENCES[`${questId}:${actionKey}`];
 }

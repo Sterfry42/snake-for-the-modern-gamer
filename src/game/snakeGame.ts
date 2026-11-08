@@ -1075,13 +1075,7 @@ const LARGE_TOWN_QUEST_IDS = new Set([
 ]);
 const TOWN_QUEST_EXCLUDED_IDS = new Set([
   'deep-lying-bouquet',
-  'crystal-clause',
-  'crystal-aftermath',
-  'ink-and-ashes',
-  'the-last-ration',
-  'paper-bridges',
-  'tollkeepers-debt',
-  'the-open-table',
+  ...STORY_QUESTS.map((chapter) => chapter.id),
 ]);
 
 interface MomentumComputedConfig {
@@ -8005,14 +7999,28 @@ export class SnakeGame implements QuestRuntime {
     });
   }
 
+  private storyQuestWorldCounters(): Record<string, number> {
+    const keys = new Set(
+      STORY_QUESTS.flatMap((chapter) =>
+        chapter.actions.flatMap((action) =>
+          action.requiresWorldProgress ? [action.requiresWorldProgress.key] : [],
+        ),
+      ),
+    );
+    return Object.fromEntries(
+      [...keys].map((key) => [key, Math.max(0, this.getFlag<number>(key) ?? 0)]),
+    );
+  }
+
   private storyQuestTarget(actor: Actor): StoryQuestTarget {
     return {
       actorId: actor.id,
       role: actor.role,
       species: actor.species,
       personality: actor.personality,
-      trust: actor.mood.trust,
+      trust: actor.opinions.player?.trust ?? actor.mood.trust,
       score: this.getScore(),
+      worldCounters: this.storyQuestWorldCounters(),
     };
   }
 
@@ -17294,6 +17302,25 @@ export class SnakeGame implements QuestRuntime {
     for (const definition of STORY_QUESTS) {
       if (definition.id === CRYSTAL_CLAUSE.id) continue;
       const state = this.storyQuestState(definition);
+      const travel = definition.worldDestination;
+      if (state && travel && state.stage === travel.stage && this.getAcceptedQuestIds().includes(definition.id)) {
+        const baseline = state.worldBaselines?.[travel.counter.key];
+        const current = this.getFlag<number>(travel.counter.key) ?? 0;
+        const isReady = baseline !== undefined && current - baseline >= travel.counter.increase;
+        const discoveredSite = this.getGeneratedRoomIds().find((roomId) =>
+          Boolean(this.world.peekCachedRoom(roomId)?.[travel.feature]),
+        );
+        const destination = isReady ? state.giverRoomId : discoveredSite;
+        if (destination) {
+          markers.push({
+            questId: definition.id,
+            roomId: destination,
+            kind: isReady ? 'turn-in' : 'target',
+            label: isReady ? definition.label : travel.label,
+            color: isReady ? 0x5dd6a2 : 0xffd166,
+          });
+        }
+      }
       if (
         state?.giverRoomId &&
         definition.returnStages?.includes(state.stage) &&
@@ -17315,7 +17342,7 @@ export class SnakeGame implements QuestRuntime {
     const chapter = getStoryQuestDefinition(questId);
     if (chapter) {
       const state = this.storyQuestState(chapter);
-      return state ? storyQuestObjectives(chapter, state) : [];
+      return state ? storyQuestObjectives(chapter, state, this.storyQuestWorldCounters()) : [];
     }
     const instance = this.getStagedQuestInstances().find((quest) => quest.questId === questId);
     if (!instance) {

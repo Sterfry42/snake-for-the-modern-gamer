@@ -1,3 +1,4 @@
+import { WORLD_STORY_QUESTS } from './storyQuestWorldChapters.js';
 import {
   CRYSTAL_CLAUSE,
   CRYSTAL_AFTERMATH,
@@ -10,6 +11,7 @@ export const STORY_QUESTS: readonly StoryQuestDefinition[] = [
   CRYSTAL_CLAUSE,
   CRYSTAL_AFTERMATH,
   ...EXPANDED_STORY_QUESTS,
+  ...WORLD_STORY_QUESTS,
 ];
 
 export function getStoryQuestDefinition(id: string): StoryQuestDefinition | undefined {

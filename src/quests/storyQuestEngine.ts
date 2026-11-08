@@ -10,6 +10,8 @@ export interface StoryQuestState {
   stage: string;
   counters: Record<string, number>;
   usedActorIds: string[];
+  /** Real world counters at the moment the player accepted this chapter. */
+  worldBaselines?: Record<string, number>;
   giverRoomId?: string;
   giverActorId?: string;
   outcome?: string;
@@ -23,6 +25,8 @@ export interface StoryQuestTarget {
   personality?: readonly ActorPersonalityTag[];
   trust?: number;
   score?: number;
+  /** Authoritative gameplay counters, never client-submitted. */
+  worldCounters?: Readonly<Record<string, number>>;
 }
 
 export interface StoryQuestPrerequisite {
@@ -42,6 +46,7 @@ export interface StoryQuestAction {
   personalityAny?: readonly ActorPersonalityTag[];
   minTrust?: number;
   minScore?: number;
+  requiresWorldProgress?: { key: string; increase: number };
   characterLines?: Partial<Record<ActorPersonalityTag, string>>;
   acceptQuest?: boolean;
   requiresCounter?: { key: string; atLeast: number };
@@ -66,6 +71,14 @@ export interface StoryQuestDefinition {
   prerequisites?: readonly StoryQuestPrerequisite[];
   inheritGiver?: boolean;
   objectives?: Readonly<Record<string, readonly string[]>>;
+  worldObjectives?: Readonly<Record<string, readonly { key: string; increase: number; label: string }[]>>;
+  /** A discovered feature that can be visited to satisfy real gameplay objectives. */
+  worldDestination?: {
+    stage: string;
+    feature: 'molemanDigSite' | 'goblinCamp';
+    label: string;
+    counter: { key: string; increase: number };
+  };
   returnStages?: readonly string[];
 }
 
@@ -135,14 +148,26 @@ export function storyQuestCharacterLine(
 export function storyQuestObjectives(
   definition: StoryQuestDefinition,
   state: StoryQuestState,
+  worldCounters: Readonly<Record<string, number>> = {},
 ): string[] {
   if (state.stage === 'completed') {
     return [`[x] ${state.outcome ?? 'Resolved'} — the world remembers`];
   }
   if (state.stage === 'declined') return ['[x] Refused'];
-  return (definition.objectives?.[state.stage] ?? ['[ ] Speak with someone involved']).map((line) =>
-    line.replace(/\{([a-zA-Z]+)\}/g, (_match, key: string) => String(state.counters[key] ?? 0)),
+  const stages = (definition.objectives?.[state.stage] ?? ['[ ] Speak with someone involved']).map(
+    (line) =>
+      line.replace(/\{([a-zA-Z]+)\}/g, (_match, key: string) => String(state.counters[key] ?? 0)),
   );
+  const progress = (definition.worldObjectives?.[state.stage] ?? []).map((goal) => {
+    const baseline = state.worldBaselines?.[goal.key];
+    const current = worldCounters[goal.key];
+    const earned =
+      baseline === undefined || !Number.isFinite(current)
+        ? 0
+        : Math.max(0, current - baseline);
+    return `[${earned >= goal.increase ? 'x' : ' '}] ${goal.label} (${Math.min(earned, goal.increase)}/${goal.increase})`;
+  });
+  return [...stages, ...progress];
 }
 
 export function availableStoryActions(
@@ -183,6 +208,18 @@ export function availableStoryActions(
       return false;
     if (action.minTrust !== undefined && (target.trust ?? 0) < action.minTrust) return false;
     if (action.minScore !== undefined && (target.score ?? 0) < action.minScore) return false;
+    if (action.requiresWorldProgress) {
+      const baseline = state.worldBaselines?.[action.requiresWorldProgress.key];
+      const current = target.worldCounters?.[action.requiresWorldProgress.key];
+      if (
+        baseline === undefined ||
+        current === undefined ||
+        !Number.isFinite(current) ||
+        current - baseline < action.requiresWorldProgress.increase
+      ) {
+        return false;
+      }
+    }
     if (
       action.counterBelow &&
       (state.counters[action.counterBelow.key] ?? 0) >= action.counterBelow.limit
@@ -212,6 +249,16 @@ export function applyStoryAction(
   );
   if (!action) return null;
   const counters = { ...state.counters };
+  let worldBaselines = state.worldBaselines;
+  if (action.acceptQuest && !worldBaselines) {
+    worldBaselines = {};
+    for (const requirement of definition.actions) {
+      const key = requirement.requiresWorldProgress?.key;
+      if (key) {
+        worldBaselines[key] = Math.max(0, target.worldCounters?.[key] ?? 0);
+      }
+    }
+  }
   if (action.incrementCounter) {
     counters[action.incrementCounter] = (counters[action.incrementCounter] ?? 0) + 1;
   }
@@ -231,6 +278,7 @@ export function applyStoryAction(
       ...state,
       counters,
       stage,
+      ...(worldBaselines ? { worldBaselines } : {}),
       usedActorIds: action.uniqueActor
         ? [...state.usedActorIds, target.actorId]
         : [...state.usedActorIds],

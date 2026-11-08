@@ -93,3 +93,62 @@ never legally completed.
 This feature does not yet rewrite town shop inventories, implement a judicial
 trial simulation, or physically spawn paper permits in inventory. Those remain
 separate gameplay work, not implied by the narrative.
+
+## Act II — Exploration, commerce and a very unfortunate dinner
+
+Seven more authored chapters cover systems that were previously unrelated to the
+goblin-road scandal. Characters matter because they each have something specific
+to gain or lose, and the player may complete a job honestly, cheat, or sell out.
+
+| Chapter | Principal character | Core gameplay and branching |
+| --- | --- | --- |
+| **The Borrowed Bones** | The original town mapper | Complete a real **moleman archaeology excavation after accepting**, pay a scribe to fake results, or buy a stolen survey. Publish, repatriate to a goblin, sell to a collector, or keep the grave secret |
+| **The Museum That Shouldn't Be** | The person who inherits the discovery | Outcomes depend on the prior choice: public museum, private admission scam, goblin self-governance, magical appropriation, buyback, vault secrecy, confession, or protected burial |
+| **The Velvet Ledger** | A local thieves-guild contact | Investigate falsified debt records by speaking with a debtor or a scribe, then collect, expose, erase, or auction the book |
+| **Clean Hands, Dirty Money** | The debtors and people left behind | Depends on the ledger outcome: protection racket, defection to the watch, neighborhood shelter, retaliation, amnesty, restoring debt, exposing buyers, or collecting more hush money |
+| **The Soup Offensive** | A bartender caught between butcher and alchemist | Hear *both* separate cooks before settling the soup feud, selling a secret recipe, enabling sabotage, or making a scapegoat |
+| **Second Helpings** | Whoever has to feed people afterward | Free kitchen, monopoly catering, recipe redemption, franchising, antidote, cover-up, exoneration, or allowing a cooking monopoly |
+| **The People's Potluck** | Civic official at a public feast | Only becomes available after **the archaeology, guild and food aftermath chapters**. Invites an archivist, a merchant, and an outlaw as distinct witnesses. Final options include commons, privatization, coordinated scandal exposure and a cooperative ending requiring prior ethical outcomes |
+
+### Gameplay-driven story objectives
+
+`StoryQuestAction.requiresWorldProgress` now describes a **counter advance
+since acceptance**, not a lifetime achievement. The game snapshots the real
+counter in `StoryQuestState.worldBaselines` on the first accepted action and
+passes authoritative counters into the engine for both menu eligibility and
+execution-time revalidation. `storyQuestObjectives` derives progress entries
+from the same baseline and counters, so the journal cannot claim an old dig is
+new. The excavation counter is produced by `AuthoritativeArchaeology` when
+a genuine excavation session ends.
+
+`StoryQuestDefinition.worldDestination` can point to an already-discovered
+moleman dig site while the chapter is in fieldwork and back to the original
+mapper when evidence has been collected. Unknown dig sites are **not**
+fabricated as quest markers. Players who prefer deception may complete the
+same chapter through separately priced NPC routes. Story-specific decisions,
+rewards, and reputation changes are still resolved by the authoritative
+game and saved per run.
+
+### Character and choice rules
+
+- The original contract giver is bound to a real Actor ID. A different mapper
+  cannot collect the first mapper's findings.
+- A cap on repeated witnesses means one butcher cannot testify twice on behalf
+  of both kitchens; multi-stakeholder finales explicitly check each voice.
+- Score costs are validated in the same available-action predicate used on
+  click, never by trusting a client-submitted claim.
+- Actor opinions and personal memories remain capped; different decisions
+  change their attitude without spawning alternate NPCs or overwriting their
+  identities.
+- Multiple distinct completed chapters can gate a single follow-up, and
+  individual outcome combinations can expose hidden endings.
+- The built-in quest loader, story catalog and typed actor command list have
+  matching entries, and story quests are excluded from generic town quest
+  board offers. They enter through context-sensitive NPC verbs.
+
+**Known limitation:** publication, repatriation and permits are persistent
+narrative outcomes, not physical archaeology inventory objects. Later work
+can turn these into placeable museums, document items, spatial escorts or
+actual shop-license laws. The current implementation already has real score,
+karma, ward and faction effects, real excavations, persistent quest flags
+and personal Actor memories.
