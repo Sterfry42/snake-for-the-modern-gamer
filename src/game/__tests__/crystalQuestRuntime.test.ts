@@ -65,39 +65,55 @@ function story(game: SnakeGame, id = 'crystal-clause'): StoryQuestState {
 describe('crystal quest end-to-end using authoritative actor actions', () => {
   it('offers, captures distinct goblins, pays the wizard, and unlocks an ethical follow-up', async () => {
     const { game, wizard, guard, goblinA, goblinB } = setup();
-    expect(game.getActorInteractionMenu(wizard)?.options.some(
-      (option) => option.id === 'quest:crystal-clause:accept',
-    )).toBe(true);
+    expect(
+      game
+        .getActorInteractionMenu(wizard)
+        ?.options.some((option) => option.id === 'quest:crystal-clause:accept'),
+    ).toBe(true);
     expect(await game.chooseActorInteraction(wizard, 'quest:crystal-clause:accept')).toMatchObject({
       ok: true,
     });
     expect(game.getAcceptedQuestIds()).toContain('crystal-clause');
-    expect(await game.chooseActorInteraction(goblinA, 'quest:crystal-clause:imprison')).toMatchObject({
+    expect(
+      await game.chooseActorInteraction(goblinA, 'quest:crystal-clause:imprison'),
+    ).toMatchObject({
       ok: true,
     });
     expect(game.canInteractWithActor(goblinA)).toBe(false);
-    expect(await game.chooseActorInteraction(goblinA, 'quest:crystal-clause:imprison')).toMatchObject({
+    expect(
+      await game.chooseActorInteraction(goblinA, 'quest:crystal-clause:imprison'),
+    ).toMatchObject({
       ok: false,
     });
-    expect(await game.chooseActorInteraction(goblinB, 'quest:crystal-clause:imprison')).toMatchObject({
+    expect(
+      await game.chooseActorInteraction(goblinB, 'quest:crystal-clause:imprison'),
+    ).toMatchObject({
       ok: true,
     });
     expect(story(game).stage).toBe('ready');
     expect(game.getQuestSubtasks('crystal-clause')[0]).toContain('2/2');
-    expect(game.getQuestMapMarkers().some((marker) =>
-      marker.questId === 'crystal-clause' && marker.kind === 'turn-in'
-    )).toBe(true);
+    expect(
+      game
+        .getQuestMapMarkers()
+        .some((marker) => marker.questId === 'crystal-clause' && marker.kind === 'turn-in'),
+    ).toBe(true);
     const before = game.getScore();
-    expect(await game.chooseActorInteraction(wizard, 'quest:crystal-clause:deliver')).toMatchObject({
-      ok: true,
-    });
+    expect(await game.chooseActorInteraction(wizard, 'quest:crystal-clause:deliver')).toMatchObject(
+      {
+        ok: true,
+      },
+    );
     expect(game.getScore() - before).toBe(350);
     expect(game.getCompletedQuestIds()).toContain('crystal-clause');
     expect(story(game).outcome).toBe('delivered');
-    expect(game.getActorInteractionMenu(guard)?.options.some(
-      (option) => option.id === 'quest:crystal-aftermath:confess',
-    )).toBe(true);
-    expect(await game.chooseActorInteraction(guard, 'quest:crystal-aftermath:confess')).toMatchObject({
+    expect(
+      game
+        .getActorInteractionMenu(guard)
+        ?.options.some((option) => option.id === 'quest:crystal-aftermath:confess'),
+    ).toBe(true);
+    expect(
+      await game.chooseActorInteraction(guard, 'quest:crystal-aftermath:confess'),
+    ).toMatchObject({
       ok: true,
     });
     expect(story(game, 'crystal-aftermath').outcome).toBe('atoned');
@@ -120,24 +136,30 @@ describe('crystal quest end-to-end using authoritative actor actions', () => {
       outcome: 'reported',
       stage: 'completed',
     });
-    expect(game.getActorInteractionMenu(goblinA)?.options.some(
-      (option) => option.id === 'quest:crystal-clause:imprison',
-    )).toBe(false);
+    expect(
+      game
+        .getActorInteractionMenu(goblinA)
+        ?.options.some((option) => option.id === 'quest:crystal-clause:imprison'),
+    ).toBe(false);
   });
 
   it('permits declining without accepting, reward or karma loss', async () => {
     const { game, wizard } = setup();
     const score = game.getScore();
     const karma = game.getKarmaView().value;
-    expect(await game.chooseActorInteraction(wizard, 'quest:crystal-clause:decline')).toMatchObject({
-      ok: true,
-    });
+    expect(await game.chooseActorInteraction(wizard, 'quest:crystal-clause:decline')).toMatchObject(
+      {
+        ok: true,
+      },
+    );
     expect(story(game).stage).toBe('declined');
     expect(game.getAcceptedQuestIds()).not.toContain('crystal-clause');
     expect(game.getScore()).toBe(score);
     expect(game.getKarmaView().value).toBe(karma);
-    expect(game.getActorInteractionMenu(wizard)?.options.some(
-      (option) => option.id === 'quest:crystal-clause:accept',
-    )).toBe(false);
+    expect(
+      game
+        .getActorInteractionMenu(wizard)
+        ?.options.some((option) => option.id === 'quest:crystal-clause:accept'),
+    ).toBe(false);
   });
 });

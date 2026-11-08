@@ -8176,9 +8176,7 @@ export class SnakeGame implements QuestRuntime {
             ? this.snake.currentRoomId
             : state.giverRoomId,
         giverActorId:
-          definition.id === CRYSTAL_CLAUSE.id && key === 'accept'
-            ? actor.id
-            : state.giverActorId,
+          definition.id === CRYSTAL_CLAUSE.id && key === 'accept' ? actor.id : state.giverActorId,
       };
       this.setFlag(`quest.story.${definition.id}`, next);
       const consequence = storyQuestConsequence(definition.id, key);
@@ -17098,8 +17096,8 @@ export class SnakeGame implements QuestRuntime {
 
   canOfferQuestFromGiver(questId: string, giverRoomId: string): boolean {
     if (questId === 'crystal-clause') {
-      return this.getActorsInCurrentRoom().some((actor) =>
-        actor.role === 'wizard' && actor.presence?.roomId === giverRoomId,
+      return this.getActorsInCurrentRoom().some(
+        (actor) => actor.role === 'wizard' && actor.presence?.roomId === giverRoomId,
       );
     }
     if (questId === 'crystal-aftermath') {
@@ -17247,8 +17245,8 @@ export class SnakeGame implements QuestRuntime {
     }
     const crystal = this.storyQuestState(CRYSTAL_CLAUSE);
     if (crystal && (crystal.stage === 'hunting' || crystal.stage === 'ready')) {
-      const knownCamp = this.getGeneratedRoomIds().find(
-        (roomId) => Boolean(this.world.peekCachedRoom(roomId)?.goblinCamp),
+      const knownCamp = this.getGeneratedRoomIds().find((roomId) =>
+        Boolean(this.world.peekCachedRoom(roomId)?.goblinCamp),
       );
       const destination = crystal.stage === 'ready' ? crystal.giverRoomId : knownCamp;
       if (destination) {

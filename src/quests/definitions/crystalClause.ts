@@ -6,7 +6,7 @@ class CrystalClauseQuest extends Quest {
     super(
       'crystal-clause',
       'The Crystal Clause',
-      'Accept a wizard\'s commission, then choose what becomes of the goblins.',
+      "Accept a wizard's commission, then choose what becomes of the goblins.",
     );
   }
 

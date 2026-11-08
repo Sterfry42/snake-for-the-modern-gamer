@@ -114,8 +114,7 @@ export function applyStoryAction(
     counters[action.incrementCounter] = (counters[action.incrementCounter] ?? 0) + 1;
   }
   const stage =
-    action.advanceWhen &&
-    (counters[action.advanceWhen.counter] ?? 0) >= action.advanceWhen.atLeast
+    action.advanceWhen && (counters[action.advanceWhen.counter] ?? 0) >= action.advanceWhen.atLeast
       ? action.advanceWhen.stage
       : (action.nextStage ?? state.stage);
   return {
@@ -157,7 +156,8 @@ export const CRYSTAL_CLAUSE: StoryQuestDefinition = {
     {
       key: 'accept',
       label: 'Accept the crystal commission',
-      description: 'The wizard gives you two binding crystals. His payment is suspiciously generous.',
+      description:
+        'The wizard gives you two binding crystals. His payment is suspiciously generous.',
       stages: ['offered'],
       roles: ['wizard'],
       bindGiver: true,
@@ -224,7 +224,7 @@ export const CRYSTAL_AFTERMATH: StoryQuestDefinition = {
   actions: [
     {
       key: 'confess',
-      label: 'Confess the wizard\'s scheme',
+      label: "Confess the wizard's scheme",
       description: 'Admit your part in the imprisonment to a town guard.',
       stages: ['followup'],
       roles: ['guard', 'gateGuard'],
@@ -235,7 +235,7 @@ export const CRYSTAL_AFTERMATH: StoryQuestDefinition = {
     },
     {
       key: 'silence',
-      label: 'Accept the wizard\'s hush money',
+      label: "Accept the wizard's hush money",
       description: 'Agree that the victims were simply a clerical misunderstanding.',
       stages: ['followup'],
       roles: ['wizard'],
@@ -246,7 +246,7 @@ export const CRYSTAL_AFTERMATH: StoryQuestDefinition = {
     },
     {
       key: 'reparation',
-      label: 'Collect the goblins\' gratitude',
+      label: "Collect the goblins' gratitude",
       description: 'The goblin merchants offer a ward for defending their people.',
       stages: ['followup'],
       species: ['goblin'],
@@ -257,7 +257,4 @@ export const CRYSTAL_AFTERMATH: StoryQuestDefinition = {
   ],
 };
 
-export const STORY_QUESTS: readonly StoryQuestDefinition[] = [
-  CRYSTAL_CLAUSE,
-  CRYSTAL_AFTERMATH,
-];
+export const STORY_QUESTS: readonly StoryQuestDefinition[] = [CRYSTAL_CLAUSE, CRYSTAL_AFTERMATH];
