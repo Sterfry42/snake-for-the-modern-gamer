@@ -179,65 +179,79 @@ describe('authoritative climate, offscreen growth and persistence', () => {
     farms.advance(WORLD_DAY_MS * 0.01, climate, () => ({ greenhouse: true }));
     farms.flush(() => ({ greenhouse: true }));
     expect(cell.crop!.stage).toBe('ready');
-    const grade = farms.quality(cell), restored = new FarmingState();
+    const grade = farms.quality(cell),
+      restored = new FarmingState();
     restored.load(JSON.parse(JSON.stringify(farms.save())) as FarmingSaveData);
     expect(restored.quality(restored.get('1,1,0', 5, 5)!)).toBe(grade);
   });
   it('applies heatwave evaporation outdoors and excludes it inside a greenhouse', () => {
-    const outdoor = planted(), indoor = planted();
+    const outdoor = planted(),
+      indoor = planted();
     outdoor.cell.moisture = indoor.cell.moisture = 70;
     const heat = { ...climate, globalWeather: 'heatwave' as const };
-    outdoor.farms.advance(WORLD_DAY_MS, heat, () => ({greenhouse:false}));
-    indoor.farms.advance(WORLD_DAY_MS, heat, () => ({greenhouse:true}));
+    outdoor.farms.advance(WORLD_DAY_MS, heat, () => ({ greenhouse: false }));
+    indoor.farms.advance(WORLD_DAY_MS, heat, () => ({ greenhouse: true }));
     expect(indoor.cell.moisture - outdoor.cell.moisture).toBeCloseTo(25, 7);
   });
   it('does not count resolved snow as liquid rainfall', () => {
     const farms = new FarmingState();
     const cell = farms.till('1,1,0', 'wintergreen-forest', 5, 5, 'loam')!;
     cell.moisture = 70;
-    farms.advance(WORLD_DAY_MS, {...climate, season:'winter', globalWeather:'rain'}, () => ({greenhouse:false}));
+    farms.advance(WORLD_DAY_MS, { ...climate, season: 'winter', globalWeather: 'rain' }, () => ({
+      greenhouse: false,
+    }));
     expect(cell.moisture).toBeLessThan(70);
   });
   it('applies season grace before stress and leaves the plant intact', () => {
     const { farms, cell } = planted();
     cell.moisture = 70;
-    const summer = {...climate, season:'summer' as const};
-    farms.advance(WORLD_DAY_MS / 2, summer, () => ({greenhouse:false}));
+    const summer = { ...climate, season: 'summer' as const };
+    farms.advance(WORLD_DAY_MS / 2, summer, () => ({ greenhouse: false }));
     expect(cell.crop!.health).toBe(100);
     expect(cell.crop!.progress).toBe(0);
-    farms.advance(WORLD_DAY_MS / 4, summer, () => ({greenhouse:false}));
+    farms.advance(WORLD_DAY_MS / 4, summer, () => ({ greenhouse: false }));
     expect(cell.crop!.health).toBeLessThan(100);
     expect(cell.crop!.health).toBeGreaterThan(90);
     expect(cell.crop!.stage).not.toBe('withered');
   });
   it('regrows without another seed and cannot harvest again before the regrow interval', () => {
-    const ctx = context(), cell = ctx.farms.till(ctx.room.id, ctx.room.biomeId, 5, 5, 'loam')!;
+    const ctx = context(),
+      cell = ctx.farms.till(ctx.room.id, ctx.room.biomeId, 5, 5, 'loam')!;
     ctx.farms.plant(cell, 'strawberry', 'a');
-    cell.crop!.progress = 1; cell.crop!.stage = 'ready';
+    cell.crop!.progress = 1;
+    cell.crop!.stage = 'ready';
     const seeds = ctx.inventory.getItemCount('seed-strawberry');
-    expect(executeFarmAction(ctx, {action:'harvest'}).ok).toBe(true);
+    expect(executeFarmAction(ctx, { action: 'harvest' }).ok).toBe(true);
     expect(cell.crop!.stage).toBe('young');
     expect(cell.crop!.regrowCount).toBe(1);
     expect(cell.fertility).toBe(60);
-    expect(executeFarmAction(ctx, {action:'harvest'}).ok).toBe(false);
-    cell.moisture = 70; cell.fertility = 100;
-    ctx.farms.advance(WORLD_DAY_MS * 0.99, climate, () => ({greenhouse:true}));
+    expect(executeFarmAction(ctx, { action: 'harvest' }).ok).toBe(false);
+    cell.moisture = 70;
+    cell.fertility = 100;
+    ctx.farms.advance(WORLD_DAY_MS * 0.99, climate, () => ({ greenhouse: true }));
     expect(cell.crop!.stage).not.toBe('ready');
-    ctx.farms.advance(WORLD_DAY_MS * 0.01, climate, () => ({greenhouse:true}));
-    ctx.farms.flush(() => ({greenhouse:true}));
+    ctx.farms.advance(WORLD_DAY_MS * 0.01, climate, () => ({ greenhouse: true }));
+    ctx.farms.flush(() => ({ greenhouse: true }));
     expect(cell.crop!.stage).toBe('ready');
-    expect(executeFarmAction(ctx, {action:'harvest'}).ok).toBe(true);
+    expect(executeFarmAction(ctx, { action: 'harvest' }).ok).toBe(true);
     expect(ctx.inventory.getItemCount('seed-strawberry')).toBe(seeds);
-    expect(ctx.inventory.getAllItems().filter(([id])=>id.startsWith('produce-strawberry')).reduce((sum,[,count])=>sum+count,0)).toBe(6);
+    expect(
+      ctx.inventory
+        .getAllItems()
+        .filter(([id]) => id.startsWith('produce-strawberry'))
+        .reduce((sum, [, count]) => sum + count, 0),
+    ).toBe(6);
   });
   it('compost caps fertility, consumes supply, and fallow soil recovers without produce', () => {
-    const ctx = context(), cell = ctx.farms.till(ctx.room.id, ctx.room.biomeId, 5, 5, 'loam')!;
-    cell.fertility = 90; ctx.inventory.addItem('farm-compost');
-    expect(executeFarmAction(ctx, {action:'compost'}).ok).toBe(true);
+    const ctx = context(),
+      cell = ctx.farms.till(ctx.room.id, ctx.room.biomeId, 5, 5, 'loam')!;
+    cell.fertility = 90;
+    ctx.inventory.addItem('farm-compost');
+    expect(executeFarmAction(ctx, { action: 'compost' }).ok).toBe(true);
     expect(cell.fertility).toBe(100);
-    expect(executeFarmAction(ctx, {action:'compost'}).ok).toBe(false);
+    expect(executeFarmAction(ctx, { action: 'compost' }).ok).toBe(false);
     cell.fertility = 50;
-    ctx.farms.advance(WORLD_DAY_MS, climate, () => ({greenhouse:false}));
+    ctx.farms.advance(WORLD_DAY_MS, climate, () => ({ greenhouse: false }));
     expect(cell.fertility).toBeCloseTo(52, 7);
     expect(ctx.inventory.getItemCount('farm-compost')).toBe(0);
   });

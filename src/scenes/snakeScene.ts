@@ -12711,7 +12711,18 @@ export default class SnakeScene extends Phaser.Scene {
       activeHat: theme.id === 'unicorn' ? 'unicorn-horn' : this.snakeCosmetics.activeHat,
       renderStyle: theme.id === 'retro-grid' ? 'retro-grid' : 'sprite',
     };
-    const appearanceSignature = JSON.stringify(appearance);
+    // Field-joined signature: same coverage as the old JSON.stringify, but
+    // no serialization pass on the hot draw path.
+    const appearanceSignature = [
+      appearance.themeId,
+      appearance.palette.baseColor,
+      appearance.palette.bellyColor,
+      appearance.palette.patternColor,
+      appearance.palette.outlineColor,
+      appearance.palette.eyeColor,
+      appearance.activeHat ?? '',
+      appearance.renderStyle,
+    ].join('|');
     if (this.publishedAppearance !== appearanceSignature) {
       this.publishedAppearance = appearanceSignature;
       void this.gameConnection.send({
@@ -12760,7 +12771,9 @@ export default class SnakeScene extends Phaser.Scene {
         : undefined;
     const temperature = this.snakeGame.getPlayerTemperature();
     const starforgedSnakePalette = this.getFlag<SnakeSpritePalette>('starforged.snakePalette');
-    const activeSnakeTheme = this.getActiveSnakeTheme();
+    // getActiveSnakeTheme() rebuilds the theme definition table (Map + Set +
+    // village style objects) on every call; draw() used to pay that twice.
+    const activeSnakeTheme = theme;
     const visibleBombs =
       binocularsView?.rooms.flatMap((entry) => [...(entry.bombs ?? [])]) ??
       roomSnapshot?.bombs ??

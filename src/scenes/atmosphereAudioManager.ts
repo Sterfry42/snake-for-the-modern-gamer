@@ -65,7 +65,9 @@ export class AtmosphereAudioManager {
   refresh(): void {
     const atmosphere = this.snakeGame.getAtmosphereState();
     this.notifyDay(atmosphere.worldDay);
-    const visualKey = JSON.stringify([
+    // Field-joined stability key: same coverage as the old per-frame
+    // JSON.stringify, without the serialization pass on every refresh.
+    const visualKey = [
       atmosphere.worldDay,
       atmosphere.season,
       atmosphere.dayPhase,
@@ -75,7 +77,7 @@ export class AtmosphereAudioManager {
       atmosphere.weatherSeed,
       Math.floor(atmosphere.weatherTransitionProgress * 255),
       atmosphere.skyEvent,
-    ]);
+    ].join('|');
     if (!this.isTitleVisible() && !this.isPaused() && visualKey !== this.lastVisualKey) {
       this.lastVisualKey = visualKey;
       this.setIsDirty(true);

@@ -58,6 +58,22 @@ export class MinimapRenderer {
   private readonly roomWidth: number;
   private readonly roomHeight: number;
   private visible = false;
+  // Replica rooms are plain objects that are replaced (never mutated in
+  // place) when a room changes, so object identity is an exact, allocation
+  // free terrain-change signal. This replaces the per-draw JSON.stringify of
+  // up to nine full room layouts just to test whether they changed.
+  private readonly roomIdentity = new WeakMap<object, number>();
+  private roomIdentityCounter = 0;
+
+  private roomIdentityOf(room: RoomSnapshot | undefined): string {
+    if (!room) return '-';
+    let id = this.roomIdentity.get(room);
+    if (id === undefined) {
+      id = ++this.roomIdentityCounter;
+      this.roomIdentity.set(room, id);
+    }
+    return String(id);
+  }
 
   constructor(
     private readonly options: MinimapRendererOptions,
@@ -89,10 +105,9 @@ export class MinimapRenderer {
     const rooms = ROOM_OFFSETS.map((offset) =>
       this.options.getRoom(makeRoomId(current.x + offset.dx, current.y + offset.dy, current.z)),
     );
-    const signature = JSON.stringify([
-      snapshot.currentRoomId,
-      rooms.map((room) => room?.layout ?? null),
-    ]);
+    const signature = `${snapshot.currentRoomId}|${rooms
+      .map((room) => this.roomIdentityOf(room))
+      .join(',')}`;
     if (signature !== this.terrainSignature) {
       this.renderTerrain(rooms);
       this.terrainSignature = signature;
@@ -196,13 +211,24 @@ export class MinimapRenderer {
       .strokeRect(x + 0.5, y + 0.5, this.roomWidth - 1, this.roomHeight - 1);
   }
 
-  private renderSnake(snapshot: MinimapSnapshot, levelZ: number): void {
-    const current = parseRoomId(snapshot.currentRoomId);
-    const visibleRooms = new Set(
+  private visibleRoomsCache: { key: string; rooms: Set<string> } | null = null;
+
+  /** The visible 3x3 room set depends only on the current room id. */
+  private visibleRoomSet(currentRoomId: string): Set<string> {
+    if (this.visibleRoomsCache?.key === currentRoomId) return this.visibleRoomsCache.rooms;
+    const current = parseRoomId(currentRoomId);
+    const rooms = new Set(
       ROOM_OFFSETS.map((offset) =>
         makeRoomId(current.x + offset.dx, current.y + offset.dy, current.z),
       ),
     );
+    this.visibleRoomsCache = { key: currentRoomId, rooms };
+    return rooms;
+  }
+
+  private renderSnake(snapshot: MinimapSnapshot, levelZ: number): void {
+    const current = parseRoomId(snapshot.currentRoomId);
+    const visibleRooms = this.visibleRoomSet(snapshot.currentRoomId);
     const tileW = this.roomWidth / this.options.grid.cols;
     const tileH = this.roomHeight / this.options.grid.rows;
     const segmentW = Math.max(2, Math.ceil(tileW));

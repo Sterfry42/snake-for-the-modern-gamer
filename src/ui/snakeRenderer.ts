@@ -82,6 +82,8 @@ const MOSAIC_COAST_WALL_COLORS = {
   crack: 0x6a5746,
 };
 
+const EMPTY_ENEMIES: readonly EnemyInstance[] = [];
+
 interface SnakeRenderOptions {
   wallSenseRadius?: number;
   snakeColor?: number;
@@ -220,8 +222,14 @@ export class SnakeRenderer {
   private readonly staticRoomSignatures = new Map<string, string>();
   private readonly dirtyStaticRooms = new Set<string>();
   private renderScale = 1;
+  /** Rebuilt in place every render; render() must not hand out a second map. */
+  private readonly roomPlacements = new Map<string, RoomPlacement>();
+  private readonly presentationSprites = new Map<string, WorldRenderScene['sprites'][number]>();
   private activePresentationSprites: ReadonlyMap<string, WorldRenderScene['sprites'][number]> =
-    new Map();
+    this.presentationSprites;
+  private cachedSnakePalette: SnakeSpritePalette | null = null;
+  private cachedSnakePaletteSource: string | null = null;
+  private lastRenderScale = -1;
   private readonly retainedPresentationTargets = new Map<string, RetainedPresentationTarget[]>();
   // Tracks masonry block creation timestamps for crumbling animation
   private readonly masonryExpiry = new MasonryExpiry();
@@ -360,16 +368,23 @@ export class SnakeRenderer {
 
     const opts = options ?? {};
     this.renderScale = Phaser.Math.Clamp(opts.renderScale ?? 1, 0.05, 4);
-    this.activePresentationSprites = new Map(
-      (opts.presentationScene?.sprites ?? []).map((sprite) => [sprite.id, sprite]),
-    );
+    // Scale setters flush render state; only pay when the scale actually moved.
+    if (this.lastRenderScale !== this.renderScale) {
+      this.lastRenderScale = this.renderScale;
+      this.graphics.setScale(this.renderScale);
+      this.baseTintGraphics.setScale(this.renderScale);
+      this.wallGraphics.setScale(this.renderScale);
+      this.overlayGraphics.setScale(this.renderScale);
+      this.lightGlowGraphics.setScale(this.renderScale);
+      this.darknessTexture.setScale(this.renderScale);
+    }
+    // Rebuild the presentation lookup in place: a fresh Map per frame churned
+    // the GC on the DLSS5/first-person path for no gain.
+    this.presentationSprites.clear();
+    for (const sprite of opts.presentationScene?.sprites ?? []) {
+      this.presentationSprites.set(sprite.id, sprite);
+    }
     this.retainedPresentationTargets.clear();
-    this.graphics.setScale(this.renderScale);
-    this.baseTintGraphics.setScale(this.renderScale);
-    this.wallGraphics.setScale(this.renderScale);
-    this.overlayGraphics.setScale(this.renderScale);
-    this.lightGlowGraphics.setScale(this.renderScale);
-    this.darknessTexture.setScale(this.renderScale);
     this.beginRenderDiagnostics(room, snakeBody, appleInfo ?? null, opts);
     const renderRooms =
       opts.renderRooms && opts.renderRooms.length > 0
@@ -388,9 +403,13 @@ export class SnakeRenderer {
               animals: opts.animals ?? [],
             },
           ];
-    const roomPlacements = new Map<string, RoomPlacement>(
-      renderRooms.map((entry) => [entry.roomId, { room: entry.room, offset: entry.offset }]),
-    );
+    // Room placements are keyed by room id; update the retained map in place
+    // instead of allocating a fresh one (and 1-9 placement objects) per draw.
+    this.roomPlacements.clear();
+    for (const entry of renderRooms) {
+      this.roomPlacements.set(entry.roomId, { room: entry.room, offset: entry.offset });
+    }
+    const roomPlacements = this.roomPlacements;
 
     this.furnitureSprites.forEach((sprite) => sprite.setVisible(false));
     this.vegetationSprites.forEach((sprite) => sprite.setVisible(false));
@@ -420,7 +439,6 @@ export class SnakeRenderer {
         this.drawTemperatureReliefs(entry.room);
         this.drawMosaicCoastExposureOverlay(entry.room, opts.renderTimeMs ?? 0);
         this.drawAtmosphereGroundJuice(entry.room, opts.atmosphere, opts.renderTimeMs ?? 0);
-        this.drawGrid(entry.room);
         this.drawAtmosphereParticles(entry.room, opts.atmosphere, false, opts.renderTimeMs ?? 0);
         this.drawTreasure(entry.room);
       });
@@ -432,11 +450,8 @@ export class SnakeRenderer {
         opts.alchemyStation?.roomId === entry.roomId ? opts.alchemyStation : null,
         entry.offset,
       );
-      enemyIndex = this.drawEnemies(
-        [...(entry.enemies ?? []), ...(entry.followers ?? [])],
-        entry.offset,
-        enemyIndex,
-      );
+      enemyIndex = this.drawEnemies(entry.enemies ?? EMPTY_ENEMIES, entry.offset, enemyIndex);
+      enemyIndex = this.drawEnemies(entry.followers ?? EMPTY_ENEMIES, entry.offset, enemyIndex);
       animalIndex = this.drawAnimals(entry.animals ?? [], entry.offset, animalIndex);
       bulletIndex = this.drawBullets(entry.bullets ?? [], entry.offset, bulletIndex);
       this.drawFootballs(entry.footballs ?? [], entry.offset);
@@ -972,13 +987,43 @@ export class SnakeRenderer {
     return { ...this.renderDiagnostics };
   }
 
+  /**
+   * Exact (not hashed) identity of everything baked into a room's static
+   * render textures. One pass over the layout rows replaces the former
+   * per-draw JSON.stringify plus layout.join('/') double serialization;
+   * grid inputs are included because drawGrid is baked into the floor layer.
+   */
+  private staticRoomSignature(room: RoomSnapshot): string {
+    return (
+      room.biomeId +
+      '|' +
+      room.backgroundColor +
+      '|' +
+      room.wallColor +
+      '|' +
+      room.wallOutlineColor +
+      '|' +
+      room.layout.join('|') +
+      '|' +
+      JSON.stringify(room.portals) +
+      '|' +
+      (room.town ? '1' : '0') +
+      '|' +
+      (room.layer?.kind ?? '') +
+      '|' +
+      paletteConfig.grid.color +
+      ',' +
+      paletteConfig.grid.alpha
+    );
+  }
+
   private beginRenderDiagnostics(
     room: RoomSnapshot,
     snakeBody: readonly Vector2Like[],
     appleInfo: AppleSnapshot | null,
     options: SnakeRenderOptions,
   ): void {
-    const signature = `${room.biomeId}|${room.layout.join('/')}`;
+    const signature = this.staticRoomSignature(room);
     const previous = this.staticRoomSignatures.get(room.id);
     const wasDirty = this.dirtyStaticRooms.delete(room.id);
     const staticCacheStatus =
@@ -1005,16 +1050,7 @@ export class SnakeRenderer {
   }
 
   private drawCachedRoom(room: RoomSnapshot, offset: Vector2Like): void {
-    const signature = JSON.stringify([
-      room.layout,
-      room.biomeId,
-      room.backgroundColor,
-      room.wallColor,
-      room.wallOutlineColor,
-      room.portals,
-      Boolean(room.town),
-      room.layer?.kind,
-    ]);
+    const signature = this.staticRoomSignature(room);
     let layer = this.staticRoomLayers.get(room.id);
     if (!layer || layer.signature !== signature) {
       layer?.floors.destroy();
@@ -1031,6 +1067,9 @@ export class SnakeRenderer {
         this.graphics = floorCommands;
         this.wallGraphics = wallCommands;
         this.drawRoomFloors(room);
+        // The grid is static per room; bake it into the floor layer instead of
+        // reissuing ~2*(cols+rows) lineBetween calls on every draw.
+        this.drawGrid(room);
         this.drawRoomWalls(room);
         floors.draw(floorCommands);
         walls.draw(wallCommands);
@@ -3169,9 +3208,10 @@ export class SnakeRenderer {
         )
         .setVisible(true);
     }
-    const ids = new Set(players.map((player) => player.id));
+    // Rosters are tiny (1-8 players), so a flat membership scan replaces the
+    // per-draw Set + mapped id array allocation with zero garbage.
     for (const [id, label] of this.playerNameplates)
-      if (!ids.has(id)) {
+      if (!players.some((player) => player.id === id)) {
         label.destroy();
         this.playerNameplates.delete(id);
       }
@@ -3183,9 +3223,10 @@ export class SnakeRenderer {
     players: NonNullable<SnakeRenderOptions['otherPlayers']>,
     roomPlacements?: ReadonlyMap<string, RoomPlacement>,
   ): void {
-    const visible = new Set(players.map((player) => player.id));
+    // Rosters are tiny (0-7 other players); a flat scan keeps the per-draw
+    // path allocation-free in the common single-player case.
     for (const [id, retained] of this.otherSnakeSprites) {
-      if (visible.has(id)) continue;
+      if (players.some((player) => player.id === id)) continue;
       retained.sprites.forEach((sprite) => sprite.destroy());
       retained.hat.destroy();
       this.otherSnakeSprites.delete(id);
@@ -3236,8 +3277,18 @@ export class SnakeRenderer {
     }
   }
 
+  /**
+   * Per-draw palette builds used to recompute five colors (and a darkened
+   * variant) from static config on every frame; the texture factory caches
+   * by palette key, so the rebuilt object only costed churn. Reuse the last
+   * palette while its source colors are unchanged.
+   */
   private buildSnakePalette(): SnakeSpritePalette {
-    return {
+    const source = `${paletteConfig.snake.bodyColor}|${paletteConfig.snake.bellyColor}|${paletteConfig.snake.patternColor}|${paletteConfig.snake.outlineDarkenFactor}|${paletteConfig.snake.eyeColor}`;
+    if (this.cachedSnakePalette && this.cachedSnakePaletteSource === source) {
+      return this.cachedSnakePalette;
+    }
+    const palette: SnakeSpritePalette = {
       baseColor: this.toCssColor(paletteConfig.snake.bodyColor),
       bellyColor: this.toCssColor(paletteConfig.snake.bellyColor),
       patternColor: this.toCssColor(paletteConfig.snake.patternColor),
@@ -3246,6 +3297,9 @@ export class SnakeRenderer {
       ),
       eyeColor: this.toCssColor(paletteConfig.snake.eyeColor),
     };
+    this.cachedSnakePalette = palette;
+    this.cachedSnakePaletteSource = source;
+    return palette;
   }
 
   private buildRivalSnakePalette(): SnakeSpritePalette {

@@ -40,6 +40,11 @@ export class RoomSnapshotCache implements Iterable<[string, RoomSnapshot]> {
     return this.hot.size + this.archived.size;
   }
 
+  /** Per-room change counters for hot and archived rooms, keyed by room id. */
+  getRevisions(): ReadonlyMap<string, number> {
+    return this.revisions;
+  }
+
   has(id: string): boolean {
     return this.hot.has(id) || this.archived.has(id);
   }
