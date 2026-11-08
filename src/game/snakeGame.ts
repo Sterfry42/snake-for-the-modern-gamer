@@ -117,6 +117,16 @@ import { InventorySystem } from '../inventory/inventory.js';
 import { CHEST_LOOT_ITEMS, getItem } from '../inventory/itemRegistry.js';
 import { SpellbookService, type LearnSpellResult } from '../systems/spells/spellbookService.js';
 import { getSpellTome } from '../systems/spells/spellTomes.js';
+import { spellRegistry } from '../systems/spells/spellRegistry.js';
+import {
+  SPELL_STATUS_FLAG,
+  addSpellStatus,
+  createSpellStatus,
+  getSpellStatusTicks,
+  normalizeSpellStatusState,
+  tickSpellStatusEffects as tickSpellStatusEffectsModule,
+  type SpellStatusEffect,
+} from '../systems/spells/spellStatus.js';
 import {
   CARD_SHOP_OFFERS,
   CARD_TO_ITEM_MIGRATION,
@@ -642,7 +652,7 @@ interface StagedQuestInstance {
 
 export interface FollowerInstance {
   id: string;
-  kind: 'goblin-mercenary' | 'family-baby' | 'rat-familiar';
+  kind: 'goblin-mercenary' | 'family-baby' | 'rat-familiar' | 'light-wisp';
   name: string;
   roomId: string;
   position: Vector2Like;
@@ -1220,6 +1230,27 @@ interface SnakeSceneContract {
   getActiveVehicleSaveData?(): unknown;
   setActiveVehicleSaveData?(data: unknown): void;
 }
+
+// Arcane verb tuning. The wise old snake insists these are "the only numbers
+// that matter"; the rest of the registry disagrees.
+const ARCANE_PULSE_BLAST_RADIUS = 2;
+const MAGIC_MISSILE_RANGE = 10;
+const LIGHTNING_STRIKE_RANGE = 8;
+const LIGHTNING_STRIKE_CHAINS = 2;
+const FROST_NOVA_RADIUS = 4;
+const FROST_NOVA_CHILL_TICKS = 5;
+const SWIFTSTEP_MAX_TILES = 3;
+const MIRROR_IMAGE_WARD_TICKS = 8;
+const MIRROR_IMAGE_GHOST_TICKS = 3;
+const SHIMMER_CLOAK_GHOST_TICKS = 12;
+const HEALING_GLOW_WARD_TICKS = 6;
+const MANA_SIP_RESTORE = 25;
+const MANA_POTION_RESTORE = 30;
+const MANA_CRYSTAL_MAX = 3;
+const MANA_CRYSTAL_MAX_BONUS = 5;
+const MANA_CRYSTAL_REGEN_BONUS = 0.5;
+const LIGHT_WISP_MANA_REGEN = 0.5;
+const WIZARD_LESSON_MAX = 3;
 
 export class SnakeGame implements QuestRuntime {
   readonly config: GameConfig;
@@ -3906,7 +3937,10 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('maneuvers.state', this.maneuvers.exportState());
   }
 
-  private setGhostSource(source: 'revival' | 'maneuver' | 'alchemy', active: boolean): void {
+  private setGhostSource(
+    source: 'revival' | 'maneuver' | 'alchemy' | 'spell',
+    active: boolean,
+  ): void {
     const current = this.getFlag<Record<string, boolean>>('maneuvers.ghostSources') ?? {};
     const next = { ...current };
     if (active) {
@@ -7650,6 +7684,15 @@ export class SnakeGame implements QuestRuntime {
     if (!offer.itemId && !offer.cardId) {
       return closed('missing-offer', 'That offer is not available.', offer);
     }
+    let lessonPreview:
+      | { ok: boolean; message: string; color: string; spellId?: string }
+      | undefined;
+    if (offer.itemId === 'wizard-lesson') {
+      lessonPreview = this.previewWizardLesson();
+      if (!lessonPreview.ok) {
+        return closed('missing-offer', lessonPreview.message, offer);
+      }
+    }
     if (offer.itemId === ALCHEMY_STATION_ITEM_ID && this.getAlchemyStationCount() > 0) {
       return closed(
         'missing-offer',
@@ -7661,7 +7704,14 @@ export class SnakeGame implements QuestRuntime {
       return closed('insufficient-score', `${offer.label} costs ${offer.price} score.`, offer);
     }
     this.addScore(-offer.price);
-    if (offer.itemId) {
+    if (offer.itemId === 'wizard-lesson') {
+      // The score moved before the magic did: grant only after payment.
+      const lesson = this.receiveWizardLesson(actorId);
+      if (!lesson.ok) {
+        this.addScore(offer.price);
+        return closed('missing-offer', lesson.message, offer);
+      }
+    } else if (offer.itemId) {
       this.addItem(offer.itemId, 1);
     }
     if (offer.cardId) {
@@ -7670,7 +7720,10 @@ export class SnakeGame implements QuestRuntime {
     this.decrementActorShopOfferStock(actorId, offer);
     const result = {
       ok: true,
-      message: `Purchased ${offer.label}.`,
+      message:
+        lessonPreview && lessonPreview.spellId
+          ? `The wizard teaches you ${lessonPreview.spellId}.`
+          : `Purchased ${offer.label}.`,
       actorId,
       offerId,
       scoreBefore,
@@ -17832,7 +17885,8 @@ export class SnakeGame implements QuestRuntime {
           follower &&
           (follower.kind === 'goblin-mercenary' ||
             follower.kind === 'family-baby' ||
-            follower.kind === 'rat-familiar'),
+            follower.kind === 'rat-familiar' ||
+            follower.kind === 'light-wisp'),
       )
       .map((follower) => ({
         ...follower,
@@ -17889,6 +17943,16 @@ export class SnakeGame implements QuestRuntime {
       }
 
       next.attackCooldown = Math.max(0, next.attackCooldown - 1);
+      if (next.kind === 'light-wisp') {
+        // The wisp only drifts and mends; it never hunts.
+        if (next.mode === 'follow') {
+          const target = this.snake.bodySegments[1]
+            ? this.worldToLocal(roomId, this.snake.bodySegments[1])
+            : this.worldToLocal(roomId, this.snake.bodySegments[0]!);
+          next = this.moveFollowerToward(roomId, next, target);
+        }
+        return [next];
+      }
       if (next.attackCooldown <= 0) {
         const target = this.findFollowerTarget(roomId, next.position);
         if (target) {
@@ -18318,6 +18382,522 @@ export class SnakeGame implements QuestRuntime {
     return result;
   }
 
+  // ---------------------------------------------------------------------------
+  // Arcane verbs — spellcasting revamp integration.
+  //
+  // The wizard is the town's magic integration point: tomes teach the spells,
+  // these verbs do what the spells promise. Every verb is headless and
+  // save-safe, so the scene only paints what happens here.
+  // ---------------------------------------------------------------------------
+
+  getSpellStatusEffects(): SpellStatusEffect[] {
+    return normalizeSpellStatusState(this.getFlag(SPELL_STATUS_FLAG));
+  }
+
+  getSpellStatusTicks(statusId: string): number {
+    return getSpellStatusTicks(this.getSpellStatusEffects(), statusId);
+  }
+
+  private setSpellStatusEffect(status: SpellStatusEffect): void {
+    const next = addSpellStatus(this.getSpellStatusEffects(), status);
+    this.setFlag(SPELL_STATUS_FLAG, next.length > 0 ? next : undefined);
+    this.setFlag('status.spellsEffectsDirty', true);
+  }
+
+  tickSpellStatusEffects(ticks = 1): void {
+    const before = this.getSpellStatusEffects();
+    let after = before;
+    for (let index = 0; index < Math.max(0, Math.floor(ticks)); index += 1) {
+      after = tickSpellStatusEffectsModule(after);
+    }
+    this.setFlag(SPELL_STATUS_FLAG, after.length > 0 ? after : undefined);
+    const beforeIds = before
+      .map((effect) => effect.id)
+      .sort()
+      .join(',');
+    const afterIds = after
+      .map((effect) => effect.id)
+      .sort()
+      .join(',');
+    if (beforeIds !== afterIds) {
+      // The active set changed, so derived stats and presentation need a re-sync.
+      this.setFlag('status.spellsEffectsDirty', true);
+    }
+    const spellPhaseActive = after.some(
+      (effect) => effect.id === 'shimmer-cloak' || effect.id === 'mirror-image',
+    );
+    if (!spellPhaseActive) {
+      this.setGhostSource('spell', false);
+      this.syncGhostVisualFlag();
+    }
+  }
+
+  queueManaRestore(amount: number): void {
+    const pending = Number(this.getFlag<number>('mana.pendingRestore') ?? 0);
+    this.setFlag('mana.pendingRestore', pending + Math.max(0, Math.floor(amount)));
+  }
+
+  consumeManaCrystal(): { ok: boolean; message: string; color: string } {
+    const used = Number(this.getFlag<number>('mana.crystalsUsed') ?? 0);
+    if (used >= MANA_CRYSTAL_MAX) {
+      return {
+        ok: false,
+        message: 'The crystals have no more spark left in you this run.',
+        color: '#ff6b6b',
+      };
+    }
+    const upgrades =
+      this.getFlag<Array<{ max: number; regen: number }>>('mana.pendingUpgrades') ?? [];
+    upgrades.push({ max: MANA_CRYSTAL_MAX_BONUS, regen: MANA_CRYSTAL_REGEN_BONUS });
+    this.setFlag('mana.pendingUpgrades', upgrades);
+    this.setFlag('mana.crystalsUsed', used + 1);
+    return {
+      ok: true,
+      message: `A mana crystal dissolves into quiet starlight. +${MANA_CRYSTAL_MAX_BONUS} max mana, +${MANA_CRYSTAL_REGEN_BONUS} regen.`,
+      color: '#9ad1ff',
+    };
+  }
+
+  previewWizardLesson(): {
+    ok: boolean;
+    message: string;
+    color: string;
+    spellId?: string;
+  } {
+    const count = Number(this.getFlag<number>('magic.wizardLessons') ?? 0);
+    if (count >= WIZARD_LESSON_MAX) {
+      return {
+        ok: false,
+        message: 'The wizard has already squeezed enough magic out of you this run.',
+        color: '#ffd166',
+      };
+    }
+    const known = (this.getFlag<string[]>('arcane.spellbook.known') ?? []).filter(
+      (id): id is string => typeof id === 'string',
+    );
+    const knownSet = new Set(known);
+    const next = spellRegistry.list().find((spell) => !knownSet.has(spell.id));
+    if (!next) {
+      return {
+        ok: false,
+        message: 'You already know every spell in the wizard\u2019s humble collection.',
+        color: '#ffd166',
+      };
+    }
+    return {
+      ok: true,
+      message: `The wizard would teach you ${next.label}.`,
+      color: '#ffbdfd',
+      spellId: next.id,
+    };
+  }
+
+  receiveWizardLesson(actorId?: string): {
+    ok: boolean;
+    message: string;
+    color: string;
+    spellId?: string;
+  } {
+    const preview = this.previewWizardLesson();
+    if (!preview.ok || !preview.spellId) {
+      return preview;
+    }
+    const spellbook = new SpellbookService({
+      getFlag: (key) => this.getFlag(key),
+      setFlag: (key, value) => this.setFlag(key, value),
+      getCapacity: () =>
+        Math.max(0, Math.floor(Number(this.getFlag<number>('derived.spellSlotCapacity') ?? 1))),
+    });
+    const result = spellbook.learn(preview.spellId);
+    if (!result.ok) {
+      return {
+        ok: false,
+        message: `The lesson fizzled: ${result.reason}.`,
+        color: '#ff6b6b',
+      };
+    }
+    const count = Number(this.getFlag<number>('magic.wizardLessons') ?? 0);
+    this.setFlag('magic.wizardLessons', count + 1);
+    if (actorId) {
+      this.setFlag('magic.wizardLessonActor', actorId);
+    }
+    this.setFlag('ui.spellLearned', {
+      spellId: result.spell.id,
+      label: result.spell.label,
+      lesson: true,
+    });
+    return {
+      ok: true,
+      message: `The wizard teaches you ${result.spell.label}.`,
+      color: '#ffbdfd',
+      spellId: result.spell.id,
+    };
+  }
+
+  private manhattanDistance(a: Vector2Like, b: Vector2Like): number {
+    return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+  }
+
+  private nearestEnemyInRange(range: number): EnemyInstance | null {
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return null;
+    }
+    const roomId = this.snake.currentRoomId;
+    const headLocal = this.worldToLocal(roomId, head);
+    const ranked = this.enemies
+      .getEnemiesInRoom(roomId)
+      .map((enemy) => ({ enemy, distance: this.manhattanDistance(headLocal, enemy.position) }))
+      .filter((entry) => entry.distance <= range)
+      .sort((a, b) => a.distance - b.distance);
+    return ranked[0]?.enemy ?? null;
+  }
+
+  private syncSpellTargetRoom(roomId: string): void {
+    for (const enemy of this.enemies.getEnemiesInRoom(roomId)) {
+      this.syncActorFromHostileEnemy(enemy);
+    }
+  }
+
+  private handleSpellDefeats(defeated: readonly EnemyInstance[]): void {
+    for (const enemy of defeated) {
+      this.setFlag('achievement.enemyDefeated', { enemyId: enemy.id, method: 'spell' });
+      const actorId = enemy.actorId ?? actorIdForEnemy(enemy.roomId, enemy.id);
+      this.emitWorldEvent({
+        type: 'enemy-defeated',
+        roomId: enemy.roomId,
+        targetActorIds: [actorId],
+        severity: 40,
+        loudness: 30,
+        tags: ['combat', 'spell', 'hostile-kill'],
+        summary: `${enemy.name ?? 'An enemy'} was struck down by arcane power.`,
+        createdAtRoomNumber: this.getRoomsVisitedCount(),
+        data: { enemyId: enemy.id, encounterKind: enemy.encounterKind },
+      });
+    }
+  }
+
+  castArcanePulseBlast(): { defeated: number; affected: number } {
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return { defeated: 0, affected: 0 };
+    }
+    const roomId = this.snake.currentRoomId;
+    const headLocal = this.worldToLocal(roomId, head);
+    const targets = this.enemies
+      .getEnemiesInRoom(roomId)
+      .filter(
+        (enemy) => this.manhattanDistance(headLocal, enemy.position) <= ARCANE_PULSE_BLAST_RADIUS,
+      );
+    const defeated: EnemyInstance[] = [];
+    for (const enemy of targets) {
+      const world = this.localToWorld(roomId, enemy.position);
+      const hit = this.enemies.damageEnemyAt(roomId, world, 1);
+      if (hit.defeated) {
+        defeated.push(hit.defeated);
+      }
+    }
+    this.syncSpellTargetRoom(roomId);
+    if (defeated.length > 0) {
+      this.handleSpellDefeats(defeated);
+    }
+    return { defeated: defeated.length, affected: targets.length };
+  }
+
+  castFirebolt(): { fired: boolean; directHit: boolean } {
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return { fired: false, directHit: false };
+    }
+    const roomId = this.snake.currentRoomId;
+    const localHead = this.worldToLocal(roomId, head);
+    const direction = { ...this.snake.directionVector };
+    const before = this.enemies.getEnemiesInRoom(roomId);
+    const beforeIds = new Set(before.map((enemy) => enemy.id));
+    const directHit = before.some(
+      (enemy) =>
+        enemy.position.x === localHead.x + direction.x &&
+        enemy.position.y === localHead.y + direction.y,
+    );
+    const fired = this.enemies.firePlayerBullet(roomId, localHead, direction, this.localPlayerId);
+    if (!fired) {
+      return { fired: false, directHit: false };
+    }
+    this.syncSpellTargetRoom(roomId);
+    const afterIds = new Set(this.enemies.getEnemiesInRoom(roomId).map((enemy) => enemy.id));
+    const defeated = before.filter((enemy) => beforeIds.has(enemy.id) && !afterIds.has(enemy.id));
+    if (defeated.length > 0) {
+      this.handleSpellDefeats(defeated);
+    }
+    return { fired: true, directHit };
+  }
+
+  hasMagicMissileTarget(): boolean {
+    return this.nearestEnemyInRange(MAGIC_MISSILE_RANGE) !== null;
+  }
+
+  castMagicMissile(): { hit: boolean; defeated: string | null } {
+    const target = this.nearestEnemyInRange(MAGIC_MISSILE_RANGE);
+    if (!target) {
+      return { hit: false, defeated: null };
+    }
+    const roomId = this.snake.currentRoomId;
+    const world = this.localToWorld(roomId, target.position);
+    const result = this.enemies.damageEnemyAt(roomId, world, 1);
+    this.syncSpellTargetRoom(roomId);
+    if (result.defeated) {
+      this.handleSpellDefeats([result.defeated]);
+      return { hit: true, defeated: result.defeated.id };
+    }
+    return { hit: true, defeated: null };
+  }
+
+  hasLightningTarget(): boolean {
+    return this.nearestEnemyInRange(LIGHTNING_STRIKE_RANGE) !== null;
+  }
+
+  castLightningStrike(): { strikes: Vector2Like[]; defeated: string[] } {
+    const roomId = this.snake.currentRoomId;
+    const strikes: Vector2Like[] = [];
+    const defeatedEnemies: EnemyInstance[] = [];
+    for (let index = 0; index < LIGHTNING_STRIKE_CHAINS; index += 1) {
+      const target = this.nearestEnemyInRange(LIGHTNING_STRIKE_RANGE);
+      if (!target) {
+        break;
+      }
+      strikes.push({ x: target.position.x, y: target.position.y });
+      const world = this.localToWorld(roomId, target.position);
+      const result = this.enemies.damageEnemyAt(roomId, world, 2);
+      if (result.defeated) {
+        defeatedEnemies.push(result.defeated);
+      }
+    }
+    this.syncSpellTargetRoom(roomId);
+    if (defeatedEnemies.length > 0) {
+      this.handleSpellDefeats(defeatedEnemies);
+    }
+    return { strikes, defeated: defeatedEnemies.map((enemy) => enemy.id) };
+  }
+
+  hasFrostNovaTargets(): boolean {
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return false;
+    }
+    const roomId = this.snake.currentRoomId;
+    const headLocal = this.worldToLocal(roomId, head);
+    return this.enemies
+      .getEnemiesInRoom(roomId)
+      .some((enemy) => this.manhattanDistance(headLocal, enemy.position) <= FROST_NOVA_RADIUS);
+  }
+
+  castFrostNova(): { chilled: number; affected: Vector2Like[]; defeated: string[] } {
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return { chilled: 0, affected: [], defeated: [] };
+    }
+    const roomId = this.snake.currentRoomId;
+    const result = this.enemies.frostNova(
+      roomId,
+      head,
+      FROST_NOVA_RADIUS,
+      1,
+      FROST_NOVA_CHILL_TICKS,
+    );
+    this.syncSpellTargetRoom(roomId);
+    if (result.defeated.length > 0) {
+      this.handleSpellDefeats(result.defeated);
+    }
+    return {
+      chilled: result.chilled,
+      affected: result.affected,
+      defeated: result.defeated.map((enemy) => enemy.id),
+    };
+  }
+
+  private swiftstepFeasibleOffset(): number {
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return 0;
+    }
+    const roomId = this.snake.currentRoomId;
+    const body = this.snake.bodySegments;
+    const direction = this.snake.directionVector;
+    const room = this.world.getRoom(roomId);
+    const actorTiles = new Set(
+      this.getActorsInCurrentRoom()
+        .filter((actor) => actor.presence)
+        .map((actor) => `${actor.presence!.position.x},${actor.presence!.position.y}`),
+    );
+    const enemyTiles = new Set(
+      this.enemies
+        .getEnemiesInRoom(roomId)
+        .map((enemy) => `${enemy.position.x},${enemy.position.y}`),
+    );
+    const apple = this.apples.getSnapshot(roomId);
+    for (let offset = SWIFTSTEP_MAX_TILES; offset >= 1; offset -= 1) {
+      const delta = { x: direction.x * offset, y: direction.y * offset };
+      let blocked = false;
+      for (const segment of body) {
+        const local = this.worldToLocal(roomId, segment);
+        const nextX = local.x + delta.x;
+        const nextY = local.y + delta.y;
+        if (
+          nextX < 0 ||
+          nextY < 0 ||
+          nextX >= room.layout[0]?.length ||
+          nextY >= room.layout.length
+        ) {
+          blocked = true;
+          break;
+        }
+        const tile = room.layout[nextY]?.[nextX];
+        if (tile === undefined || this.isSolidTile(tile) || tile === '%' || tile === '~') {
+          blocked = true;
+          break;
+        }
+        if (actorTiles.has(`${nextX},${nextY}`) || enemyTiles.has(`${nextX},${nextY}`)) {
+          blocked = true;
+          break;
+        }
+        if (apple && apple.position.x === nextX && apple.position.y === nextY) {
+          blocked = true;
+          break;
+        }
+      }
+      if (!blocked) {
+        return offset;
+      }
+    }
+    return 0;
+  }
+
+  canSwiftstep(): boolean {
+    return this.swiftstepFeasibleOffset() > 0;
+  }
+
+  castSwiftstep(): { moved: number } {
+    const offset = this.swiftstepFeasibleOffset();
+    if (offset <= 0) {
+      return { moved: 0 };
+    }
+    const roomId = this.snake.currentRoomId;
+    const direction = this.snake.directionVector;
+    const nextBody = this.snake.bodySegments.map((segment) => ({
+      x: segment.x + direction.x * offset,
+      y: segment.y + direction.y * offset,
+    }));
+    this.snake.restoreFromSave(
+      nextBody.map((segment) => ({ ...segment })),
+      { ...direction },
+      roomId,
+      this.snake.bodySegments.length,
+    );
+    return { moved: offset };
+  }
+
+  castHaste(): { magnitude: number } {
+    this.setSpellStatusEffect(createSpellStatus('haste'));
+    return { magnitude: 60 };
+  }
+
+  castMirrorImage(): { magnitude: number } {
+    this.grantUnifiedInvulnerability(MIRROR_IMAGE_WARD_TICKS);
+    const currentPhase = Number(this.getFlag<number>('traversal.phaseTicks') ?? 0);
+    this.setFlag('traversal.phaseTicks', Math.max(currentPhase, MIRROR_IMAGE_GHOST_TICKS));
+    this.setGhostSource('spell', true);
+    this.syncGhostVisualFlag();
+    this.setSpellStatusEffect(createSpellStatus('mirror-image'));
+    return { magnitude: MIRROR_IMAGE_WARD_TICKS };
+  }
+
+  castShimmerCloak(): { magnitude: number } {
+    const currentPhase = Number(this.getFlag<number>('traversal.phaseTicks') ?? 0);
+    this.setFlag('traversal.phaseTicks', Math.max(currentPhase, SHIMMER_CLOAK_GHOST_TICKS));
+    this.setGhostSource('spell', true);
+    this.syncGhostVisualFlag();
+    this.setSpellStatusEffect(createSpellStatus('shimmer-cloak'));
+    return { magnitude: SHIMMER_CLOAK_GHOST_TICKS };
+  }
+
+  castHealingGlow(): { kind: 'vitality' | 'ward' } {
+    const bank =
+      this.getFlag<{ stored?: number; capacity?: number; charged?: boolean }>(
+        'fortitude.bloodBank',
+      ) ?? {};
+    const capacity = Math.max(
+      1,
+      Number(this.getFlag<number>('derived.storedVitalityCapacity') ?? bank.capacity ?? 1),
+    );
+    const stored = Math.min(capacity, (bank.stored ?? 0) + 1);
+    if (stored > (bank.stored ?? 0)) {
+      this.setFlag('fortitude.bloodBank', {
+        ...bank,
+        capacity,
+        stored,
+        charged: stored >= capacity,
+      });
+      this.setFlag('ui.bloodBank', {
+        message:
+          stored >= capacity ? 'STORED VITALITY READY' : `STORED VITALITY ${stored}/${capacity}`,
+      });
+      return { kind: 'vitality' };
+    }
+    this.grantUnifiedInvulnerability(HEALING_GLOW_WARD_TICKS);
+    return { kind: 'ward' };
+  }
+
+  castManaSip(): { magnitude: number } {
+    this.queueManaRestore(MANA_SIP_RESTORE);
+    this.setSpellStatusEffect(createSpellStatus('mana-sip-cooldown'));
+    return { magnitude: MANA_SIP_RESTORE };
+  }
+
+  hasLightWisp(): boolean {
+    return this.getFollowerState().some((follower) => follower.kind === 'light-wisp');
+  }
+
+  getLightWispManaRegen(): number {
+    return this.hasLightWisp() ? LIGHT_WISP_MANA_REGEN : 0;
+  }
+
+  summonLightWisp(durationTicks = 120): {
+    ok: boolean;
+    message: string;
+    color: string;
+  } {
+    if (this.hasLightWisp()) {
+      return {
+        ok: false,
+        message: 'A light wisp is already drifting by your side.',
+        color: '#9ad1ff',
+      };
+    }
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return { ok: false, message: 'No body to anchor the wisp to.', color: '#ff6b6b' };
+    }
+    const roomId = this.snake.currentRoomId;
+    const position = this.worldToLocal(roomId, head);
+    const follower: FollowerInstance = {
+      id: `follower-wisp-${Date.now().toString(36)}`,
+      kind: 'light-wisp',
+      name: 'Light Wisp',
+      roomId,
+      position: this.findFollowerStandPosition(roomId, position),
+      direction: { x: 0, y: 1 },
+      mode: 'follow',
+      attackCooldown: 0,
+      summonTicksLeft: Math.max(1, Math.floor(durationTicks)),
+    };
+    this.setFollowerState([...this.getFollowerState(), follower]);
+    return {
+      ok: true,
+      message: 'A light wisp unfurls beside you, knitting mana back into you.',
+      color: '#9ad1ff',
+    };
+  }
+
   knowsAlchemyRecipe(recipeId: string): boolean {
     return this.getAlchemyState().knownRecipes.includes(recipeId);
   }
@@ -18713,6 +19293,52 @@ export class SnakeGame implements QuestRuntime {
             : 'That tome refuses to open.',
         color: '#ffd166',
       };
+    }
+
+    if (itemId === 'mana-potion') {
+      this.queueManaRestore(MANA_POTION_RESTORE);
+      this.inventory.removeItem(itemId, 1);
+      this.setFlag('ui.itemUsed', {
+        itemId,
+        itemName: item.name,
+        manaRestore: MANA_POTION_RESTORE,
+      });
+      this.emitWorldEvent({
+        type: 'item-used',
+        roomId: this.snake.currentRoomId,
+        severity: 8,
+        loudness: 2,
+        tags: ['item', 'consumable', itemId, 'mana'],
+        summary: `The snake drank a ${item.name}.`,
+        createdAtRoomNumber: this.getRoomsVisitedCount(),
+        data: { itemId, itemName: item.name },
+      });
+      return {
+        ok: true,
+        message: `Used ${item.name}. +${MANA_POTION_RESTORE} mana when the astral river allows.`,
+        color: '#9cff9c',
+        consume: true,
+      };
+    }
+
+    if (itemId === 'mana-crystal') {
+      const crystal = this.consumeManaCrystal();
+      if (!crystal.ok) {
+        return { ok: false, message: crystal.message, color: '#ff6b6b' };
+      }
+      this.inventory.removeItem(itemId, 1);
+      this.setFlag('ui.itemUsed', { itemId, itemName: item.name, manaCrystal: true });
+      this.emitWorldEvent({
+        type: 'item-used',
+        roomId: this.snake.currentRoomId,
+        severity: 8,
+        loudness: 2,
+        tags: ['item', 'consumable', itemId, 'mana'],
+        summary: `The snake consumed a ${item.name}.`,
+        createdAtRoomNumber: this.getRoomsVisitedCount(),
+        data: { itemId, itemName: item.name },
+      });
+      return { ok: true, message: crystal.message, color: '#9cff9c', consume: true };
     }
 
     if (itemId === ALCHEMY_STATION_ITEM_ID) {
@@ -22134,6 +22760,7 @@ export class SnakeGame implements QuestRuntime {
     }
     this.tickPhaseState();
     this.tickAlchemyStatusEffects();
+    this.tickSpellStatusEffects();
     this.tickSecondWind();
     this.tickStoredVitality();
   }

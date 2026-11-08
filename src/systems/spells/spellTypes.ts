@@ -13,6 +13,9 @@ export interface SpellEffectResult {
   affectedPositions?: readonly { x: number; y: number }[];
   affectedActorIds?: readonly string[];
   magnitude?: number;
+  // Verb-specific outcome fields (fired, chilled, kind, ...) travel here so
+  // presentation and UI can read what the spell actually did.
+  [detail: string]: unknown;
 }
 
 export interface SpellCastContext {
@@ -25,6 +28,23 @@ export interface SpellRuntime {
   hasRatFamiliar(): boolean;
   castArcanePulse(): SpellEffectResult;
   castSummonRatFamiliar(): SpellEffectResult;
+  castFirebolt?(): SpellEffectResult;
+  castMagicMissile?(): SpellEffectResult;
+  hasMagicMissileTarget?(): boolean;
+  castLightningStrike?(): SpellEffectResult;
+  hasLightningTarget?(): boolean;
+  castFrostNova?(): SpellEffectResult;
+  hasFrostNovaTargets?(): boolean;
+  castSwiftstep?(): SpellEffectResult;
+  canSwiftstep?(): boolean;
+  castHaste?(): SpellEffectResult;
+  castMirrorImage?(): SpellEffectResult;
+  castShimmerCloak?(): SpellEffectResult;
+  castHealingGlow?(): SpellEffectResult;
+  castManaSip?(): SpellEffectResult;
+  hasLightWisp?(): boolean;
+  castSummonLightWisp?(): SpellEffectResult;
+  getSpellStatusTicks?(statusId: string): number;
 }
 
 export interface SpellDefinition {

@@ -57,6 +57,7 @@ import {
 } from '../stats/gameplayModifierAccumulator.js';
 import type { AnimalInstance } from '../animals/types.js';
 import { getAlchemyDerivedStatSource } from '../alchemy/potionEffects.js';
+import { getSpellStatusSource } from '../systems/spells/spellStatus.js';
 import { SnakeGame } from '../game/snakeGame.js';
 import type {
   ActorShopOfferCategory,
@@ -3925,6 +3926,10 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.getFlag<boolean>('status.alchemyEffectsDirty')) {
       this.applyEquipmentEffects();
       this.setFlag('status.alchemyEffectsDirty', undefined);
+    }
+    if (this.getFlag<boolean>('status.spellsEffectsDirty')) {
+      this.applyEquipmentEffects();
+      this.setFlag('status.spellsEffectsDirty', undefined);
     }
 
     if (this.handleStepDeath(result) || this.handlePhoenixReviveTrigger()) {
@@ -10607,6 +10612,9 @@ export default class SnakeScene extends Phaser.Scene {
     setProgressionSource('status.orangeJuice', 'status', orangeJuiceSpeedBoost > 0 ? 0.75 : 1, 0);
     this.skillTree.setDerivedStatSource(
       getAlchemyDerivedStatSource(this.snakeGame.getAlchemyState().activeEffects),
+    );
+    this.skillTree.setDerivedStatSource(
+      getSpellStatusSource(this.snakeGame.getSpellStatusEffects()),
     );
     if (orangeJuiceSpeedBoost > 0) {
       totals.tickDelayScalar *= 0.75;

@@ -130,6 +130,64 @@ describe('SnakeState swimming', () => {
   });
 });
 
+describe('SnakeState self-collision tail rule', () => {
+  const makeDeps = (room: RoomSnapshot) => ({
+    getRoom: () => room,
+    ensureApple: () => undefined,
+    getBossManager: () =>
+      ({
+        getPullFor: () => null,
+        getVulnerableJasonNearby: () => null,
+        getBossAtPosition: () => null,
+      }) as unknown as BossManager,
+  });
+
+  it('allows the head to enter the single tail segment that moves away this step', () => {
+    const snake = new SnakeState(
+      grid,
+      {
+        initialBody: [
+          { x: 3, y: 4 },
+          { x: 3, y: 5 },
+          { x: 2, y: 5 },
+          { x: 2, y: 4 },
+        ],
+        initialDirection: { x: -1, y: 0 },
+        spawnBuffer: [],
+      },
+      room.id,
+    );
+
+    const result = snake.step(makeDeps(room));
+
+    expect(result.status).toBe('alive');
+    expect(snake.head).toEqual({ x: 2, y: 4 });
+  });
+
+  it('kills the snake when the head enters a stacked tail segment that stays behind', () => {
+    const snake = new SnakeState(
+      grid,
+      {
+        initialBody: [
+          { x: 3, y: 4 },
+          { x: 3, y: 5 },
+          { x: 2, y: 5 },
+          { x: 2, y: 4 },
+          { x: 2, y: 4 },
+        ],
+        initialDirection: { x: -1, y: 0 },
+        spawnBuffer: [],
+      },
+      room.id,
+    );
+
+    const result = snake.step(makeDeps(room));
+
+    expect(result.status).toBe('dead');
+    expect(result.reason).toBe('self');
+  });
+});
+
 describe('SnakeState portals', () => {
   it('lands on explicit portal coordinates for non-coordinate room ids', () => {
     const sourceRoom: RoomSnapshot = {

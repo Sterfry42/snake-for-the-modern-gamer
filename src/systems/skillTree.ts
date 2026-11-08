@@ -565,13 +565,31 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
       getSpellRuntime: () => ({
         hasRatFamiliar: () => Boolean(this.runtime.hasRatFamiliar?.()),
         castArcanePulse: () => {
+          const blast = this.runtime.castArcanePulseBlast?.() ?? { defeated: 0, affected: 0 };
           this.runtime.onArcanePulseCast();
-          return { magnitude: 1 };
+          return { magnitude: 1 + blast.affected };
         },
         castSummonRatFamiliar: () => {
           this.runtime.onSummonFamiliarCast?.();
           return { magnitude: 1 };
         },
+        castFirebolt: () => this.runtime.castFirebolt?.() ?? { magnitude: 0 },
+        castMagicMissile: () => this.runtime.castMagicMissile?.() ?? { magnitude: 0 },
+        hasMagicMissileTarget: () => this.runtime.hasMagicMissileTarget?.() ?? true,
+        castLightningStrike: () => this.runtime.castLightningStrike?.() ?? { magnitude: 0 },
+        hasLightningTarget: () => this.runtime.hasLightningTarget?.() ?? true,
+        castFrostNova: () => this.runtime.castFrostNova?.() ?? { magnitude: 0 },
+        hasFrostNovaTargets: () => this.runtime.hasFrostNovaTargets?.() ?? true,
+        castSwiftstep: () => this.runtime.castSwiftstep?.() ?? { magnitude: 0 },
+        canSwiftstep: () => this.runtime.canSwiftstep?.() ?? true,
+        castHaste: () => this.runtime.castHaste?.() ?? { magnitude: 0 },
+        castMirrorImage: () => this.runtime.castMirrorImage?.() ?? { magnitude: 0 },
+        castShimmerCloak: () => this.runtime.castShimmerCloak?.() ?? { magnitude: 0 },
+        castHealingGlow: () => this.runtime.castHealingGlow?.() ?? { magnitude: 0 },
+        castManaSip: () => this.runtime.castManaSip?.() ?? { magnitude: 0 },
+        hasLightWisp: () => Boolean(this.runtime.hasLightWisp?.()),
+        castSummonLightWisp: () => this.runtime.castSummonLightWisp?.() ?? { magnitude: 0 },
+        getSpellStatusTicks: (statusId) => this.runtime.getSpellStatusTicks?.(statusId) ?? 0,
       }),
     }).cast(spellId);
 
@@ -595,14 +613,67 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
   }
 
   tick(): void {
-    if (!this.manaEnabled || this.manaRegen <= 0) {
+    this.drainManaCredits();
+    const wispRegen = this.runtime.getLightWispManaRegen?.() ?? 0;
+    if (!this.manaEnabled || (this.manaRegen <= 0 && wispRegen <= 0)) {
       return;
     }
     const before = this.manaCurrent;
-    this.manaCurrent = Math.min(this.manaMax, this.manaCurrent + this.manaRegen);
+    this.manaCurrent = Math.min(this.manaMax, this.manaCurrent + this.manaRegen + wispRegen);
     if (Math.abs(this.manaCurrent - before) >= 0.01) {
       this.runtime.notifyManaChanged(this.manaCurrent, this.manaMax, this.manaRegen);
     }
+  }
+
+  restoreMana(amount: number): void {
+    const value = Math.max(0, Math.floor(Number(amount) || 0));
+    if (value <= 0) {
+      return;
+    }
+    if (!this.manaEnabled) {
+      this.enableMana({ max: Math.max(30, value), regen: 0.5 });
+    }
+    this.manaCurrent = Math.min(this.manaMax, this.manaCurrent + value);
+    this.runtime.notifyManaChanged(this.manaCurrent, this.manaMax, this.manaRegen);
+  }
+
+  private drainManaCredits(): void {
+    const pendingRestore = Number(this.runtime.getFlag<number>('mana.pendingRestore') ?? 0);
+    if (pendingRestore > 0) {
+      this.runtime.setFlag('mana.pendingRestore', undefined);
+      this.restoreMana(pendingRestore);
+    }
+    const pendingUpgrades =
+      this.runtime.getFlag<Array<{ max: number; regen: number }>>('mana.pendingUpgrades');
+    if (Array.isArray(pendingUpgrades) && pendingUpgrades.length > 0) {
+      this.runtime.setFlag('mana.pendingUpgrades', undefined);
+      const base = Math.max(
+        0,
+        Math.floor(Number(this.runtime.getFlag<number>('mana.creditIndex') ?? 0)),
+      );
+      pendingUpgrades.forEach((credit, index) => {
+        this.applyManaUpgradeCredit(base + index, credit.max, credit.regen);
+      });
+      this.runtime.setFlag('mana.creditIndex', base + pendingUpgrades.length);
+    }
+  }
+
+  private applyManaUpgradeCredit(index: number, maxBonus: number, regenBonus: number): void {
+    const sourceId = `mana.credit.${index}`;
+    const modifiers: import('../stats/derivedStats.js').DerivedStatModifier[] = [];
+    if (maxBonus > 0) {
+      modifiers.push({ stat: 'manaMax', operation: 'add', value: maxBonus });
+    }
+    if (regenBonus > 0) {
+      modifiers.push({ stat: 'manaRegen', operation: 'add', value: regenBonus });
+    }
+    if (modifiers.length === 0) {
+      return;
+    }
+    this.setDerivedStatSource({ id: sourceId, category: 'status', modifiers });
+    this.manaEnabled = true;
+    this.syncDerivedStats();
+    this.runtime.notifyManaChanged(this.manaCurrent, this.manaMax, this.manaRegen);
   }
 
   getStats(): SkillTreeStats {

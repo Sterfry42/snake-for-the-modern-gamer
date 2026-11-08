@@ -538,6 +538,14 @@ export class BossManager {
       }
     }
 
+    // When the snake is exactly opposite on the same axis, the perpendicular
+    // fallback degenerates into a zero vector. Keep the current heading
+    // instead of dashing along a direction that does not exist.
+    if (chargeDirection.x === 0 && chargeDirection.y === 0) {
+      this.attemptMove(boss, boss.direction, deps, true);
+      return;
+    }
+
     // Charge toward the snake with a few steps
     boss.direction = chargeDirection;
     const dashSteps = 2;

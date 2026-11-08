@@ -11,6 +11,7 @@ import type { SkillTreeClientState } from '../systems/skillTree.js';
 import type { OwnedSkillState } from '../systems/skillTypes.js';
 import { ActionSlotController } from '../systems/actionSlots.js';
 import { getAlchemyDerivedStatSource } from '../alchemy/potionEffects.js';
+import { getSpellStatusSource } from '../systems/spells/spellStatus.js';
 
 /** The existing skill system with gameplay callbacks and no Phaser dependency. */
 export class AuthoritativeProgression implements SkillTreeRuntime {
@@ -95,6 +96,63 @@ export class AuthoritativeProgression implements SkillTreeRuntime {
     this.game.addScore(4);
     this.game.growSnake(2);
   }
+  castArcanePulseBlast() {
+    return this.game.castArcanePulseBlast();
+  }
+  castFirebolt() {
+    return this.game.castFirebolt();
+  }
+  castMagicMissile() {
+    return this.game.castMagicMissile();
+  }
+  hasMagicMissileTarget() {
+    return this.game.hasMagicMissileTarget();
+  }
+  castLightningStrike() {
+    return this.game.castLightningStrike();
+  }
+  hasLightningTarget() {
+    return this.game.hasLightningTarget();
+  }
+  castFrostNova() {
+    return this.game.castFrostNova();
+  }
+  hasFrostNovaTargets() {
+    return this.game.hasFrostNovaTargets();
+  }
+  castSwiftstep() {
+    return this.game.castSwiftstep();
+  }
+  canSwiftstep() {
+    return this.game.canSwiftstep();
+  }
+  castHaste() {
+    return this.game.castHaste();
+  }
+  castMirrorImage() {
+    return this.game.castMirrorImage();
+  }
+  castShimmerCloak() {
+    return this.game.castShimmerCloak();
+  }
+  castHealingGlow() {
+    return this.game.castHealingGlow();
+  }
+  castManaSip() {
+    return this.game.castManaSip();
+  }
+  hasLightWisp() {
+    return this.game.hasLightWisp();
+  }
+  castSummonLightWisp() {
+    return this.game.summonLightWisp(120);
+  }
+  getLightWispManaRegen() {
+    return this.game.getLightWispManaRegen();
+  }
+  getSpellStatusTicks(statusId: string) {
+    return this.game.getSpellStatusTicks(statusId);
+  }
   onArcaneVeilTriggered() {
     this.persist();
   }
@@ -154,6 +212,7 @@ export class AuthoritativeProgression implements SkillTreeRuntime {
     this.skills.setDerivedStatSource(
       getAlchemyDerivedStatSource(this.game.getAlchemyState().activeEffects),
     );
+    this.skills.setDerivedStatSource(getSpellStatusSource(this.game.getSpellStatusEffects()));
     this.skills.setDerivedStatSource({
       id: 'special.core',
       category: 'special',
@@ -220,6 +279,7 @@ export class AuthoritativeProgression implements SkillTreeRuntime {
       this.game.getInventory().getAllEquipped(),
       this.game.getSpecialGameplayModifiers(),
       this.game.getAlchemyState().activeEffects,
+      this.game.getSpellStatusEffects(),
       (this.getFlag<number>('status.orangeJuiceSpeedBoostTicks') ?? 0) > 0,
       ...['religion.mods', 'class.mods', 'background.mods'].map((key) => this.getFlag(key)),
     ]);
