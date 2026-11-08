@@ -5,8 +5,9 @@ import type { GameEvent } from './GameEvent.js';
 import type { GameSnapshot } from './GameSnapshot.js';
 import { SPECIAL_STAT_IDS } from '../stats/specialTypes.js';
 import { EQUIPMENT_SLOTS } from '../inventory/item.js';
+import { isMovementUpdate } from './MovementUpdate.js';
 
-export const GAME_PROTOCOL_VERSION = 2;
+export const GAME_PROTOCOL_VERSION = 6;
 
 export interface CommandMessage {
   type: 'command';
@@ -15,15 +16,19 @@ export interface CommandMessage {
 }
 
 export type ServerMessage =
+  | { type: 'movementClock'; clientTimeMs: number; serverTimeMs: number }
   | {
       type: 'welcome';
       version: number;
       connectionId: string;
       playerId: string;
       resumeToken: string;
+      diagnostics?: boolean;
       snapshot: GameSnapshot;
     }
   | { type: 'snapshot'; snapshot: GameSnapshot }
+  | { type: 'movement'; update: import('./MovementUpdate.js').MovementUpdate }
+  | { type: 'delta'; delta: import('./SnapshotDelta.js').SnapshotDelta }
   | { type: 'event'; event: GameEvent }
   | { type: 'result'; id: number; result: CommandResult };
 
@@ -31,6 +36,19 @@ export type ServerMessage =
 export function isClientCommand(value: unknown): value is ClientCommand {
   if (!isRecord(value) || typeof value.playerId !== 'string') return false;
   switch (value.type) {
+    case 'deathEncounterAction':
+      return (
+        validIdentifier(value.encounterId) &&
+        typeof value.revision === 'number' &&
+        Number.isSafeInteger(value.revision) &&
+        value.revision > 0 &&
+        ['return', 'continue', 'taunt', 'romance', 'complain'].includes(String(value.choice))
+      );
+    case 'characterCreationAction':
+      return (
+        ['faith', 'background', 'class'].includes(String(value.stage)) &&
+        validIdentifier(value.optionId)
+      );
     case 'emote':
       return validIdentifier(value.emoticonId);
     case 'guildAction':
@@ -260,6 +278,18 @@ export function isClientCommand(value: unknown): value is ClientCommand {
     case 'forceDirection': {
       const direction = value.direction;
       return (
+        (value.inputSequence === undefined ||
+          (typeof value.inputSequence === 'number' &&
+            Number.isSafeInteger(value.inputSequence) &&
+            value.inputSequence > 0)) &&
+        (value.intendedRevision === undefined ||
+          (value.type === 'setDirection' &&
+            Number.isSafeInteger(value.intendedRevision) &&
+            Number(value.intendedRevision) > 0 &&
+            Number.isSafeInteger(value.inputSequence) &&
+            typeof value.estimatedServerTimeMs === 'number' &&
+            Number.isFinite(value.estimatedServerTimeMs) &&
+            value.estimatedServerTimeMs >= 0)) &&
         isRecord(direction) &&
         typeof direction.x === 'number' &&
         typeof direction.y === 'number' &&
@@ -366,6 +396,28 @@ function isServerMessage(value: unknown): value is ServerMessage {
       );
     case 'snapshot':
       return isSnapshot(value.snapshot);
+    case 'delta':
+      return (
+        isRecord(value.delta) &&
+        isRecord(value.delta.state) &&
+        typeof value.delta.state.localPlayerId === 'string' &&
+        isRecord(value.delta.viewport) &&
+        isRecord(value.delta.viewport.rooms) &&
+        isRecord(value.delta.clientState) &&
+        isRecord(value.delta.flags) &&
+        isRecord(value.delta.flags.set) &&
+        Array.isArray(value.delta.flags.removed)
+      );
+    case 'movement':
+      return isMovementUpdate(value.update);
+    case 'movementClock':
+      return (
+        typeof value.clientTimeMs === 'number' &&
+        Number.isFinite(value.clientTimeMs) &&
+        typeof value.serverTimeMs === 'number' &&
+        Number.isFinite(value.serverTimeMs) &&
+        value.serverTimeMs >= 0
+      );
     case 'event':
       return isRecord(value.event) && typeof value.event.type === 'string';
     case 'result':

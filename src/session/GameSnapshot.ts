@@ -13,12 +13,17 @@ import type { SceneClientState } from './SceneClientState.js';
 import type { PlayerInteraction } from './SceneActionCommand.js';
 
 export interface GameSnapshot {
+  movementSequence?: number;
+  replication?: { epoch: number; roomRevisions: Record<string, number> };
   tick: number;
   localPlayerId: PlayerId;
   viewport: ViewportSnapshot;
   players: Record<PlayerId, PlayerSnapshot>;
   ui: UiSnapshot;
   forcedEncounter?: import('./ForcedEncounter.js').ForcedEncounter | null;
+  lifecycle?: import('../players/playerLifecycle.js').PlayerLifecycle;
+  lives?: import('../players/playerLifecycle.js').LifeSourceView;
+  serverRules?: { autosaveIntervalMs: number; unavailableFeatures: string[] };
   archaeology?: import('./AuthoritativeArchaeology.js').ArchaeologyView | null;
   minigame?: import('./MinigameSnapshot.js').MinigameSnapshot | null;
   /** Player-specific synchronous selectors for the normal scene's menus and HUD. */
@@ -36,6 +41,7 @@ export interface ConnectionPresence {
   connectionId: string;
   playerId: PlayerId;
   displayName: string;
+  suspended?: boolean;
 }
 
 export interface ViewportSnapshot {
@@ -82,6 +88,17 @@ export interface PlayerSnapshot {
   score: number;
   alive: boolean;
   isLocal: boolean;
+  movementRevision?: number;
+  acknowledgedDirectionSequence?: number;
+  activity?: 'playing' | 'creating-character' | 'death-encounter';
+  movementIntervalMs?: number;
+  movementAccumulatorMs?: number;
+  movementPhaseAtMs?: number;
+  movementGraceMs?: number;
+  movementAppliedTurnRevision?: number;
+  movementPredictionAllowed?: boolean;
+  movementGrid?: import('../config/gameConfig.js').GridConfig;
+  directionQueue?: import('../systems/snakeDirectionQueue.js').SnakeDirectionQueue;
   activeEmoticon?: string | null;
   appearance?: import('../players/playerTypes.js').PlayerAppearance;
 }

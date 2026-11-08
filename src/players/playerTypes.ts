@@ -23,5 +23,6 @@ export interface PlayerRuntime {
   inventory?: InventorySystem;
   flags: Record<string, unknown>;
   alive: boolean;
+  lifecycle?: import('./playerLifecycle.js').PlayerLifecycle;
   cosmetics?: PlayerCosmetics;
 }

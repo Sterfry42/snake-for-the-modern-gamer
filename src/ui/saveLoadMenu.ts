@@ -51,7 +51,7 @@ export class SaveLoadMenu {
   private confirmOverlay?: Phaser.GameObjects.Container;
   private confirmYes?: Phaser.GameObjects.Text;
   private confirmNo?: Phaser.GameObjects.Text;
-  private pendingDeleteAction?: () => void;
+  private pendingConfirmationAction?: () => void;
   private onBack?: () => void;
   private scrollY = 0;
   private contentHeight = 0;
@@ -111,7 +111,7 @@ export class SaveLoadMenu {
       this.scrollMask.geometryMask.destroy();
       this.scrollMask = undefined;
     }
-    this.pendingDeleteAction = undefined;
+    this.pendingConfirmationAction = undefined;
     for (const entry of this.entryBoxes) entry.container.destroy();
     this.entryBoxes = [];
     this.controllerLoadActions = [];
@@ -316,7 +316,7 @@ export class SaveLoadMenu {
       i18n.getFeatureString('confirmDeleteSession') || 'Delete this session and all of its saves?';
     return {
       load: () => void this.openSession(session.sessionId),
-      delete: () => this.showConfirmDelete(message, () => this.deleteSession(session.sessionId)),
+      delete: () => this.showConfirmation(message, () => this.deleteSession(session.sessionId)),
     };
   }
 
@@ -327,9 +327,19 @@ export class SaveLoadMenu {
   } {
     const message = i18n.getFeatureString('confirmDelete') || 'Delete this save?';
     return {
-      load: () => this.currentOnLoad?.(this.activeSessionId ?? '', entry.data),
+      load: () => {
+        const load = () => this.currentOnLoad?.(this.activeSessionId ?? '', entry.data);
+        if (this.scene.isMultiplayer) {
+          this.showConfirmation(
+            'Load this shared world checkpoint? Terrain and world progress will rewind. Attached guests keep their characters; current activities end.',
+            async () => {
+              load();
+            },
+          );
+        } else load();
+      },
       delete: () =>
-        this.showConfirmDelete(message, () =>
+        this.showConfirmation(message, () =>
           this.deleteSave(this.activeSessionId!, entry.timestamp),
         ),
     };
@@ -369,7 +379,7 @@ export class SaveLoadMenu {
         ? i18n.getFeatureString('confirmDeleteSelectedSessions') ||
           'Delete {count} sessions and all of their saves?'
         : i18n.getFeatureString('confirmDeleteSelectedSaves') || 'Delete {count} saves?';
-    this.showConfirmDelete(template.replace('{count}', String(count)), async () => {
+    this.showConfirmation(template.replace('{count}', String(count)), async () => {
       if (this.view === 'sessions') {
         await this.backend.deleteSessions([...this.selectedKeys]);
         this.sessions = await this.backend.listSessions();
@@ -558,8 +568,8 @@ export class SaveLoadMenu {
     };
   }
 
-  private showConfirmDelete(message: string, onConfirm: () => Promise<void>): void {
-    this.pendingDeleteAction = () => {
+  private showConfirmation(message: string, onConfirm: () => Promise<void>): void {
+    this.pendingConfirmationAction = () => {
       void onConfirm();
     };
     this.confirmSelection = 'no';
@@ -595,8 +605,8 @@ export class SaveLoadMenu {
       .on('pointerover', () => yesBtn.setTint(0xffb0b0))
       .on('pointerout', () => yesBtn.clearTint())
       .on('pointerdown', async () => {
-        const action = this.pendingDeleteAction;
-        this.pendingDeleteAction = undefined;
+        const action = this.pendingConfirmationAction;
+        this.pendingConfirmationAction = undefined;
         this.confirmOverlay?.destroy();
         this.confirmOverlay = undefined;
         if (action) await action();
@@ -615,7 +625,7 @@ export class SaveLoadMenu {
       .on('pointerover', () => noBtn.setTint(0x9ad1ff))
       .on('pointerout', () => noBtn.clearTint())
       .on('pointerdown', () => {
-        this.pendingDeleteAction = undefined;
+        this.pendingConfirmationAction = undefined;
         this.confirmOverlay?.destroy();
         this.confirmOverlay = undefined;
       });

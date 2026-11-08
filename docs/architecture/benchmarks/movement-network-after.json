@@ -1,0 +1,46 @@
+[
+  {
+    "intervalMs": 50,
+    "durationMs": 3129,
+    "bytes": 378922,
+    "worldPackets": 58,
+    "movementPackets": 212,
+    "meanMovementDeliveryMs": 1.72,
+    "meanCommandAckMs": 1.2,
+    "maxCommandAckMs": 4,
+    "snapshotBuildMs": 38.77070000000026
+  },
+  {
+    "intervalMs": 70,
+    "durationMs": 3121,
+    "bytes": 333443,
+    "worldPackets": 56,
+    "movementPackets": 166,
+    "meanMovementDeliveryMs": 3.64,
+    "meanCommandAckMs": 1.03,
+    "maxCommandAckMs": 3,
+    "snapshotBuildMs": 24.803500000001804
+  },
+  {
+    "intervalMs": 100,
+    "durationMs": 3112,
+    "bytes": 295985,
+    "worldPackets": 56,
+    "movementPackets": 110,
+    "meanMovementDeliveryMs": 4.87,
+    "meanCommandAckMs": 1.28,
+    "maxCommandAckMs": 3,
+    "snapshotBuildMs": 26.313799999996263
+  },
+  {
+    "intervalMs": 200,
+    "durationMs": 3117,
+    "bytes": 263237,
+    "worldPackets": 56,
+    "movementPackets": 74,
+    "meanMovementDeliveryMs": 8.37,
+    "meanCommandAckMs": 1.31,
+    "maxCommandAckMs": 2,
+    "snapshotBuildMs": 23.887799999996787
+  }
+]

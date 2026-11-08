@@ -16,6 +16,13 @@ export type PlayerInteraction =
 
 /** Intent payloads contain identifiers and input, never prices, rewards, or replacement state. */
 export type SceneActionCommand = { playerId: PlayerId } & (
+  | {
+      type: 'deathEncounterAction';
+      encounterId: string;
+      revision: number;
+      choice: import('../players/playerLifecycle.js').DeathChoice;
+    }
+  | { type: 'characterCreationAction'; stage: 'faith' | 'background' | 'class'; optionId: string }
   | { type: 'cosmeticAction'; appearance: import('../players/playerTypes.js').PlayerAppearance }
   | { type: 'playerInteraction'; mode: PlayerInteraction }
   | {
@@ -117,6 +124,8 @@ export type SceneActionCommand = { playerId: PlayerId } & (
 
 export function isSceneActionCommand(command: ClientCommand): command is SceneActionCommand {
   return (
+    command.type === 'deathEncounterAction' ||
+    command.type === 'characterCreationAction' ||
     command.type === 'cosmeticAction' ||
     command.type === 'playerInteraction' ||
     command.type === 'actorAction' ||

@@ -3,6 +3,7 @@ import type { GameConfig } from '../config/gameConfig.js';
 import type { QuestRegistry } from '../quests/questRegistry.js';
 import type { GameSnapshot } from './GameSnapshot.js';
 import { readReplicaView } from './readReplica.js';
+import type { MovementUpdate } from './MovementUpdate.js';
 
 /** The unguarded hydration target never leaves this controller. */
 export class SceneReadReplica {
@@ -23,5 +24,8 @@ export class SceneReadReplica {
 
   hydrate(snapshot: GameSnapshot): void {
     this.target.hydrateClientSnapshot(snapshot);
+  }
+  hydrateMovement(update: MovementUpdate): void {
+    this.target.hydrateClientMovement(update);
   }
 }

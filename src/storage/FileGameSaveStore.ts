@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import type { SaveStore } from './SaveStore.js';
 import type { GameSaveData } from '../game/saveTypes.js';
 import { isRecord } from '../core/saveNormalize.js';
+import { isGameCheckpoint } from '../session/HostedCheckpoint.js';
 
 /** Node-only persistence; replace a checkpoint atomically after a successful write. */
 export class FileGameSaveStore implements SaveStore<GameSaveData> {
@@ -17,7 +18,7 @@ export class FileGameSaveStore implements SaveStore<GameSaveData> {
       throw error;
     }
     const data: unknown = JSON.parse(raw);
-    if (!isGameSaveData(data)) throw new Error('Invalid game checkpoint');
+    if (!isGameCheckpoint(data)) throw new Error('Invalid game checkpoint');
     return data;
   }
 
@@ -51,18 +52,4 @@ export class FileGameSaveStore implements SaveStore<GameSaveData> {
 
 function isMissing(error: unknown): boolean {
   return isRecord(error) && error.code === 'ENOENT';
-}
-
-function isGameSaveData(data: unknown): data is GameSaveData {
-  return (
-    isRecord(data) &&
-    typeof data.version === 'string' &&
-    typeof data.timestamp === 'number' &&
-    typeof data.score === 'number' &&
-    isRecord(data.inventory) &&
-    Object.values(data.inventory).every((count) => typeof count === 'number') &&
-    isRecord(data.equipment) &&
-    Object.values(data.equipment).every((item) => typeof item === 'string') &&
-    isRecord(data.flags)
-  );
 }

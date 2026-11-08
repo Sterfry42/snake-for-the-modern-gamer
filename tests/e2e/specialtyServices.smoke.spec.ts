@@ -12,8 +12,9 @@ async function pick(page: Page, id: string) {
   const menu = await page.evaluate(() => window.snakeE2E!.getPresentation().choice);
   const index = menu.options.findIndex(option => option.id === id);
   expect(index, JSON.stringify(menu)).toBeGreaterThanOrEqual(0);
-  for (let step = 0; step < (index - menu.selectedIndex + menu.options.length) % menu.options.length; step++) await page.keyboard.press('ArrowDown');
-  await page.keyboard.press('Enter');
+  for (let step = 0; step < (index - menu.selectedIndex + menu.options.length) % menu.options.length; step++) await page.keyboard.press('ArrowDown', { delay: 30 });
+  await expect.poll(() => page.evaluate(() => { const current = window.snakeE2E!.getPresentation().choice; return current.options[current.selectedIndex]?.id; })).toBe(id);
+  await page.keyboard.press('Enter', { delay: 30 });
 }
 
 test('the normal excavation overlay follows authority, keeps world time running, and returns to the foreman', async ({ page, context }) => {
@@ -36,9 +37,10 @@ test('the normal excavation overlay follows authority, keeps world time running,
   try {
     const url = `?server=${encodeURIComponent(`ws://127.0.0.1:${port}/game`)}`;
     await page.goto(url);
-    await expect.poll(() => page.evaluate(() => Boolean(window.snakeE2E))).toBe(true);
+    await expect(page.locator('.snake-party')).toBeVisible();
     await bobPage.goto(url);
-    await expect.poll(() => bobPage.evaluate(() => Boolean(window.snakeE2E))).toBe(true);
+    await expect(bobPage.locator('.snake-party')).toBeVisible();
+    await expect.poll(() => Object.keys(session.getSnapshot().connections ?? {}).length).toBe(2);
     const [alice, bob] = Object.keys(session.getSnapshot().players);
     game.placeSnakeBodyAtLocal(room.id, { x: site.foreman.x - 1, y: site.foreman.y }, { x: 0, y: -1 });
     game.runForPlayer(bob, () => game.placeSnakeBodyAtLocal(room.id, { x: 3, y: 3 }, { x: 0, y: 1 }));
@@ -117,6 +119,8 @@ test('the ordinary guild menu pays for wanted reduction and purchases through th
     await pick(page, `actor-offer:${offer.id}`);
     await expect.poll(() => game.getInventory().getItemCount(offer.itemId!)).toBe(1);
     expect(game.getScore()).toBe(score + 6 - offer.price);
+    // Authority writes precede the network acknowledgement and the client's menu refresh.
+    await expect.poll(() => page.evaluate(() => window.snakeE2E!.getPresentation().choice.visible)).toBe(true);
     await pick(page, 'back');
     await pick(page, 'leave');
     await expect.poll(() => session.getSnapshot().ui.interaction).toBeNull();

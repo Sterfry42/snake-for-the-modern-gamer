@@ -1,3 +1,17 @@
+import type { DiagnosticSink, SessionDiagnostic } from './SessionDiagnostic.js';
+import { MovementTurnAuthority, TURN_COMMIT_GRACE_MS } from './MovementTurnAuthority.js';
+import type { MovementUpdate, MovementPlayer } from './MovementUpdate.js';
+import { AuthoritativeDeaths } from './AuthoritativeDeaths.js';
+import { AuthoritativeCharacterCreation } from './AuthoritativeCharacterCreation.js';
+import { isPlayerInWorld } from '../players/playerLifecycle.js';
+import { copyGameCheckpoint } from './HostedCheckpoint.js';
+import {
+  MOVEMENT_GRACE_MS,
+  MAX_PREDICTED_STEPS,
+  MAX_CONNECTED_MOVEMENT_LEAD_MS,
+  isMovementReplay,
+  type MovementReplay,
+} from './MovementResume.js';
 import { setSavedGameData } from '../game/saveManager.js';
 import {
   describeActionOutcome,
@@ -23,6 +37,7 @@ import type { GameEvent } from './GameEvent.js';
 import type { LocalAuthoritativeRuntime, LocalAuthoritativeRuntimeArgs } from './GameRuntime.js';
 import type { GameSnapshot, ConnectionPresence } from './GameSnapshot.js';
 import { normalizeDisplayName } from './connectionSettings.js';
+import { ServerPerformance } from './ServerPerformance.js';
 import { SimulationScheduler } from '../systems/simulationScheduler.js';
 import { SnakeGame as Game } from '../game/snakeGame.js';
 import { QuestRegistry } from '../quests/questRegistry.js';
@@ -38,6 +53,7 @@ import {
 export type AuthoritativeGameSessionArgs = LocalAuthoritativeRuntimeArgs & {
   manageBasicFeatures?: boolean;
   allowDebugCommands?: boolean;
+  requireCharacterCreation?: boolean;
 };
 
 type SnapshotHandler = (snapshot: GameSnapshot) => void;
@@ -45,13 +61,182 @@ type EventHandler = (event: GameEvent) => void;
 
 export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   private readonly connections = new Map<string, ConnectionPresence>();
+  readonly performance = new ServerPerformance();
+  private readonly diagnosticHandlers = new Set<DiagnosticSink>();
+  private pendingOperations = 0;
+  private activeOperation: { name: string; startedAt: number } | null = null;
+  private maximumQueueWaitMs = 0;
+  private maximumOperationMs = 0;
+  private lastSlowDiagnosticAt = -Infinity;
+  private diagnosticHandlerFailed = false;
+
+  onDiagnostic(handler: DiagnosticSink): () => void {
+    this.diagnosticHandlers.add(handler);
+    return () => this.diagnosticHandlers.delete(handler);
+  }
+
+  getQueueDiagnostics() {
+    return {
+      pendingOperations: this.pendingOperations,
+      activeOperation: this.activeOperation?.name ?? null,
+      activeOperationMs: this.activeOperation
+        ? performance.now() - this.activeOperation.startedAt
+        : 0,
+      maximumQueueWaitMs: this.maximumQueueWaitMs,
+      maximumOperationMs: this.maximumOperationMs,
+    };
+  }
+
+  private diagnose(
+    event: string,
+    fields: Record<string, unknown>,
+    level: SessionDiagnostic['level'] = 'info',
+  ): void {
+    for (const handler of this.diagnosticHandlers) {
+      try {
+        handler({ level, event, fields });
+      } catch (error) {
+        if (!this.diagnosticHandlerFailed)
+          console.error('[game-server] Diagnostic sink failed', error);
+        this.diagnosticHandlerFailed = true;
+      }
+    }
+  }
+
+  private networkDirty = true;
+  private movementSequence = 0;
+  private movementEpoch = -1;
+  private readonly movementSignatures = new Map<string, string>();
+  private readonly movementHandlers = new Set<(update: MovementUpdate) => void>();
+
+  onMovement(handler: (update: MovementUpdate) => void): () => void {
+    this.movementHandlers.add(handler);
+    return () => this.movementHandlers.delete(handler);
+  }
+
+  private publishMovementChanges(): void {
+    for (const [id, authority] of this.turnAuthorities)
+      authority.observeInterval(this.movementInterval(id), this.getMovementClockTime());
+    if (!this.movementHandlers.size) return;
+    const epoch = this.game.getReplicationEpoch();
+    if (epoch !== this.movementEpoch) {
+      this.movementSignatures.clear();
+      this.movementEpoch = epoch;
+    }
+    for (const id of new Set([...this.connections.values()].map((peer) => peer.playerId))) {
+      this.game.runForPlayer(id, () => {
+        const runtime = this.game.getPlayer(id)!;
+        const lifecycle = runtime.lifecycle?.kind;
+        const player: MovementPlayer = {
+          id,
+          body: runtime.snake.bodySegments.map((point) => ({ ...point })),
+          roomId: runtime.snake.currentRoomId,
+          direction: { ...runtime.snake.directionVector },
+          score: runtime.snake.score,
+          alive: runtime.alive,
+          activity:
+            lifecycle === 'creating'
+              ? 'creating-character'
+              : lifecycle === 'death'
+                ? 'death-encounter'
+                : 'playing',
+          movementRevision: this.movementRevisions.get(id) ?? 0,
+          acknowledgedDirectionSequence: this.directionSequences.get(id),
+          movementIntervalMs: this.movementInterval(id),
+          movementAccumulatorMs: this.movementPhase(id),
+          movementPhaseAtMs: this.getMovementTime(),
+          movementGraceMs: this.turnGrace(id),
+          movementAppliedTurnRevision: this.appliedTurnRevisions.get(id),
+          directionQueue: runtime.snake.directionQueue,
+          movementPredictionAllowed: !this.suspended.has(id) && this.predictionAllowed(id),
+          movementGrid: this.game.config.grid,
+        };
+        // Phase alone does not publish; clients advance their own discrete clock.
+        const signature = JSON.stringify({
+          ...player,
+          movementAccumulatorMs: 0,
+          movementPhaseAtMs: 0,
+        });
+        if (this.movementSignatures.get(id) === signature) return;
+        this.movementSignatures.set(id, signature);
+        const update = {
+          epoch,
+          sequence: ++this.movementSequence,
+          tick: this.getMovementTime(),
+          player,
+        };
+        for (const handler of this.movementHandlers) handler(update);
+      });
+    }
+  }
   private hosted = false;
+
+  getPerformanceReport(reset = false) {
+    const report = {
+      ...this.performance.read(
+        { ...this.game.getServerSimulationGauges(), connectedPlayers: this.connections.size },
+        reset,
+      ),
+      ...this.getQueueDiagnostics(),
+      suspendedPlayers: this.suspended.size,
+      players: [...this.connections.values()].slice(0, 32).map(({ playerId }) =>
+        this.game.runForPlayer(playerId, () => ({
+          playerId,
+          alive: this.game.getPlayer(playerId)?.alive ?? false,
+          roomId: this.game.getCurrentRoom().id,
+          head: this.game.getSnakeBody()[0],
+          held: this.suspended.has(playerId) || this.playerHeld(playerId),
+          holdReason: this.suspended.has(playerId) ? 'suspended' : this.playerHoldReason(playerId),
+          movementRevision: this.movementRevisions.get(playerId) ?? 0,
+          movementIntervalMs: this.movementInterval(playerId),
+          movementAccumulatorMs: this.actionElapsed.get(playerId) ?? 0,
+        })),
+      ),
+      playersTruncated: this.connections.size > 32,
+    };
+    if (reset) {
+      this.maximumQueueWaitMs = 0;
+      this.maximumOperationMs = 0;
+    }
+    return report;
+  }
+
+  getConnectionSnapshot(playerId: PlayerId): Promise<GameSnapshot> {
+    return this.enqueue(async () => this.buildSnapshot(false, playerId, true), 'snapshot');
+  }
+
+  publishNetworkState(
+    publish: (playerId: PlayerId, snapshot: GameSnapshot) => void,
+  ): Promise<void> {
+    return this.enqueue(async () => {
+      if (!this.networkDirty) return;
+      this.networkDirty = false;
+      this.performance.publication();
+      for (const playerId of new Set([...this.connections.values()].map((peer) => peer.playerId)))
+        publish(playerId, this.buildSnapshot(false, playerId, true));
+    }, 'publication');
+  }
   private readonly administrators = new Set<PlayerId>();
   private readonly retainedPlayers = new Map<PlayerId, boolean>();
+  private readonly resumeDigests = new Map<string, string>();
+  private primaryClaimed = false;
+  hasClaimedPrimaryCharacter(): boolean {
+    return this.primaryClaimed;
+  }
+  resolveResumeDigest(digest: string): string | undefined {
+    return this.resumeDigests.get(digest);
+  }
+  rememberResumeDigest(digest: string, playerId: string): void {
+    if (!/^[0-9a-f]{64}$/.test(digest) || !this.game.getPlayer(playerId))
+      throw new Error('Invalid resume ownership association');
+    this.resumeDigests.set(digest, playerId);
+    this.primaryClaimed = true;
+  }
   private readonly expressions = new Map<PlayerId, { id: string; remainingMs: number }>();
 
   configureHosting(): void {
     this.hosted = true;
+    this.game.enableServerSimulationFidelity();
   }
 
   private canManageWorld(playerId: PlayerId): boolean {
@@ -63,30 +248,304 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   private readonly publishedRooms = new Map<PlayerId, string>();
   private readonly playerInteractions = new Map<PlayerId, PlayerInteraction>();
   private readonly progression = new Map<PlayerId, AuthoritativeProgression>();
+  private readonly suspended = new Map<
+    PlayerId,
+    {
+      connectionId: string;
+      expiresAt: number;
+      startedAt: number;
+      interval: number;
+      accumulator: number;
+      eligible: boolean;
+      publishedRevisions: number[];
+    }
+  >();
+  private readonly movementRevisions = new Map<PlayerId, number>();
+  private readonly directionSequences = new Map<PlayerId, number>();
+  private readonly turnAuthorities = new Map<PlayerId, MovementTurnAuthority>();
+  private readonly appliedTurnRevisions = new Map<PlayerId, number>();
+  private movementClockAnchorAt: number | null = null;
+
+  getMovementTime(): number {
+    return Number(this.game.getPlayer(this.clockPlayerId)?.snake.flags.timeMs ?? 0);
+  }
+
+  /** Probe time includes the fraction since the last real simulation update. */
+  getMovementClockTime(): number {
+    const tick = this.getMovementTime();
+    if (
+      !this.timer ||
+      this.paused ||
+      this.movementClockAnchorAt === null ||
+      (this.hosted && !this.connections.size)
+    )
+      return tick;
+    return tick + Math.min(20, Math.max(0, performance.now() - this.movementClockAnchorAt));
+  }
+
+  enableMovementGrace(playerId: PlayerId): Promise<void> {
+    return this.enqueue(async () => {
+      if (!this.manageBasicFeatures || this.turnAuthorities.has(playerId)) return;
+      this.turnAuthorities.set(playerId, new MovementTurnAuthority());
+      this.turnAuthorities
+        .get(playerId)!
+        .observeInterval(this.movementInterval(playerId), this.getMovementClockTime());
+      this.actionElapsed.set(
+        playerId,
+        (this.actionElapsed.get(playerId) ?? 0) - TURN_COMMIT_GRACE_MS,
+      );
+    }, 'movement-grace');
+  }
+
+  private movementPhase(playerId: PlayerId): number {
+    const grace = this.turnGrace(playerId);
+    return Math.max(
+      0,
+      (this.actionElapsed.get(playerId) ?? -grace) +
+        grace +
+        (grace ? this.scheduler.getClockAccumulator('action') : 0),
+    );
+  }
+
+  private turnGrace(playerId: PlayerId): number {
+    return this.turnAuthorities.has(playerId) ? TURN_COMMIT_GRACE_MS : 0;
+  }
+  private readonly publishedMovementRevisions = new Map<
+    string,
+    Array<{ revision: number; at: number }>
+  >();
+
+  /** Only the transport records the bases it actually publishes, never client input. */
+  recordPublishedMovement(connectionId: string, snapshot: GameSnapshot | MovementUpdate): void {
+    const id = 'player' in snapshot ? snapshot.player.id : snapshot.localPlayerId;
+    if (this.connections.get(connectionId)?.playerId !== id) return;
+    const revision =
+      'player' in snapshot
+        ? snapshot.player.movementRevision
+        : snapshot.players[id]?.movementRevision;
+    if (revision === undefined) return;
+    const at = Date.now();
+    const recent = (this.publishedMovementRevisions.get(connectionId) ?? []).filter(
+      (entry) => entry.revision !== revision && at - entry.at <= MOVEMENT_GRACE_MS,
+    );
+    this.publishedMovementRevisions.set(connectionId, [...recent, { revision, at }].slice(-160));
+  }
   private readonly actionElapsed = new Map<PlayerId, number>();
   private readonly vehicles: AuthoritativeVehicles;
   private readonly archaeology: AuthoritativeArchaeology;
   private readonly minigames: AuthoritativeMinigames;
+  private readonly deaths: AuthoritativeDeaths;
+  private readonly creation: AuthoritativeCharacterCreation;
+  private readonly requireCharacterCreation: boolean;
 
   attachConnection(
     connectionId: string,
     name: string,
-    identity?: { playerId: PlayerId; admin: boolean },
+    identity?: { playerId: PlayerId; admin: boolean; resumeDigest?: string },
+    replay?: MovementReplay,
   ): Promise<PlayerId> {
-    return this.enqueue(async () => this.registerConnection(connectionId, name, identity));
+    return this.enqueue(async () => {
+      if (identity) this.replaySuspendedMovement(identity.playerId, replay);
+      return this.registerConnection(connectionId, name, identity);
+    }, 'attach');
   }
 
-  detachConnection(connectionId: string): Promise<void> {
+  suspendConnection(connectionId: string): Promise<void> {
     return this.enqueue(async () => {
-      this.unregisterConnection(connectionId);
-      this.refreshSnapshot();
+      const peer = this.connections.get(connectionId);
+      if (!peer || this.suspended.has(peer.playerId)) return;
+      this.turnAuthorities.get(peer.playerId)?.clear();
+      const now = Date.now();
+      const eligible = this.game.runForPlayer(peer.playerId, () =>
+        this.predictionAllowed(peer.playerId),
+      );
+      this.suspended.set(peer.playerId, {
+        connectionId,
+        startedAt: now,
+        expiresAt: now + MOVEMENT_GRACE_MS,
+        interval: this.movementInterval(peer.playerId),
+        accumulator: this.actionElapsed.get(peer.playerId) ?? 0,
+        eligible,
+        publishedRevisions: (this.publishedMovementRevisions.get(connectionId) ?? [])
+          .filter((entry) => now - entry.at <= MOVEMENT_GRACE_MS)
+          .map((entry) => entry.revision),
+      });
+      this.publishedMovementRevisions.delete(connectionId);
+      peer.suspended = true;
+      this.diagnose('player.suspended', {
+        connectionId,
+        playerId: peer.playerId,
+        graceMs: MOVEMENT_GRACE_MS,
+        roomId: this.game.getPlayer(peer.playerId)?.snake.currentRoomId,
+        predictionEligible: eligible,
+      });
+      this.networkDirty = true;
+    }, 'suspend');
+  }
+
+  private movementInterval(playerId: PlayerId): number {
+    // Snapshot reads must not initialize or persist a player's skill runtime.
+    return this.manageBasicFeatures
+      ? Math.max(20, this.progression.get(playerId)?.intervalMs ?? 100)
+      : 100;
+  }
+
+  private predictionAllowed(playerId: PlayerId): boolean {
+    return (
+      !this.paused &&
+      this.game.getCharacterMode() === 'snake' &&
+      Boolean(this.game.getPlayer(playerId)?.alive) &&
+      !this.playerHeld(playerId)
+    );
+  }
+
+  private replaySuspendedMovement(playerId: PlayerId, replay?: MovementReplay): void {
+    let cappedPredictionSteps = 0;
+    const suspension = this.suspended.get(playerId);
+    const initialRevision = this.movementRevisions.get(playerId) ?? 0;
+    const report = (
+      reason: string,
+      replayedSteps = 0,
+      level: SessionDiagnostic['level'] = 'info',
+    ) =>
+      this.diagnose(
+        'movement.replay',
+        {
+          playerId,
+          connectionId: suspension?.connectionId,
+          reason,
+          requestedSteps: replay?.steps ?? 0,
+          cappedPredictionSteps,
+          replayedSteps,
+          baseRevision: replay?.baseRevision,
+          serverRevision: this.movementRevisions.get(playerId) ?? 0,
+          alreadyAppliedSteps: replay ? Math.max(0, initialRevision - replay.baseRevision) : 0,
+          suspendedMs: suspension ? Date.now() - suspension.startedAt : undefined,
+        },
+        level,
+      );
+    if (!suspension) {
+      if (replay) report('no-suspension', 0, 'warn');
+      return;
+    }
+    if (Date.now() > suspension.expiresAt) {
+      report('grace-expired', 0, 'warn');
+      this.unregisterConnection(suspension.connectionId, 'grace-expired');
+      return;
+    }
+    if (!replay) {
+      report('no-input-replay');
+      return;
+    }
+    if (!isMovementReplay(replay)) {
+      report('invalid-inputs', 0, 'warn');
+      return;
+    }
+    if (replay.connectionId !== suspension.connectionId) {
+      report('attempt-mismatch', 0, 'warn');
+      return;
+    }
+    const alreadyApplied = (this.movementRevisions.get(playerId) ?? 0) - replay.baseRevision;
+    if (
+      alreadyApplied < 0 ||
+      alreadyApplied > MAX_PREDICTED_STEPS ||
+      (alreadyApplied > 0 && !suspension.publishedRevisions.includes(replay.baseRevision))
+    ) {
+      report('revision-mismatch', 0, 'warn');
+      return;
+    }
+    if (!suspension.eligible) {
+      report('prediction-ineligible');
+      return;
+    }
+    const elapsed = Math.min(MOVEMENT_GRACE_MS, Date.now() - suspension.startedAt);
+    // A client cannot invent extra time or bank an arbitrary burst of movement.
+    const budget = Math.max(
+      0,
+      Math.min(
+        MAX_PREDICTED_STEPS,
+        Math.floor((suspension.accumulator + elapsed) / suspension.interval),
+      ),
+    );
+    const speculativeSteps = Math.max(0, replay.steps - alreadyApplied);
+    const requestedSteps = Math.min(speculativeSteps, budget);
+    const inputs = replay.inputs.map((input) => ({
+      ...input,
+      step: Math.max(0, input.step - alreadyApplied),
+    }));
+    if (
+      speculativeSteps > budget + Math.ceil(MAX_CONNECTED_MOVEMENT_LEAD_MS / suspension.interval) ||
+      replay.elapsedMs > elapsed + 100
+    ) {
+      report('time-budget-exceeded', 0, 'warn');
+      return;
+    }
+    cappedPredictionSteps = speculativeSteps - requestedSteps;
+    this.game.runForPlayer(playerId, () => {
+      let input = 0;
+      let spent = 0;
+      let completed = 0;
+      let stoppedBy = 'completed';
+      const available = suspension.accumulator + Math.min(elapsed, replay.elapsedMs);
+      for (let step = 0; step <= requestedSteps; step++) {
+        if (!this.predictionAllowed(playerId)) {
+          stoppedBy = 'player-held-or-dead';
+          break;
+        }
+        while (inputs[input]?.step === step) {
+          const direction = inputs[input++].direction;
+          this.game.setDirection(direction.x, direction.y);
+        }
+        if (step === requestedSteps) break;
+        const interval = this.movementInterval(playerId);
+        if (spent + interval > available + 1) {
+          stoppedBy = 'movement-time-budget';
+          break;
+        }
+        const roomId = this.game.getCurrentRoom().id;
+        const head = this.game.getSnakeBody()[0];
+        const direction = this.game.getPlayer(playerId)!.snake.nextDirectionVector;
+        const expected = { x: head.x + direction.x, y: head.y + direction.y };
+        const health = this.game.getPlayerHealth().current;
+        const result = this.stepPlayerAction(false, playerId);
+        spent += interval;
+        completed++;
+        if (
+          result.status === 'dead' ||
+          this.game.getCurrentRoom().id !== roomId ||
+          !this.predictionAllowed(playerId) ||
+          this.game.getPlayerHealth().current < health ||
+          this.game.getSnakeBody()[0]?.x !== expected.x ||
+          this.game.getSnakeBody()[0]?.y !== expected.y
+        ) {
+          stoppedBy = result.status === 'dead' ? 'death' : 'authoritative-rule-or-collision';
+          break;
+        }
+      }
+      report(stoppedBy, completed);
+      this.actionElapsed.set(
+        playerId,
+        completed === requestedSteps && this.predictionAllowed(playerId)
+          ? Math.min(
+              this.movementInterval(playerId) - 1,
+              Math.max(0 - this.turnGrace(playerId), available - spent),
+            )
+          : 0,
+      );
     });
+  }
+
+  detachConnection(connectionId: string, reason = 'disconnect'): Promise<void> {
+    return this.enqueue(async () => {
+      this.unregisterConnection(connectionId, reason);
+      this.refreshSnapshot();
+    }, 'detach');
   }
 
   registerConnection(
     connectionId: string,
     displayName: string,
-    identity?: { playerId: PlayerId; admin: boolean },
+    identity?: { playerId: PlayerId; admin: boolean; resumeDigest?: string },
   ): PlayerId {
     const primaryAttached = [...this.connections.values()].some(
       (peer) => peer.playerId === this.localPlayerId,
@@ -95,9 +554,21 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       identity?.playerId ?? (primaryAttached ? `player-${connectionId}` : this.localPlayerId);
     // Superseded sockets cannot detach or act for a replacement connection.
     for (const [id, peer] of this.connections)
-      if (peer.playerId === playerId) this.connections.delete(id);
+      if (peer.playerId === playerId) {
+        this.connections.delete(id);
+        this.publishedMovementRevisions.delete(id);
+      }
+    const resuming = this.suspended.delete(playerId);
+    this.directionSequences.delete(playerId);
+    if (resuming && this.turnAuthorities.has(playerId))
+      this.turnAuthorities.set(playerId, new MovementTurnAuthority());
     const returning = this.retainedPlayers.has(playerId);
     const player = this.game.addConnectedPlayer(playerId, normalizeDisplayName(displayName));
+    player.snake.flags.timeMs = this.getMovementTime();
+    if (this.requireCharacterCreation)
+      this.game.runForPlayer(playerId, () => this.creation.ensure());
+    if (this.manageBasicFeatures)
+      this.game.runForPlayer(playerId, () => this.getProgression(playerId).refreshIfNeeded());
     player.alive = this.retainedPlayers.get(playerId) ?? (identity ? player.alive : true);
     this.retainedPlayers.delete(playerId);
     if (identity?.admin) this.administrators.add(playerId);
@@ -107,23 +578,43 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       score: attached.snake.score,
       length: attached.snake.bodySegments.length,
     });
+    this.networkDirty = true;
     this.connections.set(connectionId, {
       connectionId,
       playerId,
       displayName: normalizeDisplayName(displayName),
     });
-    this.emit({
-      type: 'party.presence',
-      name: player.name,
-      status: returning ? 'reconnected' : 'joined',
+    if (identity?.resumeDigest) this.rememberResumeDigest(identity.resumeDigest, playerId);
+    this.diagnose('player.attached', {
+      connectionId,
+      playerId,
+      resumedWithinGrace: resuming,
+      returning,
+      roomId: player.snake.currentRoomId,
+      admin: this.administrators.has(playerId),
     });
+    if (!resuming)
+      this.emit({
+        type: 'party.presence',
+        name: player.name,
+        status: returning ? 'reconnected' : 'joined',
+      });
     return playerId;
   }
 
-  unregisterConnection(connectionId: string): void {
+  unregisterConnection(connectionId: string, reason = 'disconnect'): void {
+    this.publishedMovementRevisions.delete(connectionId);
     const peer = this.connections.get(connectionId);
     this.connections.delete(connectionId);
     if (!peer) return;
+    this.diagnose('player.detached', {
+      connectionId,
+      playerId: peer.playerId,
+      wasSuspended: this.suspended.has(peer.playerId),
+      reason,
+      roomId: this.game.getPlayer(peer.playerId)?.snake.currentRoomId,
+    });
+    this.suspended.delete(peer.playerId);
     this.interactions.remove(peer.playerId);
     this.playerInteractions.delete(peer.playerId);
     this.game.runForPlayer(peer.playerId, () => this.vehicles.abandon());
@@ -131,6 +622,8 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     this.archaeology.reset(peer.playerId);
     this.progression.delete(peer.playerId);
     this.actionElapsed.delete(peer.playerId);
+    this.turnAuthorities.delete(peer.playerId);
+    this.appliedTurnRevisions.delete(peer.playerId);
     this.administrators.delete(peer.playerId);
     this.expressions.delete(peer.playerId);
     this.emit({ type: 'party.presence', name: peer.displayName, status: 'left' });
@@ -146,7 +639,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     } else this.game.removeConnectedPlayer(peer.playerId);
   }
 
-  private simulationPlayers() {
+  private simulationPlayers(includeSuspended = false) {
     const ids =
       this.connections.size > 0
         ? [...new Set([...this.connections.values()].map((peer) => peer.playerId))]
@@ -154,6 +647,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
           ? []
           : [this.localPlayerId];
     return ids
+      .filter((id) => includeSuspended || !this.suspended.has(id))
       .map((id) => this.game.getPlayer(id))
       .filter((player): player is PlayerRuntime => player !== null && player.alive);
   }
@@ -211,6 +705,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   private legacyActionElapsed = 0;
   private readonly interactions: GameInteractionMenus;
   private readonly localPlayerId: PlayerId;
+  private readonly clockPlayerId: PlayerId;
   private readonly saveStore?: SaveStore<GameSaveData>;
   private readonly saveSlotId: string;
   private checkpoint: GameSaveData | null = null;
@@ -226,6 +721,13 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
 
   constructor(args: AuthoritativeGameSessionArgs) {
     this.game = args.game;
+    this.deaths = new AuthoritativeDeaths(this.game, () =>
+      this.getProgression(this.game.getLocalPlayerId()),
+    );
+    this.creation = new AuthoritativeCharacterCreation(this.game, () =>
+      this.getProgression(this.game.getLocalPlayerId()),
+    );
+    this.requireCharacterCreation = args.requireCharacterCreation ?? false;
     this.vehicles = new AuthoritativeVehicles(this.game);
     this.minigames = new AuthoritativeMinigames(this.game);
     this.archaeology = new AuthoritativeArchaeology(this.game, (playerId, outcome) => {
@@ -233,7 +735,8 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       this.emit({ type: 'archaeology.outcome', playerId, outcome });
     });
     this.interactions = new GameInteractionMenus(this.game);
-    this.localPlayerId = args.localPlayerId ?? this.game.getLocalPlayerId();
+    this.clockPlayerId = this.game.getLocalPlayerId();
+    this.localPlayerId = args.localPlayerId ?? this.clockPlayerId;
     this.saveStore = args.saveStore;
     this.saveSlotId = args.saveSlotId ?? 'default';
     this.manageBasicFeatures = args.manageBasicFeatures ?? false;
@@ -249,6 +752,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       config?: GameConfig;
       saveStore?: SaveStore<GameSaveData>;
       saveSlotId?: string;
+      requireCharacterCreation?: boolean;
     } = {},
   ): Promise<AuthoritativeGameSession> {
     const registry = new QuestRegistry();
@@ -260,15 +764,81 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       ...options,
       game,
       manageBasicFeatures: true,
+      requireCharacterCreation: options.requireCharacterCreation ?? true,
     });
-    if (options.saveStore) session.checkpoint = await options.saveStore.load(session.saveSlotId);
+    if (options.saveStore) {
+      const checkpoint = await options.saveStore.load(session.saveSlotId);
+      if (checkpoint) {
+        if (!game.loadFromSaveData(checkpoint)) throw new Error('Cannot restore server checkpoint');
+        session.checkpoint = checkpoint;
+        if (checkpoint.hosted) {
+          session.primaryClaimed = checkpoint.hosted.primaryClaimed;
+          for (const [digest, id] of Object.entries(checkpoint.hosted.resumeDigests))
+            session.resumeDigests.set(digest, id);
+          for (const player of checkpoint.hosted.players) {
+            game.restorePlayerCheckpoint(player);
+            session.retainedPlayers.set(player.id, player.alive);
+            game.getPlayer(player.id)!.alive = false;
+          }
+        }
+      }
+    }
     return session;
   }
 
   /** Commands, persistence, and asynchronous actor steps share one ordered queue. */
   executeCommand(command: ClientCommand): Promise<CommandResult> {
     return this.enqueue(async () => {
+      if (this.suspended.has(command.playerId)) return { ok: false, reason: 'player-suspended' };
       if (!this.game.getPlayer(command.playerId)) return { ok: false, reason: 'unknown-player' };
+      if (command.type === 'characterCreationAction') {
+        const result = this.game.runForPlayer(command.playerId, () =>
+          this.creation.choose(command.stage, command.optionId),
+        );
+        this.emitSnapshot();
+        return result;
+      }
+      if (command.type === 'deathEncounterAction') {
+        const result = this.game.runForPlayer(command.playerId, () =>
+          this.deaths.choose(command.encounterId, command.revision, command.choice),
+        );
+        if (result.ok && this.game.getPlayer(command.playerId)?.lifecycle?.kind === 'active') {
+          this.emit({
+            type: 'party.activity',
+            name: this.game.getPlayer(command.playerId)!.name,
+            status: 'returned',
+          });
+          this.playerInteractions.delete(command.playerId);
+          this.actionElapsed.delete(command.playerId);
+          this.turnAuthorities.get(command.playerId)?.clear();
+          this.movementRevisions.set(
+            command.playerId,
+            (this.movementRevisions.get(command.playerId) ?? 0) + 1,
+          );
+        }
+        this.emitSnapshot();
+        return result;
+      }
+      const lifecycle = this.game.getPlayer(command.playerId)?.lifecycle;
+      if (
+        lifecycle &&
+        lifecycle.kind !== 'active' &&
+        ![
+          'playerInteraction',
+          'cosmeticAction',
+          'characterCreationAction',
+          'saveGame',
+          'loadGame',
+          'clearSave',
+        ].includes(command.type)
+      )
+        return {
+          ok: false,
+          reason:
+            lifecycle.kind === 'death'
+              ? 'Finish your death encounter first.'
+              : 'Finish creating your character first.',
+        };
       if (command.type === 'actorAction' || command.type === 'datingAction') {
         if (
           this.archaeology.getView(command.playerId) &&
@@ -311,6 +881,10 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         const result = this.game.runForPlayer(command.playerId, () => {
           if (command.type === 'playerInteraction') {
             this.playerInteractions.set(command.playerId, command.mode);
+            if (command.mode !== 'playing') {
+              this.turnAuthorities.get(command.playerId)?.clear();
+              this.actionElapsed.set(command.playerId, 0 - this.turnGrace(command.playerId));
+            }
             return { ok: true };
           }
           if (!this.game.getPlayer(command.playerId)?.alive)
@@ -418,14 +992,27 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
             this.emitSnapshot();
             return { ok: true, saved: true };
           case 'loadGame': {
+            await this.checkpointWrites;
             const data = await this.saveStore.load(this.saveSlotId);
             if (!data) return { ok: false, loaded: false };
             if (!this.game.loadConnectedCheckpoint(data)) return { ok: false, loaded: false };
+            this.publishedMovementRevisions.clear();
+            const primaryState = data.hosted?.players.find(
+              (player) => player.id === this.localPlayerId,
+            );
+            if (primaryState) this.game.restorePlayerCheckpoint(primaryState);
             for (const peer of this.connections.values())
               this.game.addConnectedPlayer(peer.playerId, peer.displayName);
             this.checkpoint = structuredClone(data);
             this.progression.clear();
             this.actionElapsed.clear();
+            for (const authority of this.turnAuthorities.values()) authority.clear();
+            for (const player of this.game.getPlayers())
+              this.movementRevisions.set(
+                player.id,
+                (this.movementRevisions.get(player.id) ?? 0) + 1,
+              );
+            for (const suspension of this.suspended.values()) suspension.eligible = false;
             this.vehicles.reset();
             this.minigames.reset();
             this.archaeology.reset();
@@ -446,7 +1033,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         }
       }
       return this.game.runForPlayer(command.playerId, () => this.handleCommand(command));
-    });
+    }, `command:${command.type}`);
   }
 
   private getProgression(playerId: PlayerId): AuthoritativeProgression {
@@ -455,11 +1042,14 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       progression = new AuthoritativeProgression(this.game);
       this.progression.set(playerId, progression);
     }
+    progression.refreshIfNeeded();
     return progression;
   }
 
   advance(deltaMs: number): Promise<void> {
+    const requestedAt = performance.now();
     return this.enqueue(async () => {
+      const updateStartedAt = performance.now();
       if (!Number.isFinite(deltaMs) || deltaMs < 0) throw new Error('Invalid simulation delta');
       let expressionExpired = false;
       for (const [id, expression] of this.expressions) {
@@ -469,10 +1059,13 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
           expressionExpired = true;
         }
       }
-      const running = !this.paused && this.simulationPlayers().length > 0;
+      const running =
+        !this.paused &&
+        (this.hosted ? this.connections.size > 0 : this.simulationPlayers(true).length > 0);
       if (running) {
         this.advanceEnvironment(deltaMs);
       }
+      this.movementClockAnchorAt = requestedAt;
       this.scheduler.update(deltaMs, {
         boss: running,
         action: running,
@@ -482,11 +1075,17 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       });
       const steps = this.dueSteps.splice(0);
       for (const step of steps) {
-        if (this.paused || this.simulationPlayers().length === 0) break;
+        if (
+          this.paused ||
+          (this.hosted ? this.connections.size === 0 : this.simulationPlayers(true).length === 0)
+        )
+          break;
         await step();
       }
       if (expressionExpired) this.emitSnapshot();
-    });
+      if (running || expressionExpired) this.networkDirty = true;
+      this.performance.update(performance.now() - updateStartedAt);
+    }, 'simulation');
   }
 
   /** Shared environment clock for the headless scheduler and the legacy local clock adapter. */
@@ -495,7 +1094,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     const elapsed = Math.min(deltaMs, 250);
     const now = Number(this.game.getFlag<number>('timeMs') ?? 0) + elapsed;
     this.game.setFlag('timeMs', now);
-    for (const player of this.simulationPlayers()) player.snake.flags.timeMs = now;
+    for (const player of this.simulationPlayers(true)) player.snake.flags.timeMs = now;
     this.game.updateAtmosphere(elapsed);
     if (this.manageBasicFeatures)
       for (const player of this.simulationPlayers())
@@ -515,6 +1114,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   start(onError: (error: unknown) => void): void {
     if (this.timer) return;
     let last = performance.now();
+    this.movementClockAnchorAt = last;
     let advancing = false;
     this.timer = setInterval(() => {
       if (advancing) return;
@@ -539,19 +1139,43 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     await this.work;
   }
 
-  private enqueue<T>(operation: () => Promise<T>): Promise<T> {
+  private enqueue<T>(operation: () => Promise<T>, name = 'operation'): Promise<T> {
+    const queuedAt = performance.now();
+    this.pendingOperations++;
     const next = this.work.then(async () => {
+      const startedAt = performance.now();
+      const waitMs = startedAt - queuedAt;
+      this.maximumQueueWaitMs = Math.max(this.maximumQueueWaitMs, waitMs);
+      this.activeOperation = { name, startedAt };
       try {
         return await operation();
       } finally {
-        if (this.manageBasicFeatures) {
-          const ids = new Set([
-            this.localPlayerId,
-            ...[...this.connections.values()].map((peer) => peer.playerId),
-          ]);
-          for (const id of ids)
-            if (this.game.getPlayer(id))
-              this.game.runForPlayer(id, () => this.publishGameplayOutcome(id));
+        try {
+          if (this.manageBasicFeatures) {
+            const ids = new Set([
+              this.localPlayerId,
+              ...[...this.connections.values()].map((peer) => peer.playerId),
+            ]);
+            for (const id of ids)
+              if (this.game.getPlayer(id))
+                this.game.runForPlayer(id, () => this.publishGameplayOutcome(id));
+          }
+        } finally {
+          const durationMs = performance.now() - startedAt;
+          this.maximumOperationMs = Math.max(this.maximumOperationMs, durationMs);
+          this.pendingOperations--;
+          this.activeOperation = null;
+          if (
+            (waitMs >= 250 || durationMs >= 100) &&
+            performance.now() - this.lastSlowDiagnosticAt >= 1000
+          ) {
+            this.lastSlowDiagnosticAt = performance.now();
+            this.diagnose(
+              'session.slow-operation',
+              { operation: name, waitMs, durationMs, pendingOperations: this.pendingOperations },
+              'warn',
+            );
+          }
         }
       }
     });
@@ -607,11 +1231,31 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       return result;
     }
 
+    if (
+      command.type === 'forceDirection' &&
+      this.turnAuthorities.has(command.playerId) &&
+      !isManualMovementArea(
+        this.game.getCurrentRoom(),
+        this.game.getSnakeBody()[0],
+        this.game.config.grid,
+      ) &&
+      !this.game.getFlag<boolean>('traversal.manualResumePending')
+    )
+      return { ok: false, reason: 'movement-requires-intended-step' };
+
     if (command.type === 'restartRun' && this.connections.size > 0) {
+      for (const peer of this.connections.values())
+        if (peer.playerId === command.playerId)
+          this.publishedMovementRevisions.delete(peer.connectionId);
       this.vehicles.abandon();
       this.minigames.reset(command.playerId);
       this.archaeology.reset(command.playerId);
       this.actionElapsed.delete(command.playerId);
+      this.turnAuthorities.get(command.playerId)?.clear();
+      this.movementRevisions.set(
+        command.playerId,
+        (this.movementRevisions.get(command.playerId) ?? 0) + 1,
+      );
       this.expressions.delete(command.playerId);
       this.interactions.remove(command.playerId);
       this.playerInteractions.delete(command.playerId);
@@ -621,11 +1265,16 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       return { ok: true };
     }
     if (command.type === 'restartRun') {
+      this.publishedMovementRevisions.clear();
       this.vehicles.reset();
       this.minigames.reset();
       this.archaeology.reset();
       this.progression.clear();
       this.actionElapsed.clear();
+      for (const authority of this.turnAuthorities.values()) authority.clear();
+      for (const player of this.game.getPlayers())
+        this.movementRevisions.set(player.id, (this.movementRevisions.get(player.id) ?? 0) + 1);
+      for (const suspension of this.suspended.values()) suspension.eligible = false;
       this.interactions.reset();
       this.playerInteractions.clear();
       this.game.reset();
@@ -638,7 +1287,13 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       return { ok: true };
     }
 
-    if (command.type === 'pause') this.paused = true;
+    if (command.type === 'pause') {
+      this.paused = true;
+      for (const [id, authority] of this.turnAuthorities) {
+        authority.clear();
+        this.actionElapsed.set(id, -TURN_COMMIT_GRACE_MS);
+      }
+    }
     if (command.type === 'resume') this.paused = false;
     if (command.type === 'interact') this.game.resolveQuestInteraction();
     if (command.type === 'chooseOption') this.game.resolveQuestInteraction(command.choiceId);
@@ -675,42 +1330,96 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       return { ok: true, cleared: true };
     }
 
+    if (
+      command.type === 'setDirection' &&
+      this.turnAuthorities.has(command.playerId) &&
+      this.predictionAllowed(command.playerId)
+    ) {
+      const revision = this.movementRevisions.get(command.playerId) ?? 0;
+      const reason = this.turnAuthorities
+        .get(command.playerId)!
+        .submit(
+          command,
+          revision,
+          this.movementPhase(command.playerId) - TURN_COMMIT_GRACE_MS,
+          this.movementInterval(command.playerId),
+          this.getMovementTime(),
+        );
+      this.diagnose('movement.turn', {
+        playerId: command.playerId,
+        inputSequence: command.inputSequence,
+        intendedRevision: command.intendedRevision,
+        serverRevision: revision,
+        inputLatencyMs:
+          this.getMovementTime() - (command.estimatedServerTimeMs ?? this.getMovementTime()),
+        graceMs: TURN_COMMIT_GRACE_MS,
+        reason: reason ?? 'scheduled',
+      });
+      return { ok: reason === null || reason === 'duplicate-turn', reason: reason ?? undefined };
+    }
+    if (
+      command.type === 'setDirection' &&
+      command.inputSequence !== undefined &&
+      command.inputSequence <= (this.directionSequences.get(command.playerId) ?? -1)
+    )
+      return { ok: true };
     this.game.handleCommand(command);
+    if (command.type === 'setDirection' && command.inputSequence !== undefined)
+      this.directionSequences.set(command.playerId, command.inputSequence);
     this.emitSnapshot();
     return { ok: true };
   }
 
   private playerHeld(playerId: PlayerId): boolean {
-    return (
-      Boolean(this.game.getForcedEncounter()) ||
-      Boolean(this.game.getOfferedQuest()) ||
-      Boolean(this.minigames.getView(playerId)) ||
-      Boolean(this.archaeology.getView(playerId)) ||
-      Boolean(this.interactions.getView(playerId)) ||
-      (this.playerInteractions.get(playerId) ?? 'playing') !== 'playing' ||
-      Boolean(this.game.getFlag('vehicle.active')) ||
-      (this.manageBasicFeatures &&
-        isManualMovementArea(
-          this.game.getCurrentRoom(),
-          this.game.getSnakeBody()[0],
-          this.game.config.grid,
-        )) ||
-      Boolean(this.game.getStructurePlacement())
-    );
+    return this.playerHoldReason(playerId) !== null;
+  }
+
+  private playerHoldReason(playerId: PlayerId): string | null {
+    const lifecycle = this.game.getPlayer(playerId)?.lifecycle;
+    if (lifecycle && lifecycle.kind !== 'active') return lifecycle.kind;
+    if (this.game.getForcedEncounter()) return 'forced-encounter';
+    if (this.game.getOfferedQuest()) return 'quest-offer';
+    if (this.minigames.getView(playerId)) return 'minigame';
+    if (this.archaeology.getView(playerId)) return 'archaeology';
+    if (this.interactions.getView(playerId)) return 'interaction';
+    const interaction = this.playerInteractions.get(playerId) ?? 'playing';
+    if (interaction !== 'playing') return `playerInteraction:${interaction}`;
+    if (this.game.getFlag('vehicle.active')) return 'vehicle';
+    if (
+      this.manageBasicFeatures &&
+      isManualMovementArea(
+        this.game.getCurrentRoom(),
+        this.game.getSnakeBody()[0],
+        this.game.config.grid,
+      )
+    )
+      return 'manual-area';
+    if (this.game.getStructurePlacement()) return 'construction';
+    return null;
   }
 
   private scheduledActionStep(deltaMs: number): void {
     for (const player of this.simulationPlayers())
       this.game.runForPlayer(player.id, () => {
+        this.getProgression(player.id).refreshIfNeeded();
+        this.turnAuthorities
+          .get(player.id)
+          ?.observeInterval(this.movementInterval(player.id), this.getMovementClockTime());
         if (this.playerHeld(player.id)) {
-          this.actionElapsed.set(player.id, 0);
+          this.actionElapsed.set(player.id, 0 - this.turnGrace(player.id));
+          this.turnAuthorities.get(player.id)?.clear();
           return;
         }
-        const interval = Math.max(20, this.getProgression(player.id).intervalMs);
-        let elapsed = (this.actionElapsed.get(player.id) ?? 0) + deltaMs;
-        while (elapsed >= interval && player.alive) {
+        let elapsed = (this.actionElapsed.get(player.id) ?? -this.turnGrace(player.id)) + deltaMs;
+        let interval = this.movementInterval(player.id);
+        while (elapsed >= interval && player.alive && !this.playerHeld(player.id)) {
           elapsed -= interval;
+          this.actionElapsed.set(player.id, elapsed);
           this.stepPlayerAction(false, player.id);
+          interval = this.movementInterval(player.id);
+          this.turnAuthorities
+            .get(player.id)
+            ?.observeInterval(interval, this.getMovementClockTime());
         }
         this.actionElapsed.set(player.id, elapsed);
       });
@@ -728,10 +1437,30 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
 
   private stepPlayerAction(paused: boolean, playerId: PlayerId): StepResult {
-    const previousRoomId = this.game.getPlayer(playerId)?.snake.currentRoomId;
+    if (!paused) {
+      const revision = (this.movementRevisions.get(playerId) ?? 0) + 1;
+      for (const turn of this.turnAuthorities.get(playerId)?.take(revision) ?? []) {
+        this.game.handleCommand(turn);
+        this.directionSequences.set(playerId, turn.inputSequence);
+        this.appliedTurnRevisions.set(playerId, revision);
+        const next = this.game.getPlayer(playerId)!.snake.nextDirectionVector;
+        this.diagnose('movement.turn-applied', {
+          playerId,
+          inputSequence: turn.inputSequence,
+          intendedRevision: turn.intendedRevision,
+          appliedRevision: revision,
+          reason:
+            next.x === turn.direction.x && next.y === turn.direction.y
+              ? 'applied'
+              : 'illegal-turn-or-movement-lock',
+        });
+      }
+    }
     const scoreBefore = this.game.getScore();
     const lengthBefore = this.game.getSnakeLength();
     const result = this.game.actionStep(paused, { advanceBombs: !this.manageBasicFeatures });
+    if (!paused)
+      this.movementRevisions.set(playerId, (this.movementRevisions.get(playerId) ?? 0) + 1);
     this.resolvePlayerDeath(result, playerId);
     if (this.manageBasicFeatures && !paused && result.status !== 'dead') {
       const progression = this.getProgression(playerId);
@@ -783,8 +1512,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
           roomId: this.game.getCurrentRoom().id,
         }),
       );
-    if (this.eventHandlers.size > 0)
-      this.emitStepEvents(previousRoomId, result, this.buildSnapshot(true, playerId), playerId);
+    if (this.eventHandlers.size > 0) this.emitStepEvents(result, playerId);
     return result;
   }
 
@@ -792,18 +1520,33 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     onEvent?: (event: import('../systems/boss.js').BossEvent) => void,
     stepMs?: number,
   ): void {
-    this.game.bossStep((event) => {
-      onEvent?.(event);
-      if (this.manageBasicFeatures)
-        for (const player of this.simulationPlayers())
-          if (player.snake.currentRoomId === this.game.getCurrentRoom().id)
-            this.emit({ type: 'boss.outcome', playerId: player.id, event });
-    }, stepMs);
+    const context = this.simulationPlayers(true).find(isPlayerInWorld)?.id ?? this.localPlayerId;
+    this.game.runForPlayer(context, () =>
+      this.game.bossStep((event) => {
+        onEvent?.(event);
+        if (this.manageBasicFeatures)
+          for (const player of this.simulationPlayers())
+            if (player.snake.currentRoomId === this.game.getCurrentRoom().id)
+              this.emit({ type: 'boss.outcome', playerId: player.id, event });
+      }, stepMs),
+    );
     this.emitSnapshot();
   }
 
   async actorClockStep(stepMs?: number): Promise<StepResult | null> {
-    return this.runAsyncClockStep(() => this.game.actorClockStep(stepMs));
+    const startedAt = performance.now();
+    const playerId = this.hosted
+      ? (this.simulationPlayers(true).find(isPlayerInWorld)?.id ??
+        this.connections.values().next().value?.playerId)
+      : this.localPlayerId;
+    if (!playerId) return null;
+    try {
+      return await this.game.runForPlayerAsync(playerId, () =>
+        this.runAsyncClockStep(() => this.game.actorClockStep(stepMs), playerId),
+      );
+    } finally {
+      this.performance.actor(performance.now() - startedAt);
+    }
   }
 
   hazardClockStep(): StepResult | null {
@@ -812,20 +1555,15 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       this.resolvePlayerDeath(first, this.localPlayerId);
       if (first.status === 'dead') this.game.getPlayer(this.localPlayerId)!.alive = false;
     }
-    for (const player of this.simulationPlayers()) {
+    for (const player of this.simulationPlayers(true)) {
+      if (!isPlayerInWorld(player)) continue;
       const result = this.game.runForPlayer(player.id, () => {
         const result = this.game.hazardClockStep();
         if (result) this.resolvePlayerDeath(result, player.id);
         return result;
       });
       if (result?.status === 'dead') player.alive = false;
-      if (result && this.eventHandlers.size > 0)
-        this.emitStepEvents(
-          player.snake.currentRoomId,
-          result,
-          this.buildSnapshot(true, player.id),
-          player.id,
-        );
+      if (result && this.eventHandlers.size > 0) this.emitStepEvents(result, player.id);
       first ??= result;
     }
     this.emitSnapshot();
@@ -870,9 +1608,61 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       this.game.saveGame();
       return;
     }
-    const data = this.game.getSaveData();
-    await this.saveStore.save(this.saveSlotId, data);
-    this.checkpoint = structuredClone(data);
+    const data = this.captureCheckpoint();
+    await this.writeCheckpoint(data);
+  }
+
+  private checkpointWrites: Promise<void> = Promise.resolve();
+  private checkpointProjection: { source: GameSaveData; view: GameSaveData } | null = null;
+
+  private publicCheckpoint(): GameSaveData | null {
+    if (!this.checkpoint) return null;
+    if (this.checkpointProjection?.source !== this.checkpoint) {
+      const view = { ...this.checkpoint };
+      delete view.hosted;
+      this.checkpointProjection = { source: this.checkpoint, view };
+    }
+    return this.checkpointProjection.view;
+  }
+
+  private captureCheckpoint(): GameSaveData {
+    const data = this.game.runForPlayer(this.localPlayerId, () => this.game.getSaveData());
+    if (this.hosted)
+      data.hosted = {
+        schemaVersion: 1,
+        primaryClaimed: this.primaryClaimed,
+        resumeDigests: Object.fromEntries(this.resumeDigests),
+        players: this.game
+          .getPlayers()
+          .filter((player) => player.id !== 'debug-player-2')
+          .map((player) => ({
+            ...this.game.capturePlayerCheckpoint(player.id),
+            alive: this.retainedPlayers.get(player.id) ?? player.alive,
+          })),
+        rooms: this.game.captureHostedRooms(),
+      };
+    return copyGameCheckpoint(data);
+  }
+
+  private writeCheckpoint(data: GameSaveData): Promise<void> {
+    const write = this.checkpointWrites.then(async () => {
+      await this.saveStore?.save(this.saveSlotId, data);
+      this.checkpoint = data;
+      this.networkDirty = true;
+    });
+    this.checkpointWrites = write.catch(() => {});
+    return write;
+  }
+
+  /** Capture in authority order; disk latency must not hold the simulation queue. */
+  async autosave(): Promise<boolean> {
+    if (!this.saveStore || !this.hosted) return false;
+    const captured = await this.enqueue(
+      async () => ({ write: this.writeCheckpoint(this.captureCheckpoint()) }),
+      'autosave:capture',
+    );
+    await captured.write;
+    return true;
   }
 
   saveGame(
@@ -904,6 +1694,10 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   ): boolean {
     const loaded = this.game.loadGame(getReligionChoice, getClassChoice, getBackgroundChoice);
     if (loaded) {
+      this.publishedMovementRevisions.clear();
+      for (const player of this.game.getPlayers())
+        this.movementRevisions.set(player.id, (this.movementRevisions.get(player.id) ?? 0) + 1);
+      for (const suspension of this.suspended.values()) suspension.eligible = false;
       this.archaeology.reset();
       this.interactions.reset();
       this.playerInteractions.clear();
@@ -933,17 +1727,54 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       this.game.clearSaveFile();
       return;
     }
+    await this.checkpointWrites;
     await this.saveStore.clear(this.saveSlotId);
     this.checkpoint = null;
   }
 
-  private buildSnapshot(detach = true, playerId = this.localPlayerId): GameSnapshot {
+  private buildSnapshot(
+    detach = true,
+    playerId = this.localPlayerId,
+    network = false,
+  ): GameSnapshot {
     if (this.game.getLocalPlayerId() !== playerId) {
-      return this.game.runForPlayer(playerId, () => this.buildSnapshot(detach, playerId));
+      return this.game.runForPlayer(playerId, () => this.buildSnapshot(detach, playerId, network));
     }
+    const startedAt = performance.now();
     const snapshot = this.game.getSnapshot(playerId);
-    snapshot.clientState = this.game.getSceneClientState();
+    snapshot.tick = this.getMovementTime();
+    snapshot.movementSequence = this.movementSequence;
+    if (network || this.hosted) snapshot.replication = this.game.getNetworkRoomView();
+    snapshot.clientState = this.game.getSceneClientState(
+      snapshot.replication ? Object.keys(snapshot.replication.roomRevisions) : undefined,
+    );
     snapshot.forcedEncounter = this.game.getForcedEncounter();
+    snapshot.lifecycle = this.game.getPlayer(playerId)?.lifecycle ?? { kind: 'active' };
+    if (this.hosted)
+      snapshot.serverRules = {
+        autosaveIntervalMs: 30000,
+        unavailableFeatures: [
+          'Starforged Vanguard',
+          'Killstreak Arsenal',
+          'Radio bonuses',
+          'Minecraft',
+          'GoPro recording',
+          'Home arcade',
+          'Transit rides',
+        ],
+      };
+    snapshot.lives = {
+      ordinary: this.game.getPlayer(playerId)?.alive ? 1 : 0,
+      skill: Number(this.game.getFlag('skills.extraLifeCharges') ?? 0),
+      equipmentPhoenix: Number(this.game.getFlag('equipment.phoenixCharges') ?? 0),
+      fortitudePhoenix: Number(
+        this.game.getFlag<{ charges?: number }>('fortitude.phoenix')?.charges ?? 0,
+      ),
+      ward: Object.values(this.game.getWardContracts()).reduce(
+        (total, count) => total + (count ?? 0),
+        0,
+      ),
+    };
     if (this.manageBasicFeatures)
       snapshot.clientState.flags = Object.fromEntries(
         Object.entries(snapshot.clientState.flags).filter(([key]) => !isGameplayFeedbackKey(key)),
@@ -952,12 +1783,43 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     snapshot.archaeology = this.archaeology.getView(playerId);
     snapshot.persistence = {
       slotId: this.saveSlotId,
-      checkpoint: this.canManageWorld(playerId) ? this.checkpoint : null,
+      checkpoint: this.canManageWorld(playerId) ? this.publicCheckpoint() : null,
     };
     snapshot.permissions = { manageWorld: this.canManageWorld(playerId) };
-    for (const player of Object.values(snapshot.players))
+    for (const player of Object.values(snapshot.players)) {
+      const lifecycle = this.game.getPlayer(player.id)?.lifecycle;
+      player.activity =
+        lifecycle?.kind === 'creating'
+          ? 'creating-character'
+          : lifecycle?.kind === 'death'
+            ? 'death-encounter'
+            : 'playing';
+      if (player.id !== playerId && lifecycle && lifecycle.kind !== 'active') player.alive = false;
       player.activeEmoticon = this.expressions.get(player.id)?.id ?? null;
+      player.movementRevision = this.movementRevisions.get(player.id) ?? 0;
+      if (player.id === playerId)
+        player.acknowledgedDirectionSequence = this.directionSequences.get(player.id);
+      player.movementIntervalMs = this.movementInterval(player.id);
+      player.movementAccumulatorMs = this.manageBasicFeatures
+        ? this.movementPhase(player.id)
+        : this.legacyActionElapsed;
+      player.movementGraceMs = this.turnGrace(player.id);
+      player.movementPhaseAtMs = this.getMovementTime();
+      player.movementAppliedTurnRevision = this.appliedTurnRevisions.get(player.id);
+      player.directionQueue = this.game.getPlayer(player.id)?.snake.directionQueue;
+      if (player.id === playerId) {
+        player.movementPredictionAllowed =
+          !this.suspended.has(player.id) && this.predictionAllowed(player.id);
+        player.movementGrid = { ...this.game.config.grid };
+      }
+    }
     snapshot.connections = Object.fromEntries(this.connections);
+    if (network) {
+      const connected = new Set([...this.connections.values()].map((peer) => peer.playerId));
+      snapshot.players = Object.fromEntries(
+        Object.entries(snapshot.players).filter(([id]) => connected.has(id)),
+      );
+    }
     for (const room of Object.values(snapshot.viewport.rooms)) {
       room.bosses = this.game.getBosses(room.id).map(cloneBossForSnapshot);
     }
@@ -969,6 +1831,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       atmosphere: this.game.getAtmosphereForRoom(),
     };
 
+    this.performance.build(performance.now() - startedAt);
     return detach ? copyGameSnapshot(snapshot) : snapshot;
   }
 
@@ -979,6 +1842,23 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         this.game.getPlayer(playerId)!.alive = false;
         this.emit({ type: 'player.died', playerId, reason: result.deathReason ?? 'bullet' });
       }
+    }
+    this.networkDirty = true;
+    this.publishMovementChanges();
+    if (this.hosted && this.snapshotHandlers.size === 0) {
+      for (const player of this.game.getPlayers()) {
+        const previous = this.publishedRooms.get(player.id);
+        this.publishedRooms.set(player.id, player.snake.currentRoomId);
+        if (previous && previous !== player.snake.currentRoomId)
+          this.emit({
+            type: 'room.changed',
+            playerId: player.id,
+            fromRoomId: previous,
+            toRoomId: player.snake.currentRoomId,
+            head: player.snake.bodySegments[0],
+          });
+      }
+      return forceDetach ? this.buildSnapshot(true) : this.lastSnapshot;
     }
     // Unobserved simulation needs no presentation projection. Public reads refresh it.
     if (!forceDetach && this.snapshotHandlers.size === 0 && this.eventHandlers.size === 0) {
@@ -1032,7 +1912,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         reason: this.game.getFlag<string>('recent.deathReason') ?? 'bullet',
       });
     if (
-      this.game.getPlayer(playerId)?.alive &&
+      Boolean(this.game.getPlayer(playerId) && isPlayerInWorld(this.game.getPlayer(playerId)!)) &&
       !this.interactions.getView(playerId) &&
       !this.minigames.getView(playerId) &&
       !this.archaeology.getView(playerId)
@@ -1065,68 +1945,49 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
 
   private runClockStep(step: () => StepResult | null): StepResult | null {
-    const previousRoomId = this.game.getPlayer(this.localPlayerId)?.snake.currentRoomId;
     const result = step();
     if (result) this.resolvePlayerDeath(result, this.localPlayerId);
     if (result?.status === 'dead') this.game.getPlayer(this.localPlayerId)!.alive = false;
-    const snapshot = this.emitSnapshot();
+    this.emitSnapshot();
     if (result && this.eventHandlers.size > 0) {
-      this.emitStepEvents(previousRoomId, result, snapshot);
+      this.emitStepEvents(result);
     }
     return result;
   }
 
   private async runAsyncClockStep(
     step: () => Promise<StepResult | null>,
+    playerId = this.localPlayerId,
   ): Promise<StepResult | null> {
-    const previousRoomId = this.game.getPlayer(this.localPlayerId)?.snake.currentRoomId;
     const result = await step();
-    if (result) this.resolvePlayerDeath(result, this.localPlayerId);
-    if (result?.status === 'dead') this.game.getPlayer(this.localPlayerId)!.alive = false;
-    const snapshot = this.emitSnapshot();
+    if (result) this.resolvePlayerDeath(result, playerId);
+    if (result?.status === 'dead') this.game.getPlayer(playerId)!.alive = false;
+    this.emitSnapshot();
     if (result && this.eventHandlers.size > 0) {
-      this.emitStepEvents(previousRoomId, result, snapshot);
+      this.emitStepEvents(result, playerId);
     }
     return result;
   }
 
   private resolvePlayerDeath(result: StepResult, playerId: PlayerId): void {
-    if (!this.manageBasicFeatures || result.status !== 'dead') return;
-    const progression = this.getProgression(playerId);
-    const angel =
-      this.game.getFlag<boolean>('boss.insultedAngel') ||
-      this.game.getFlag<string>('player.killedByBossKind') === 'angel' ||
-      (result.deathReason === 'boss' &&
-        this.game.getBosses(this.game.getCurrentRoom().id).some((boss) => boss.kind === 'angel'));
-    if (angel) {
-      progression.skills.setExtraLives(0);
-      this.game.setFlag('equipment.phoenixCharges', 0);
-      this.game.setFlag('equipment.itemPhoenixCharges', 0);
-      this.game.setFlag('fortitude.phoenix', { charges: 0 });
-      return;
+    if (!this.manageBasicFeatures) return;
+    const player = this.game.getPlayer(playerId);
+    const previous = player?.lifecycle;
+    this.game.runForPlayer(playerId, () => this.deaths.resolve(result));
+    if (player?.lifecycle?.kind === 'death' && previous !== player.lifecycle) {
+      this.emit({ type: 'party.activity', name: player.name, status: 'died' });
+      this.archaeology.reset(playerId);
+      this.minigames.reset(playerId);
+      this.game.runForPlayer(playerId, () => this.vehicles.abandon());
+      this.interactions.remove(playerId);
+      this.actionElapsed.delete(playerId);
+      if (!player.lifecycle.encounter.terminal)
+        this.emit({ type: 'player.revived', playerId, reason: player.lifecycle.encounter.reason });
     }
-    const rescued =
-      this.game.tryConsumeWardForDeath(result.deathReason) ||
-      this.game.tryConsumeFellowshipRescue() ||
-      this.game.tryConsumeGrowthForDeath(result.deathReason) ||
-      progression.skills.consumeExtraLife();
-    if (!rescued) return;
-    this.game.reviveAfterExtraLife(result.deathReason);
-    this.game.setFlag('traversal.manualResumePending', undefined);
-    this.game.getPlayer(playerId)!.alive = true;
-    result.status = 'alive';
-    progression.persist();
-    this.emit({ type: 'player.revived', playerId, reason: result.deathReason ?? 'unknown' });
-    result.deathReason = undefined;
   }
 
-  private emitStepEvents(
-    _previousRoomId: string | undefined,
-    result: StepResult,
-    snapshot: GameSnapshot,
-    playerId = this.localPlayerId,
-  ): void {
-    const player = snapshot.players[playerId];
+  private emitStepEvents(result: StepResult, playerId = this.localPlayerId): void {
+    const player = this.game.getPlayer(playerId);
     if (!player) {
       return;
     }

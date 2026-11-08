@@ -56,6 +56,22 @@ interface PortalIndexEntry {
 }
 
 export class WorldService {
+  private static nextReplicationId = 0;
+  private replicationEpoch = ++WorldService.nextReplicationId;
+  get replicationId(): number {
+    return this.replicationEpoch;
+  }
+  getRoomRevision(id: string): number {
+    return this.rooms.getRevision(id);
+  }
+  getKnownRoomCount(): number {
+    return this.rooms.knownSize;
+  }
+  mergeReplicaRooms(rooms: readonly RoomSnapshot[]): void {
+    this.replicaOnly = true;
+    for (const room of rooms) this.rooms.set(room.id, room);
+  }
+
   private replicaOnly = false;
 
   replaceReplicaRooms(rooms: readonly RoomSnapshot[]): void {
@@ -323,6 +339,8 @@ export class WorldService {
   }
 
   clear(): void {
+    this.replicationEpoch = ++WorldService.nextReplicationId;
+    this.townsById.clear();
     this.rooms.clear();
     this.townRoomIdsByTownId.clear();
     this.incomingPortalsByDestRoomId.clear();
@@ -348,6 +366,17 @@ export class WorldService {
 
   snapshot(): Map<string, RoomSnapshot> {
     return new Map(this.rooms);
+  }
+
+  restoreAuthoritativeRooms(rooms: readonly RoomSnapshot[]): void {
+    if (this.replicaOnly) throw new Error('Cannot restore authority rooms into a client replica');
+    this.clear();
+    for (const data of rooms) {
+      const room = this.rooms.prepare(data);
+      this.rooms.set(room.id, room);
+      this.registerRoomIndexes(room);
+      for (const entrance of room.layerEntrances ?? []) this.registerLayerEntrance(entrance);
+    }
   }
 
   getTownById(townId: string): TownStructure | undefined {

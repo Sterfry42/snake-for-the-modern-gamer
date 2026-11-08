@@ -9,16 +9,31 @@ import type { Vector2Like } from '../core/math.js';
 import type { SceneActionCommand, PlayerInteraction } from './SceneActionCommand.js';
 import type { RelationshipChoice } from '../relationships/relationshipTypes.js';
 import type { SpecialStatId } from '../stats/specialTypes.js';
+import { applyMovementUpdate } from './MovementUpdate.js';
 
-/** Snapshot-only scene compatibility surface. It never imports the game runtime. */
+/** Authoritative scene read model, updated by world deltas and bounded movement. */
 export class SceneGameClient {
   private snapshot: GameSnapshot | null = null;
   private readonly unsubscribe: () => void;
 
   constructor(readonly connection: GameConnection) {
     this.unsubscribe = connection.onSnapshot((snapshot) => {
-      this.snapshot = structuredClone(snapshot);
+      this.snapshot = snapshot;
     });
+    const stopMovement = connection.onMovement?.((update) => {
+      if (
+        this.snapshot &&
+        update.player.id === this.snapshot.localPlayerId &&
+        !this.snapshot.viewport.rooms[update.player.roomId]
+      )
+        return;
+      if (this.snapshot) this.snapshot = applyMovementUpdate(this.snapshot, update);
+    });
+    const stopSnapshot = this.unsubscribe;
+    this.unsubscribe = () => {
+      stopSnapshot();
+      stopMovement?.();
+    };
   }
 
   getSnapshot(): GameSnapshot {
@@ -83,6 +98,10 @@ export class SceneGameClient {
 
   setPlayerInteraction(mode: PlayerInteraction): Promise<CommandResult> {
     return this.action({ type: 'playerInteraction', mode });
+  }
+
+  getPlayerInteraction(): PlayerInteraction {
+    return this.currentSnapshot.ui.playerInteraction ?? 'playing';
   }
 
   useInventoryItem(itemId: string): Promise<CommandResult> {

@@ -11,6 +11,7 @@ import type { SkillTreeClientState } from '../systems/skillTree.js';
 import type { OwnedSkillState } from '../systems/skillTypes.js';
 import { ActionSlotController } from '../systems/actionSlots.js';
 import { getAlchemyDerivedStatSource } from '../alchemy/potionEffects.js';
+import type { CharacterCreationMods } from '../features/characterCreationDefinitions.js';
 import { getSpellStatusSource } from '../systems/spells/spellStatus.js';
 
 /** The existing skill system with gameplay callbacks and no Phaser dependency. */
@@ -26,7 +27,7 @@ export class AuthoritativeProgression implements SkillTreeRuntime {
     this.skills.restoreRanks(game.getFlag<Record<string, number>>('skills.ranks') ?? {});
     if (ownership) this.skills.restoreOwnership(ownership);
     if (state) this.skills.hydrateClientState(state);
-    else if (extraLives !== undefined) this.skills.setExtraLives(extraLives);
+    if (extraLives !== undefined) this.skills.setExtraLives(extraLives);
     this.refreshEquipment();
     this.actions = new ActionSlotController({
       getStats: () => this.skills.getStats(),
@@ -181,6 +182,14 @@ export class AuthoritativeProgression implements SkillTreeRuntime {
   refreshEquipment(): void {
     this.modifierSignature = this.getModifierSignature();
     const totals = createRuntimeModifierTotals();
+    for (const kind of ['faith', 'background', 'class'] as const) {
+      const prefix = kind === 'faith' ? 'religion' : kind;
+      this.skills.setDerivedStatSource({
+        id: `creation.${kind}`,
+        category: kind,
+        modifiers: this.getFlag<CharacterCreationMods>(`${prefix}.mods`)?.derivedModifiers ?? [],
+      });
+    }
     for (const [, id] of this.game.getInventory().getAllEquipped()) {
       const item = getItem(id);
       applyRuntimeModifierSource(totals, item?.kind === 'equipment' ? item.modifiers : undefined, {
@@ -272,6 +281,9 @@ export class AuthoritativeProgression implements SkillTreeRuntime {
   }
 
   refreshIfNeeded(): void {
+    const lives = this.getFlag<number>('skills.extraLifeCharges');
+    if (lives !== undefined && lives !== this.skills.getStats().extraLives)
+      this.skills.setExtraLives(lives);
     if (this.modifierSignature !== this.getModifierSignature()) this.refreshEquipment();
   }
   private getModifierSignature(): string {

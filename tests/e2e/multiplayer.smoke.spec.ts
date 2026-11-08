@@ -1,3 +1,4 @@
+import { SnapshotDeltaAssembler } from '../../src/session/SnapshotDelta.js';
 import { test, expect, type Page } from '@playwright/test';
 import { SnakeGame } from '../../src/game/snakeGame.js';
 import { QuestRegistry } from '../../src/quests/questRegistry.js';
@@ -7,13 +8,26 @@ import { defaultGameConfig } from '../../src/config/gameConfig.js';
 import { createBaseActor } from '../../src/actors/actorFactory.js';
 import { parseServerMessage } from '../../src/session/gameProtocol.js';
 import type { GameSnapshot } from '../../src/session/GameSnapshot.js';
+import { serverCredentialKey } from '../../src/session/connectionSettings.js';
 
 function observe(page: Page) {
-  const state: { snapshot?: GameSnapshot } = {};
+  const state: { snapshot?: GameSnapshot; seenHeads: Set<string> } = { seenHeads: new Set() };
   page.on('websocket', (socket) => {
     if (new URL(socket.url()).pathname !== '/game') return;
+    const assembler = new SnapshotDeltaAssembler();
     socket.on('framereceived', (frame) => {
-      const message = parseServerMessage(frame.payload.toString());
+      const wire = parseServerMessage(frame.payload.toString());
+      if (wire.type === 'movement') {
+        state.snapshot = assembler.applyMovement(wire.update) ?? state.snapshot;
+        const head = wire.update.player.body[0];
+        state.seenHeads.add(`${wire.update.player.id}:${head.x},${head.y}`);
+        return;
+      }
+      if (wire.type === 'welcome') assembler.reset(wire.snapshot);
+      const message =
+        wire.type === 'delta'
+          ? { type: 'snapshot' as const, snapshot: assembler.apply(wire.delta) }
+          : wire;
       if (message.type === 'welcome' || message.type === 'snapshot')
         state.snapshot = message.snapshot;
     });
@@ -54,33 +68,68 @@ test('two browsers move independent snakes, render NPCs, talk, and view separate
   };
   game.getActorSystem().registry.upsert(ada);
   const session = new AuthoritativeGameSession({ game, manageBasicFeatures: true });
-  const server = createGameServer(session);
+  expect(session.handleCommand({ type: 'pause', playerId: game.getLocalPlayerId() }).ok).toBe(true);
+  const hostToken = 'multiplayer-smoke-browser-host';
+  const server = createGameServer(session, { hostToken });
   const port = await server.listen(0);
+  await page.addInitScript(({ key, token }) => localStorage.setItem(key, token), {
+    key: `${serverCredentialKey(`ws://127.0.0.1:${port}/game`)}:host`,
+    token: hostToken,
+  });
   const bobPage = await context.browser()!.newPage({ baseURL: test.info().project.use.baseURL });
   const alice = observe(page);
   const bob = observe(bobPage);
   const errors: string[] = [];
+  session.start((error) => errors.push(String(error)));
   for (const browser of [page, bobPage])
-    browser.on('pageerror', (error) => { errors.push(error.message); console.error(error.stack); });
+    browser.on('pageerror', (error) => {
+      errors.push(error.message);
+      console.error(error.stack);
+    });
   try {
     const address = encodeURIComponent(`ws://127.0.0.1:${port}/game`);
     await page.goto(`?server=${address}&playerName=Alice`);
-    await expect.poll(() => page.evaluate(() => window.snakeE2E?.getLifecycle().mode)).toMatch(/action|manual-room|paused/);
+    await expect
+      .poll(() => page.evaluate(() => window.snakeE2E?.getLifecycle().mode))
+      .toMatch(/action|manual-room|paused/);
     await expect.poll(() => alice.snapshot?.localPlayerId).toBe('player-1');
     await bobPage.goto(`?server=${address}&playerName=Bob`);
-    await expect.poll(() => bobPage.evaluate(() => window.snakeE2E?.getLifecycle().mode)).toMatch(/action|manual-room|paused/);
+    await expect
+      .poll(() => bobPage.evaluate(() => window.snakeE2E?.getLifecycle().mode))
+      .toMatch(/action|manual-room|paused/);
     await expect.poll(() => Object.keys(bob.snapshot?.players ?? {}).length).toBe(2);
     const bobId = bob.snapshot!.localPlayerId;
     expect(bobId).not.toBe('player-1');
     expect(bob.snapshot!.players[bobId].body).not.toEqual(bob.snapshot!.players['player-1'].body);
+    // Keep the steering arena independent of origin placement: opposing turns
+    // from nearby spawn lanes can legitimately collide and open an afterlife.
+    game.runForPlayer(bobId, () =>
+      game.placeSnakeBodyAtLocal(room.id, { x: 15, y: 15 }, { x: 1, y: 0 }),
+    );
+    game.runForPlayer('player-1', () => game.placeSnakeBodyAtLocal(room.id, head, { x: 1, y: 0 }));
+    session.refreshSnapshot();
+    await expect.poll(() => bob.seenHeads.has(`${bobId}:15,15`)).toBe(true);
+    expect((await session.executeCommand({ type: 'resume', playerId: 'player-1' })).ok).toBe(true);
+    for (const client of [page, bobPage])
+      await expect
+        .poll(() => client.evaluate(() => window.snakeE2E?.getLifecycle().mode))
+        .toBe('action');
     await page.keyboard.press('ArrowUp');
     await bobPage.keyboard.press('ArrowDown');
-    // Acknowledged commands provide barriers after both keyboard messages.
-    await expect.poll(() => game.getPlayer('player-1')!.snake.nextDirectionVector.y).toBe(-1);
-    await expect.poll(() => game.getPlayer(bobId)!.snake.nextDirectionVector.y).toBe(1);
-    await session.advance(100);
+    // Intended directions become authoritative only when their movement step commits.
+    await expect.poll(() => game.getPlayer('player-1')!.snake.directionVector.y).toBe(-1);
+    await expect.poll(() => game.getPlayer(bobId)!.snake.directionVector.y).toBe(1);
+    session.stop();
     await expect.poll(() => alice.snapshot?.players['player-1'].direction.y).toBe(-1);
     await expect.poll(() => bob.snapshot?.players[bobId].direction.y).toBe(1);
+    // The subsequent NPC interaction uses its own fixed, nearby placement.
+    game.runForPlayer('player-1', () =>
+      game.placeSnakeBodyAtLocal(room.id, { x: head.x, y: head.y - 1 }, { x: 0, y: -1 }),
+    );
+    session.refreshSnapshot();
+    await expect
+      .poll(() => alice.snapshot?.players['player-1'].body[0])
+      .toEqual({ x: head.x, y: head.y - 1 });
     expect(alice.snapshot!.viewport.rooms[room.id].npcs?.some((actor) => actor.id === ada.id)).toBe(
       true,
     );
@@ -90,30 +139,65 @@ test('two browsers move independent snakes, render NPCs, talk, and view separate
       canvas.x + (((head.x + 0.5) * defaultGameConfig.grid.cell) / 768) * canvas.width,
       canvas.y + (((head.y + 1.5) * defaultGameConfig.grid.cell - 2) / 576) * canvas.height,
     );
-    await expect.poll(() => page.evaluate(() => window.snakeE2E!.getPresentation().quest.visible)).toBe(true);
+    await expect
+      .poll(() => page.evaluate(() => window.snakeE2E!.getPresentation().quest.visible))
+      .toBe(true);
     expect(await page.evaluate(() => window.snakeE2E!.getPresentation().quest.title)).toBe('Ada');
     await page.keyboard.press('Enter');
-    await expect.poll(() => page.evaluate(() => window.snakeE2E!.getPresentation().choice.visible)).toBe(true);
+    await expect
+      .poll(() => page.evaluate(() => window.snakeE2E!.getPresentation().choice.visible))
+      .toBe(true);
     const menu = await page.evaluate(() => window.snakeE2E!.getPresentation().choice);
-    const talk = menu.options.findIndex(option => option.id === 'talk');
+    const talk = menu.options.findIndex((option) => option.id === 'talk');
     expect(talk).toBeGreaterThanOrEqual(0);
-    for (let i = 0; i < (talk - menu.selectedIndex + menu.options.length) % menu.options.length; i++) await page.keyboard.press('ArrowDown');
+    for (
+      let i = 0;
+      i < (talk - menu.selectedIndex + menu.options.length) % menu.options.length;
+      i++
+    )
+      await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
-    await expect.poll(() => page.evaluate(() => window.snakeE2E!.getPresentation().quest.visible)).toBe(true);
+    await expect
+      .poll(() => page.evaluate(() => window.snakeE2E!.getPresentation().quest.visible))
+      .toBe(true);
     expect(await page.evaluate(() => window.snakeE2E!.getPresentation().quest.text)).not.toBe('');
-    expect(await bobPage.evaluate(() => window.snakeE2E!.getPresentation().quest.visible)).toBe(false);
-    for (let i = 0; i < 10 && await page.evaluate(() => window.snakeE2E!.getPresentation().quest.visible); i++) {
+    expect(await bobPage.evaluate(() => window.snakeE2E!.getPresentation().quest.visible)).toBe(
+      false,
+    );
+    for (
+      let i = 0;
+      i < 10 && (await page.evaluate(() => window.snakeE2E!.getPresentation().quest.visible));
+      i++
+    ) {
       await page.keyboard.press('Enter');
       await page.waitForTimeout(60);
     }
     await expect.poll(() => alice.snapshot?.ui.interaction).toBeNull();
     await bobPage.evaluate(() => window.snakeE2E!.setAppearance('midnight', 'cowboy'));
     await expect.poll(() => alice.snapshot?.players[bobId].appearance?.activeHat).toBe('cowboy');
-    await expect.poll(() => page.evaluate(() => window.snakeE2E!.getPresentation().players.find(player => player.hat !== null)?.hat)).toContain('hat');
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            window.snakeE2E!.getPresentation().players.find((player) => player.hat !== null)?.hat,
+        ),
+      )
+      .toContain('hat');
     const remote = await page.evaluate(() => window.snakeE2E!.getPresentation().players);
-    expect(remote.find(player => player.id === bobId)?.textures.some(texture => texture.includes('snake'))).toBe(true);
+    expect(
+      remote
+        .find((player) => player.id === bobId)
+        ?.textures.some((texture) => texture.includes('snake')),
+    ).toBe(true);
     expect(alice.snapshot?.players[bobId].appearance?.themeId).toBe('midnight');
     await page.screenshot({ path: 'test-results/multiplayer-npcs.png' });
+    await bobPage.reload();
+    await expect
+      .poll(() => bobPage.evaluate(() => window.snakeE2E?.getLifecycle().mode))
+      .toBe('action');
+    await bobPage.screenshot({ path: 'test-results/multiplayer-restored-cosmetics.png' });
+    await expect.poll(() => bob.snapshot?.players[bobId].appearance?.activeHat).toBe('cowboy');
+    await expect.poll(() => alice.snapshot?.players[bobId].appearance?.themeId).toBe('midnight');
     game.runForPlayer(bobId, () =>
       game.placeSnakeBodyAtLocal('1,0,0', { x: 10, y: 10 }, { x: 1, y: 0 }),
     );
@@ -122,6 +206,7 @@ test('two browsers move independent snakes, render NPCs, talk, and view separate
     expect(alice.snapshot?.viewport.centerRoomId).toBe('0,0,0');
     expect(errors).toEqual([]);
   } finally {
+    session.stop();
     await bobPage.close();
     await page.close();
     await server.close();

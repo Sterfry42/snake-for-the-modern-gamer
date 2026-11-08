@@ -1,3 +1,4 @@
+import { SnapshotDeltaAssembler } from '../../src/session/SnapshotDelta.js';
 import { test, expect, type Page } from '@playwright/test';
 import { AuthoritativeGameSession } from '../../src/session/AuthoritativeGameSession.js';
 import { createGameServer } from '../../src/server/createGameServer.js';
@@ -25,8 +26,18 @@ function observeWorld(page: Page) {
   const observed: { snapshot?: GameSnapshot } = {};
   page.on('websocket', (socket) => {
     if (new URL(socket.url()).pathname !== '/game') return;
+    const assembler = new SnapshotDeltaAssembler();
     socket.on('framereceived', (frame) => {
-      const message = parseServerMessage(frame.payload.toString());
+      const wire = parseServerMessage(frame.payload.toString());
+      if (wire.type === 'movement') {
+        assembler.applyMovement(wire.update);
+        return;
+      }
+      if (wire.type === 'welcome') assembler.reset(wire.snapshot);
+      const message =
+        wire.type === 'delta'
+          ? { type: 'snapshot' as const, snapshot: assembler.apply(wire.delta) }
+          : wire;
       if (message.type === 'welcome' || message.type === 'snapshot')
         observed.snapshot = message.snapshot;
     });
@@ -39,6 +50,8 @@ test('Multiplayer offers Server and Archipelago, then enters a named shared worl
   context,
 }) => {
   const session = await AuthoritativeGameSession.create({
+    // Exercise connection controls with established characters, independently of setup UI.
+    requireCharacterCreation: false,
     config: { ...defaultGameConfig, rng: { seed: 'connections-menu' } },
   });
   const server = createGameServer(session);
@@ -58,12 +71,11 @@ test('Multiplayer offers Server and Archipelago, then enters a named shared worl
     await page.keyboard.press('Tab');
     await expect(page.getByLabel('Server URL')).toBeFocused();
     await page.getByRole('button', { name: 'Back', exact: true }).click();
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('Enter');
+    await clickCanvas(page, 384, 320);
     await expect(page.getByRole('dialog')).toBeHidden();
     await page.screenshot({ path: 'test-results/connections-archipelago.png' });
     await clickCanvas(page, 384, 500);
-    await page.keyboard.press('Enter');
+    await clickCanvas(page, 384, 262);
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByLabel('Server URL').fill('ftp://invalid.test');
     await page.getByRole('button', { name: 'Enter World', exact: true }).click();
@@ -77,13 +89,20 @@ test('Multiplayer offers Server and Archipelago, then enters a named shared worl
     expect(
       Object.values(alice.snapshot?.connections ?? {}).map((peer) => peer.displayName),
     ).toEqual(['Alice']);
-    await expect.poll(() => page.evaluate(() => window.snakeE2E?.getLifecycle().mode)).toMatch(/action|manual-room/);
+    await expect
+      .poll(() => page.evaluate(() => window.snakeE2E?.getLifecycle().mode))
+      .toMatch(/action|manual-room/);
     await page.keyboard.press('Space');
     await expect.poll(() => alice.snapshot?.ui.playerInteraction).toBe('paused');
     expect(alice.snapshot?.ui.paused).toBe(false);
     const remembered = await context.storageState();
-    for (const origin of remembered.origins) origin.localStorage = origin.localStorage.filter(entry => !entry.name.startsWith('snake.serverIdentity:'));
-    const second = await context.browser()!.newPage({ baseURL: test.info().project.use.baseURL, storageState: remembered });
+    for (const origin of remembered.origins)
+      origin.localStorage = origin.localStorage.filter(
+        (entry) => !entry.name.startsWith('snake.serverIdentity:'),
+      );
+    const second = await context
+      .browser()!
+      .newPage({ baseURL: test.info().project.use.baseURL, storageState: remembered });
     const bob = observeWorld(second);
     await openServerMenu(second);
     await expect(second.getByLabel('Server URL')).toHaveValue(`ws://127.0.0.1:${port}/game`);
@@ -101,7 +120,9 @@ test('Multiplayer offers Server and Archipelago, then enters a named shared worl
     expect(bob.snapshot?.ui.playerInteraction).toBe('playing');
     await expect.poll(() => Object.keys(alice.snapshot?.connections ?? {}).length).toBe(2);
     await page.screenshot({ path: 'test-results/connections-nameplates.png' });
-    await expect.poll(() => second.evaluate(() => window.snakeE2E?.getLifecycle().mode)).toMatch(/action|manual-room/);
+    await expect
+      .poll(() => second.evaluate(() => window.snakeE2E?.getLifecycle().mode))
+      .toMatch(/action|manual-room/);
     await clickCanvas(second, 530, 548);
     await expect(second.getByRole('dialog', { name: 'Connect to a Server' })).toBeVisible();
     await expect

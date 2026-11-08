@@ -15,6 +15,9 @@ export type ClientCommand =
       type: 'setDirection';
       playerId: PlayerId;
       direction: Vector2Like;
+      inputSequence?: number;
+      intendedRevision?: number;
+      estimatedServerTimeMs?: number;
     }
   | {
       type: 'forceDirection';

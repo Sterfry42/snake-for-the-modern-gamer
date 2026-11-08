@@ -1,3 +1,4 @@
+import { SnapshotDeltaAssembler } from '../../src/session/SnapshotDelta.js';
 import { test, expect, type Page } from '@playwright/test';
 import { SnakeGame } from '../../src/game/snakeGame.js';
 import { QuestRegistry } from '../../src/quests/questRegistry.js';
@@ -18,8 +19,15 @@ function observe(page: Page) {
       const command = parseCommandMessage(frame.payload.toString());
       if (command) pending.set(command.id, command.command.type);
     });
+    const assembler = new SnapshotDeltaAssembler();
     socket.on('framereceived', (frame) => {
-      const message = parseServerMessage(frame.payload.toString());
+      const wire = parseServerMessage(frame.payload.toString());
+      if (wire.type === 'movement') {
+        assembler.applyMovement(wire.update);
+        return;
+      }
+      if (wire.type === 'welcome') assembler.reset(wire.snapshot);
+      const message = wire.type === 'delta' ? { type: 'snapshot' as const, snapshot: assembler.apply(wire.delta) } : wire;
       if (message.type === 'welcome' || message.type === 'snapshot')
         state.snapshot = message.snapshot;
       if (message.type === 'result') {
@@ -122,12 +130,14 @@ test('server NPC menus buy shared stock, accept private quests, and block world 
       game.runForPlayer(id, () => {
         game.placeSnakeBodyAtLocal(room.id, { x: id === aliceId ? 9 : 11, y: 10 }, { x: 0, y: 1 });
         game.setScore(10000);
+        game.setFlag('ui.e2e.interactionReady', true);
       });
     session.refreshSnapshot();
     for (const [browser, state] of [
       [page, alice],
       [bobPage, bob],
     ] as const) {
+      await expect.poll(() => browser.evaluate(() => window.snakeE2E!.getFlag('ui.e2e.interactionReady'))).toBe(true);
       const before = state.results;
       await clickTile(browser, 10, 10);
       await expect.poll(() => state.snapshot?.ui.interaction?.kind).toBe('actor');

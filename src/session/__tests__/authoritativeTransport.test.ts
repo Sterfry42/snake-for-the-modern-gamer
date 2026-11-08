@@ -20,6 +20,8 @@ afterEach(async () => {
 
 async function createSession(saveStore?: SaveStore<GameSaveData>) {
   return AuthoritativeGameSession.create({
+    // These transport fixtures start with established characters; lifecycle tests cover creation.
+    requireCharacterCreation: false,
     config: { ...defaultGameConfig, rng: { seed: 'authoritative-transport' } },
     saveStore,
   });
@@ -110,6 +112,7 @@ describe('authoritative transport', () => {
     const session = await createSession();
     const server = createGameServer(session);
     const port = await server.listen(0);
+    session.start(() => {});
     cleanups.push(() => server.close());
     const first = new WebSocketGameConnection(`ws://127.0.0.1:${port}/game`, 'Alice');
     const second = new WebSocketGameConnection(`ws://127.0.0.1:${port}/game`, 'Bob');
@@ -144,18 +147,22 @@ describe('authoritative transport', () => {
     });
     expect(
       await first.send({
-        type: 'forceDirection',
+        type: 'setDirection',
         playerId: 'forged-player',
         direction: { x: 0, y: -1 },
       }),
     ).toEqual({ ok: true });
     await nextSnapshot;
+    session.stop();
+    await session.flush();
     expect(firstBridge.getDirection()).toEqual({ x: 0, y: -1 });
     expect(secondBridge.getDirection()).toEqual({ x: 1, y: 0 });
-    expect(secondBridge.getSnapshot().players[first.playerId!].body).toEqual(
-      firstBridge.getSnapshot().players[first.playerId!].body,
+    await vi.waitFor(() =>
+      expect(secondBridge.getSnapshot().players[first.playerId!].body).toEqual(
+        firstBridge.getSnapshot().players[first.playerId!].body,
+      ),
     );
-    const tick = firstBridge.getSnapshot().tick;
+    const tick = session.getSnapshot().tick;
     await session.advance(100);
     // A subsequent acknowledged command acts as an ordered transport barrier.
     await first.send({ type: 'pause', playerId: first.playerId! });
