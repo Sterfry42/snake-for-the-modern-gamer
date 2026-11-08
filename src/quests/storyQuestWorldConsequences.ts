@@ -48,6 +48,16 @@ export const WORLD_STORY_CONSEQUENCES: Readonly<Record<string, StoryQuestConsequ
     ],
     actorResponse: { trust: 20, respect: 11 },
   },
+  'the-borrowed-bones:launder': {
+    message: 'The false survey enters the public archive. A museum is built on a lie.',
+    score: 185,
+    karma: -24,
+    factionChanges: [
+      { id: 'hearthbound-remnant', amount: -15 },
+      { id: 'goblin-camps', amount: -9 },
+    ],
+    actorResponse: { respect: 8, resentment: 5 },
+  },
   'the-borrowed-bones:sell': {
     message: 'A collector buys the disputed discovery for 320 score and promises absolute secrecy.',
     score: 320,
@@ -112,6 +122,25 @@ export const WORLD_STORY_CONSEQUENCES: Readonly<Record<string, StoryQuestConsequ
     karma: -18,
     factionChanges: [{ id: 'hearthbound-remnant', amount: -8 }],
     actorResponse: { respect: 11 },
+  },
+  'the-museum-that-shouldnt-be:admit-forgery': {
+    message: 'The guard records the falsified excavation and orders the museum claim withdrawn.',
+    karma: 17,
+    factionChanges: [
+      { id: 'hearthbound-remnant', amount: 10 },
+      { id: 'goblin-camps', amount: 6 },
+    ],
+    actorResponse: { trust: 8, respect: 12 },
+  },
+  'the-museum-that-shouldnt-be:fake-gallery': {
+    message: 'A counterfeit museum opens behind a velvet rope. The dealer pays 345 score.',
+    score: 345,
+    karma: -30,
+    factionChanges: [
+      { id: 'hearthbound-remnant', amount: -20 },
+      { id: 'goblin-camps', amount: -16 },
+    ],
+    actorResponse: { respect: 12, resentment: 9 },
   },
   'the-museum-that-shouldnt-be:admit-burial': {
     message: 'The watch records your reason for concealing the gravesite.',

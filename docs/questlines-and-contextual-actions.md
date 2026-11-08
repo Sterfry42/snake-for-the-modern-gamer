@@ -129,6 +129,17 @@ same chapter through separately priced NPC routes. Story-specific decisions,
 rewards, and reputation changes are still resolved by the authoritative
 game and saved per run.
 
+### Provenance is a game rule
+
+`StoryQuestState.choiceHistory` records which action advanced each stage.
+Subsequent verbs may declare `requiresChoice` to distinguish authentic field
+notes from documents that were forged or stolen. A real excavation can be
+published honestly; a fabricated record cannot use that option and instead
+offers a separate falsification route with negative karma and a museum
+follow-up about exposing fraud or opening a counterfeit gallery. Later
+quests can branch on the saved outcome `laundered`. The story engine
+revalidates the method at click time, not just when drawing the menu.
+
 ### Character and choice rules
 
 - The original contract giver is bound to a real Actor ID. A different mapper

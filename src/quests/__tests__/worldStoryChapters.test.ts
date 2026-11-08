@@ -97,10 +97,37 @@ describe('the world story chapters', () => {
     const dishonest = applyStoryAction(THE_BORROWED_BONES, active, {
       ...scribe, score: 35,
     }, 'forge-findings')!.state;
+    expect(dishonest.choiceHistory?.fieldwork).toBe('forge-findings');
+    expect(availableStoryActions(THE_BORROWED_BONES, dishonest, mapper).map(
+      (action) => action.key,
+    )).not.toContain('publish');
+    expect(availableStoryActions(THE_BORROWED_BONES, dishonest, scribe).map(
+      (action) => action.key,
+    )).toContain('launder');
     const sold = applyStoryAction(THE_BORROWED_BONES, dishonest, guild, 'sell')!.state;
     expect(sold.outcome).toBe('sold');
     expect(storyQuestConsequence('the-borrowed-bones', 'forge-findings')?.score).toBe(-35);
     expect(storyQuestConsequence('the-borrowed-bones', 'sell')?.score).toBeGreaterThan(0);
+  });
+
+  it('allows a forged museum claim to be exposed or turned into a counterfeit gallery', () => {
+    const offered = initializeUnlockedStory(THE_BORROWED_BONES, lookup([]))!;
+    const active = applyStoryAction(THE_BORROWED_BONES, offered, mapper, 'commission')!.state;
+    const fabricated = applyStoryAction(THE_BORROWED_BONES, active, {
+      ...scribe, score: 40,
+    }, 'forge-findings')!.state;
+    const falsified = applyStoryAction(THE_BORROWED_BONES, fabricated, scribe, 'launder')!.state;
+    expect(falsified.outcome).toBe('laundered');
+    const followup = initializeUnlockedStory(
+      THE_MUSEUM_THAT_SHOULDNT_BE,
+      lookup([falsified]),
+    )!;
+    expect(availableStoryActions(THE_MUSEUM_THAT_SHOULDNT_BE, followup, guard).map(
+      (action) => action.key,
+    )).toEqual(['admit-forgery']);
+    expect(availableStoryActions(THE_MUSEUM_THAT_SHOULDNT_BE, followup, guild).map(
+      (action) => action.key,
+    )).toEqual(['fake-gallery']);
   });
 
   it('follows the excavation ending with different museum decisions', () => {

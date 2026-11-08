@@ -124,6 +124,13 @@ describe('world story chapters on authoritative SnakeGame', () => {
     const before = game.getScore();
     await choose(game, scribe, 'the-borrowed-bones', 'forge-findings');
     expect(game.getScore()).toBe(before - 35);
+    expect(story(game, 'the-borrowed-bones').choiceHistory?.fieldwork).toBe('forge-findings');
+    expect(game.getActorInteractionMenu(mapper)?.options.some(
+      (option) => option.id === 'quest:the-borrowed-bones:publish',
+    )).toBe(false);
+    expect(game.getActorInteractionMenu(scribe)?.options.some(
+      (option) => option.id === 'quest:the-borrowed-bones:launder',
+    )).toBe(true);
     await choose(game, blackMarket, 'the-borrowed-bones', 'sell');
     const reward = game.getScore();
     expect((await game.chooseActorInteraction(

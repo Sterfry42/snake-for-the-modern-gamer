@@ -95,6 +95,7 @@ export const THE_BORROWED_BONES: StoryQuestDefinition = {
       label: 'Publish the excavation honestly',
       description: 'Make the findings public and credit the people named in the records.',
       stages: ['evidence'],
+      requiresChoice: { stage: 'fieldwork', actions: ['file-findings'] },
       roles: ['mapper'],
       requiresGiver: true,
       nextStage: 'completed',
@@ -105,6 +106,7 @@ export const THE_BORROWED_BONES: StoryQuestDefinition = {
       label: 'Give the record to the goblins',
       description: 'The trader keeps the record, not the kingdom\'s trophy cabinet.',
       stages: ['evidence'],
+      requiresChoice: { stage: 'fieldwork', actions: ['file-findings', 'steal-survey'] },
       species: ['goblin'],
       nextStage: 'completed',
       outcome: 'returned',
@@ -112,6 +114,16 @@ export const THE_BORROWED_BONES: StoryQuestDefinition = {
         goblin: 'We had names for these things before your maps had borders.',
         sentimental: 'The dead still deserve to be brought home.',
       },
+    },
+    {
+      key: 'launder',
+      label: 'Publish the fabricated report as if it were real',
+      description: 'A scribe can launder forged evidence into an official excavation record.',
+      stages: ['evidence'],
+      roles: ['scribe'],
+      requiresChoice: { stage: 'fieldwork', actions: ['forge-findings', 'steal-survey'] },
+      nextStage: 'completed',
+      outcome: 'laundered',
     },
     {
       key: 'sell',
@@ -141,7 +153,7 @@ export const THE_MUSEUM_THAT_SHOULDNT_BE: StoryQuestDefinition = {
   description: 'The disputed excavation has become a fight over who can own history.',
   initialStage: 'reckoning',
   prerequisites: [
-    { questId: 'the-borrowed-bones', outcomes: ['published', 'returned', 'sold', 'buried'] },
+    { questId: 'the-borrowed-bones', outcomes: ['published', 'returned', 'sold', 'buried', 'laundered'] },
   ],
   objectives: {
     reckoning: ['[ ] Decide whether the excavation belongs in an archive, a camp, or a vault'],
@@ -208,6 +220,27 @@ export const THE_MUSEUM_THAT_SHOULDNT_BE: StoryQuestDefinition = {
       originOutcomes: ['sold'],
       nextStage: 'completed',
       outcome: 'hidden',
+    },
+    {
+      key: 'admit-forgery',
+      label: 'Confess the forged excavation record',
+      description: 'The watch records a fabricated museum claim before any buyers are deceived.',
+      stages: ['reckoning'],
+      roles: ['guard', 'gateGuard'],
+      species: ['human'],
+      originOutcomes: ['laundered'],
+      nextStage: 'completed',
+      outcome: 'fraud-exposed',
+    },
+    {
+      key: 'fake-gallery',
+      label: 'Build a museum of counterfeit wonders',
+      description: 'A black-market merchant offers exclusive tickets to exhibits that never existed.',
+      stages: ['reckoning'],
+      roles: ['blackMarketMerchant', 'guildContact'],
+      originOutcomes: ['laundered'],
+      nextStage: 'completed',
+      outcome: 'counterfeit-gallery',
     },
     {
       key: 'admit-burial',
@@ -644,6 +677,7 @@ export const THE_PEOPLES_POTLUCK: StoryQuestDefinition = {
       outcomes: [
         'commons', 'privatized', 'self-governed', 'appropriated',
         'recovered', 'hidden', 'confessed', 'protected',
+        'fraud-exposed', 'counterfeit-gallery',
       ],
     },
     {
@@ -765,7 +799,7 @@ export const THE_PEOPLES_POTLUCK: StoryQuestDefinition = {
       roles: ['civicOfficial'],
       requiresGiver: true,
       requiresOutcomes: [
-        { questId: 'the-borrowed-bones', outcomes: ['sold', 'buried'] },
+        { questId: 'the-borrowed-bones', outcomes: ['sold', 'buried', 'laundered'] },
         { questId: 'the-velvet-ledger', outcomes: ['enforced', 'sold'] },
         { questId: 'the-soup-offensive', outcomes: ['tainted', 'sold'] },
       ],

@@ -12,6 +12,8 @@ export interface StoryQuestState {
   usedActorIds: string[];
   /** Real world counters at the moment the player accepted this chapter. */
   worldBaselines?: Record<string, number>;
+  /** The actual chosen verb at each stage; used to distinguish facts from forgeries. */
+  choiceHistory?: Record<string, string>;
   giverRoomId?: string;
   giverActorId?: string;
   outcome?: string;
@@ -47,6 +49,7 @@ export interface StoryQuestAction {
   minTrust?: number;
   minScore?: number;
   requiresWorldProgress?: { key: string; increase: number };
+  requiresChoice?: { stage: string; actions: readonly string[] };
   characterLines?: Partial<Record<ActorPersonalityTag, string>>;
   acceptQuest?: boolean;
   requiresCounter?: { key: string; atLeast: number };
@@ -208,6 +211,9 @@ export function availableStoryActions(
       return false;
     if (action.minTrust !== undefined && (target.trust ?? 0) < action.minTrust) return false;
     if (action.minScore !== undefined && (target.score ?? 0) < action.minScore) return false;
+    if (action.requiresChoice && !action.requiresChoice.actions.includes(
+      state.choiceHistory?.[action.requiresChoice.stage] ?? '',
+    )) return false;
     if (action.requiresWorldProgress) {
       const baseline = state.worldBaselines?.[action.requiresWorldProgress.key];
       const current = target.worldCounters?.[action.requiresWorldProgress.key];
@@ -278,6 +284,7 @@ export function applyStoryAction(
       ...state,
       counters,
       stage,
+      choiceHistory: { ...state.choiceHistory, [state.stage]: action.key },
       ...(worldBaselines ? { worldBaselines } : {}),
       usedActorIds: action.uniqueActor
         ? [...state.usedActorIds, target.actorId]
