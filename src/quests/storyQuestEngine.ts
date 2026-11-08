@@ -99,8 +99,10 @@ export function storyQuestIsUnlocked(
 ): boolean {
   return (definition.prerequisites ?? []).every((requirement) => {
     const previous = lookup(requirement.questId);
-    return previous?.stage === 'completed' &&
-      Boolean(previous.outcome && requirement.outcomes.includes(previous.outcome));
+    return (
+      previous?.stage === 'completed' &&
+      Boolean(previous.outcome && requirement.outcomes.includes(previous.outcome))
+    );
   });
 }
 
@@ -138,10 +140,8 @@ export function storyQuestObjectives(
     return [`[x] ${state.outcome ?? 'Resolved'} — the world remembers`];
   }
   if (state.stage === 'declined') return ['[x] Refused'];
-  return (definition.objectives?.[state.stage] ?? ['[ ] Speak with someone involved']).map(
-    (line) => line.replace(/\{([a-zA-Z]+)\}/g, (_match, key: string) =>
-      String(state.counters[key] ?? 0),
-    ),
+  return (definition.objectives?.[state.stage] ?? ['[ ] Speak with someone involved']).map((line) =>
+    line.replace(/\{([a-zA-Z]+)\}/g, (_match, key: string) => String(state.counters[key] ?? 0)),
   );
 }
 
@@ -165,17 +165,29 @@ export function availableStoryActions(
     if (action.originOutcomes && !action.originOutcomes.includes(state.originOutcome ?? '')) {
       return false;
     }
-    if (action.requiresOutcomes?.some((requirement) => {
-      const previous = lookup(requirement.questId);
-      return previous?.stage !== 'completed' ||
-        !previous.outcome || !requirement.outcomes.includes(previous.outcome);
-    })) return false;
-    if (action.personalityAny &&
-      !action.personalityAny.some((tag) => target.personality?.includes(tag))) return false;
+    if (
+      action.requiresOutcomes?.some((requirement) => {
+        const previous = lookup(requirement.questId);
+        return (
+          previous?.stage !== 'completed' ||
+          !previous.outcome ||
+          !requirement.outcomes.includes(previous.outcome)
+        );
+      })
+    )
+      return false;
+    if (
+      action.personalityAny &&
+      !action.personalityAny.some((tag) => target.personality?.includes(tag))
+    )
+      return false;
     if (action.minTrust !== undefined && (target.trust ?? 0) < action.minTrust) return false;
     if (action.minScore !== undefined && (target.score ?? 0) < action.minScore) return false;
-    if (action.counterBelow &&
-      (state.counters[action.counterBelow.key] ?? 0) >= action.counterBelow.limit) return false;
+    if (
+      action.counterBelow &&
+      (state.counters[action.counterBelow.key] ?? 0) >= action.counterBelow.limit
+    )
+      return false;
     if (action.requiresCounter) {
       if ((state.counters[action.requiresCounter.key] ?? 0) < action.requiresCounter.atLeast) {
         return false;
@@ -209,7 +221,8 @@ export function applyStoryAction(
       (counter) => (counters[counter] ?? 0) >= action.advanceWhenAll!.atLeast,
     )
       ? action.advanceWhenAll.stage
-      : action.advanceWhen && (counters[action.advanceWhen.counter] ?? 0) >= action.advanceWhen.atLeast
+      : action.advanceWhen &&
+          (counters[action.advanceWhen.counter] ?? 0) >= action.advanceWhen.atLeast
         ? action.advanceWhen.stage
         : (action.nextStage ?? state.stage);
   return {

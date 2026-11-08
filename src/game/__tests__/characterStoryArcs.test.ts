@@ -42,11 +42,13 @@ function setup() {
       species,
       personality,
     }));
-    game.getActorSystem().setPresence(
-      id,
-      { roomId, position: { x: 10, y: 9 }, materialized: true, stationary: true },
-      'story-character-fixture',
-    );
+    game
+      .getActorSystem()
+      .setPresence(
+        id,
+        { roomId, position: { x: 10, y: 9 }, materialized: true, stationary: true },
+        'story-character-fixture',
+      );
     return id;
   }
   return {
@@ -78,9 +80,11 @@ async function choose(game: SnakeGame, actorId: string, quest: string, verb: str
 describe('character quest arcs in the live actor interaction pipeline', () => {
   it('lets a named guard investigate, a shopkeeper testify, and the same guard close the case', async () => {
     const { game, guard, corruptGuard, shop } = setup();
-    expect(game.getActorInteractionMenu(guard)?.options.some(
-      (option) => option.id === 'quest:ink-and-ashes:investigate',
-    )).toBe(true);
+    expect(
+      game
+        .getActorInteractionMenu(guard)
+        ?.options.some((option) => option.id === 'quest:ink-and-ashes:investigate'),
+    ).toBe(true);
     const start = await choose(game, guard, 'ink-and-ashes', 'investigate');
     expect(start.message).toContain('Names go into a book');
     expect(game.getAcceptedQuestIds()).toContain('ink-and-ashes');
@@ -98,12 +102,17 @@ describe('character quest arcs in the live actor interaction pipeline', () => {
     expect(game.getCompletedQuestIds()).toContain('ink-and-ashes');
     expect(game.getFactionAlignment('hearthbound-remnant').value).toBeGreaterThan(before);
     expect(game.getActorSystem().getActor(guard)?.opinions.player?.respect).toBeGreaterThan(0);
-    expect(game.getActorSystem().getActor(guard)?.memory.some(
-      (item) => item.id.includes('ink-and-ashes:expose'),
-    )).toBe(true);
-    expect(game.getActorInteractionMenu(shop)?.options.some(
-      (option) => option.id === 'quest:the-last-ration:feed',
-    )).toBe(true);
+    expect(
+      game
+        .getActorSystem()
+        .getActor(guard)
+        ?.memory.some((item) => item.id.includes('ink-and-ashes:expose')),
+    ).toBe(true);
+    expect(
+      game
+        .getActorInteractionMenu(shop)
+        ?.options.some((option) => option.id === 'quest:the-last-ration:feed'),
+    ).toBe(true);
     await choose(game, shop, 'the-last-ration', 'feed');
     expect(state(game, 'the-last-ration').outcome).toBe('aid');
   });
@@ -114,13 +123,14 @@ describe('character quest arcs in the live actor interaction pipeline', () => {
     expect(game.getAcceptedQuestIds()).toContain('paper-bridges');
     await choose(game, guard, 'paper-bridges', 'seal');
     expect(game.getQuestSubtasks('paper-bridges')[0]).toContain('Return');
-    expect(game.getQuestMapMarkers().some(
-      (marker) => marker.questId === 'paper-bridges' && marker.kind === 'turn-in',
-    )).toBe(true);
-    expect((await game.chooseActorInteraction(
-      otherGoblin,
-      'quest:paper-bridges:treaty',
-    )).ok).toBe(false);
+    expect(
+      game
+        .getQuestMapMarkers()
+        .some((marker) => marker.questId === 'paper-bridges' && marker.kind === 'turn-in'),
+    ).toBe(true);
+    expect((await game.chooseActorInteraction(otherGoblin, 'quest:paper-bridges:treaty')).ok).toBe(
+      false,
+    );
     await choose(game, goblin, 'paper-bridges', 'treaty');
     const before = game.getFlag<{ wall: number }>('wards.contracts')?.wall ?? 0;
     await choose(game, goblin, 'tollkeepers-debt', 'celebrate');
@@ -132,9 +142,11 @@ describe('character quest arcs in the live actor interaction pipeline', () => {
 
   it('brings both factions to a real council hearing only after both earlier plots conclude', async () => {
     const { game, guard, shop, goblin, official } = setup();
-    expect(game.getActorInteractionMenu(official)?.options.some(
-      (option) => option.id === 'quest:the-open-table:convene',
-    )).toBe(false);
+    expect(
+      game
+        .getActorInteractionMenu(official)
+        ?.options.some((option) => option.id === 'quest:the-open-table:convene'),
+    ).toBe(false);
     await choose(game, guard, 'ink-and-ashes', 'investigate');
     await choose(game, shop, 'ink-and-ashes', 'audit');
     await choose(game, guard, 'ink-and-ashes', 'expose');
@@ -143,9 +155,11 @@ describe('character quest arcs in the live actor interaction pipeline', () => {
     await choose(game, guard, 'paper-bridges', 'seal');
     await choose(game, goblin, 'paper-bridges', 'treaty');
     await choose(game, goblin, 'tollkeepers-debt', 'celebrate');
-    expect(game.getActorInteractionMenu(official)?.options.some(
-      (option) => option.id === 'quest:the-open-table:convene',
-    )).toBe(true);
+    expect(
+      game
+        .getActorInteractionMenu(official)
+        ?.options.some((option) => option.id === 'quest:the-open-table:convene'),
+    ).toBe(true);
     await choose(game, official, 'the-open-table', 'convene');
     await choose(game, goblin, 'the-open-table', 'goblin-testimony');
     expect(state(game, 'the-open-table').stage).toBe('hearing');
@@ -161,22 +175,25 @@ describe('character quest arcs in the live actor interaction pipeline', () => {
   it('hides crooked options from honest guards and refuses unaffordable bribes', async () => {
     const { game, goblin, guard, corruptGuard } = setup();
     await choose(game, goblin, 'paper-bridges', 'accept');
-    expect(game.getActorInteractionMenu(guard)?.options.some(
-      (option) => option.id === 'quest:paper-bridges:toll',
-    )).toBe(false);
-    expect(game.getActorInteractionMenu(corruptGuard)?.options.some(
-      (option) => option.id === 'quest:paper-bridges:toll',
-    )).toBe(false);
-    const result = await game.chooseActorInteraction(
-      corruptGuard,
-      'quest:paper-bridges:toll',
-    );
+    expect(
+      game
+        .getActorInteractionMenu(guard)
+        ?.options.some((option) => option.id === 'quest:paper-bridges:toll'),
+    ).toBe(false);
+    expect(
+      game
+        .getActorInteractionMenu(corruptGuard)
+        ?.options.some((option) => option.id === 'quest:paper-bridges:toll'),
+    ).toBe(false);
+    const result = await game.chooseActorInteraction(corruptGuard, 'quest:paper-bridges:toll');
     expect(result.ok).toBe(false);
     expect(state(game, 'paper-bridges').stage).toBe('negotiation');
     game.addScore(75);
-    expect(game.getActorInteractionMenu(corruptGuard)?.options.some(
-      (option) => option.id === 'quest:paper-bridges:toll',
-    )).toBe(true);
+    expect(
+      game
+        .getActorInteractionMenu(corruptGuard)
+        ?.options.some((option) => option.id === 'quest:paper-bridges:toll'),
+    ).toBe(true);
     const before = game.getScore();
     await choose(game, corruptGuard, 'paper-bridges', 'toll');
     expect(game.getScore()).toBe(before - 50);
@@ -191,9 +208,12 @@ describe('character quest arcs in the live actor interaction pipeline', () => {
     const restored = new SnakeGame(config, registry, {});
     expect(restored.loadFromSaveData(save)).toBe(true);
     expect(restored.getFlag<StoryQuestState>('quest.story.ink-and-ashes')?.stage).toBe('verdict');
-    expect(restored.getActorSystem().getActor(shop)?.memory.some(
-      (memory) => memory.id.includes('ink-and-ashes:audit'),
-    )).toBe(true);
+    expect(
+      restored
+        .getActorSystem()
+        .getActor(shop)
+        ?.memory.some((memory) => memory.id.includes('ink-and-ashes:audit')),
+    ).toBe(true);
     expect(restored.getAcceptedQuestIds()).toContain('ink-and-ashes');
   });
 });

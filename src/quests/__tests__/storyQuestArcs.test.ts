@@ -1,8 +1,11 @@
+import { ACTOR_INTENTS } from '../../session/ActorIntent.js';
+import { STORY_QUESTS } from '../storyQuestCatalog.js';
 import { describe, expect, it } from 'vitest';
 import {
   applyStoryAction,
   availableStoryActions,
   initializeUnlockedStory,
+  storyActionId,
   storyQuestCharacterLine,
   storyQuestObjectives,
   type StoryQuestState,
@@ -44,6 +47,15 @@ const lookup = (values: readonly StoryQuestState[]) => (id: string) =>
   values.find((value) => value.questId === id) ?? null;
 
 describe('character-driven and intersecting quest rules', () => {
+  it('registers every authored NPC action in the typed actor intent protocol', () => {
+    const permitted = new Set<string>(ACTOR_INTENTS);
+    for (const quest of STORY_QUESTS) {
+      for (const action of quest.actions) {
+        expect(permitted.has(storyActionId(quest.id, action.key))).toBe(true);
+      }
+    }
+  });
+
   it('offers a real evidence trail and keeps corruption exclusive to greedy or cynical guards', () => {
     const start = initializeUnlockedStory(INK_AND_ASHES, lookup([]))!;
     expect(availableStoryActions(INK_AND_ASHES, start, guard).map((a) => a.key)).toEqual([
@@ -57,7 +69,9 @@ describe('character-driven and intersecting quest rules', () => {
     expect(availableStoryActions(INK_AND_ASHES, evidence, guard).map((a) => a.key)).toEqual([
       'expose',
     ]);
-    expect(availableStoryActions(INK_AND_ASHES, evidence, greedyGuard).map((a) => a.key)).toEqual([]);
+    expect(availableStoryActions(INK_AND_ASHES, evidence, greedyGuard).map((a) => a.key)).toEqual(
+      [],
+    );
     const dishonest = { ...evidence, giverActorId: greedyGuard.actorId };
     expect(availableStoryActions(INK_AND_ASHES, dishonest, greedyGuard).map((a) => a.key)).toEqual([
       'expose',
@@ -105,9 +119,14 @@ describe('character-driven and intersecting quest rules', () => {
       lookup(adverse),
     )!.state;
     expect(goblinsHeard.stage).toBe('hearing');
-    expect(availableStoryActions(
-      THE_OPEN_TABLE, goblinsHeard, { ...goblin, actorId: 'fresh-witness' }, lookup(adverse),
-    ).map((a) => a.key)).not.toContain('goblin-testimony');
+    expect(
+      availableStoryActions(
+        THE_OPEN_TABLE,
+        goblinsHeard,
+        { ...goblin, actorId: 'fresh-witness' },
+        lookup(adverse),
+      ).map((a) => a.key),
+    ).not.toContain('goblin-testimony');
     expect(storyQuestObjectives(THE_OPEN_TABLE, goblinsHeard)).toContain(
       '[ ] Hear a goblin trader (1/1)',
     );
@@ -120,17 +139,15 @@ describe('character-driven and intersecting quest rules', () => {
     )!.state;
     expect(decision.stage).toBe('decision');
     const options = availableStoryActions(THE_OPEN_TABLE, decision, official, lookup(adverse));
-    expect(options.map((action) => action.key)).toEqual([
-      'charter',
-      'monopoly',
-      'expose-network',
-    ]);
+    expect(options.map((action) => action.key)).toEqual(['charter', 'monopoly', 'expose-network']);
     const righteous = adverse.map((item) =>
       item.questId === 'ink-and-ashes' ? state('ink-and-ashes', 'exposed') : item,
     );
-    expect(availableStoryActions(THE_OPEN_TABLE, decision, official, lookup(righteous)).map(
-      (action) => action.key,
-    )).not.toContain('expose-network');
+    expect(
+      availableStoryActions(THE_OPEN_TABLE, decision, official, lookup(righteous)).map(
+        (action) => action.key,
+      ),
+    ).not.toContain('expose-network');
   });
 
   it('does not allow forging without money or return to the wrong goblin', () => {
@@ -139,9 +156,12 @@ describe('character-driven and intersecting quest rules', () => {
     expect(availableStoryActions(PAPER_BRIDGES, requested, thief)).toEqual([]);
     const payingThief = { ...thief, score: 50 };
     const forged = applyStoryAction(PAPER_BRIDGES, requested, payingThief, 'forge')!.state;
-    expect(availableStoryActions(PAPER_BRIDGES, forged, {
-      ...goblin, actorId: 'other-goblin',
-    })).toEqual([]);
+    expect(
+      availableStoryActions(PAPER_BRIDGES, forged, {
+        ...goblin,
+        actorId: 'other-goblin',
+      }),
+    ).toEqual([]);
     expect(applyStoryAction(PAPER_BRIDGES, forged, goblin, 'counterfeit')?.state.outcome).toBe(
       'forged',
     );
@@ -153,15 +173,17 @@ describe('character-driven and intersecting quest rules', () => {
   });
 
   it('shows the second chapter outcomes relevant to the original deal', () => {
-    const clean = initializeUnlockedStory(TOLLKEEPERS_DEBT, lookup([
-      state('paper-bridges', 'treaty'),
-    ]))!;
+    const clean = initializeUnlockedStory(
+      TOLLKEEPERS_DEBT,
+      lookup([state('paper-bridges', 'treaty')]),
+    )!;
     expect(availableStoryActions(TOLLKEEPERS_DEBT, clean, goblin).map((a) => a.key)).toEqual([
       'celebrate',
     ]);
-    const forged = initializeUnlockedStory(TOLLKEEPERS_DEBT, lookup([
-      state('paper-bridges', 'forged'),
-    ]))!;
+    const forged = initializeUnlockedStory(
+      TOLLKEEPERS_DEBT,
+      lookup([state('paper-bridges', 'forged')]),
+    )!;
     expect(availableStoryActions(TOLLKEEPERS_DEBT, forged, guard).map((a) => a.key)).toEqual([
       'confess',
     ]);

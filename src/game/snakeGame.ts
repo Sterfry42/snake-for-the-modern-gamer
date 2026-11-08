@@ -8192,10 +8192,8 @@ export class SnakeGame implements QuestRuntime {
       }
       const next = {
         ...transition.state,
-        giverRoomId:
-          transition.action.bindGiver ? this.snake.currentRoomId : state.giverRoomId,
-        giverActorId:
-          transition.action.bindGiver ? actor.id : state.giverActorId,
+        giverRoomId: transition.action.bindGiver ? this.snake.currentRoomId : state.giverRoomId,
+        giverActorId: transition.action.bindGiver ? actor.id : state.giverActorId,
       };
       this.setFlag(`quest.story.${definition.id}`, next);
       const consequence = storyQuestConsequence(definition.id, key);
@@ -17127,8 +17125,7 @@ export class SnakeGame implements QuestRuntime {
   canOfferQuestFromGiver(questId: string, giverRoomId: string): boolean {
     const chapter = getStoryQuestDefinition(questId);
     if (chapter && chapter.id !== 'crystal-clause' && chapter.id !== 'crystal-aftermath') {
-      return giverRoomId === this.snake.currentRoomId &&
-        this.storyQuestState(chapter) !== null;
+      return giverRoomId === this.snake.currentRoomId && this.storyQuestState(chapter) !== null;
     }
     if (questId === 'crystal-clause') {
       return this.getActorsInCurrentRoom().some(

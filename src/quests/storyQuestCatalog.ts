@@ -1,4 +1,8 @@
-import { CRYSTAL_CLAUSE, CRYSTAL_AFTERMATH, type StoryQuestDefinition } from './storyQuestEngine.js';
+import {
+  CRYSTAL_CLAUSE,
+  CRYSTAL_AFTERMATH,
+  type StoryQuestDefinition,
+} from './storyQuestEngine.js';
 import { EXPANDED_STORY_QUESTS } from './storyQuestChapters.js';
 
 /** One discoverable catalog; no feature-specific switch tables in NPC menus. */

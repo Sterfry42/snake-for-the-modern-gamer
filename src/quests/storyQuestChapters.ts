@@ -111,7 +111,7 @@ export const INK_AND_ASHES: StoryQuestDefinition = {
     },
     {
       key: 'bribe',
-      label: 'Accept the guard\'s offer to lose the evidence',
+      label: "Accept the guard's offer to lose the evidence",
       description: 'An unscrupulous guard offers to close the investigation quietly.',
       stages: ['verdict'],
       roles: ['guard', 'gateGuard'],
@@ -133,7 +133,7 @@ export const THE_LAST_RATION: StoryQuestDefinition = {
     { questId: 'ink-and-ashes', outcomes: ['exposed', 'buried', 'sold', 'complicit'] },
   ],
   objectives: {
-    aftermath: ['[ ] Decide what the town does with the ledger\'s consequences'],
+    aftermath: ["[ ] Decide what the town does with the ledger's consequences"],
   },
   actions: [
     {
@@ -169,7 +169,7 @@ export const THE_LAST_RATION: StoryQuestDefinition = {
     },
     {
       key: 'profit',
-      label: 'Collect the outlaw\'s share',
+      label: "Collect the outlaw's share",
       description: 'Someone already made a racket out of the stolen records.',
       stages: ['aftermath'],
       roles: ['thief', 'thiefContact', 'guildContact', 'blackMarketMerchant'],
@@ -196,11 +196,11 @@ export const PAPER_BRIDGES: StoryQuestDefinition = {
   description: 'A goblin bookkeeper wants a promise of safe passage, not another war.',
   initialStage: 'offered',
   objectives: {
-    offered: ['[ ] Hear a goblin trader\'s request for safe passage'],
+    offered: ["[ ] Hear a goblin trader's request for safe passage"],
     negotiation: ['[ ] Ask the human guards for a seal, or find another way'],
     sealed: ['[ ] Return the honest passage seal to your goblin contact'],
     forged: ['[ ] Return the forged passage seal to your goblin contact'],
-    extorted: ['[ ] Return to the goblin contact with the guard\'s toll'],
+    extorted: ["[ ] Return to the goblin contact with the guard's toll"],
   },
   returnStages: ['sealed', 'forged', 'extorted'],
   actions: [
@@ -220,7 +220,7 @@ export const PAPER_BRIDGES: StoryQuestDefinition = {
     },
     {
       key: 'decline',
-      label: 'Refuse the goblin\'s request',
+      label: "Refuse the goblin's request",
       description: 'The goblins will find somebody else to negotiate.',
       stages: ['offered'],
       species: ['goblin'],
@@ -230,7 +230,8 @@ export const PAPER_BRIDGES: StoryQuestDefinition = {
     {
       key: 'seal',
       label: 'Request an honest travel seal',
-      description: 'The watch can recognize goblin traders instead of assuming every cart is hostile.',
+      description:
+        'The watch can recognize goblin traders instead of assuming every cart is hostile.',
       stages: ['negotiation'],
       roles: ['guard', 'gateGuard'],
       species: ['human'],
@@ -274,7 +275,7 @@ export const PAPER_BRIDGES: StoryQuestDefinition = {
     {
       key: 'treaty',
       label: 'Deliver the legitimate passage seal',
-      description: 'Your goblin contact can now cross the road under the watch\'s signature.',
+      description: "Your goblin contact can now cross the road under the watch's signature.",
       stages: ['sealed'],
       species: ['goblin'],
       requiresGiver: true,
@@ -293,7 +294,7 @@ export const PAPER_BRIDGES: StoryQuestDefinition = {
     },
     {
       key: 'protection',
-      label: 'Deliver the officer\'s protection price',
+      label: "Deliver the officer's protection price",
       description: 'The goblins can travel only so long as the officer is paid.',
       stages: ['extorted'],
       species: ['goblin'],
@@ -306,7 +307,7 @@ export const PAPER_BRIDGES: StoryQuestDefinition = {
 
 export const TOLLKEEPERS_DEBT: StoryQuestDefinition = {
   id: 'tollkeepers-debt',
-  label: 'The Tollkeeper\'s Debt',
+  label: "The Tollkeeper's Debt",
   description: 'A signed seal has consequences even after the ink is dry.',
   initialStage: 'aftermath',
   prerequisites: [
@@ -318,7 +319,7 @@ export const TOLLKEEPERS_DEBT: StoryQuestDefinition = {
   actions: [
     {
       key: 'celebrate',
-      label: 'Collect the traders\' thanks',
+      label: "Collect the traders' thanks",
       description: 'The goblins offer a ward to the traveler who negotiated a real peace.',
       stages: ['aftermath'],
       species: ['goblin'],
@@ -387,7 +388,7 @@ export const THE_OPEN_TABLE: StoryQuestDefinition = {
     },
   ],
   objectives: {
-    offered: ['[ ] Ask the mayor\'s office to convene the town and goblin camps'],
+    offered: ["[ ] Ask the mayor's office to convene the town and goblin camps"],
     hearing: [
       '[ ] Hear a human guard ({humanVoices}/1)',
       '[ ] Hear a goblin trader ({goblinVoices}/1)',
@@ -420,7 +421,7 @@ export const THE_OPEN_TABLE: StoryQuestDefinition = {
     },
     {
       key: 'guard-testimony',
-      label: 'Hear the watch\'s testimony',
+      label: "Hear the watch's testimony",
       description: 'The guard must account for its actions on the trade road.',
       stages: ['hearing'],
       roles: ['guard', 'gateGuard'],

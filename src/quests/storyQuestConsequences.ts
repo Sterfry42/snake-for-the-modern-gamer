@@ -18,7 +18,6 @@ export interface StoryQuestConsequence {
 }
 
 const EFFECTS: Record<string, StoryQuestConsequence> = {
-
   // The ledger's author is less interesting than who will live with its consequences.
   'ink-and-ashes:investigate': {
     message: 'The guard asks you to find the missing ration ledger without accusing the poor.',
