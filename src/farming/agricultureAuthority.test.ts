@@ -111,6 +111,42 @@ describe('agriculture real authoritative session transactions', () => {
     expect(old.ok).toBe(false);
     expect(game.getFarmCells()).toHaveLength(1);
   });
+  it('disarms single-use farm materials after the last item is applied', async () => {
+    const { game, session, alice, farm, contextToken } = fixture();
+    expect((await farm(alice, 1, 'till')).ok).toBe(true);
+    game.runForPlayer(alice, () => game.getInventory().addItem('farm-compost', 1));
+    expect(
+      (await session.executeCommand({
+        type: 'useItem',
+        itemId: 'farm-compost',
+        playerId: alice,
+      })).ok,
+    ).toBe(true);
+    expect(game.runForPlayer(alice, () => game.getFarmTool())).toBe('farm-compost');
+    expect(
+      (await session.executeCommand({
+        type: 'farmingAction',
+        action: 'compost',
+        target: { dx: 0, dy: 0 },
+        nonce: 2,
+        contextToken: contextToken(alice),
+        playerId: alice,
+      })).ok,
+    ).toBe(true);
+    expect(
+      game.runForPlayer(alice, () => game.getInventory().getItemCount('farm-compost')),
+    ).toBe(0);
+    expect(game.runForPlayer(alice, () => game.getFarmTool())).toBeUndefined();
+    expect(
+      (await session.executeCommand({
+        type: 'farmToolAction',
+        action: 'step',
+        direction: { x: 0, y: -1 },
+        playerId: alice,
+      })).ok,
+    ).toBe(false);
+  });
+
   it('rejects a menu choice after an authoritative room change', async () => {
     const { game, session, alice, contextToken } = fixture();
     const token = contextToken(alice);
