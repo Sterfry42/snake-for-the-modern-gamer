@@ -98,6 +98,7 @@ export function resolveProduce(
 }
 export const FARM_TOOLS = [
   { id: 'farm-hoe', name: 'Hoe', price: 12 },
+  { id: 'claim-flag', name: 'Claim Flag', price: 10 },
   { id: 'watering-can', name: 'Watering Can (8 charges)', price: 10 },
   { id: 'farm-water-refill', name: 'Water Refill', price: 2 },
   { id: 'farm-compost', name: 'Compost', price: 8 },
@@ -121,7 +122,11 @@ export const FARM_ITEMS: readonly Item[] = [
     id: tool.id,
     name: tool.name,
     description:
-      'Use from inventory or the farm tools shortcut. Tools enable deliberate step-by-step tending.',
+      tool.id === 'claim-flag'
+        ? 'Reusable land survey flag. Use from inventory, then Interact to claim wilderness or manage owned land.'
+        : tool.id === 'farm-water-refill'
+          ? 'Refill a watering can away from water.'
+          : 'Use from inventory to enter deliberate farming mode. Interact to use the selected tool.',
     category: 'material' as const,
   })),
   ...CROPS.flatMap((crop) => [
