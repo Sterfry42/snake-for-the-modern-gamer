@@ -1513,6 +1513,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   }
 
   private stepPlayerAction(paused: boolean, playerId: PlayerId): StepResult {
+    const startedAt = performance.now();
     if (!paused) {
       const revision = (this.movementRevisions.get(playerId) ?? 0) + 1;
       for (const turn of this.turnAuthorities.get(playerId)?.take(revision) ?? []) {
@@ -1532,9 +1533,12 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         });
       }
     }
+    const turnMs = performance.now() - startedAt;
     const scoreBefore = this.game.getScore();
     const lengthBefore = this.game.getSnakeLength();
+    const coreStartedAt = performance.now();
     const result = this.game.actionStep(paused, { advanceBombs: !this.manageBasicFeatures });
+    const coreActionMs = performance.now() - coreStartedAt;
     if (!paused)
       this.movementRevisions.set(playerId, (this.movementRevisions.get(playerId) ?? 0) + 1);
     this.resolvePlayerDeath(result, playerId);
@@ -1575,6 +1579,8 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         });
       }
     }
+    const effectsMs = performance.now() - coreStartedAt - coreActionMs;
+    const outcomeStartedAt = performance.now();
     this.emitSnapshot();
     if (this.manageBasicFeatures && !paused)
       this.publishGameplayOutcome(
@@ -1589,6 +1595,14 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         }),
       );
     if (this.eventHandlers.size > 0) this.emitStepEvents(result, playerId);
+    const outcomeMs = performance.now() - outcomeStartedAt;
+    const durationMs = performance.now() - startedAt;
+    if (durationMs >= 100)
+      this.diagnose(
+        'session.action-step-breakdown',
+        { playerId, paused, durationMs, turnMs, coreActionMs, effectsMs, outcomeMs },
+        'warn',
+      );
     return result;
   }
 
