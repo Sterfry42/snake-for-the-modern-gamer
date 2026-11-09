@@ -3,7 +3,6 @@ import type { GameConnection } from '../session/GameConnection.js';
 import type { SceneActionCommand } from '../session/SceneActionCommand.js';
 import type { ChoicePopup } from './choicePopup.js';
 import type { NormalizedChoiceOption } from './choicePopupModel.js';
-import { CROPS } from '../farming/cropCatalog.js';
 import { describeFarmCell } from '../farming/farmingActions.js';
 import { STRUCTURE_BLUEPRINTS } from '../building/structureBlueprint.js';
 
@@ -25,29 +24,41 @@ export class FarmingMenu {
     return this.active;
   }
   getTarget() {
-    const tool = this.game().getFarmTool();
-    return tool
-      ? { dx: this.game().getFarmToolTarget().x, dy: this.game().getFarmToolTarget().y }
-      : this.active
-        ? { ...this.target }
-        : undefined;
+    if (!this.active && !this.game().getFarmTool()) return undefined;
+    const direction = this.game().getFarmToolTarget();
+    return { dx: direction.x, dy: direction.y };
   }
-  private target = { dx: 0, dy: 0 };
   constructor(
     private readonly game: () => SnakeGame,
     private readonly connection: () => GameConnection,
     private readonly popup: ChoicePopup,
     private readonly notify: (message: string) => void,
   ) {}
-  async open(): Promise<void> {
+  /** Crop care is available by interacting with an existing plot, without a tool. */
+  async openSoilActions(): Promise<void> {
+    await this.openContext(() => this.otherActions());
+  }
+
+  /** Claim flags expose land management where the player stands, not through a global menu. */
+  async openLandActions(): Promise<void> {
+    await this.openContext(() => this.territory());
+  }
+
+  async claimCurrentRoom(): Promise<{ ok: boolean; message: string }> {
+    const result = await this.transact({ type: 'territoryAction', action: 'claimCurrentRoom' });
+    return { ok: result.ok, message: result.message ?? result.reason ?? 'Claim rejected.' };
+  }
+
+  private async openContext(show: () => void): Promise<void> {
     this.active = true;
     await this.connection().send({
       type: 'playerInteraction',
       playerId: this.game().getLocalPlayerId(),
       mode: 'manual',
     });
-    this.root();
+    if (this.active) show();
   }
+
   purchaseHouse(kind: Extract<SceneActionCommand, { type: 'houseAction' }>['kind']) {
     return this.transact({ type: 'houseAction', kind });
   }
@@ -68,13 +79,13 @@ export class FarmingMenu {
       contextToken: game.getFarmContextToken(),
     };
     const result = await this.connection().send(command);
-    this.nonce = result.agricultureNonce ?? previous;
+    this.nonce = Math.max(this.nonce, result.agricultureNonce ?? previous);
     return result;
   }
   private async send(intent: AgricultureIntent): Promise<void> {
     const result = await this.transact(intent);
     this.notify(result.message ?? result.reason ?? (result.ok ? 'Done.' : 'Action rejected.'));
-    this.root();
+    if (this.active) this.territory();
   }
   /** Direct world interaction; uses the existing nonce/context authority boundary. */
   async perform(
@@ -114,109 +125,6 @@ export class FarmingMenu {
     });
   }
 
-  private selectTool(itemId: string): void {
-    const game = this.game();
-    this.active = false;
-    this.popup.hide();
-    void Promise.resolve(
-      this.connection().send({
-        type: 'useItem',
-        itemId,
-        playerId: game.getLocalPlayerId(),
-      }),
-    ).then((result) => {
-      this.notify(result.message ?? result.reason ?? 'Tool selected.');
-      void this.connection().send({
-        type: 'playerInteraction',
-        playerId: game.getLocalPlayerId(),
-        mode: result.ok ? 'manual' : 'playing',
-      });
-    });
-  }
-
-  private root(): void {
-    const game = this.game();
-    const ownedSeeds = CROPS.filter(
-      (crop) => game.getInventory().getItemCount(crop.seedItemId) > 0,
-    );
-    const tool = game.getFarmTool();
-    const options: NormalizedChoiceOption[] = [
-      {
-        id: 'seeds',
-        title: `Plant seeds (${ownedSeeds.length} varieties)`,
-        description: 'Select an owned seed. Move deliberately and interact to plant repeatedly.',
-        disabled: ownedSeeds.length === 0,
-      },
-      {
-        id: 'hoe',
-        title: 'Use hoe',
-        description: 'Till suitable ground one step at a time.',
-        disabled: game.getInventory().getItemCount('farm-hoe') === 0,
-      },
-      {
-        id: 'water',
-        title: 'Use watering can',
-        description: `${game.getFlag<number>('farm.canCharges') ?? 8}/8 charges. Water soil by interacting.`,
-        disabled:
-          game.getInventory().getItemCount('watering-can') === 0 &&
-          game.getInventory().getItemCount('garden-watering-can') === 0,
-      },
-      {
-        id: 'refillCan',
-        title: 'Refill watering can',
-        description: 'Stand beside water, or carry a refill.',
-      },
-      {
-        id: 'tend',
-        title: 'Other soil actions',
-        description: 'Inspect, clear, weed, compost or prepare a specialty bed.',
-      },
-      {
-        id: 'territory',
-        title: 'Territory & permissions',
-        description: 'Claims and shared cultivation rights; no deed needed for wilderness.',
-      },
-      {
-        id: 'build',
-        title: 'Construction & defenses',
-        description: 'Build fences, sprinklers and greenhouses in construction mode.',
-      },
-      {
-        id: 'journal',
-        title: 'Crop journal',
-        description: 'Crop seasons, growth, recipes and recorded incidents.',
-      },
-      {
-        id: 'leave',
-        title: tool ? 'Return to farming tool' : 'Leave',
-        description: 'Close this menu.',
-      },
-    ];
-    this.popup.show('Farm tools', options, (id) => {
-      if (id === 'leave') return this.close();
-      if (id === 'seeds') return this.seeds();
-      if (id === 'hoe') return this.selectTool('farm-hoe');
-      if (id === 'water')
-        return this.selectTool(
-          game.getInventory().getItemCount('watering-can') > 0
-            ? 'watering-can'
-            : 'garden-watering-can',
-        );
-      if (id === 'refillCan') {
-        const result = this.perform('refillCan', { dx: 0, dy: 0 });
-        void result.then((value) => {
-          this.notify(value.message);
-          this.root();
-        });
-        return;
-      }
-      if (id === 'tend') return this.otherActions();
-      if (id === 'territory') return this.territory();
-      if (id === 'build') return this.build();
-      if (id === 'journal') return this.journal();
-    });
-  }
-
   private otherActions(): void {
     const head = this.game().getSnakeBody()[0];
     const position = head && this.game().resolveRoomPosition(head);
@@ -245,7 +153,7 @@ export class FarmingMenu {
       { id: 'back', title: 'Back', description: 'Return to tools.' },
     ];
     this.popup.show('Soil care', options, (id) => {
-      if (id === 'back') return this.root();
+      if (id === 'back') return this.close();
       const target = { dx: direction.x, dy: direction.y };
       if (id === 'clear') {
         this.popup.show(
@@ -258,9 +166,9 @@ export class FarmingMenu {
             if (choice === 'yes')
               void this.perform('clear', target).then((r) => {
                 this.notify(r.message);
-                this.root();
+                this.otherActions();
               });
-            else this.root();
+            else this.otherActions();
           },
         );
         return;
@@ -268,32 +176,12 @@ export class FarmingMenu {
       if (id === 'inspect' || id === 'weed' || id === 'compost' || id === 'magicBed') {
         void this.perform(id, target).then((r) => {
           this.notify(r.message);
-          this.root();
+          this.otherActions();
         });
       }
     });
   }
 
-  private seeds(): void {
-    const owned = CROPS.filter(
-      (crop) => this.game().getInventory().getItemCount(crop.seedItemId) > 0,
-    );
-    this.popup.show(
-      'Choose seed to plant',
-      [
-        ...owned.map((crop) => ({
-          id: crop.seedItemId,
-          title: `${crop.label} ×${this.game().getInventory().getItemCount(crop.seedItemId)}`,
-          description: `${crop.seasons.join('/')}; ${crop.growDays} days. ${crop.specialty ? 'Needs specialty soil.' : ''}`,
-        })),
-        { id: 'back', title: 'Back', description: 'Return to farm tools.' },
-      ],
-      (id) => {
-        if (id === 'back') return this.root();
-        if (owned.some((crop) => crop.seedItemId === id)) this.selectTool(id);
-      },
-    );
-  }
   private journal(): void {
     this.popup.show(
       'Crop journal',
@@ -313,7 +201,7 @@ export class FarmingMenu {
           })),
         { id: 'back', title: 'Back', description: '' },
       ],
-      () => this.root(),
+      () => this.territory(),
     );
   }
   private territory(): void {
@@ -344,10 +232,14 @@ export class FarmingMenu {
           description: 'Each permission is independent.',
         })),
       ),
-      { id: 'back', title: 'Back', description: '' },
+      { id: 'build', title: 'Construction & defenses', description: 'Place buildings on build-authorized land.' },
+      { id: 'journal', title: 'Crop journal', description: 'Seasons, growth and farm incidents.' },
+      { id: 'back', title: 'Put away menu', description: '' },
     ];
     this.popup.show('Territory', options, (id) => {
-      if (id === 'back') return this.root();
+      if (id === 'back') return this.close();
+      if (id === 'build') return this.build();
+      if (id === 'journal') return this.journal();
       if (id === 'claim')
         return void this.send({ type: 'territoryAction', action: 'claimCurrentRoom' });
       if (id === 'community')
@@ -370,7 +262,7 @@ export class FarmingMenu {
                   action: 'releaseCurrentRoom',
                   confirmed: true,
                 })
-              : this.root(),
+              : this.territory(),
         );
       const player = peers.find((player) => id.startsWith(`${player.id}:`));
       const permission = ['farm', 'harvest', 'build', 'demolish'].find(
@@ -408,18 +300,24 @@ export class FarmingMenu {
         { id: 'back', title: 'Back', description: '' },
       ],
       (id) => {
-        if (id === 'back') return this.root();
+        if (id === 'back') return this.territory();
         this.active = false;
-        void this.connection().send({
+        this.popup.hide();
+        void Promise.resolve(this.connection().send({
           type: 'construction',
           action: 'begin',
           blueprintId: id,
           playerId: this.game().getLocalPlayerId(),
-        });
-        void this.connection().send({
-          type: 'playerInteraction',
-          mode: 'playing',
-          playerId: this.game().getLocalPlayerId(),
+        })).then((result) => {
+          if (!result.ok) {
+            this.notify(result.message ?? result.reason ?? 'Cannot build here.');
+            return;
+          }
+          void this.connection().send({
+            type: 'playerInteraction',
+            mode: 'playing',
+            playerId: this.game().getLocalPlayerId(),
+          });
         });
       },
     );
