@@ -151,6 +151,25 @@ describe('room snapshot cache', () => {
     expect(cache.size).toBe(1);
   });
 
+  it('ignores edits through stale room proxies after replacement and deletion', () => {
+    const cache = new RoomSnapshotCache(1);
+    const old = cache.prepare(room('0,0,0'));
+    cache.set(old.id, old);
+    const fresh = cache.prepare(room('0,0,0'));
+    cache.set(fresh.id, fresh);
+    const revision = cache.getRevision(fresh.id);
+    old.layout[0] = '##';
+    expect(cache.getRevision(fresh.id)).toBe(revision);
+    expect(cache.peek(fresh.id)?.layout).toEqual(['.#']);
+
+    fresh.layout[0] = '..';
+    expect(cache.getRevision(fresh.id)).toBeGreaterThan(revision);
+    cache.delete(fresh.id);
+    fresh.layout[0] = '##';
+    expect(cache.getRevision(fresh.id)).toBe(0);
+    expect(cache.peek(fresh.id)).toBeUndefined();
+  });
+
   it('removes archived rooms and does not revive cleared runs', () => {
     const cache = new RoomSnapshotCache(1);
     const first = cache.prepare(room('0,0,0'));

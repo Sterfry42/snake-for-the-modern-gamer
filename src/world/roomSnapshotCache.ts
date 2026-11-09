@@ -52,9 +52,12 @@ export class RoomSnapshotCache implements Iterable<[string, RoomSnapshot]> {
   prepare(room: RoomSnapshot): RoomSnapshot {
     const proxies = new WeakMap<object, object>();
     const changed = (): void => {
-      this.revisions.set(room.id, ++this.version);
       const record = this.archived.get(room.id);
-      if (record?.reference.deref() !== root || record.pending) return;
+      // Old room proxies can survive a replace, delete, or world reset. Their
+      // edits must not invalidate the currently owned room or resurrect it.
+      if (this.hot.get(room.id) !== root && record?.reference.deref() !== root) return;
+      this.revisions.set(room.id, ++this.version);
+      if (!record || record.pending) return;
       record.pending = true;
       // Hold the edited room until its archive is refreshed, coalescing synchronous edits.
       queueMicrotask(() => {
