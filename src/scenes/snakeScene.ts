@@ -580,6 +580,9 @@ interface SnakeE2EWindowApi {
   debugBurst(worldX: number, worldY: number, count: number): void;
   startUnicornGlitter(): void;
   stopUnicornGlitter(): void;
+
+  getShellPerf(): ReturnType<import('../ui/skillTreeOverlay.js').SkillTreeOverlay['getShellPerf']>;
+  resetShellPerf(): void;
 }
 
 declare global {
@@ -4230,6 +4233,8 @@ export default class SnakeScene extends Phaser.Scene {
       debugBurst: (worldX, worldY, count) => this.juice.debugBurst(worldX, worldY, count),
       startUnicornGlitter: () => this.juice.startUnicornGlitter(),
       stopUnicornGlitter: () => this.juice.stopUnicornGlitter(),
+      getShellPerf: () => this.skillTree.getOverlay().getShellPerf(),
+      resetShellPerf: () => this.skillTree.getOverlay().resetShellPerf(),
     };
   }
 

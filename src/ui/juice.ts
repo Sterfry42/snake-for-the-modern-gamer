@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
 import type { ManeuverId } from '../maneuvers/maneuverTypes.js';
 import { buildBossMusic } from './juice/bossMusic.js';
+import { batchParticleValue, type BatchParticleSpec } from './juice/batchParticle.js';
 
 type TweenState = Record<string, number>;
 
@@ -3680,33 +3681,71 @@ export class JuiceManager {
     worldY: number,
     { colors, count, radius }: { colors: number[]; count: number; radius: number },
   ) {
-    const layer = this.particleLayer;
-    if (!layer) {
+    if (count <= 0) {
       return;
     }
+    const specs: BatchParticleSpec[] = [];
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count;
       const dist = Phaser.Math.Between(radius * 0.4, radius);
-      const offsetX = Math.cos(angle) * dist;
-      const offsetY = Math.sin(angle) * dist;
-      const circle = this.scene.add.circle(
-        worldX + offsetX,
-        worldY + offsetY,
-        Phaser.Math.Between(3, 5),
-        Phaser.Utils.Array.GetRandom(colors),
-      );
-      circle.setDepth(22);
-      layer.add(circle);
-
-      this.scene.tweens.add({
-        targets: circle,
-        alpha: 0,
-        scale: 0,
-        duration: Phaser.Math.Between(180, 260),
-        ease: 'Cubic.easeOut',
-        onComplete: () => circle.destroy(),
+      specs.push({
+        x: worldX + Math.cos(angle) * dist,
+        y: worldY + Math.sin(angle) * dist,
+        radius: Phaser.Math.Between(3, 5),
+        color: Phaser.Utils.Array.GetRandom(colors),
+        alpha: 1,
+        dx: 0,
+        dy: 0,
+        scaleEnd: 0,
+        durationMs: Phaser.Math.Between(180, 260),
       });
     }
+    this.spawnBatchedParticles(specs, 22, false);
+  }
+
+  /**
+   * Draws a group of fading circles as one Graphics object driven by one
+   * tween. The legacy pattern allocated one GameObject plus one tween per
+   * particle, so a busy moment (fast apples, level-up, ambient cosmetics)
+   * piled hundreds of short-lived objects and tweens onto the render list —
+   * the main source of particle-related jank on phones. Per-particle motion
+   * and fade follow the exact legacy math (see batchParticle.ts).
+   */
+  private spawnBatchedParticles(
+    specs: BatchParticleSpec[],
+    depth: number,
+    additive: boolean,
+  ): void {
+    if (specs.length === 0) {
+      return;
+    }
+    const g = this.scene.add.graphics().setDepth(depth);
+    if (additive) {
+      g.setBlendMode(Phaser.BlendModes.ADD);
+    }
+    this.particleLayer.add(g);
+    const maxDuration = specs.reduce((max, spec) => Math.max(max, spec.durationMs), 0);
+    const started = this.scene.time.now;
+    const redraw = () => {
+      const elapsed = this.scene.time.now - started;
+      g.clear();
+      for (const spec of specs) {
+        const value = batchParticleValue(spec, elapsed);
+        if (value && value.alpha > 0.004 && value.radius > 0.05) {
+          g.fillStyle(spec.color, value.alpha);
+          g.fillCircle(value.x, value.y, value.radius);
+        }
+      }
+    };
+    redraw();
+    this.scene.tweens.add({
+      targets: { t: 0 },
+      t: 1,
+      duration: maxDuration,
+      ease: 'Linear',
+      onUpdate: redraw,
+      onComplete: () => g.destroy(),
+    });
   }
 
   private floatingLabel(
@@ -3827,6 +3866,19 @@ export class JuiceManager {
               ? [0xffd166, 0xff8c42, 0xff6b6b]
               : [0x5dd6a2];
 
+      // One Graphics batch per movement step instead of one GameObject plus
+      // tween per dot: the snake steps constantly, so this is the most
+      // frequently allocated particle path in the whole game.
+      const duration =
+        movementType === 'teleport'
+          ? 180
+          : movementType === 'fast'
+            ? 220
+            : movementType === 'slow'
+              ? 280
+              : 220;
+      const scaleEnd = movementType === 'teleport' ? 0.8 : movementType === 'fast' ? 0.6 : 0.5;
+      const specs: BatchParticleSpec[] = [];
       for (let i = 0; i < particleCount; i++) {
         const angle =
           movementType === 'teleport'
@@ -3843,70 +3895,41 @@ export class JuiceManager {
           worldY +
           (movementType === 'teleport' ? Math.sin(angle) * dist : 0) +
           (movementType === 'fast' ? Phaser.Math.Between(-6, 6) : 0);
-
-        const dot = this.scene.add
-          .circle(
-            cx,
-            cy,
+        specs.push({
+          x: cx,
+          y: cy,
+          radius:
             movementType === 'teleport'
               ? Phaser.Math.Between(2, 4)
               : movementType === 'fast'
                 ? Phaser.Math.Between(2, 3)
                 : 2,
-            Phaser.Utils.Array.GetRandom(colors),
-          )
-          .setAlpha(movementType === 'teleport' ? 0.95 : 0.9);
-        dot.setDepth(21);
-        if (movementType !== 'normal') {
-          dot.setBlendMode(Phaser.BlendModes.ADD);
-        }
-        this.particleLayer.add(dot);
-
-        const duration =
-          movementType === 'teleport'
-            ? 180
-            : movementType === 'fast'
-              ? 220
-              : movementType === 'slow'
-                ? 280
-                : 220;
-        this.scene.tweens.add({
-          targets: dot,
-          x: cx + (movementType === 'fast' ? Phaser.Math.Between(-4, 4) : 0),
-          y:
-            cy +
+          color: Phaser.Utils.Array.GetRandom(colors),
+          alpha: movementType === 'teleport' ? 0.95 : 0.9,
+          dx: movementType === 'fast' ? Phaser.Math.Between(-4, 4) : 0,
+          dy:
             (movementType === 'fast' ? Phaser.Math.Between(-4, 4) : 0) -
             (movementType === 'slow' ? Phaser.Math.Between(4, 8) : 0) -
             (movementType === 'teleport' ? Phaser.Math.Between(6, 12) : 0),
-          alpha: 0,
-          scale: movementType === 'teleport' ? 0.8 : movementType === 'fast' ? 0.6 : 0.5,
-          duration,
-          ease: 'Cubic.easeOut',
-          onComplete: () => dot.destroy(),
+          scaleEnd,
+          durationMs: duration,
         });
       }
 
       if (movementType === 'fast') {
-        const spark = this.scene.add
-          .circle(
-            worldX + Phaser.Math.Between(-8, 8),
-            worldY + Phaser.Math.Between(-8, 8),
-            Phaser.Math.Between(2, 3),
-            Phaser.Utils.Array.GetRandom([0xfff3a8, 0xc8ffe1]),
-          )
-          .setAlpha(0.75);
-        spark.setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
-        this.particleLayer.add(spark);
-        this.scene.tweens.add({
-          targets: spark,
-          y: spark.y - Phaser.Math.Between(6, 12),
-          alpha: 0,
-          scale: 0.4,
-          duration: 160,
-          ease: 'Cubic.easeOut',
-          onComplete: () => spark.destroy(),
+        specs.push({
+          x: worldX + Phaser.Math.Between(-8, 8),
+          y: worldY + Phaser.Math.Between(-8, 8),
+          radius: Phaser.Math.Between(2, 3),
+          color: Phaser.Utils.Array.GetRandom([0xfff3a8, 0xc8ffe1]),
+          alpha: 0.75,
+          dx: 0,
+          dy: -Phaser.Math.Between(6, 12),
+          scaleEnd: 0.4,
+          durationMs: 160,
         });
       }
+      this.spawnBatchedParticles(specs, 21, movementType !== 'normal');
     }
   }
 
@@ -8590,8 +8613,18 @@ export class JuiceManager {
 
   // ─── Unicorn Glitter & Trail ───────────────────────────────────────────────
   private unicornGlitterTimer?: Phaser.Time.TimerEvent;
-  private unicornTrailParticles: Phaser.GameObjects.GameObject[] = [];
-  private unicornTrailCleanupTimer?: Phaser.Time.TimerEvent;
+  /**
+   * Live glitter state instead of live GameObjects: the legacy effect kept
+   * ~40 arcs plus ~40 tweens alive at all times while active (3-5 sparkles
+   * every 80ms, plus a 1.5-2.5s trail per new tail cell). The state is
+   * drawn into one persistent Graphics by a per-frame pass, so the whole
+   * effect costs one render object.
+   */
+  private readonly unicornGlitterParticles: Array<
+    BatchParticleSpec & { bornAt: number; trail: boolean }
+  > = [];
+  private unicornGlitterGraphics: Phaser.GameObjects.Graphics | null = null;
+  private unicornGlitterRedrawActive = false;
   private _lastUnicornTailKey?: string;
 
   startUnicornGlitter(): void {
@@ -8603,12 +8636,10 @@ export class JuiceManager {
       callback: () => this.spawnUnicornGlitter(),
       loop: true,
     });
-    // Periodic cleanup of old trail particles
-    this.unicornTrailCleanupTimer = this.scene.time.addEvent({
-      delay: 2000,
-      callback: () => this.cleanupOldTrailParticles(),
-      loop: true,
-    });
+    if (!this.unicornGlitterRedrawActive) {
+      this.scene.events.on('update', this.redrawUnicornGlitter, this);
+      this.unicornGlitterRedrawActive = true;
+    }
   }
 
   stopUnicornGlitter(): void {
@@ -8616,24 +8647,63 @@ export class JuiceManager {
       this.unicornGlitterTimer.remove();
       this.unicornGlitterTimer = undefined;
     }
-    if (this.unicornTrailCleanupTimer) {
-      this.unicornTrailCleanupTimer.remove();
-      this.unicornTrailCleanupTimer = undefined;
+    // The legacy stop killed the trail immediately while sparkles finished
+    // their fade naturally — same semantics: drop trail entries, let
+    // sparkles expire on their own (the per-frame pass self-cleans after).
+    for (let i = this.unicornGlitterParticles.length - 1; i >= 0; i--) {
+      if (this.unicornGlitterParticles[i]?.trail) {
+        this.unicornGlitterParticles.splice(i, 1);
+      }
     }
-    // Destroy all trail particles
-    for (const particle of this.unicornTrailParticles) {
-      particle.destroy();
-    }
-    this.unicornTrailParticles.length = 0;
     this._lastUnicornTailKey = undefined;
   }
 
-  private spawnUnicornGlitter(): void {
-    const layer = this.particleLayer;
-    if (!layer) {
+  private redrawUnicornGlitter(): void {
+    const now = this.scene.time.now;
+    // Lifetime expiry is the cleanup path (it replaces the legacy 200
+    // particle safety-net timer — a particle can never outlive its spec).
+    for (let i = this.unicornGlitterParticles.length - 1; i >= 0; i--) {
+      const particle = this.unicornGlitterParticles[i];
+      if (!particle || now - particle.bornAt >= particle.durationMs) {
+        this.unicornGlitterParticles.splice(i, 1);
+      }
+    }
+    if (this.unicornGlitterParticles.length === 0) {
+      if (!this.unicornGlitterTimer && this.unicornGlitterRedrawActive) {
+        this.scene.events.off('update', this.redrawUnicornGlitter, this);
+        this.unicornGlitterRedrawActive = false;
+        this.unicornGlitterGraphics?.destroy();
+        this.unicornGlitterGraphics = null;
+      } else {
+        this.unicornGlitterGraphics?.clear();
+      }
       return;
     }
+    if (!this.unicornGlitterGraphics) {
+      this.unicornGlitterGraphics = this.scene.add
+        .graphics()
+        .setDepth(21)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      this.particleLayer.add(this.unicornGlitterGraphics);
+    }
+    const g = this.unicornGlitterGraphics;
+    g.clear();
+    // Trails first (legacy depth 21), sparkles on top (legacy depth 22).
+    for (const trailPass of [true, false]) {
+      for (const particle of this.unicornGlitterParticles) {
+        if (particle.trail !== trailPass) {
+          continue;
+        }
+        const value = batchParticleValue(particle, now - particle.bornAt);
+        if (value && value.alpha > 0.004 && value.radius > 0.05) {
+          g.fillStyle(particle.color, value.alpha);
+          g.fillCircle(value.x, value.y, value.radius);
+        }
+      }
+    }
+  }
 
+  private spawnUnicornGlitter(): void {
     // Rainbow glitter colors
     const glitterColors = [
       0xff6b9d, // pink
@@ -8672,88 +8742,41 @@ export class JuiceManager {
     this._lastUnicornTailKey = tailKey;
 
     // Burst particles at tail (3-5 per spawn)
+    const now = this.scene.time.now;
     const burstCount = 3 + Math.floor(this.rng() * 3);
     for (let i = 0; i < burstCount; i++) {
       const angle = Math.random() * Math.PI * 2;
       const dist = 4 + this.rng() * 12;
-      const size = 1.5 + this.rng() * 2.5;
-      const color = glitterColors[Math.floor(this.rng() * glitterColors.length)];
-
-      const sparkle = this.scene.add.circle(
-        tailCx + Math.cos(angle) * dist,
-        tailCy + Math.sin(angle) * dist,
-        size,
-        color,
-      );
-      sparkle.setDepth(22);
-      sparkle.setBlendMode(Phaser.BlendModes.ADD);
-      layer.add(sparkle);
-
-      // Twinkle and fade out
-      const duration = 300 + this.rng() * 400;
-      this.scene.tweens.add({
-        targets: sparkle,
-        alpha: 0,
-        scale: 0,
-        duration: duration,
-        ease: 'Cubic.easeOut',
-        onComplete: () => sparkle.destroy(),
+      this.unicornGlitterParticles.push({
+        x: tailCx + Math.cos(angle) * dist,
+        y: tailCy + Math.sin(angle) * dist,
+        radius: 1.5 + this.rng() * 2.5,
+        color: glitterColors[Math.floor(this.rng() * glitterColors.length)],
+        alpha: 1,
+        dx: 0,
+        dy: 0,
+        scaleEnd: 0,
+        durationMs: 300 + this.rng() * 400,
+        bornAt: now,
+        trail: false,
       });
     }
 
-    // Trail particles: leave a path of glitter behind the snake
+    // Trail: leave a path of glitter behind the snake (longer-lived)
     if (isNewPosition) {
-      this.spawnTrailParticle(tailCx, tailCy, glitterColors);
-    }
-  }
-
-  private spawnTrailParticle(x: number, y: number, glitterColors: number[]): void {
-    const layer = this.particleLayer;
-    if (!layer) {
-      return;
-    }
-
-    // Trail particles are slightly larger and last longer
-    const size = 2 + this.rng() * 3;
-    const color = glitterColors[Math.floor(this.rng() * glitterColors.length)];
-    const lifetime = 1500 + this.rng() * 1000; // 1.5-2.5 seconds
-
-    const trail = this.scene.add.circle(x, y, size, color);
-    trail.setDepth(21); // Behind main burst particles
-    trail.setBlendMode(Phaser.BlendModes.ADD);
-    trail.setAlpha(0.85);
-    layer.add(trail);
-    this.unicornTrailParticles.push(trail);
-
-    // Fade out and shrink
-    this.scene.tweens.add({
-      targets: trail,
-      alpha: 0,
-      scale: 0.3,
-      duration: lifetime,
-      ease: 'Cubic.easeOut',
-      onComplete: () => {
-        trail.destroy();
-        const idx = this.unicornTrailParticles.indexOf(trail);
-        if (idx !== -1) {
-          this.unicornTrailParticles.splice(idx, 1);
-        }
-      },
-    });
-  }
-
-  private cleanupOldTrailParticles(): void {
-    // Remove trail particles that have been around too long
-    // (safety net — tweens should handle cleanup, but this prevents leaks)
-    const maxTrailParticles = 200;
-    if (this.unicornTrailParticles.length > maxTrailParticles) {
-      const toRemove = this.unicornTrailParticles.splice(
-        0,
-        this.unicornTrailParticles.length - maxTrailParticles,
-      );
-      for (const p of toRemove) {
-        p.destroy();
-      }
+      this.unicornGlitterParticles.push({
+        x: tailCx,
+        y: tailCy,
+        radius: 2 + this.rng() * 3,
+        color: glitterColors[Math.floor(this.rng() * glitterColors.length)],
+        alpha: 0.85,
+        dx: 0,
+        dy: 0,
+        scaleEnd: 0.3,
+        durationMs: 1500 + this.rng() * 1000,
+        bornAt: now,
+        trail: true,
+      });
     }
   }
 
@@ -8767,7 +8790,10 @@ export class JuiceManager {
     return {
       liveParticles: this.particleLayer.list.length,
       activeTweens: this.scene.tweens.getTweens().length,
-      unicornTrail: this.unicornTrailParticles.length,
+      unicornTrail: this.unicornGlitterParticles.reduce(
+        (count, particle) => count + (particle.trail ? 1 : 0),
+        0,
+      ),
     };
   }
 

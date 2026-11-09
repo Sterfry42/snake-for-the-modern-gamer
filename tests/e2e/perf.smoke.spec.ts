@@ -39,6 +39,8 @@ declare global {
       debugBurst(worldX: number, worldY: number, count: number): void;
       startUnicornGlitter(): void;
       stopUnicornGlitter(): void;
+      getShellPerf(): { frames: number; ms: number; avgMsPerFrame: number };
+      resetShellPerf(): void;
     };
   }
 }
@@ -159,6 +161,11 @@ test.describe('perf smoke', () => {
     // a full rebuild is due at most once per frame, and a 200-sample burst
     // lands in one or two frames.
     expect(perf.rebuilds).toBeLessThanOrEqual(6);
+    // The animated shell redraw is the menu's steady per-frame JS cost; it
+    // has to stay small so the menu stays responsive on phones.
+    const shell = await page.evaluate(() => window.snakeE2E!.getShellPerf());
+    expect(shell.frames).toBeGreaterThan(0);
+    expect(shell.avgMsPerFrame).toBeLessThan(5);
     expect(errors).toEqual([]);
   });
 
@@ -190,6 +197,11 @@ test.describe('perf smoke', () => {
     );
 
     expect(storm.peakLive).toBeGreaterThan(0);
+    // A 126-particle storm is one batched Graphics per burst: live objects
+    // and tweens must stay near the ambient floor, not scale with the
+    // particle count (legacy: 128 live objects, 154 tweens for this storm).
+    expect(storm.peakLive).toBeLessThanOrEqual(12);
+    expect(storm.peakTweens).toBeLessThanOrEqual(40);
     // Bursts are short-lived: after the sampling window the layer drains.
     expect(storm.after.liveParticles).toBeLessThan(storm.peakLive);
     expect(errors).toEqual([]);
@@ -226,10 +238,13 @@ test.describe('perf smoke', () => {
         `afterStopLive=${ambient.after.liveParticles}`,
     );
 
-    // The ambient effect must actually produce sustained pressure (that is
-    // the point of the probe) and must drain after stopping.
+    // Trails must still be produced (the effect still works), and the
+    // whole ambient effect must cost about one batched render object plus
+    // no per-particle tweens (legacy: ~45 live objects, ~70 tweens
+    // sustained while active).
     expect(ambient.peakTrail).toBeGreaterThan(0);
-    expect(ambient.peakLive).toBeGreaterThan(ambient.idle.liveParticles);
+    expect(ambient.peakLive).toBeLessThanOrEqual(ambient.idle.liveParticles + 6);
+    expect(ambient.peakTweens).toBeLessThanOrEqual(ambient.idle.activeTweens + 10);
     expect(errors).toEqual([]);
   });
 });

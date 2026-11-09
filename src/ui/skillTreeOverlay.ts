@@ -5520,7 +5520,10 @@ export class SkillTreeOverlay {
   }
 
   private onShellUpdate(): void {
+    const started = performance.now();
     this.drawShellFrame();
+    this.shellPerf.frames += 1;
+    this.shellPerf.ms += performance.now() - started;
     this.flushCoalescedScrollRebuilds();
   }
 
@@ -8834,6 +8837,27 @@ export class SkillTreeOverlay {
       this.scrollPerf.rebuilds += 1;
       this.scrollPerf.rebuildTimeMs += performance.now() - started;
     }
+  }
+
+  /**
+   * Dev-only perf probe for the e2e suite: per-frame cost of the animated
+   * shell redraw while the menu is open. The shell is the biggest steady
+   * per-frame JS cost of the pause menu, so its share of the frame budget
+   * has to stay small on phones.
+   */
+  private readonly shellPerf = { frames: 0, ms: 0 };
+
+  getShellPerf(): { frames: number; ms: number; avgMsPerFrame: number } {
+    return {
+      frames: this.shellPerf.frames,
+      ms: this.shellPerf.ms,
+      avgMsPerFrame: this.shellPerf.frames > 0 ? this.shellPerf.ms / this.shellPerf.frames : 0,
+    };
+  }
+
+  resetShellPerf(): void {
+    this.shellPerf.frames = 0;
+    this.shellPerf.ms = 0;
   }
 
   private setActiveTab(tabId: TabId): void {
