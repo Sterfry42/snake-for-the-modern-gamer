@@ -320,12 +320,13 @@ export class FarmingMenu {
         ).then((result) => {
           if (!result.ok) {
             this.notify(result.message ?? result.reason ?? 'Cannot build here.');
+            // The contextual menu already entered manual mode; restore it only on failure.
+            void this.connection().send({
+              type: 'playerInteraction',
+              mode: this.game().getFarmTool() ? 'manual' : 'playing',
+              playerId: this.game().getLocalPlayerId(),
+            });
           }
-          void this.connection().send({
-            type: 'playerInteraction',
-            mode: result.ok || this.game().getFarmTool() ? 'manual' : 'playing',
-            playerId: this.game().getLocalPlayerId(),
-          });
         });
       },
     );
