@@ -322,7 +322,7 @@ export class FarmingMenu {
           }
           void this.connection().send({
             type: 'playerInteraction',
-            mode: 'playing',
+            mode: 'manual',
             playerId: this.game().getLocalPlayerId(),
           });
         });
