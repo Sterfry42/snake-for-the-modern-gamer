@@ -3,6 +3,7 @@ import type { GameConnection } from '../session/GameConnection.js';
 import type { SceneActionCommand } from '../session/SceneActionCommand.js';
 import type { ChoicePopup } from './choicePopup.js';
 import type { NormalizedChoiceOption } from './choicePopupModel.js';
+import { CROPS } from '../farming/cropCatalog.js';
 import { describeFarmCell } from '../farming/farmingActions.js';
 import { STRUCTURE_BLUEPRINTS } from '../building/structureBlueprint.js';
 
@@ -150,7 +151,7 @@ export class FarmingMenu {
       { id: 'compost', title: 'Apply compost', description: 'Restore fertility.' },
       { id: 'magicBed', title: 'Apply luminous substrate', description: 'Prepare magic crops.' },
       { id: 'clear', title: 'Clear crop (destructive)', description: 'Remove without a harvest.' },
-      { id: 'back', title: 'Back', description: 'Return to tools.' },
+      { id: 'back', title: 'Close', description: 'Return to the game.' },
     ];
     this.popup.show('Soil care', options, (id) => {
       if (id === 'back') return this.close();
@@ -232,7 +233,11 @@ export class FarmingMenu {
           description: 'Each permission is independent.',
         })),
       ),
-      { id: 'build', title: 'Construction & defenses', description: 'Place buildings on build-authorized land.' },
+      {
+        id: 'build',
+        title: 'Construction & defenses',
+        description: 'Place buildings on build-authorized land.',
+      },
       { id: 'journal', title: 'Crop journal', description: 'Seasons, growth and farm incidents.' },
       { id: 'back', title: 'Put away menu', description: '' },
     ];
@@ -303,12 +308,14 @@ export class FarmingMenu {
         if (id === 'back') return this.territory();
         this.active = false;
         this.popup.hide();
-        void Promise.resolve(this.connection().send({
-          type: 'construction',
-          action: 'begin',
-          blueprintId: id,
-          playerId: this.game().getLocalPlayerId(),
-        })).then((result) => {
+        void Promise.resolve(
+          this.connection().send({
+            type: 'construction',
+            action: 'begin',
+            blueprintId: id,
+            playerId: this.game().getLocalPlayerId(),
+          }),
+        ).then((result) => {
           if (!result.ok) {
             this.notify(result.message ?? result.reason ?? 'Cannot build here.');
             return;
