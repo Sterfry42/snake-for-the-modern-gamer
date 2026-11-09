@@ -239,7 +239,7 @@ export class FarmingMenu {
         description: 'Place buildings on build-authorized land.',
       },
       { id: 'journal', title: 'Crop journal', description: 'Seasons, growth and farm incidents.' },
-      { id: 'back', title: 'Put away menu', description: '' },
+      { id: 'back', title: 'Close territory', description: 'Return to the field.' },
     ];
     this.popup.show('Territory', options, (id) => {
       if (id === 'back') return this.close();
