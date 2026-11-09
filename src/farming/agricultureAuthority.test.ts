@@ -126,6 +126,75 @@ describe('agriculture real authoritative session transactions', () => {
     expect(result.message).toContain('changed rooms');
     expect(game.getFarmRoomIds()).toHaveLength(0);
   });
+  it('blocks deliberate farming and construction steps through other snakes and solid terrain', async () => {
+    const { game, session, room, alice } = fixture();
+    const position = () =>
+      game.runForPlayer(alice, () => game.resolveRoomPosition(game.getSnakeBody()[0]!));
+    expect(position()?.localX).toBe(5);
+    expect(position()?.localY).toBe(5);
+
+    expect(
+      (await session.executeCommand({ type: 'useItem', itemId: 'farm-hoe', playerId: alice })).ok,
+    ).toBe(true);
+    const blockedFarm = await session.executeCommand({
+      type: 'farmToolAction',
+      action: 'step',
+      direction: { x: 1, y: 0 },
+      playerId: alice,
+    });
+    expect(blockedFarm.ok).toBe(false);
+    expect(blockedFarm.message).toContain('player');
+    expect(position()?.localX).toBe(5);
+
+    expect(
+      (await session.executeCommand({
+        type: 'construction',
+        action: 'begin',
+        blueprintId: 'farm-fence',
+        playerId: alice,
+      })).ok,
+    ).toBe(true);
+    const blockedBuild = await session.executeCommand({
+      type: 'construction',
+      action: 'step',
+      direction: { x: 1, y: 0 },
+      playerId: alice,
+    });
+    expect(blockedBuild.ok).toBe(false);
+    expect(blockedBuild.message).toContain('player');
+    expect(position()?.localX).toBe(5);
+    expect(game.getStructurePlacement()).not.toBeNull();
+
+    const originalRow = room.layout[4]!;
+    room.layout[4] = originalRow.slice(0, 5) + '#' + originalRow.slice(6);
+    const wall = await session.executeCommand({
+      type: 'construction',
+      action: 'step',
+      direction: { x: 0, y: -1 },
+      playerId: alice,
+    });
+    expect(wall.ok).toBe(false);
+    expect(position()?.localY).toBe(5);
+    room.layout[4] = originalRow;
+
+    const safe = await session.executeCommand({
+      type: 'construction',
+      action: 'step',
+      direction: { x: 0, y: -1 },
+      playerId: alice,
+    });
+    expect(safe.ok).toBe(true);
+    expect(position()?.localY).toBe(4);
+    expect(
+      (await session.executeCommand({
+        type: 'construction',
+        action: 'cancel',
+        playerId: alice,
+      })).ok,
+    ).toBe(true);
+    expect(game.getStructurePlacement()).toBeNull();
+  });
+
   it('charges exact claim price once, refuses a rival owner, and releases without a refund', async () => {
     const { game, session, alice, bob, contextToken } = fixture();
     game.setScore(40);
