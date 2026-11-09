@@ -132,7 +132,7 @@ export class WorldService {
   }
 
   peekCachedRoom(roomId: string): RoomSnapshot | undefined {
-    return this.rooms.get(roomId);
+    return this.rooms.peek(roomId);
   }
 
   getCachedRoomIds(): string[] {
