@@ -15,6 +15,15 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+    {
+      name: 'chromium-touch',
+      // Emulates a phone (Playwright reports maxTouchPoints > 0), which is
+      // what the mobile controls deck auto-detection looks for. Only the
+      // mobile-dedicated specs run here; the other suites are
+      // browser-independent and already covered by desktop chromium.
+      use: { ...devices['Pixel 7'] },
+      testMatch: /mobileControls\.smoke\.spec\.ts/,
+    },
   ],
   webServer: {
     command: 'npm run dev -- --host 127.0.0.1 --port 4173',

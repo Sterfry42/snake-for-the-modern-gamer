@@ -312,16 +312,17 @@ body {
   text-transform: uppercase;
 }
 
+/* The panel is square so the diamond of action buttons keeps its shape. */
 .mobile-controls__action-panel {
   justify-self: end;
   width: clamp(104px, 30vmin, 220px);
-  height: clamp(100px, 28vmin, 210px);
+  height: clamp(104px, 30vmin, 220px);
 }
 
 .mobile-controls__action-button {
   position: absolute;
-  width: clamp(30px, 14vmin, 96px);
-  height: clamp(30px, 14vmin, 96px);
+  width: 40%;
+  aspect-ratio: 1;
   border-radius: 50%;
   background: radial-gradient(circle at 34% 28%, #ff8fc6, #a91f65 68%, #55113a);
   box-shadow:
@@ -332,14 +333,41 @@ body {
   font-size: clamp(14px, 6vmin, 42px);
 }
 
+/*
+  Diamond cluster: X top-left, A top-right, M bottom-right, B bottom-left.
+  Every button lives in its own 40% quadrant with an 8% offset, so the
+  quadrants (and the buttons) can never overlap at any panel size.
+*/
+.mobile-controls__action-button--x {
+  left: 8%;
+  top: 8%;
+  background: radial-gradient(circle at 34% 28%, #7fb4ff, #2a5fb0 68%, #16294d);
+  box-shadow:
+    inset 0 3px 4px rgba(255, 255, 255, 0.22),
+    inset 0 -8px 9px rgba(0, 0, 0, 0.28),
+    0 9px 0 #0b1526,
+    0 16px 22px rgba(0, 0, 0, 0.42);
+}
+
 .mobile-controls__action-button--a {
   right: 8%;
-  top: 7%;
+  top: 8%;
+}
+
+.mobile-controls__action-button--maneuver {
+  right: 8%;
+  bottom: 8%;
+  background: radial-gradient(circle at 34% 28%, #8fe6a8, #2f9e5f 68%, #143d26);
+  box-shadow:
+    inset 0 3px 4px rgba(255, 255, 255, 0.22),
+    inset 0 -8px 9px rgba(0, 0, 0, 0.28),
+    0 9px 0 #0a1f13,
+    0 16px 22px rgba(0, 0, 0, 0.42);
 }
 
 .mobile-controls__action-button--b {
-  left: 7%;
-  bottom: 10%;
+  left: 8%;
+  bottom: 8%;
 }
 
 .mobile-controls__dpad-button:active,
@@ -374,8 +402,8 @@ body {
   }
 
   .mobile-controls__action-panel {
-    width: clamp(52px, 22vmin, 160px);
-    height: clamp(50px, 20vmin, 150px);
+    width: clamp(64px, 22vmin, 160px);
+    height: clamp(64px, 22vmin, 160px);
   }
 
   /* Two pills side by side is too wide on a narrow screen; stack them. */
@@ -416,13 +444,11 @@ body {
   }
 
   .mobile-controls__action-panel {
-    width: clamp(48px, 20vmin, 120px);
-    height: clamp(46px, 18vmin, 110px);
+    width: clamp(72px, 20vmin, 120px);
+    height: clamp(72px, 20vmin, 120px);
   }
 
   .mobile-controls__action-button {
-    width: clamp(24px, 12vmin, 72px);
-    height: clamp(24px, 12vmin, 72px);
     font-size: clamp(10px, 4vmin, 26px);
   }
 }
@@ -442,7 +468,7 @@ body {
 
   .mobile-controls__action-panel {
     width: clamp(92px, 26vmin, 180px);
-    height: clamp(88px, 24vmin, 160px);
+    height: clamp(92px, 26vmin, 180px);
   }
 
   .mobile-controls__center-panel {
@@ -450,8 +476,8 @@ body {
   }
 }
 
-@media (pointer: fine) {
-  .mobile-controls {
-    display: none;
-  }
-}
+/*
+  No blanket `@media (pointer: fine)` hide here: whether the deck exists is
+  decided in JS (touch detection + the Touch Controls setting), so a user
+  who forces the deck on in settings is not outsmarted by a fine pointer.
+*/

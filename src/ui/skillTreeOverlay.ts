@@ -65,6 +65,7 @@ import {
   TREE_PADDING,
   type PauseMenuLayout,
 } from './core/PauseMenuLayout.js';
+import { TouchScrollTracker } from './core/touchScrollTracker.js';
 import { uiColors, uiMotion } from './theme/uiTokens.js';
 import type { AchievementManager } from '../achievements/achievementManager.js';
 import type { AchievementUnlockResult } from '../achievements/achievementTypes.js';
@@ -439,6 +440,7 @@ export class SkillTreeOverlay {
   private readonly equipmentListMask: Phaser.Display.Masks.GeometryMask;
   private readonly overlayX: number;
   private readonly overlayY: number;
+  private readonly touchScrollTracker = new TouchScrollTracker();
   private readonly specialChanceMaskGraphics: Phaser.GameObjects.Graphics;
   private readonly scrollHintText: Phaser.GameObjects.Text;
   private readonly achievementTree: AchievementTreeOverlay | null;
@@ -1121,17 +1123,30 @@ export class SkillTreeOverlay {
       },
     );
     this.scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (this.visible && this.activeTab === 'skills' && this.isPointerInSkillViewport(pointer)) {
-        this.skillViewport.beginDrag({ x: pointer.x, y: pointer.y });
+      if (!this.visible) return;
+      if (this.activeTab === 'skills') {
+        if (this.isPointerInSkillViewport(pointer)) {
+          this.skillViewport.beginDrag({ x: pointer.x, y: pointer.y });
+        }
+        return;
       }
+      this.beginTouchScroll(pointer);
     });
     this.scene.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      if (!this.visible || this.activeTab !== 'skills' || !pointer.isDown) return;
-      if (this.skillViewport.moveDrag({ x: pointer.x, y: pointer.y })) {
-        this.applySkillViewportTransform();
+      if (!this.visible || !pointer.isDown) return;
+      if (this.activeTab === 'skills') {
+        if (this.skillViewport.moveDrag({ x: pointer.x, y: pointer.y })) {
+          this.applySkillViewportTransform();
+        }
+        return;
       }
+      this.updateTouchScroll(pointer);
     });
-    this.scene.input.on('pointerup', () => this.skillViewport.endDrag());
+    this.scene.input.on('pointerup', () => {
+      this.skillViewport.endDrag();
+      this.touchScrollTracker.end();
+    });
+    this.scene.input.on('pointercancel', () => this.touchScrollTracker.end());
 
     const children: Phaser.GameObjects.GameObject[] = [
       this.background,
@@ -6218,6 +6233,53 @@ export class SkillTreeOverlay {
 
   private getScrollableViewportHeight(): number {
     return this.options.height - TREE_PADDING.top - TREE_PADDING.bottom + 12;
+  }
+
+  /**
+   * Touch scrolling for the menu lists: drag anywhere in the content area
+   * to scroll the active tab. Presses that start on a button or row
+   * (controller action) are left as plain taps so scrolling never fires a
+   * press, and the skills tab keeps its own viewport pan.
+   */
+  private beginTouchScroll(pointer: Phaser.Input.Pointer): void {
+    if (this.activeTab === 'map' || this.activeTab === 'achievements') {
+      return;
+    }
+    const local = this.toOverlayLocal(pointer);
+    const content = this.getPauseMenuLayout().content;
+    const inContent =
+      local.x >= content.x &&
+      local.x <= content.x + content.width &&
+      local.y >= content.y &&
+      local.y <= content.y + content.height;
+    if (!inContent) {
+      return;
+    }
+    const overAction = this.controllerActions.some(
+      (action) =>
+        local.x >= action.rect.x &&
+        local.x <= action.rect.x + action.rect.width &&
+        local.y >= action.rect.y &&
+        local.y <= action.rect.y + action.rect.height,
+    );
+    if (overAction) {
+      return;
+    }
+    this.touchScrollTracker.begin(pointer.id, pointer.y);
+  }
+
+  private updateTouchScroll(pointer: Phaser.Input.Pointer): void {
+    const delta = this.touchScrollTracker.update(pointer.id, pointer.y, pointer.isDown);
+    if (delta === null) {
+      return;
+    }
+    // Dragging means "move the content with the finger", so the scroll
+    // offset moves opposite to the pointer.
+    this.scrollActiveText(-delta);
+  }
+
+  private toOverlayLocal(pointer: Phaser.Input.Pointer): { x: number; y: number } {
+    return { x: pointer.x - this.overlayX, y: pointer.y - this.overlayY };
   }
 
   private scrollActiveText(deltaY: number): void {
