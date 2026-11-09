@@ -430,6 +430,24 @@ describe('bounded server replication and simulation', () => {
     expect(encounter).not.toHaveBeenCalled();
   });
 
+  it('keeps world clocks active for a playing character beside a creating character', async () => {
+    const { game } = setup();
+    const session = new AuthoritativeGameSession({
+      game,
+      manageBasicFeatures: true,
+      requireCharacterCreation: true,
+    });
+    session.configureHosting();
+    const creator = session.registerConnection('creator', 'Creator');
+    const player = session.registerConnection('player', 'Player');
+    expect(game.getPlayer(creator)?.lifecycle?.kind).toBe('creating');
+    game.getPlayer(player)!.lifecycle = { kind: 'active' };
+    const before = Number(game.getFlag<number>('timeMs') ?? 0);
+    await session.advance(100);
+    expect(Number(game.getFlag<number>('timeMs') ?? 0)).toBeGreaterThan(before);
+    expect(game.getPlayer(creator)?.lifecycle?.kind).toBe('creating');
+  });
+
   it('stops idle world clocks in an all-creating lobby and resumes on activation', async () => {
     const { game } = setup();
     const session = new AuthoritativeGameSession({

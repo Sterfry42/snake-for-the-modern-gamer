@@ -564,6 +564,7 @@ export function createGameServer(
       return;
     }
     const startedAt = performance.now();
+    const cpuStartedAt = process.cpuUsage();
     publishing = true;
     void session
       .publishNetworkState((playerId, snapshot) => {
@@ -593,7 +594,17 @@ export function createGameServer(
         console.error('[game-server] Publication failed', error);
       })
       .finally(() => {
-        maximumPublicationMs = Math.max(maximumPublicationMs, performance.now() - startedAt);
+        const durationMs = performance.now() - startedAt;
+        maximumPublicationMs = Math.max(maximumPublicationMs, durationMs);
+        if (durationMs >= 250) {
+          const cpu = process.cpuUsage(cpuStartedAt);
+          const cpuMs = (cpu.user + cpu.system) / 1000;
+          log('warn', 'network.publication-cpu-breakdown', {
+            durationMs,
+            cpuMs,
+            wallMinusCpuMs: Math.max(0, durationMs - cpuMs),
+          });
+        }
         lastPublicationAt = performance.now();
         publishing = false;
       });
