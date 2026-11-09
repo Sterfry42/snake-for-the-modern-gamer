@@ -7092,12 +7092,17 @@ export class SnakeGame implements QuestRuntime {
   private applyTownRuntimeState(town: TownStructure): TownStructure {
     const baseTown = this.ensurePhysicalTrainerInTown(town);
     const next = this.createTownRuntimeStore().applyToTown(baseTown);
-    next.gates = (next.gates ?? []).map((gate) =>
-      this.getFlag<boolean>(this.townGateFlagKey(next.id, gate))
-        ? { ...gate, state: 'open' }
-        : gate,
-    );
-    return next;
+    // Without a runtime record applyToTown returns the original room town.
+    // Do not assign gates to it: the room is revision-tracked and a selector
+    // read would then mark the room changed on every network publication.
+    return {
+      ...next,
+      gates: (next.gates ?? []).map((gate) =>
+        this.getFlag<boolean>(this.townGateFlagKey(next.id, gate))
+          ? { ...gate, state: 'open' }
+          : gate,
+      ),
+    };
   }
 
   private getTownRuntimeState(town: TownStructure): TownRuntimeState | undefined {

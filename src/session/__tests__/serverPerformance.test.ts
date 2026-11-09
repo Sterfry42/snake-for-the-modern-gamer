@@ -152,6 +152,39 @@ describe('bounded server replication and simulation', () => {
     expect(report.averageActorTickMs).toBeGreaterThan(0);
   });
 
+  it('does not mutate tracked town room geometry from read-only town projections', async () => {
+    const { game, room, session } = setup();
+    const town = createPhysicalHumanTown({
+      townId: 'readonly-town',
+      biomeId: 'verdigris-basin',
+      seed: 815,
+      districtRoomIds: { [room.id]: 'square' },
+      entranceRoomId: room.id,
+      exitRoomIds: [],
+    });
+    // The ordinary trainer-injection path clones human towns. Use a town
+    // without that special treatment to exercise the no-runtime fast path.
+    town.townTags = [];
+    room.town = town;
+    const revisionBefore = game.getRoomRevisions().get(room.id);
+    const originalTown = room.town;
+
+    const first = game.getCurrentTown();
+    expect(first?.id).toBe('readonly-town');
+    expect(game.getCurrentTown()).toEqual(first);
+    const scene = game.getSceneClientState([room.id]);
+    expect(scene.town).toEqual(first);
+    expect(room.town).toBe(originalTown);
+    expect(game.getRoomRevisions().get(room.id)).toBe(revisionBefore);
+
+    session.configureHosting();
+    const playerId = session.registerConnection('town-reader', 'Reader');
+    const afterConnection = game.getRoomRevisions().get(room.id);
+    await session.getConnectionSnapshot(playerId);
+    await session.getConnectionSnapshot(playerId);
+    expect(game.getRoomRevisions().get(room.id)).toBe(afterConnection);
+  });
+
   it('does not invalidate unchanged populated town geometry on every actor tick', async () => {
     const { game, room, session } = setup();
     room.town = createPhysicalHumanTown({
