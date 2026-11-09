@@ -233,6 +233,109 @@ describe('agriculture real authoritative session transactions', () => {
       5,
     );
   });
+  it('buys seasonal seed stock, grows produce with inventory tools, and sells it through the session', async () => {
+    const { game, session, room, alice, contextToken } = fixture();
+    const merchant = createBaseActor({
+      id: 'farm-loop-merchant',
+      displayName: 'Farm Loop Merchant',
+      kind: 'civilian',
+      role: 'shopkeeper',
+      species: 'human',
+      thickness: 'medium',
+      currentRoomId: room.id,
+    });
+    merchant.presence = {
+      roomId: room.id,
+      position: { x: 5, y: 6 },
+      materialized: true,
+      stationary: true,
+    };
+    game.getActorSystem().registry.upsert(merchant);
+    game.runForPlayer(alice, () => {
+      game.getInventory().removeItem('seed-radish', 3);
+      game.setScore(200);
+    });
+
+    // Use actual seasonal merchant stock rather than assuming a particular seed is on the shelf.
+    const shelf = game.runForPlayer(alice, () => game.getActorShopView(merchant.id)?.offers ?? []);
+    const choice = shelf
+      .map((offer) => ({ offer, crop: CROPS.find((crop) => crop.seedItemId === offer.itemId) }))
+      .find((entry) => entry.crop && !entry.crop.specialty && !entry.crop.contraband);
+    expect(choice?.crop).toBeDefined();
+    const crop = choice!.crop!;
+    const seedOffer = choice!.offer;
+    expect(seedOffer.quantity).toBeGreaterThanOrEqual(2);
+    const buy = await session.executeCommand({
+      type: 'purchase',
+      actorId: merchant.id,
+      offerId: seedOffer.id,
+      count: 2,
+      playerId: alice,
+    });
+    expect(buy.ok).toBe(true);
+    expect(game.runForPlayer(alice, () => game.getScore())).toBe(200 - seedOffer.price * 2);
+    expect(
+      game.runForPlayer(alice, () => game.getInventory().getItemCount(crop.seedItemId)),
+    ).toBe(2);
+
+    const use = (itemId: string) =>
+      session.executeCommand({ type: 'useItem', itemId, playerId: alice });
+    const tend = (nonce: number, action: 'till' | 'plant' | 'water' | 'harvest') =>
+      session.executeCommand({
+        type: 'farmingAction',
+        action,
+        target: { dx: 0, dy: 0 },
+        seedItemId: crop.seedItemId,
+        nonce,
+        contextToken: contextToken(alice),
+        playerId: alice,
+      });
+
+    expect((await use('farm-hoe')).ok).toBe(true);
+    expect(game.runForPlayer(alice, () => game.getFarmTool())).toBe('farm-hoe');
+    expect((await tend(1, 'till')).ok).toBe(true);
+    expect((await use(crop.seedItemId)).ok).toBe(true);
+    expect(game.runForPlayer(alice, () => game.getFarmTool())).toBe(crop.seedItemId);
+    expect((await tend(2, 'plant')).ok).toBe(true);
+    expect((await use('watering-can')).ok).toBe(true);
+    expect((await tend(3, 'water')).ok).toBe(true);
+
+    game.updateAtmosphere(WORLD_DAY_MS * 4);
+    expect(game.getFarmCells()[0]?.crop?.stage).toBe('ready');
+    expect((await tend(4, 'harvest')).ok).toBe(true);
+    const produce = game.runForPlayer(alice, () =>
+      game.getInventory().getAllItems().find(([itemId]) =>
+        itemId === crop.produceItemId || itemId.startsWith(`${crop.produceItemId}-`),
+      ),
+    );
+    expect(produce?.[1]).toBe(crop.yield);
+    const quote = game.runForPlayer(alice, () =>
+      game.getMerchantSellOffers(merchant.id).find((offer) => offer.itemId === produce?.[0]),
+    );
+    expect(quote?.price).toBeGreaterThan(0);
+    const scoreBeforeSell = game.runForPlayer(alice, () => game.getScore());
+    const sale = {
+      type: 'farmSellAction' as const,
+      merchantActorId: merchant.id,
+      itemId: produce![0],
+      count: crop.yield,
+      nonce: 5,
+      contextToken: contextToken(alice),
+      playerId: alice,
+    };
+    expect((await session.executeCommand(sale)).ok).toBe(true);
+    expect(game.runForPlayer(alice, () => game.getScore())).toBe(
+      scoreBeforeSell + quote!.price * crop.yield,
+    );
+    expect(
+      game.runForPlayer(alice, () => game.getInventory().getItemCount(produce![0])),
+    ).toBe(0);
+    await session.executeCommand(sale);
+    expect(game.runForPlayer(alice, () => game.getScore())).toBe(
+      scoreBeforeSell + quote!.price * crop.yield,
+    );
+  });
+
   it('merchant transactions consume actual ordinary/contraband produce and preserve quality premiums', () => {
     const { game, room } = fixture();
     const merchant = createBaseActor({
