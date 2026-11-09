@@ -71,20 +71,42 @@ describe('room snapshot cache', () => {
     expect(cache.peek('unknown')).toBeUndefined();
   });
 
-  it('rehydrates cold peeks after collection without evicting hot rooms', () => {
-    const cache = new RoomSnapshotCache(1);
-    const first = cache.prepare(room('0,0,0'));
-    cache.set(first.id, first);
-    const hot = cache.prepare(room('1,0,0'));
-    cache.set(hot.id, hot);
+  it('rehydrates cold peeks after collection without evicting hot rooms', async () => {
+    const references: Array<{ value: object | undefined }> = [];
+    vi.stubGlobal(
+      'WeakRef',
+      class {
+        private readonly reference: { value: object | undefined };
+        constructor(value: object) {
+          this.reference = { value };
+          references.push(this.reference);
+        }
+        deref(): object | undefined {
+          return this.reference.value;
+        }
+      },
+    );
+    try {
+      const cache = new RoomSnapshotCache(1);
+      const first = cache.prepare(room('0,0,0'));
+      cache.set(first.id, first);
+      const hot = cache.prepare(room('1,0,0'));
+      cache.set(hot.id, hot);
+      first.layout[0] = '..';
+      await Promise.resolve();
 
-    // Use the archived serialization path, as would happen after GC.
-    const serialized = new Map(cache).get(first.id);
-    expect(serialized).toBe(first);
-    expect(cache.size).toBe(1);
-    expect(cache.peek(first.id)?.id).toBe(first.id);
-    expect(cache.get(hot.id)).toBe(hot);
-    expect(cache.size).toBe(1);
+      // Simulate the original archived proxy's weak reference expiring.
+      for (const reference of references)
+        if (reference.value === first) reference.value = undefined;
+      const cold = cache.peek(first.id);
+      expect(cold).not.toBe(first);
+      expect(cold?.layout).toEqual(['..']);
+      expect(cache.peek(first.id)).toBe(cold);
+      expect(cache.get(hot.id)).toBe(hot);
+      expect(cache.size).toBe(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('world-wide reads do not churn or promote the hot-room working set', () => {

@@ -134,10 +134,11 @@ export class RoomSnapshotCache implements Iterable<[string, RoomSnapshot]> {
     if (hot) return hot;
     const record = this.archived.get(id);
     if (!record) return undefined;
-    const room =
-      record.reference.deref() ?? this.prepare(JSON.parse(record.serialized) as RoomSnapshot);
-    // Preserve the new proxy while callers retain it. Edits to cold rooms
-    // still coalesce into the authoritative archived payload.
+    const retained = record.reference.deref();
+    if (retained) return retained;
+    const room = this.prepare(JSON.parse(record.serialized) as RoomSnapshot);
+    // A cold proxy can be collected again when the read is complete. Keep
+    // hot-room ownership unchanged and preserve edits via archive watchers.
     record.reference =
       typeof WeakRef === 'function' ? new WeakRef(room) : { deref: () => room };
     return room;
