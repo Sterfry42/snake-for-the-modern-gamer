@@ -1,0 +1,1 @@
+import{Q as s}from"./quest-DCM-IEEX.js";class e extends s{constructor(){super("crystal-clause","The Crystal Clause","Accept a wizard's commission, then choose what becomes of the goblins.")}isCompleted(a){return!1}}const r=new e;export{r as default};

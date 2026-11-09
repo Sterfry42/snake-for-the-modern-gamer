@@ -1,0 +1,1 @@
+import{Q as t}from"./quest-DCM-IEEX.js";class e extends t{constructor(){super("crystal-aftermath","After the Crystals","Your choices about the crystal prisoners are not forgotten.")}isCompleted(s){return!1}}const o=new e;export{o as default};
