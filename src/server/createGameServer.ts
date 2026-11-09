@@ -573,7 +573,16 @@ export function createGameServer(
           if (channel.socket.readyState === WebSocket.OPEN)
             session.recordPublishedMovement(connection!.connectionId, snapshot);
           socketDetails.get(channel.socket)!.roomId = snapshot.viewport.centerRoomId;
-          publish(channel.socket, { type: 'delta', delta: channel.encoder.encode(snapshot, true) });
+          const encodeStartedAt = performance.now();
+          const delta = channel.encoder.encode(snapshot, true);
+          const encodeMs = performance.now() - encodeStartedAt;
+          if (encodeMs >= 50)
+            log('warn', 'network.delta-encode-slow', {
+              playerId,
+              roomId: snapshot.viewport.centerRoomId,
+              encodeMs,
+            });
+          publish(channel.socket, { type: 'delta', delta });
         }
       })
       .then(() => {

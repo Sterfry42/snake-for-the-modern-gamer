@@ -408,4 +408,51 @@ describe('bounded server replication and simulation', () => {
     });
     expect(game.getServerSimulationGauges().knownRooms).toBe(count);
   });
+
+  it('leaves read-only snapshot operations free of gameplay side effects and retries failed publishes', async () => {
+    const { game, session } = setup();
+    session.configureHosting();
+    const playerId = session.registerConnection('reader', 'Reader');
+    const encounter = vi.spyOn(game, 'beginAdjacentRandomEncounter');
+    await session.getConnectionSnapshot(playerId);
+    expect(encounter).not.toHaveBeenCalled();
+
+    await expect(
+      session.publishNetworkState(() => {
+        throw new Error('synthetic socket failure');
+      }),
+    ).rejects.toThrow('synthetic socket failure');
+    let published = 0;
+    await session.publishNetworkState(() => {
+      published++;
+    });
+    expect(published).toBe(1);
+    expect(encounter).not.toHaveBeenCalled();
+  });
+
+  it('stops idle world clocks in an all-creating lobby and resumes on activation', async () => {
+    const { game } = setup();
+    const session = new AuthoritativeGameSession({
+      game,
+      manageBasicFeatures: true,
+      requireCharacterCreation: true,
+    });
+    session.configureHosting();
+    const playerId = session.registerConnection('creator', 'Creator');
+    expect(game.getPlayer(playerId)?.lifecycle?.kind).toBe('creating');
+    let publications = 0;
+    await session.publishNetworkState(() => {
+      publications++;
+    });
+    const before = Number(game.getFlag<number>('timeMs') ?? 0);
+    await session.advance(100);
+    await session.publishNetworkState(() => {
+      publications++;
+    });
+    expect(Number(game.getFlag<number>('timeMs') ?? 0)).toBe(before);
+    expect(publications).toBe(1);
+    game.getPlayer(playerId)!.lifecycle = { kind: 'active' };
+    await session.advance(100);
+    expect(Number(game.getFlag<number>('timeMs') ?? 0)).toBeGreaterThan(before);
+  });
 });

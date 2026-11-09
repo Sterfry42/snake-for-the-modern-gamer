@@ -212,8 +212,33 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       if (!this.networkDirty) return;
       this.networkDirty = false;
       this.performance.publication();
-      for (const playerId of new Set([...this.connections.values()].map((peer) => peer.playerId)))
-        publish(playerId, this.buildSnapshot(false, playerId, true));
+      const startedAt = performance.now();
+      let buildMs = 0;
+      let deliveryMs = 0;
+      let playerCount = 0;
+      try {
+        for (const playerId of new Set([...this.connections.values()].map((peer) => peer.playerId))) {
+          const buildStartedAt = performance.now();
+          const snapshot = this.buildSnapshot(false, playerId, true);
+          buildMs += performance.now() - buildStartedAt;
+          const deliveryStartedAt = performance.now();
+          publish(playerId, snapshot);
+          deliveryMs += performance.now() - deliveryStartedAt;
+          playerCount++;
+        }
+      } catch (error) {
+        // A failed publication must not discard unsent authoritative changes.
+        this.networkDirty = true;
+        throw error;
+      } finally {
+        const durationMs = performance.now() - startedAt;
+        if (durationMs >= 100)
+          this.diagnose(
+            'session.publication-breakdown',
+            { durationMs, buildMs, deliveryMs, playerCount },
+            'warn',
+          );
+      }
     }, 'publication');
   }
   private readonly administrators = new Set<PlayerId>();
@@ -654,50 +679,65 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   private paused = false;
   private work: Promise<void> = Promise.resolve();
   private timer: ReturnType<typeof setInterval> | undefined;
-  private readonly dueSteps: Array<() => void | Promise<void>> = [];
+  private readonly dueSteps: Array<{
+    clock: 'boss' | 'action' | 'actor' | 'bullet' | 'hazard';
+    run: () => void | Promise<void>;
+  }> = [];
   private readonly scheduler = new SimulationScheduler([
     {
       id: 'boss',
       intervalMs: 100,
-      step: (ms) => this.dueSteps.push(() => this.bossStep(undefined, ms)),
+      step: (ms) => this.dueSteps.push({ clock: 'boss', run: () => this.bossStep(undefined, ms) }),
     },
     {
       id: 'action',
       intervalMs: 20,
       step: () =>
-        this.dueSteps.push(() => {
-          if (this.manageBasicFeatures) this.scheduledActionStep(20);
-          else {
-            this.legacyActionElapsed += 20;
-            if (this.legacyActionElapsed >= 100) {
-              this.legacyActionElapsed -= 100;
-              this.actionStep(false);
+        this.dueSteps.push({
+          clock: 'action',
+          run: () => {
+            if (this.manageBasicFeatures) this.scheduledActionStep(20);
+            else {
+              this.legacyActionElapsed += 20;
+              if (this.legacyActionElapsed >= 100) {
+                this.legacyActionElapsed -= 100;
+                this.actionStep(false);
+              }
             }
-          }
+          },
         }),
     },
     {
       id: 'actor',
       intervalMs: 100,
       step: (ms) =>
-        this.dueSteps.push(async () => {
-          await this.actorClockStep(ms);
+        this.dueSteps.push({
+          clock: 'actor',
+          run: async () => {
+            await this.actorClockStep(ms);
+          },
         }),
     },
     {
       id: 'bullet',
       intervalMs: 100,
       step: () =>
-        this.dueSteps.push(() => {
-          this.bulletClockStep();
+        this.dueSteps.push({
+          clock: 'bullet',
+          run: () => {
+            this.bulletClockStep();
+          },
         }),
     },
     {
       id: 'hazard',
       intervalMs: 100,
       step: () =>
-        this.dueSteps.push(() => {
-          this.hazardClockStep();
+        this.dueSteps.push({
+          clock: 'hazard',
+          run: () => {
+            this.hazardClockStep();
+          },
         }),
     },
   ]);
@@ -1067,13 +1107,24 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
           expressionExpired = true;
         }
       }
+      // A lobby with only character-creation players has no world participant:
+      // avoid running world clocks and rebuilding the same snapshot at 10 Hz.
       const running =
         !this.paused &&
-        (this.hosted ? this.connections.size > 0 : this.simulationPlayers(true).length > 0);
+        (this.hosted
+          ? [...this.connections.values()].some(({ playerId }) => {
+              const player = this.game.getPlayer(playerId);
+              return player !== null && isPlayerInWorld(player);
+            })
+          : this.simulationPlayers(true).length > 0);
+      let environmentMs = 0;
       if (running) {
+        const startedAt = performance.now();
         this.advanceEnvironment(deltaMs);
+        environmentMs = performance.now() - startedAt;
       }
       this.movementClockAnchorAt = requestedAt;
+      const schedulerStartedAt = performance.now();
       this.scheduler.update(deltaMs, {
         boss: running,
         action: running,
@@ -1081,18 +1132,32 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         bullet: running,
         hazard: running,
       });
+      const schedulerMs = performance.now() - schedulerStartedAt;
       const steps = this.dueSteps.splice(0);
-      for (const step of steps) {
+      const clockMs: Record<string, number> = {};
+      for (const { clock, run } of steps) {
         if (
           this.paused ||
           (this.hosted ? this.connections.size === 0 : this.simulationPlayers(true).length === 0)
         )
           break;
-        await step();
+        const stepStartedAt = performance.now();
+        try {
+          await run();
+        } finally {
+          clockMs[clock] = (clockMs[clock] ?? 0) + performance.now() - stepStartedAt;
+        }
       }
       if (expressionExpired) this.emitSnapshot();
       if (running || expressionExpired) this.networkDirty = true;
-      this.performance.update(performance.now() - updateStartedAt);
+      const durationMs = performance.now() - updateStartedAt;
+      this.performance.update(durationMs);
+      if (durationMs >= 100)
+        this.diagnose(
+          'session.simulation-breakdown',
+          { durationMs, environmentMs, schedulerMs, clockMs, scheduledSteps: steps.length },
+          'warn',
+        );
     }, 'simulation');
   }
 
@@ -1159,7 +1224,8 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         return await operation();
       } finally {
         try {
-          if (this.manageBasicFeatures) {
+          // Snapshot reads/publications must not trigger gameplay side effects.
+          if (this.manageBasicFeatures && name !== 'snapshot' && name !== 'publication') {
             const ids = new Set([
               this.localPlayerId,
               ...[...this.connections.values()].map((peer) => peer.playerId),
@@ -1409,15 +1475,15 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   private scheduledActionStep(deltaMs: number): void {
     for (const player of this.simulationPlayers())
       this.game.runForPlayer(player.id, () => {
-        this.getProgression(player.id).refreshIfNeeded();
-        this.turnAuthorities
-          .get(player.id)
-          ?.observeInterval(this.movementInterval(player.id), this.getMovementClockTime());
         if (this.playerHeld(player.id)) {
           this.actionElapsed.set(player.id, 0 - this.turnGrace(player.id));
           this.turnAuthorities.get(player.id)?.clear();
           return;
         }
+        this.getProgression(player.id).refreshIfNeeded();
+        this.turnAuthorities
+          .get(player.id)
+          ?.observeInterval(this.movementInterval(player.id), this.getMovementClockTime());
         let elapsed = (this.actionElapsed.get(player.id) ?? -this.turnGrace(player.id)) + deltaMs;
         let interval = this.movementInterval(player.id);
         while (elapsed >= interval && player.alive && !this.playerHeld(player.id)) {
@@ -1752,11 +1818,20 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       );
     }
     const startedAt = performance.now();
+    let phaseStartedAt = startedAt;
+    const phases: Record<string, number> = {};
+    const markPhase = (name: string): void => {
+      const now = performance.now();
+      phases[name] = now - phaseStartedAt;
+      phaseStartedAt = now;
+    };
     const snapshot = this.game.getSnapshot(playerId);
+    markPhase('gameSnapshot');
     snapshot.tick = this.getMovementTime();
     snapshot.movementSequence = this.movementSequence;
     if (network || this.hosted) {
       snapshot.replication = this.game.getNetworkRoomView();
+      markPhase('roomReplication');
       snapshot.clientState = this.game.getSceneClientState(
         Object.keys(snapshot.replication.roomRevisions),
       );
@@ -1779,6 +1854,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
         this.localRoomRevisions.set(playerId, new Map(this.game.getRoomRevisions()));
       }
     }
+    markPhase('sceneSelectors');
     snapshot.forcedEncounter = this.game.getForcedEncounter();
     snapshot.lifecycle = this.game.getPlayer(playerId)?.lifecycle ?? { kind: 'active' };
     if (this.hosted)
@@ -1862,8 +1938,25 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       atmosphere: this.game.getAtmosphereForRoom(),
     };
 
-    this.performance.build(performance.now() - startedAt);
-    return detach ? copyGameSnapshot(snapshot) : snapshot;
+    markPhase('snapshotDecoration');
+    const builtMs = performance.now() - startedAt;
+    this.performance.build(builtMs);
+    const detached = detach ? copyGameSnapshot(snapshot) : snapshot;
+    markPhase('snapshotCopy');
+    const durationMs = performance.now() - startedAt;
+    if (network && durationMs >= 100)
+      this.diagnose(
+        'session.snapshot-build-breakdown',
+        {
+          playerId,
+          roomId: snapshot.viewport.centerRoomId,
+          durationMs,
+          phases,
+          replicatedRooms: snapshot.clientState?.worldRooms.length ?? 0,
+        },
+        'warn',
+      );
+    return detached;
   }
 
   private emitSnapshot(forceDetach = false): GameSnapshot {
