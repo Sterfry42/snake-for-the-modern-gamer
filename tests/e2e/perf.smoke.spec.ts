@@ -40,7 +40,6 @@ declare global {
       startUnicornGlitter(): void;
       stopUnicornGlitter(): void;
     };
-    __perfStopFrames?: boolean;
   }
 }
 
@@ -69,13 +68,21 @@ async function bootRun(page: Page): Promise<void> {
 }
 
 test.describe('perf smoke', () => {
-  test('pause menu scroll: pointer-drag flood stays far below one rebuild per event', async ({
+  test('pause menu scroll: touch flood stays far below one rebuild per event', async ({
     page,
   }) => {
-    // Baseline (pre-coalescing): every pointer event caused a full content
-    // rebuild (~14ms each on desktop hardware), so even Playwright's input
-    // round-trips crawled. 60 moves keeps the probe inside the time budget.
-    test.setTimeout(90_000);
+    // Regression guard for the phone slow-scroll bug. A phone touch-sampler
+    // reports at 120-240 Hz, so a swipe delivers a burst of pointer samples
+    // to the page in one or two frames. Pre-fix, every one of those samples
+    // caused a full content rebuild (~13ms each on desktop hardware); the
+    // flood below must instead cause at most one rebuild per rendered frame.
+    //
+    // The flood is a single main-thread burst of synthetic mouse events
+    // (mousedown + 200 mousemove + mouseup) — the same scene pointermove
+    // path a phone touch-sampler feeds, without 200 awaited CDP round-trips
+    // (which would be throttled by the browser rather than the game) and
+    // without relying on Phaser's touch manager (disabled in headless
+    // desktop because Phaser gates touch input on Device.input.touch).
     const errors = collectPageErrors(page);
     await bootRun(page);
 
@@ -91,58 +98,67 @@ test.describe('perf smoke', () => {
 
     const target = await page.evaluate(() => window.snakeE2E!.getPauseScrollTarget());
     expect(target).not.toBeNull();
-    const canvas = page.locator('#game-shell canvas');
-    const bounds = await canvas.boundingBox();
-    expect(bounds).not.toBeNull();
-    const toScreenX = (x: number) => bounds!.x + (x / LOGICAL_W) * bounds!.width;
-    const toScreenY = (y: number) => bounds!.y + (y / LOGICAL_H) * bounds!.height;
 
-    // Count rendered frames across the whole drag window.
-    const framesPromise = page.evaluate(
-      () =>
-        new Promise<number>((resolve) => {
-          let count = 0;
-          const loop = () => {
-            count += 1;
-            if (window.__perfStopFrames) {
-              resolve(count);
-              return;
-            }
-            requestAnimationFrame(loop);
-          };
-          requestAnimationFrame(loop);
-        }),
+    // Fire the flood: mousedown, then 200 mousemove samples of 3px each,
+    // all in one main-thread turn, then mouseup.
+    const logicalStart = {
+      x: target!.x + target!.width * 0.35,
+      y: target!.y + target!.height - 14,
+    };
+    const floodMs = await page.evaluate(
+      ({ sx, sy, logicalW, logicalH }) => {
+        const canvas = document.querySelector('#game-shell canvas') as HTMLCanvasElement;
+        const rect = canvas.getBoundingClientRect();
+        const toClientX = (lx: number) => rect.left + (lx / logicalW) * rect.width;
+        const toClientY = (ly: number) => rect.top + (ly / logicalH) * rect.height;
+        const fire = (type: string, x: number, y: number) => {
+          canvas.dispatchEvent(
+            new MouseEvent(type, {
+              bubbles: true,
+              cancelable: true,
+              composed: true,
+              button: 0,
+              buttons: type === 'mouseup' ? 0 : 1,
+              clientX: x,
+              clientY: y,
+            }),
+          );
+        };
+        const startX = toClientX(sx);
+        const startY = toClientY(sy);
+        const started = performance.now();
+        fire('mousedown', startX, startY);
+        for (let step = 1; step <= 200; step++) {
+          fire('mousemove', startX, startY - step * 3);
+        }
+        fire('mouseup', startX, startY - 200 * 3);
+        return performance.now() - started;
+      },
+      {
+        sx: logicalStart.x,
+        sy: logicalStart.y,
+        logicalW: LOGICAL_W,
+        logicalH: LOGICAL_H,
+      },
     );
 
-    // Drag from the bottom of the list upward in 3px steps: 60 small
-    // pointer moves, the same flood a phone touch-sampler produces.
-    const startX = toScreenX(target!.x + target!.width * 0.35);
-    const startY = toScreenY(target!.y + target!.height - 14);
-    const moveStart = Date.now();
-    await page.mouse.move(startX, startY);
-    await page.mouse.down();
-    for (let step = 1; step <= 60; step++) {
-      await page.mouse.move(startX, startY - step * 3);
-    }
-    await page.mouse.up();
-    const dragMs = Date.now() - moveStart;
-
-    await page.evaluate(() => {
-      window.__perfStopFrames = true;
-    });
-    const frames = await framesPromise;
+    // Let a few frames run so the coalesced rebuild is due and can flush.
+    await page.waitForTimeout(250);
 
     const perf = await page.evaluate(() => window.snakeE2E!.getScrollPerf());
     console.log(
       `[perf] pause-scroll: events=${perf.events} rebuilds=${perf.rebuilds} ` +
-        `rebuildMs=${perf.rebuildTimeMs.toFixed(1)} msPerRebuild=${(
-          perf.rebuildTimeMs / Math.max(1, perf.rebuilds)
-        ).toFixed(1)} dragMs=${dragMs} frames=${frames} offset=${Math.round(perf.offset)}`,
+        `rebuildMs=${perf.rebuildTimeMs.toFixed(1)} floodMs=${floodMs.toFixed(1)} ` +
+        `offset=${Math.round(perf.offset)}`,
     );
 
-    // The drag must actually scroll the list.
-    expect(perf.events).toBeGreaterThan(0);
+    // The flood must actually scroll the list.
+    expect(perf.events).toBeGreaterThan(100);
     expect(perf.offset).toBeGreaterThan(0);
+    // The work must stay bounded by rendered frames, not pointer samples:
+    // a full rebuild is due at most once per frame, and a 200-sample burst
+    // lands in one or two frames.
+    expect(perf.rebuilds).toBeLessThanOrEqual(6);
     expect(errors).toEqual([]);
   });
 

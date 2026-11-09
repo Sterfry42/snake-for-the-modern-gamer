@@ -65,6 +65,7 @@ import {
   TREE_PADDING,
   type PauseMenuLayout,
 } from './core/PauseMenuLayout.js';
+import { StructuredScrollScheduler } from './core/structuredScrollScheduler.js';
 import { TouchScrollTracker } from './core/touchScrollTracker.js';
 import { uiColors, uiMotion } from './theme/uiTokens.js';
 import type { AchievementManager } from '../achievements/achievementManager.js';
@@ -441,6 +442,11 @@ export class SkillTreeOverlay {
   private readonly overlayX: number;
   private readonly overlayY: number;
   private readonly touchScrollTracker = new TouchScrollTracker();
+  // Scroll events only record their target offset; the per-frame shell tick
+  // rebuilds the content at most once, so a 240 Hz touch flood costs one
+  // rebuild per rendered frame instead of one per pointer event.
+  private readonly structuredScrollScheduler = new StructuredScrollScheduler();
+  private readonly specialScrollScheduler = new StructuredScrollScheduler();
   private readonly specialChanceMaskGraphics: Phaser.GameObjects.Graphics;
   private readonly scrollHintText: Phaser.GameObjects.Text;
   private readonly achievementTree: AchievementTreeOverlay | null;
@@ -4506,6 +4512,7 @@ export class SkillTreeOverlay {
         onClick: () => {
           this.handlers.onFeedAnimalCompanion?.(companion.id);
           this.buildStructuredTabContent('companions');
+          this.structuredScrollScheduler.markBuilt(this.getStructuredScrollOffset());
         },
       });
       addUiButton(this.scene, this.structuredContainer, this.structuredGraphics, {
@@ -4520,6 +4527,7 @@ export class SkillTreeOverlay {
         onClick: () => {
           this.handlers.onReleaseAnimalCompanion?.(companion.id);
           this.buildStructuredTabContent('companions');
+          this.structuredScrollScheduler.markBuilt(this.getStructuredScrollOffset());
         },
       });
       y += 88;
@@ -5513,6 +5521,7 @@ export class SkillTreeOverlay {
 
   private onShellUpdate(): void {
     this.drawShellFrame();
+    this.flushCoalescedScrollRebuilds();
   }
 
   private updateSpotifyPanelVisibility(): void {
@@ -6492,7 +6501,26 @@ export class SkillTreeOverlay {
         )
         .setVisible(true);
     }
-    this.timeScrollRebuild(() => this.buildStructuredTabContent(this.activeTab));
+    this.structuredScrollScheduler.queue(offset);
+  }
+
+  /**
+   * Per-frame flush for the coalesced scroll rebuilds. Runs from
+   * onShellUpdate, which only ticks while the menu is visible.
+   */
+  private flushCoalescedScrollRebuilds(): void {
+    if (this.isStructuredTab(this.activeTab) && this.structuredScrollScheduler.consume() !== null) {
+      this.timeScrollRebuild(() => this.buildStructuredTabContent(this.activeTab));
+    }
+    if (this.activeTab === 'special' && this.specialScrollScheduler.consume() !== null) {
+      const view = this.handlers.getSpecialView?.();
+      if (view) {
+        this.timeScrollRebuild(() => {
+          this.buildSpecialDerivedContent(view);
+          this.drawSpecialUi(view);
+        });
+      }
+    }
   }
 
   private applyScrollableTextOffset(
@@ -6544,13 +6572,7 @@ export class SkillTreeOverlay {
     this.specialChanceScrollOffset = offset;
     this.specialChanceText.setY(this.detailPanel.y + 14 - offset);
     if (this.visible && this.activeTab === 'special') {
-      const view = this.handlers.getSpecialView?.();
-      if (view) {
-        this.timeScrollRebuild(() => {
-          this.buildSpecialDerivedContent(view);
-          this.drawSpecialUi(view);
-        });
-      }
+      this.specialScrollScheduler.queue(offset);
     }
     void maxScroll;
     this.scrollHintText.setVisible(false).setText('');
@@ -6706,6 +6728,7 @@ export class SkillTreeOverlay {
     this.specialChanceText.setText('');
     this.specialRowMap = [];
     this.applySpecialChanceScrollOffset();
+    this.specialScrollScheduler.markBuilt(this.specialChanceScrollOffset);
     this.drawSpecialUi(view);
   }
 
@@ -7471,6 +7494,7 @@ export class SkillTreeOverlay {
 
     if (structuredActive) {
       this.buildStructuredTabContent(this.activeTab);
+      this.structuredScrollScheduler.markBuilt(this.getStructuredScrollOffset());
       if (!this.hintSticky) {
         const hintByTab: Partial<Record<TabId, string>> = {
           inventory: i18n.getFeatureString('hintInventory'),
