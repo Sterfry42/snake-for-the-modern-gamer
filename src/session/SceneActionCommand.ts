@@ -98,6 +98,8 @@ export type SceneActionCommand = { playerId: PlayerId } & (
         | 'trainer-learn';
     }
   | { type: 'worldInteraction'; action: 'alchemy' | 'quest-target'; optionId?: string }
+  | { type: 'worldInteraction'; action: 'alchemy-place'; target: Vector2Like }
+  | { type: 'worldInteraction'; action: 'alchemy-cancel' }
   | {
       type: 'specialShopAction';
       action:

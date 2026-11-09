@@ -25,8 +25,13 @@ describe('shop profile resolver', () => {
 
     expect(tabs.map((tab) => tab.id)).toEqual(['consumables', 'items']);
     expect(tabs.find((tab) => tab.id === 'consumables')?.offers).toHaveLength(2);
-    expect(tabs.find((tab) => tab.id === 'items')?.offers).toHaveLength(4);
-    expect(tabs.find((tab) => tab.id === 'items')?.offers[0]?.id).toBe('alchemy-station');
+    const items = tabs.find((tab) => tab.id === 'items')?.offers ?? [];
+    expect(items).toHaveLength(6);
+    expect(items[0]?.id).toBe('alchemy-station');
+    // A starter shop must reliably provide every reagent for the Phase scroll it sells.
+    expect(items.map((offer) => offer.itemId)).toEqual(expect.arrayContaining([
+      'ingredient-pearl-apple', 'ingredient-quartz', 'ingredient-dew',
+    ]));
     expect(tabs.flatMap((tab) => tab.offers).map((offer) => offer.id)).not.toContain(
       'half-price-revolver',
     );

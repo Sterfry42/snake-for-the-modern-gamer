@@ -10,20 +10,18 @@ class AlchemyMasterQuest extends Quest {
     super(
       'alchemy-master',
       'Master Alchemist',
-      'Discover all recipes, craft a mythic potion, and unlock all alchemy lore.',
+      'Brew 12 alchemy potions and use 6 of them.',
     );
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {
-    const recipesDiscovered = this.progressSinceAccept(runtime, 'recipesDiscovered');
-    const mythicPotionsCrafted = this.progressSinceAccept(runtime, 'mythicPotionsCrafted');
-    const loreUnlocked = this.progressSinceAccept(runtime, 'loreUnlocked');
-    // Assuming ~12 recipes, 8 lore entries
-    return recipesDiscovered >= 12 && mythicPotionsCrafted >= 1 && loreUnlocked >= 8;
+    const potionsCrafted = this.progressSinceAccept(runtime, 'potionsCrafted');
+    const potionsUsed = this.progressSinceAccept(runtime, 'potionsUsed');
+    return potionsCrafted >= 12 && potionsUsed >= 6;
   }
 
   protected override baselineKeys(): readonly string[] {
-    return ['recipesDiscovered', 'mythicPotionsCrafted', 'loreUnlocked'];
+    return ['potionsCrafted', 'potionsUsed'];
   }
 
   override onReward(runtime: QuestRuntime): void {

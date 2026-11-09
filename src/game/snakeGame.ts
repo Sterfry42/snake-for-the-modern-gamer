@@ -19410,6 +19410,8 @@ export class SnakeGame implements QuestRuntime {
     const result = learnAlchemyRecipeFromScroll(state, { inventory: this.inventory }, scrollItemId);
     this.setFlag(ALCHEMY_STATE_FLAG, state);
     if (result.ok) {
+      // Quests measure discoveries made after acceptance, not scroll purchases.
+      this.setFlag('recipesDiscovered', Number(this.getFlag<number>('recipesDiscovered') ?? 0) + 1);
       this.setFlag('ui.itemUsed', {
         itemId: scrollItemId,
         itemName: getItem(scrollItemId)?.name,
@@ -19982,6 +19984,7 @@ export class SnakeGame implements QuestRuntime {
     );
     this.setFlag(ALCHEMY_STATE_FLAG, state);
     if (result.ok) {
+      this.setFlag('potionsCrafted', Number(this.getFlag<number>('potionsCrafted') ?? 0) + result.quantity);
       this.setFlag('ui.itemReward', { itemId: result.outputItemId, count: result.quantity });
     }
     return result;
@@ -19996,14 +19999,17 @@ export class SnakeGame implements QuestRuntime {
     const options: AlchemyStationInteractionView['options'] = getReleasedAlchemyRecipes()
       .filter((recipe) => state.knownRecipes.includes(recipe.id))
       .map((recipe) => {
-        const missing = recipe.ingredients.find(
-          (requirement) => this.inventory.getItemCount(requirement.itemId) < requirement.quantity,
-        );
+        const missing = recipe.ingredients
+          .filter((requirement) => this.inventory.getItemCount(requirement.itemId) < requirement.quantity)
+          .map((requirement) => {
+            const needed = requirement.quantity - this.inventory.getItemCount(requirement.itemId);
+            return `${needed} ${getItem(requirement.itemId)?.name ?? requirement.itemId}`;
+          });
         return {
           id: `brew:${recipe.id}`,
           title: `Brew ${recipe.name}`,
-          enabled: !missing,
-          reason: missing ? `Needs ${getItem(missing.itemId)?.name ?? missing.itemId}.` : undefined,
+          enabled: missing.length === 0,
+          reason: missing.length > 0 ? `Needs ${missing.join(', ')}.` : undefined,
         };
       });
     if (context.source === 'placed') {
@@ -20186,6 +20192,9 @@ export class SnakeGame implements QuestRuntime {
       this.applyAlchemyStatusEffect(effect),
     );
     this.setFlag(ALCHEMY_STATE_FLAG, state);
+    if (result.ok) {
+      this.setFlag('potionsUsed', Number(this.getFlag<number>('potionsUsed') ?? 0) + 1);
+    }
     return result;
   }
 
@@ -20435,10 +20444,12 @@ export class SnakeGame implements QuestRuntime {
     }
 
     if (itemId === ALCHEMY_STATION_ITEM_ID) {
+      this.setFlag('alchemy.placementArmed', true);
       return {
-        ok: false,
-        message: 'Choose a nearby empty tile to set up the Alchemy Station.',
-        color: '#ffd166',
+        ok: true,
+        message: 'Station ready. Close inventory, then Interact to select an adjacent placement tile.',
+        color: '#9cff9c',
+        consume: false,
       };
     }
 

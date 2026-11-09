@@ -83,7 +83,8 @@ export class QuestController {
       if (!quest || active.some((entry) => entry.id === id)) {
         continue;
       }
-      quest.onAccept(runtime);
+      // Saved quest baselines and side effects were restored with player flags.
+      // Calling onAccept again here erases progress made before the save.
       active.push(quest);
     }
     this.active = active;
@@ -91,6 +92,7 @@ export class QuestController {
     this.accepted = accepted;
     this.offered = null;
     this.offeredByRoomId = undefined;
+    void runtime;
   }
 
   /** Presentation hydration deliberately does not run quest acceptance/reward callbacks. */
@@ -112,6 +114,11 @@ export class QuestController {
 
   acceptOffered(runtime: QuestRuntime): Quest | null {
     if (!this.offered) {
+      return null;
+    }
+    // Do not record acceptance and award a baseline for a quest we cannot track.
+    // Keep the offer pending so it can be accepted after a slot opens.
+    if (this.active.length >= this.maxActiveQuests) {
       return null;
     }
     const quest = this.offered;
