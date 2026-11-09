@@ -3800,10 +3800,15 @@ export default class SnakeScene extends Phaser.Scene {
         action: 'step',
         direction,
         playerId: this.snakeGame.getLocalPlayerId(),
+      }).then((result) => {
+        if (!result.ok)
+          this.showQuestHintPopup(result.message ?? result.reason ?? 'Blocked.', '#ffd166');
+        this.isDirty = true;
       });
       return true;
     }
-    this.snakeGame.stepStructurePlacement(direction);
+    const result = this.snakeGame.stepStructurePlacement(direction);
+    if (!result.ok) this.showQuestHintPopup(result.message, '#ffd166');
     this.gameSession.refreshSnapshot();
     this.isDirty = true;
     return true;
