@@ -1,4 +1,4 @@
-import { monitorEventLoopDelay, performance } from 'node:perf_hooks';
+import { monitorEventLoopDelay, performance, PerformanceObserver } from 'node:perf_hooks';
 
 /** One aggregate sample per reporting interval, never a per-frame probe. */
 export class ProcessPerformance {
@@ -6,9 +6,20 @@ export class ProcessPerformance {
   private cpu = process.cpuUsage();
   private utilization = performance.eventLoopUtilization();
   private since = performance.now();
+  private gcCount = 0;
+  private gcDurationMs = 0;
+  private maximumGcPauseMs = 0;
+  private readonly gcObserver = new PerformanceObserver((list) => {
+    for (const entry of list.getEntries()) {
+      this.gcCount++;
+      this.gcDurationMs += entry.duration;
+      this.maximumGcPauseMs = Math.max(this.maximumGcPauseMs, entry.duration);
+    }
+  });
 
   constructor() {
     this.delay.enable();
+    this.gcObserver.observe({ entryTypes: ['gc'] });
   }
 
   read() {
@@ -31,12 +42,19 @@ export class ProcessPerformance {
       eventLoopMeanMs: Number.isFinite(this.delay.mean) ? this.delay.mean / 1e6 : 0,
       eventLoopP99Ms: this.delay.percentile(99) / 1e6,
       eventLoopMaxMs: this.delay.max / 1e6,
+      gcCount: this.gcCount,
+      gcDurationMs: this.gcDurationMs,
+      maximumGcPauseMs: this.maximumGcPauseMs,
     };
     this.delay.reset();
+    this.gcCount = 0;
+    this.gcDurationMs = 0;
+    this.maximumGcPauseMs = 0;
     this.since = now;
     return report;
   }
   close(): void {
     this.delay.disable();
+    this.gcObserver.disconnect();
   }
 }
