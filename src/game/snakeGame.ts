@@ -7353,6 +7353,11 @@ export class SnakeGame implements QuestRuntime {
   /** Deliberate one-tile movement: never step through solid world geometry or the tail. */
   stepFarmToolMode(direction: Vector2Like): { ok: boolean; message: string } {
     if (!this.getFarmTool()) return { ok: false, message: 'Select a farming tool first.' };
+    return this.stepDeliberateRoomMovement(direction);
+  }
+
+  /** Both farming tools and structure previews obey the same collision rules. */
+  private stepDeliberateRoomMovement(direction: Vector2Like): { ok: boolean; message: string } {
     if (
       !Number.isInteger(direction.x) ||
       !Number.isInteger(direction.y) ||
@@ -7919,17 +7924,15 @@ export class SnakeGame implements QuestRuntime {
 
   stepStructurePlacement(direction: Vector2Like): void {
     if (!this.constructionPlacement) return;
-    if (direction.x !== 0 || direction.y !== 0) {
+    if (
+      Number.isInteger(direction.x) &&
+      Number.isInteger(direction.y) &&
+      Math.abs(direction.x) + Math.abs(direction.y) === 1
+    ) {
+      // Facing still changes when blocked so the blueprint can be rotated in place.
       this.snake.forceDirection(direction.x, direction.y);
     }
-    const head = this.snake.bodySegments[0];
-    if (!head) return;
-    const local = this.worldToLocal(this.snake.currentRoomId, head);
-    const next = {
-      x: Math.max(1, Math.min(this.config.grid.cols - 2, local.x + direction.x)),
-      y: Math.max(1, Math.min(this.config.grid.rows - 2, local.y + direction.y)),
-    };
-    this.moveToRoom(this.snake.currentRoomId, next);
+    this.stepDeliberateRoomMovement(direction);
   }
 
   faceStructurePlacement(direction: Vector2Like): void {
@@ -24160,7 +24163,7 @@ export class SnakeGame implements QuestRuntime {
           action: 'harvest',
           target: { dx: cell.x - local.x, dy: cell.y - local.y },
         })
-      : { ok: false, message: 'Use Farming (J) to tend greenhouse beds.' };
+      : { ok: false, message: 'Equip a farming tool from inventory or Interact with a bed to tend the greenhouse.' };
   }
 
   placeHomeArcadeCabinet(): { x: number; y: number } | null {
