@@ -2640,17 +2640,6 @@ export default class SnakeScene extends Phaser.Scene {
       }
 
       // Tab: Cycle through emoticons
-      if (
-        key === 'j' &&
-        !this.paused &&
-        !this.deathCutscene &&
-        !this.titleVisible &&
-        !this.minecraftMode
-      ) {
-        event.preventDefault();
-        void this.farmingMenu?.open();
-        return;
-      }
       if (key === 'tab' && !this.paused && !this.deathCutscene && !this.titleVisible) {
         const owned = this.snakeGame.getEmoticonState()?.owned ?? [];
         if (owned.length > 0) {
@@ -3699,6 +3688,17 @@ export default class SnakeScene extends Phaser.Scene {
     const head = this.snakeGame.getSnakeBody()[0];
     const pos = head && this.snakeGame.resolveRoomPosition(head);
     if (!pos || !head || !this.farmingMenu) return false;
+    if (tool === 'claim-flag') {
+      const room = this.snakeGame.getCurrentRoom();
+      if (this.snakeGame.getRoomClaim() || room.town || room.townPerimeter) {
+        await this.farmingMenu.openLandActions();
+      } else {
+        const result = await this.farmingMenu.claimCurrentRoom();
+        this.showQuestHintPopup(result.message, result.ok ? '#5dd6a2' : '#ffd166');
+      }
+      this.isDirty = true;
+      return true;
+    }
     const facing = this.snakeGame.getFarmToolTarget();
     const target = { dx: facing.x, dy: facing.y };
     const cell = this.snakeGame
@@ -3737,11 +3737,15 @@ export default class SnakeScene extends Phaser.Scene {
         )
     )
       action = 'toggleGate';
+    if (!action && !tool && cell) {
+      await this.farmingMenu.openSoilActions();
+      return true;
+    }
     if (!action) return false;
     const result = await this.farmingMenu.perform(action, target, seed);
     this.showQuestHintPopup(result.message, result.ok ? '#5dd6a2' : '#ffd166');
     this.isDirty = true;
-    if (result.ok && seed && this.snakeGame.getInventory().getItemCount(seed) === 0) {
+    if (result.ok && tool && !this.snakeGame.getFarmTool()) {
       this.exitFarmTool();
     }
     return true;
