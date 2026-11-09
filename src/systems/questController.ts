@@ -70,6 +70,7 @@ export class QuestController {
     state: { active?: string[]; completed?: string[]; accepted?: string[] },
     runtime: QuestRuntime,
   ): void {
+    void runtime;
     const completed = Array.from(new Set(state.completed ?? []));
     const accepted = Array.from(
       new Set([...(state.accepted ?? []), ...(state.active ?? []), ...completed]),
@@ -92,7 +93,6 @@ export class QuestController {
     this.accepted = accepted;
     this.offered = null;
     this.offeredByRoomId = undefined;
-    void runtime;
   }
 
   /** Presentation hydration deliberately does not run quest acceptance/reward callbacks. */

@@ -25,6 +25,7 @@ export type WorldEventType =
   | 'campaign-event'
   | 'mayoral-election-result'
   | 'quest-completed'
+  | 'quest-story-action'
   | 'pickpocket'
   | 'town-crime'
   | 'relationship-choice'

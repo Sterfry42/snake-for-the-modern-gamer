@@ -225,8 +225,10 @@ describe('agriculture real authoritative session transactions', () => {
     expect(game.getScore()).toBe(6);
     game.getInventory().addItem('cannabis-bud', 2);
     // All merchants buy saleable goods; a specialist pays more for their category.
-    expect(game.getMerchantSellOffers(merchant.id).find((offer) =>
-      offer.itemId === 'cannabis-bud')?.price).toBe(15);
+    expect(
+      game.getMerchantSellOffers(merchant.id).find((offer) => offer.itemId === 'cannabis-bud')
+        ?.price,
+    ).toBe(15);
     expect(game.sellFarmProduce(merchant.id, 'cannabis-bud', 1).ok).toBe(true);
     expect(game.getScore()).toBe(21);
     game.getActorSystem().registry.update(merchant.id, (actor) => ({
@@ -234,8 +236,10 @@ describe('agriculture real authoritative session transactions', () => {
       role: 'blackMarketMerchant',
       shopProfileId: 'black-market',
     }));
-    expect(game.getMerchantSellOffers(merchant.id).find((offer) =>
-      offer.itemId === 'cannabis-bud')?.price).toBeGreaterThan(15);
+    expect(
+      game.getMerchantSellOffers(merchant.id).find((offer) => offer.itemId === 'cannabis-bud')
+        ?.price,
+    ).toBeGreaterThan(15);
     expect(game.sellFarmProduce(merchant.id, 'cannabis-bud', 1).ok).toBe(true);
     expect(game.getInventory().getItemCount('cannabis-bud')).toBe(0);
     expect(game.getScore()).toBeGreaterThan(36);
@@ -259,18 +263,18 @@ describe('agriculture real authoritative session transactions', () => {
     };
     game.getActorSystem().registry.upsert(merchant);
     game.getInventory().addItem('healing-potion', 2);
-    const ordinary = game.getMerchantSellOffers(merchant.id).find(
-      (offer) => offer.itemId === 'healing-potion',
-    );
+    const ordinary = game
+      .getMerchantSellOffers(merchant.id)
+      .find((offer) => offer.itemId === 'healing-potion');
     expect(ordinary?.price).toBeGreaterThan(0);
     game.getActorSystem().registry.update(merchant.id, (actor) => ({
       ...actor,
       role: 'potionMaker',
       shopProfileId: 'potion-maker',
     }));
-    const specialist = game.getMerchantSellOffers(merchant.id).find(
-      (offer) => offer.itemId === 'healing-potion',
-    );
+    const specialist = game
+      .getMerchantSellOffers(merchant.id)
+      .find((offer) => offer.itemId === 'healing-potion');
     expect(specialist?.specialty).toBe(true);
     expect(specialist?.price).toBeGreaterThan(ordinary!.price);
     expect(specialist!.price).toBeLessThan(referenceRetailPrice('healing-potion')!);

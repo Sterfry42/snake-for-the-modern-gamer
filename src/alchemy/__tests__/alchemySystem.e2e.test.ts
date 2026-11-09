@@ -348,11 +348,13 @@ describe('alchemy headless end-to-end', () => {
     expect(placed.ok).toBe(true);
     if (!placed.ok) return;
 
-    expect(scenario.game.brewAlchemyRecipe('phase', {
-      kind: 'alchemy-station',
-      source: 'placed',
-      worldObjectId: placed.station.id,
-    }).ok).toBe(true);
+    expect(
+      scenario.game.brewAlchemyRecipe('phase', {
+        kind: 'alchemy-station',
+        source: 'placed',
+        worldObjectId: placed.station.id,
+      }).ok,
+    ).toBe(true);
     expect(scenario.game.getFlag('potionsCrafted')).toBe(1);
     expect(scenario.game.useInventoryItem('potion-phase').ok).toBe(true);
     expect(scenario.game.getFlag('potionsUsed')).toBe(1);
@@ -370,6 +372,8 @@ describe('alchemy headless end-to-end', () => {
     expect(head).toBeDefined();
     if (!head) return;
     const local = scenario.game.resolveRoomPosition(head);
+    expect(local).not.toBeNull();
+    if (!local) throw new Error('The player must be in a room to test station deployment.');
 
     const invalid = executeSceneGameplayAction(scenario.game, {
       type: 'worldInteraction',
@@ -380,7 +384,8 @@ describe('alchemy headless end-to-end', () => {
     expect(invalid.ok).toBe(false);
 
     expect(scenario.game.useInventoryItem(ALCHEMY_STATION_ITEM_ID)).toMatchObject({
-      ok: true, consume: false,
+      ok: true,
+      consume: false,
     });
     expect(scenario.game.getFlag('alchemy.placementArmed')).toBe(true);
     const remote = executeSceneGameplayAction(scenario.game, {

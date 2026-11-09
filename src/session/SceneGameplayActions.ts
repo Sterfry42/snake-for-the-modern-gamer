@@ -98,7 +98,8 @@ export function executeSceneGameplayAction(
             !Number.isInteger(command.target.x) ||
             !Number.isInteger(command.target.y) ||
             Math.abs(command.target.x - local.localX) +
-              Math.abs(command.target.y - local.localY) !== 1 ||
+              Math.abs(command.target.y - local.localY) !==
+              1 ||
             game.getPlayerHealth().current <= 0
           ) {
             return { ok: false, reason: 'Choose an adjacent tile while carrying a station.' };
@@ -215,7 +216,11 @@ export function executeSceneGameplayAction(
     case 'purchase': {
       if (!game.canInteractWithActor(command.actorId))
         return { ok: false, reason: 'Move closer to shop.' };
-      const result = game.purchaseActorShopOffer(command.actorId, command.offerId, command.count ?? 1);
+      const result = game.purchaseActorShopOffer(
+        command.actorId,
+        command.offerId,
+        command.count ?? 1,
+      );
       return {
         ok: result.ok,
         reason: result.ok ? undefined : result.message,

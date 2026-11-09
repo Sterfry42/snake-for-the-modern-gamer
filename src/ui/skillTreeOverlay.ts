@@ -3801,9 +3801,12 @@ export class SkillTreeOverlay {
           this.structuredContainer,
           this.structuredGraphics,
           { x: card.x + card.width - 62, y: card.y + 14, width: 50, height: 20 },
-          item?.category === 'food' || item?.kind === 'consumable' ||
+          item?.category === 'food' ||
+            item?.kind === 'consumable' ||
             FARM_TOOLS.some((tool) => tool.id === itemId) ||
-            CROPS.some((crop) => crop.seedItemId === itemId) ? 'USE' : 'VIEW',
+            CROPS.some((crop) => crop.seedItemId === itemId)
+            ? 'USE'
+            : 'VIEW',
           uiColors.accentGear,
           uiColors.accentGear,
         );
@@ -5680,9 +5683,12 @@ export class SkillTreeOverlay {
     const item = getItem(this.selectedInventoryItemId);
     if (!item || item.kind === 'equipment') return;
     // Tools and seeds are actively usable; do not hide them behind the old J menu.
-    if (!isLocatorItemId(item.id) &&
-        !FARM_TOOLS.some((tool) => tool.id === item.id) &&
-        !CROPS.some((crop) => crop.seedItemId === item.id)) return;
+    if (
+      !isLocatorItemId(item.id) &&
+      !FARM_TOOLS.some((tool) => tool.id === item.id) &&
+      !CROPS.some((crop) => crop.seedItemId === item.id)
+    )
+      return;
 
     const detailPanelX = this.detailPanel.x;
     const detailPanelY = this.detailPanel.y;
@@ -5842,11 +5848,13 @@ export class SkillTreeOverlay {
     }
     const itemId = this.selectedInventoryItemId;
     const result = await this.scene.useInventoryItem(itemId);
-    if (result.ok && (
-      CROPS.some((crop) => crop.seedItemId === itemId) ||
-      (FARM_TOOLS.some((tool) => tool.id === itemId) && itemId !== 'farm-water-refill') ||
-      itemId === 'garden-watering-can' || itemId === 'garden-fertilizer'
-    )) {
+    if (
+      result.ok &&
+      (CROPS.some((crop) => crop.seedItemId === itemId) ||
+        (FARM_TOOLS.some((tool) => tool.id === itemId) && itemId !== 'farm-water-refill') ||
+        itemId === 'garden-watering-can' ||
+        itemId === 'garden-fertilizer')
+    ) {
       this.scene.togglePauseMenu(false);
       return true;
     }
@@ -5893,8 +5901,10 @@ export class SkillTreeOverlay {
     if (item.category === 'food' || item.kind === 'consumable') {
       hints.push('Press U to use.');
     }
-    if (FARM_TOOLS.some((tool) => tool.id === itemId) ||
-        CROPS.some((crop) => crop.seedItemId === itemId)) {
+    if (
+      FARM_TOOLS.some((tool) => tool.id === itemId) ||
+      CROPS.some((crop) => crop.seedItemId === itemId)
+    ) {
       hints.push('Press U or use the detail button to select for deliberate farming.');
     }
     if (itemId === 'raw-meat' || itemId === 'fish-meat') {

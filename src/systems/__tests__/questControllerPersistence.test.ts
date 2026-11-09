@@ -26,7 +26,9 @@ function createRuntime() {
     addItem: () => {},
     addCosmeticReward: () => {},
     getFlag: <T = unknown>(key: string) => flags.get(key) as T | undefined,
-    setFlag: (key, value) => { flags.set(key, value); },
+    setFlag: (key, value) => {
+      flags.set(key, value);
+    },
   };
   return { flags, runtime };
 }

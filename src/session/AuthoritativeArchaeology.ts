@@ -95,6 +95,7 @@ export class AuthoritativeArchaeology {
         ),
       };
       this.states.set(playerId, runtime);
+      this.bumpQuestCounter('archaeology:enteredDigSite');
       this.flush(playerId, runtime);
       return { ok: true };
     }
@@ -141,10 +142,29 @@ export class AuthoritativeArchaeology {
       reason,
       payout: this.game.applyArchaeologyRewards(runtime.session.getSnapshot().rewards),
     };
+    this.bumpQuestCounter('archaeology:excavationsCompleted');
+    this.bumpQuestCounter('archaeology:artifactsRecovered', runtime.result.payout.artifactCount);
+  }
+
+  private bumpQuestCounter(key: string, delta = 1): void {
+    if (delta <= 0) return;
+    const oldValue = this.game.getFlag<number>(key) ?? 0;
+    this.game.setFlag(key, oldValue + delta);
+  }
+
+  private updateQuestRecord(key: string, value: number): void {
+    this.game.setFlag(key, Math.max(this.game.getFlag<number>(key) ?? 0, value));
   }
 
   private flush(playerId: string, runtime: Runtime): void {
     const events = runtime.session.consumeEvents();
+    for (const event of events) {
+      if (event.kind === 'match') {
+        this.bumpQuestCounter('archaeology:matchesMade');
+        this.updateQuestRecord('archaeology:bestChain', event.chain);
+      }
+      if (event.kind === 'raise') this.updateQuestRecord('archaeology:maxDepth', event.depth);
+    }
     const messages = runtime.session.consumeMessages();
     if (events.length || messages.length)
       this.publish(

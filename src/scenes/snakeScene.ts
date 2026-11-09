@@ -3601,8 +3601,8 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private async performInteractAction(): Promise<void> {
-    if (await this.interactFarmTarget()) return;
     if (this.tryPlaceAlchemyStation()) return;
+    if (await this.interactFarmTarget()) return;
     if (this.snakeGame.getStructurePlacement()) {
       this.confirmStructurePlacement();
       return;
@@ -3639,23 +3639,42 @@ export default class SnakeScene extends Phaser.Scene {
     if (!pos || !head || !this.farmingMenu) return false;
     const facing = this.snakeGame.getFarmToolTarget();
     const target = { dx: facing.x, dy: facing.y };
-    const cell = this.snakeGame.getFarmCells().find((entry) =>
-      entry.x === pos.localX + facing.x && entry.y === pos.localY + facing.y,
-    );
-    let action: 'till' | 'plant' | 'water' | 'harvest' | 'compost' | 'magicBed' | 'toggleGate' | undefined;
+    const cell = this.snakeGame
+      .getFarmCells()
+      .find((entry) => entry.x === pos.localX + facing.x && entry.y === pos.localY + facing.y);
+    let action:
+      | 'till'
+      | 'plant'
+      | 'water'
+      | 'harvest'
+      | 'compost'
+      | 'magicBed'
+      | 'toggleGate'
+      | undefined;
     let seed: string | undefined;
     if (tool === 'farm-hoe') action = 'till';
     else if (tool === 'watering-can' || tool === 'garden-watering-can') action = 'water';
     else if (tool === 'farm-compost' || tool === 'garden-fertilizer') action = 'compost';
     else if (tool === 'farm-magic-bed') action = 'magicBed';
-    else if (tool?.startsWith('seed-')) { action = 'plant'; seed = tool; }
-    else if (cell?.crop?.stage === 'ready') action = 'harvest';
-    if (!action && !tool && this.snakeGame.placedStructures(this.currentRoomId).some(
-      (structure) => structure.cells.some((part) =>
-        part.localX === pos.localX + facing.x &&
-        part.localY === pos.localY + facing.y && part.tile === 'D',
-      ),
-    )) action = 'toggleGate';
+    else if (tool?.startsWith('seed-')) {
+      action = 'plant';
+      seed = tool;
+    } else if (cell?.crop?.stage === 'ready') action = 'harvest';
+    if (
+      !action &&
+      !tool &&
+      this.snakeGame
+        .placedStructures(this.currentRoomId)
+        .some((structure) =>
+          structure.cells.some(
+            (part) =>
+              part.localX === pos.localX + facing.x &&
+              part.localY === pos.localY + facing.y &&
+              part.tile === 'D',
+          ),
+        )
+    )
+      action = 'toggleGate';
     if (!action) return false;
     const result = await this.farmingMenu.perform(action, target, seed);
     this.showQuestHintPopup(result.message, result.ok ? '#5dd6a2' : '#ffd166');
@@ -3669,7 +3688,9 @@ export default class SnakeScene extends Phaser.Scene {
   private moveFarmTool(direction: Vector2Like): boolean {
     if (this.sceneClient) {
       void this.submitRemote({
-        type: 'farmToolAction', action: 'step', direction,
+        type: 'farmToolAction',
+        action: 'step',
+        direction,
         playerId: this.snakeGame.getLocalPlayerId(),
       }).then((result) => {
         if (!result.ok)
@@ -3688,12 +3709,16 @@ export default class SnakeScene extends Phaser.Scene {
   private exitFarmTool(): void {
     if (this.sceneClient) {
       void this.submitRemote({
-        type: 'farmToolAction', action: 'exit',
+        type: 'farmToolAction',
+        action: 'exit',
         playerId: this.snakeGame.getLocalPlayerId(),
-      }).then(() => this.submitRemote({
-        type: 'playerInteraction', mode: 'playing',
-        playerId: this.snakeGame.getLocalPlayerId(),
-      }));
+      }).then(() =>
+        this.submitRemote({
+          type: 'playerInteraction',
+          mode: 'playing',
+          playerId: this.snakeGame.getLocalPlayerId(),
+        }),
+      );
     } else {
       this.snakeGame.exitFarmToolMode();
       this.gameSession.refreshSnapshot();
@@ -10864,17 +10889,23 @@ export default class SnakeScene extends Phaser.Scene {
         itemId,
         playerId: this.snakeGame.getLocalPlayerId(),
       }).then(async (result) => {
-        if (result.ok && (CROPS.some((crop) => crop.seedItemId === itemId) ||
+        if (
+          result.ok &&
+          (CROPS.some((crop) => crop.seedItemId === itemId) ||
             (FARM_TOOLS.some((tool) => tool.id === itemId) && itemId !== 'farm-water-refill') ||
-            itemId === 'garden-watering-can' || itemId === 'garden-fertilizer')) {
+            itemId === 'garden-watering-can' ||
+            itemId === 'garden-fertilizer')
+        ) {
           await this.submitRemote({
-            type: 'playerInteraction', mode: 'manual',
+            type: 'playerInteraction',
+            mode: 'manual',
             playerId: this.snakeGame.getLocalPlayerId(),
           });
         }
         return {
           ok: result.ok,
-          message: result.message ?? result.reason ?? (result.ok ? 'Item used.' : 'Cannot use item.'),
+          message:
+            result.message ?? result.reason ?? (result.ok ? 'Item used.' : 'Cannot use item.'),
           color: result.color,
         };
       });
@@ -11749,7 +11780,10 @@ export default class SnakeScene extends Phaser.Scene {
         void this.performInteractAction();
         return true;
       }
-      if (command === 'cancel') { this.exitFarmTool(); return true; }
+      if (command === 'cancel') {
+        this.exitFarmTool();
+        return true;
+      }
       if (command === 'up') return this.moveFarmTool({ x: 0, y: -1 });
       if (command === 'down') return this.moveFarmTool({ x: 0, y: 1 });
       if (command === 'left') return this.moveFarmTool({ x: -1, y: 0 });
@@ -16438,42 +16472,46 @@ export default class SnakeScene extends Phaser.Scene {
       { id: 'west', title: 'West', dx: -1, dy: 0 },
     ];
     this.paused = true;
-    this.villageShopPopup.show('Deploy Alchemy Station', [
-      ...directions.map((direction) => ({
-        id: direction.id,
-        title: `Place ${direction.title}`,
-        description: 'Place the station on the neighboring tile.',
-      })),
-      { id: 'cancel', title: 'Cancel', description: 'Put the station away without placing it.' },
-    ], async (id) => {
-      if (id === 'cancel') {
-        await this.gameConnection.send({
+    this.villageShopPopup.show(
+      'Deploy Alchemy Station',
+      [
+        ...directions.map((direction) => ({
+          id: direction.id,
+          title: `Place ${direction.title}`,
+          description: 'Place the station on the neighboring tile.',
+        })),
+        { id: 'cancel', title: 'Cancel', description: 'Put the station away without placing it.' },
+      ],
+      async (id) => {
+        if (id === 'cancel') {
+          await this.gameConnection.send({
+            type: 'worldInteraction',
+            action: 'alchemy-cancel',
+            playerId: this.snakeGame.getLocalPlayerId(),
+          });
+          this.paused = false;
+          return;
+        }
+        const direction = directions.find((entry) => entry.id === id);
+        if (!direction) {
+          this.paused = false;
+          return;
+        }
+        const result = await this.gameConnection.send({
           type: 'worldInteraction',
-          action: 'alchemy-cancel',
+          action: 'alchemy-place',
+          target: { x: local.localX + direction.dx, y: local.localY + direction.dy },
           playerId: this.snakeGame.getLocalPlayerId(),
         });
+        this.showQuestHintPopup(
+          result.message ?? result.reason ?? 'Could not place the station.',
+          result.ok ? '#5dd6a2' : '#ff6b6b',
+        );
+        this.skillTree.getOverlay().refresh();
+        this.isDirty = true;
         this.paused = false;
-        return;
-      }
-      const direction = directions.find((entry) => entry.id === id);
-      if (!direction) {
-        this.paused = false;
-        return;
-      }
-      const result = await this.gameConnection.send({
-        type: 'worldInteraction',
-        action: 'alchemy-place',
-        target: { x: local.localX + direction.dx, y: local.localY + direction.dy },
-        playerId: this.snakeGame.getLocalPlayerId(),
-      });
-      this.showQuestHintPopup(
-        result.message ?? result.reason ?? 'Could not place the station.',
-        result.ok ? '#5dd6a2' : '#ff6b6b',
-      );
-      this.skillTree.getOverlay().refresh();
-      this.isDirty = true;
-      this.paused = false;
-    });
+      },
+    );
     return true;
   }
 
@@ -17688,49 +17726,74 @@ export default class SnakeScene extends Phaser.Scene {
 
   private showActorShopSelling(actorId: string, page = 0, guildTownId?: string): void {
     const shop = this.snakeGame.getActorShopView(actorId);
-    if (!shop?.open) { this.closeVillageShop(); return; }
+    if (!shop?.open) {
+      this.closeVillageShop();
+      return;
+    }
     const offers = this.snakeGame.getMerchantSellOffers(actorId);
     const pageSize = 5;
     const pages = Math.max(1, Math.ceil(offers.length / pageSize));
     const index = Math.max(0, Math.min(page, pages - 1));
-    const options: NormalizedChoiceOption[] = offers.slice(index * pageSize, (index + 1) * pageSize)
+    const options: NormalizedChoiceOption[] = offers
+      .slice(index * pageSize, (index + 1) * pageSize)
       .map((offer) => ({
         id: `sell:${offer.itemId}`,
         title: `${offer.label} ×${offer.count} — ${offer.price} score each`,
-        description: offer.specialty ? 'Specialty merchant bonus included.' : 'General resale price.',
+        description: offer.specialty
+          ? 'Specialty merchant bonus included.'
+          : 'General resale price.',
       }));
-    if (index > 0) options.push({
-      id: `page:${index - 1}`, title: 'Previous', description: 'Earlier goods.',
-    });
-    if (index < pages - 1) options.push({
-      id: `page:${index + 1}`, title: 'More', description: 'More goods.',
-    });
+    if (index > 0)
+      options.push({
+        id: `page:${index - 1}`,
+        title: 'Previous',
+        description: 'Earlier goods.',
+      });
+    if (index < pages - 1)
+      options.push({
+        id: `page:${index + 1}`,
+        title: 'More',
+        description: 'More goods.',
+      });
     options.push({ id: 'back', title: 'Back', description: 'Return to merchant.' });
     this.villageShopPopup.show(`${shop.title} — Sell`, options, (id) => {
-      if (id === 'back') { this.showActorShopRoot(shop, guildTownId); return; }
+      if (id === 'back') {
+        this.showActorShopRoot(shop, guildTownId);
+        return;
+      }
       if (id.startsWith('page:')) {
-        this.showActorShopSelling(actorId, Number(id.slice(5)), guildTownId); return;
+        this.showActorShopSelling(actorId, Number(id.slice(5)), guildTownId);
+        return;
       }
       const offer = offers.find((entry) => id === `sell:${entry.itemId}`);
       if (!offer) return;
       const quantities = [...new Set([1, 5, offer.count])].filter((n) => n <= offer.count);
-      this.villageShopPopup.show(`Sell ${offer.label}`, [
-        ...quantities.map((count) => ({
-          id: String(count),
-          title: `Sell ${count} — +${count * offer.price} score`,
-          description: `Receive ${offer.price} per item.`,
-        })),
-        { id: 'back', title: 'Back', description: 'Keep goods.' },
-      ], (choice) => {
-        if (choice === 'back') { this.showActorShopSelling(actorId, index, guildTownId); return; }
-        const count = Number(choice);
-        if (!Number.isSafeInteger(count) || !quantities.includes(count)) return;
-        void this.farmingMenu?.sellToMerchant(actorId, offer.itemId, count).then((result) => {
-          this.showQuestHintPopup(result.message ?? result.reason ?? 'Sale complete.',
-            result.ok ? '#5dd6a2' : '#ff6b6b');
-          this.showActorShopSelling(actorId, index, guildTownId);
-        });
-      });
+      this.villageShopPopup.show(
+        `Sell ${offer.label}`,
+        [
+          ...quantities.map((count) => ({
+            id: String(count),
+            title: `Sell ${count} — +${count * offer.price} score`,
+            description: `Receive ${offer.price} per item.`,
+          })),
+          { id: 'back', title: 'Back', description: 'Keep goods.' },
+        ],
+        (choice) => {
+          if (choice === 'back') {
+            this.showActorShopSelling(actorId, index, guildTownId);
+            return;
+          }
+          const count = Number(choice);
+          if (!Number.isSafeInteger(count) || !quantities.includes(count)) return;
+          void this.farmingMenu?.sellToMerchant(actorId, offer.itemId, count).then((result) => {
+            this.showQuestHintPopup(
+              result.message ?? result.reason ?? 'Sale complete.',
+              result.ok ? '#5dd6a2' : '#ff6b6b',
+            );
+            this.showActorShopSelling(actorId, index, guildTownId);
+          });
+        },
+      );
     });
   }
 
@@ -17786,8 +17849,11 @@ export default class SnakeScene extends Phaser.Scene {
       }
       const offerId = id.slice('actor-offer:'.length);
       const chosenOffer = offers.find((entry) => entry.id === offerId);
-      if (chosenOffer?.itemId?.startsWith('seed-') && !guildTownId &&
-          (chosenOffer.quantity ?? 1) > 1) {
+      if (
+        chosenOffer?.itemId?.startsWith('seed-') &&
+        !guildTownId &&
+        (chosenOffer.quantity ?? 1) > 1
+      ) {
         this.showActorShopSeedQuantity(actorId, category, chosenOffer, safePage, guildTownId);
         return;
       }
@@ -17813,37 +17879,52 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private showActorShopSeedQuantity(
-    actorId: string, category: ActorShopOfferCategory,
+    actorId: string,
+    category: ActorShopOfferCategory,
     offer: { id: string; label: string; price: number; quantity?: number },
-    page: number, guildTownId?: string,
+    page: number,
+    guildTownId?: string,
   ): void {
     const stock = offer.quantity ?? 1;
-    const affordable = offer.price > 0 ? Math.floor(this.snakeGame.getScore() / offer.price) : stock;
-    const quantities = [...new Set([1, 5, 10, stock])].filter((n) =>
-      n <= stock && n <= affordable && n > 0,
+    const affordable =
+      offer.price > 0 ? Math.floor(this.snakeGame.getScore() / offer.price) : stock;
+    const quantities = [...new Set([1, 5, 10, stock])].filter(
+      (n) => n <= stock && n <= affordable && n > 0,
     );
-    this.villageShopPopup.show(`Buy ${offer.label}`, [
-      ...quantities.map((count) => ({
-        id: String(count),
-        title: `Buy ${count} — ${offer.price * count} score`,
-        description: `${stock} available today.`,
-      })),
-      { id: 'back', title: 'Back', description: 'Return to shop shelves.' },
-    ], (id) => {
-      if (id === 'back') {
-        this.showActorShopCategory(actorId, category, page, guildTownId); return;
-      }
-      const count = Number(id);
-      if (!quantities.includes(count)) return;
-      void Promise.resolve(this.gameConnection.send({
-        type: 'purchase', actorId, offerId: offer.id, count,
-        playerId: this.snakeGame.getLocalPlayerId(),
-      })).then((result) => {
-        this.showQuestHintPopup(result.message ?? result.reason ?? 'Purchase complete.',
-          result.ok ? '#5dd6a2' : '#ff6b6b');
-        this.showActorShopCategory(actorId, category, page, guildTownId);
-      });
-    });
+    this.villageShopPopup.show(
+      `Buy ${offer.label}`,
+      [
+        ...quantities.map((count) => ({
+          id: String(count),
+          title: `Buy ${count} — ${offer.price * count} score`,
+          description: `${stock} available today.`,
+        })),
+        { id: 'back', title: 'Back', description: 'Return to shop shelves.' },
+      ],
+      (id) => {
+        if (id === 'back') {
+          this.showActorShopCategory(actorId, category, page, guildTownId);
+          return;
+        }
+        const count = Number(id);
+        if (!quantities.includes(count)) return;
+        void Promise.resolve(
+          this.gameConnection.send({
+            type: 'purchase',
+            actorId,
+            offerId: offer.id,
+            count,
+            playerId: this.snakeGame.getLocalPlayerId(),
+          }),
+        ).then((result) => {
+          this.showQuestHintPopup(
+            result.message ?? result.reason ?? 'Purchase complete.',
+            result.ok ? '#5dd6a2' : '#ff6b6b',
+          );
+          this.showActorShopCategory(actorId, category, page, guildTownId);
+        });
+      },
+    );
   }
 
   private maybeCompleteGeneralShopBuyout(actorRole?: string): void {

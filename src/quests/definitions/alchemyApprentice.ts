@@ -7,11 +7,7 @@ import type { QuestRuntime } from '../quest.js';
 
 class AlchemyApprenticeQuest extends Quest {
   constructor() {
-    super(
-      'alchemy-apprentice',
-      'Alchemy Apprentice',
-      'Brew 5 alchemy potions and use 2 of them.',
-    );
+    super('alchemy-apprentice', 'Alchemy Apprentice', 'Brew 5 alchemy potions and use 2 of them.');
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {

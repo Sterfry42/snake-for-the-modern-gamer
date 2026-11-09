@@ -1,6 +1,9 @@
 // Explicit production content entry points for browser and Node runtimes.
 export const builtInQuestLoaders = [
   () => import('./definitions/alchemyApprentice.js'),
+  () => import('./definitions/crystalClause.js'),
+  () => import('./definitions/crystalAftermath.js'),
+  () => import('./definitions/storyChapters.js'),
   () => import('./definitions/alchemyBasics.js'),
   () => import('./definitions/alchemyMaster.js'),
   () => import('./definitions/animalAmbassador.js'),

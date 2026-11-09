@@ -120,7 +120,8 @@ export const FARM_ITEMS: readonly Item[] = [
   ...FARM_TOOLS.map((tool) => ({
     id: tool.id,
     name: tool.name,
-    description: 'Use from inventory or the farm tools shortcut. Tools enable deliberate step-by-step tending.',
+    description:
+      'Use from inventory or the farm tools shortcut. Tools enable deliberate step-by-step tending.',
     category: 'material' as const,
   })),
   ...CROPS.flatMap((crop) => [

@@ -305,7 +305,12 @@ export const DEFAULT_SHOP_PROFILES: ReadonlyMap<string, ShopProfile> = new Map(
       consumables: { poolId: 'potion-maker-consumables', randomCount: 4 },
       items: {
         poolId: 'potion-maker-items',
-        anchored: ['alchemy-station', 'ingredient-pearl-apple', 'ingredient-quartz', 'ingredient-dew'],
+        anchored: [
+          'alchemy-station',
+          'ingredient-pearl-apple',
+          'ingredient-quartz',
+          'ingredient-dew',
+        ],
         randomCount: 3,
       },
     }),
@@ -385,8 +390,12 @@ const DEFAULT_SHOP_OFFER_POOL_LIST: ShopOfferPool[] = [
     'items',
     POTION_MAKER_SUPPLIES.filter((offer) =>
       [
-        'alchemy-station', 'ingredient-honey', 'ingredient-dew',
-        'ingredient-pearl-apple', 'ingredient-quartz', 'ingredient-yuzu-apple',
+        'alchemy-station',
+        'ingredient-honey',
+        'ingredient-dew',
+        'ingredient-pearl-apple',
+        'ingredient-quartz',
+        'ingredient-yuzu-apple',
       ].includes(offer.id),
     ),
     {
@@ -607,31 +616,45 @@ export function resolveShopProfileTabs(
         ? crop.contraband
         : !crop.contraband && crop.seasons.includes(context.season ?? 'spring'),
     );
-    const crops = [...eligible].sort((a, b) =>
-      stableStringHashUnsigned(`${context.worldSeed}:${context.townId ?? profileId}:${context.stockPeriod}:${a.id}`) -
-      stableStringHashUnsigned(`${context.worldSeed}:${context.townId ?? profileId}:${context.stockPeriod}:${b.id}`),
-    ).slice(0, profileId === 'black-market' ? 1 : 4);
+    const crops = [...eligible]
+      .sort(
+        (a, b) =>
+          stableStringHashUnsigned(
+            `${context.worldSeed}:${context.townId ?? profileId}:${context.stockPeriod}:${a.id}`,
+          ) -
+          stableStringHashUnsigned(
+            `${context.worldSeed}:${context.townId ?? profileId}:${context.stockPeriod}:${b.id}`,
+          ),
+      )
+      .slice(0, profileId === 'black-market' ? 1 : 4);
     const offers: ShopOfferView[] = crops.map((crop) => ({
       id: crop.seedItemId,
       itemId: crop.seedItemId,
       category: 'items',
       label: `${crop.label} Seeds`,
       price: crop.seedCost,
-      quantity: profileId === 'black-market'
-        ? 4
-        : 8 + stableStringHashUnsigned(`${context.worldSeed}:${context.stockPeriod}:${crop.id}:quantity`) % 8,
+      quantity:
+        profileId === 'black-market'
+          ? 4
+          : 8 +
+            (stableStringHashUnsigned(
+              `${context.worldSeed}:${context.stockPeriod}:${crop.id}:quantity`,
+            ) %
+              8),
       note: `${crop.growDays} world days; ${crop.seasons.join('/')}. Yield ${crop.yield}; produce sells for ${crop.value} each.`,
     }));
     if (profileId === 'general-merchant')
-      offers.push(...FARM_TOOLS.map((tool) => ({
-        id: tool.id,
-        itemId: tool.id,
-        category: 'items' as const,
-        label: tool.name,
-        price: tool.price,
-        quantity: 1,
-        note: 'Use from inventory to work the land one step at a time.',
-      })));
+      offers.push(
+        ...FARM_TOOLS.map((tool) => ({
+          id: tool.id,
+          itemId: tool.id,
+          category: 'items' as const,
+          label: tool.name,
+          price: tool.price,
+          quantity: 1,
+          note: 'Use from inventory to work the land one step at a time.',
+        })),
+      );
     const items = tabs.find((tab) => tab.id === 'items');
     if (items) items.offers.push(...offers);
     else tabs.push({ id: 'items', offers });
@@ -778,9 +801,12 @@ export function referenceRetailPrice(itemId: string): number | undefined {
   const farmTool = FARM_TOOLS.find((tool) => tool.id === itemId);
   if (farmTool) return farmTool.price;
   const offers = [
-    ...VILLAGE_SHOP_SUPPLIES, ...VILLAGE_SHOP_EQUIPMENT,
-    ...BLACK_MARKET_SUPPLIES, ...BLACK_MARKET_EQUIPMENT,
-    ...POTION_MAKER_SUPPLIES, ...WIZARD_SUPPLIES,
+    ...VILLAGE_SHOP_SUPPLIES,
+    ...VILLAGE_SHOP_EQUIPMENT,
+    ...BLACK_MARKET_SUPPLIES,
+    ...BLACK_MARKET_EQUIPMENT,
+    ...POTION_MAKER_SUPPLIES,
+    ...WIZARD_SUPPLIES,
   ];
   return offers.find((offer) => offer.itemId === itemId)?.price;
 }

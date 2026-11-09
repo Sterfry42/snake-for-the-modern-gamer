@@ -49,7 +49,10 @@ export function executeFarmAction(ctx: FarmActionContext, action: FarmAction): F
   const x = ctx.head.x + dx,
     y = ctx.head.y + dy;
   if (action.action === 'refillCan') {
-    if (!ctx.inventory.getItemCount('watering-can') && !ctx.inventory.getItemCount('garden-watering-can'))
+    if (
+      !ctx.inventory.getItemCount('watering-can') &&
+      !ctx.inventory.getItemCount('garden-watering-can')
+    )
       return fail('Requires a watering can.');
     const nearWater = [
       [0, 0],
@@ -143,8 +146,11 @@ export function executeFarmAction(ctx: FarmActionContext, action: FarmAction): F
       break;
     }
     case 'water':
-      if ((!ctx.inventory.getItemCount('watering-can') &&
-          !ctx.inventory.getItemCount('garden-watering-can')) || ctx.getCharges() < 1)
+      if (
+        (!ctx.inventory.getItemCount('watering-can') &&
+          !ctx.inventory.getItemCount('garden-watering-can')) ||
+        ctx.getCharges() < 1
+      )
         return fail('Requires a charged watering can. Refill beside water or use a refill.');
       ctx.setCharges(ctx.getCharges() - 1);
       cell.moisture = Math.min(100, cell.moisture + 50);
@@ -175,8 +181,8 @@ export function executeFarmAction(ctx: FarmActionContext, action: FarmAction): F
       cell.weeds = 0;
       break;
     case 'compost':
-      const compost = ctx.inventory.getItemCount('farm-compost') > 0
-        ? 'farm-compost' : 'garden-fertilizer';
+      const compost =
+        ctx.inventory.getItemCount('farm-compost') > 0 ? 'farm-compost' : 'garden-fertilizer';
       if (ctx.inventory.getItemCount(compost) < 1) return fail('Requires compost.');
       ctx.inventory.removeItem(compost);
       cell.fertility = Math.min(100, cell.fertility + 25);

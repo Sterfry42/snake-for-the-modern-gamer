@@ -32,15 +32,15 @@ class FirstDigQuest extends Quest {
  */
 class FossilHunterQuest extends Quest {
   constructor() {
-    super('archaeology.fossil-hunter', 'Fossil Hunter', 'Excavate 5 fossil fragments');
+    super('archaeology.fossil-hunter', 'Fossil Hunter', 'Complete 5 excavation matches');
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {
-    return this.progressSinceAccept(runtime, 'archaeology:fragmentFound') >= 5;
+    return this.progressSinceAccept(runtime, 'archaeology:matchesMade') >= 5;
   }
 
   protected override baselineKeys(): readonly string[] {
-    return ['archaeology:fragmentFound'];
+    return ['archaeology:matchesMade'];
   }
 
   override onReward(runtime: QuestRuntime): void {
@@ -56,15 +56,15 @@ class FossilHunterQuest extends Quest {
  */
 class AssemblyLineQuest extends Quest {
   constructor() {
-    super('archaeology.assembly-line', 'Assembly Line', 'Assemble 3 complete fossils');
+    super('archaeology.assembly-line', 'Assembly Line', 'Finish 3 excavations');
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {
-    return this.progressSinceAccept(runtime, 'archaeology:fossilAssembled') >= 3;
+    return this.progressSinceAccept(runtime, 'archaeology:excavationsCompleted') >= 3;
   }
 
   protected override baselineKeys(): readonly string[] {
-    return ['archaeology:fossilAssembled'];
+    return ['archaeology:excavationsCompleted'];
   }
 
   override onReward(runtime: QuestRuntime): void {
@@ -76,19 +76,19 @@ class AssemblyLineQuest extends Quest {
 /**
  * Museum Curator Quest
  *
- * Build your museum to a certain size.
+ * Recover real artifacts from excavations.
  */
 class MuseumCuratorQuest extends Quest {
   constructor() {
-    super('archaeology.museum-curator', 'Museum Curator', 'Complete 5 fossil sets');
+    super('archaeology.museum-curator', 'Museum Curator', 'Recover 2 archaeology artifacts');
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {
-    return this.progressSinceAccept(runtime, 'archaeology:museumExhibitUnlocked') >= 5;
+    return this.progressSinceAccept(runtime, 'archaeology:artifactsRecovered') >= 2;
   }
 
   protected override baselineKeys(): readonly string[] {
-    return ['archaeology:museumExhibitUnlocked'];
+    return ['archaeology:artifactsRecovered'];
   }
 
   override onReward(runtime: QuestRuntime): void {
@@ -108,11 +108,7 @@ class DeepDiverQuest extends Quest {
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {
-    return this.progressSinceAccept(runtime, 'archaeology:depthReached') >= 20;
-  }
-
-  protected override baselineKeys(): readonly string[] {
-    return ['archaeology:depthReached'];
+    return (runtime.getFlag<number>('archaeology:maxDepth') ?? 0) >= 20;
   }
 
   override onReward(runtime: QuestRuntime): void {
@@ -132,11 +128,7 @@ class ChainReactionQuest extends Quest {
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {
-    return this.progressSinceAccept(runtime, 'archaeology:chainReached') >= 10;
-  }
-
-  protected override baselineKeys(): readonly string[] {
-    return ['archaeology:chainReached'];
+    return (runtime.getFlag<number>('archaeology:bestChain') ?? 0) >= 10;
   }
 
   override onReward(runtime: QuestRuntime): void {
@@ -152,15 +144,19 @@ class ChainReactionQuest extends Quest {
  */
 class LegendaryExplorerQuest extends Quest {
   constructor() {
-    super('archaeology.legendary-explorer', 'Legendary Explorer', 'Recover a legendary artifact');
+    super(
+      'archaeology.legendary-explorer',
+      'Legendary Explorer',
+      'Recover an archaeology artifact',
+    );
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {
-    return this.progressSinceAccept(runtime, 'archaeology:legendaryArtifact') >= 1;
+    return this.progressSinceAccept(runtime, 'archaeology:artifactsRecovered') >= 1;
   }
 
   protected override baselineKeys(): readonly string[] {
-    return ['archaeology:legendaryArtifact'];
+    return ['archaeology:artifactsRecovered'];
   }
 
   override onReward(runtime: QuestRuntime): void {
@@ -172,19 +168,26 @@ class LegendaryExplorerQuest extends Quest {
 /**
  * Museum Master Quest
  *
- * Complete all fossil sets.
+ * Master excavation and discovery.
  */
 class MuseumMasterQuest extends Quest {
   constructor() {
-    super('archaeology.museum-master', 'Museum Master', 'Complete all fossil sets');
+    super(
+      'archaeology.museum-master',
+      'Museum Master',
+      'Complete 10 excavations and recover 5 artifacts',
+    );
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {
-    return this.progressSinceAccept(runtime, 'archaeology:museumComplete') >= 1;
+    return (
+      this.progressSinceAccept(runtime, 'archaeology:excavationsCompleted') >= 10 &&
+      this.progressSinceAccept(runtime, 'archaeology:artifactsRecovered') >= 5
+    );
   }
 
   protected override baselineKeys(): readonly string[] {
-    return ['archaeology:museumComplete'];
+    return ['archaeology:excavationsCompleted', 'archaeology:artifactsRecovered'];
   }
 
   override onReward(runtime: QuestRuntime): void {
@@ -204,3 +207,15 @@ export {
   LegendaryExplorerQuest,
   MuseumMasterQuest,
 };
+
+// Register all archaeology challenges through the built-in quest loader.
+export default [
+  new FirstDigQuest(),
+  new FossilHunterQuest(),
+  new AssemblyLineQuest(),
+  new MuseumCuratorQuest(),
+  new DeepDiverQuest(),
+  new ChainReactionQuest(),
+  new LegendaryExplorerQuest(),
+  new MuseumMasterQuest(),
+];
