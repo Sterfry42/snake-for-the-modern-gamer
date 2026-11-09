@@ -7387,6 +7387,19 @@ export class SnakeGame implements QuestRuntime {
     )
       return { ok: false, message: 'Your tail blocks the path.' };
     if (
+      this.getPlayers().some(
+        (player) =>
+          player.id !== this.localPlayerId &&
+          isPlayerInWorld(player) &&
+          player.snake.currentRoomId === room.id &&
+          player.snake.bodySegments.some((segment) => {
+            const position = this.worldToLocal(room.id, segment);
+            return position.x === next.x && position.y === next.y;
+          }),
+      )
+    )
+      return { ok: false, message: 'Another player blocks the path.' };
+    if (
       [
         ...this.collectActorOccupancy(room.id),
         ...this.collectEnemyOccupancy(room.id),
@@ -7922,8 +7935,9 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('construction.mode', undefined);
   }
 
-  stepStructurePlacement(direction: Vector2Like): void {
-    if (!this.constructionPlacement) return;
+  stepStructurePlacement(direction: Vector2Like): { ok: boolean; message: string } {
+    if (!this.constructionPlacement)
+      return { ok: false, message: 'No active construction preview.' };
     if (
       Number.isInteger(direction.x) &&
       Number.isInteger(direction.y) &&
@@ -7932,7 +7946,7 @@ export class SnakeGame implements QuestRuntime {
       // Facing still changes when blocked so the blueprint can be rotated in place.
       this.snake.forceDirection(direction.x, direction.y);
     }
-    this.stepDeliberateRoomMovement(direction);
+    return this.stepDeliberateRoomMovement(direction);
   }
 
   faceStructurePlacement(direction: Vector2Like): void {
