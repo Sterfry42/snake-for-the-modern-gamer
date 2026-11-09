@@ -25,7 +25,9 @@ export class FarmingMenu {
     return this.active;
   }
   getTarget() {
-    if (!this.active && !this.game().getFarmTool()) return undefined;
+    const tool = this.game().getFarmTool();
+    // Claims affect the entire room, not the adjacent tile.
+    if (tool === 'claim-flag' || (!this.active && !tool)) return undefined;
     const direction = this.game().getFarmToolTarget();
     return { dx: direction.x, dy: direction.y };
   }
