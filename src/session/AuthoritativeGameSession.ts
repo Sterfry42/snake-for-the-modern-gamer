@@ -217,7 +217,9 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       let deliveryMs = 0;
       let playerCount = 0;
       try {
-        for (const playerId of new Set([...this.connections.values()].map((peer) => peer.playerId))) {
+        for (const playerId of new Set(
+          [...this.connections.values()].map((peer) => peer.playerId),
+        )) {
           const buildStartedAt = performance.now();
           const snapshot = this.buildSnapshot(false, playerId, true);
           buildMs += performance.now() - buildStartedAt;
