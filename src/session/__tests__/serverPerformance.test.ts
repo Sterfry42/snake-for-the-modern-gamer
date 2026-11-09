@@ -472,6 +472,23 @@ describe('bounded server replication and simulation', () => {
     expect(state.quests.active).toHaveLength(2);
     expect(state.quests.accepted).toHaveLength(2);
     expect(knownRooms).toHaveBeenCalledTimes(1);
+    const profiledPhases: Record<string, number> = {};
+    game.getSceneClientState([room.id], (phase, durationMs) => {
+      profiledPhases[phase] = durationMs;
+    });
+    expect(Object.keys(profiledPhases)).toEqual(
+      expect.arrayContaining([
+        'worldRooms',
+        'flags',
+        'questMarkers',
+        'quests',
+        'relationshipActions',
+        'construction',
+        'actors',
+        'town',
+      ]),
+    );
+    expect(Object.values(profiledPhases).every((ms) => ms >= 0)).toBe(true);
     expect(state.quests.markers).toEqual(game.getQuestMapMarkers());
     for (const quest of state.quests.active)
       expect(quest.objectives).toEqual(game.getQuestObjectiveSummaries(quest.id));

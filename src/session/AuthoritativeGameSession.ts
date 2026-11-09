@@ -1822,6 +1822,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
     const startedAt = performance.now();
     let phaseStartedAt = startedAt;
     const phases: Record<string, number> = {};
+    const selectorPhases: Record<string, number> = {};
     const markPhase = (name: string): void => {
       const now = performance.now();
       phases[name] = now - phaseStartedAt;
@@ -1836,6 +1837,9 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
       markPhase('roomReplication');
       snapshot.clientState = this.game.getSceneClientState(
         Object.keys(snapshot.replication.roomRevisions),
+        (name, durationMs) => {
+          selectorPhases[name] = durationMs;
+        },
       );
     } else {
       // Local presentation: ship only rooms that changed since the last
@@ -1954,6 +1958,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
           roomId: snapshot.viewport.centerRoomId,
           durationMs,
           phases,
+          selectorPhases,
           replicatedRooms: snapshot.clientState?.worldRooms.length ?? 0,
         },
         'warn',

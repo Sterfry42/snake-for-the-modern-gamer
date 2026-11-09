@@ -2435,11 +2435,23 @@ export class SnakeGame implements QuestRuntime {
   /** Builds presentation data without invoking persistence or scene callbacks. */
   getSceneClientState(
     roomIds?: readonly string[],
+    onProfile?: (phase: string, durationMs: number) => void,
   ): import('../session/SceneClientState.js').SceneClientState {
-    const relationshipStates = this.relationshipController.getAllStates();
+    const measure = <T>(phase: string, project: () => T): T => {
+      if (!onProfile) return project();
+      const startedAt = performance.now();
+      try {
+        return project();
+      } finally {
+        onProfile(phase, performance.now() - startedAt);
+      }
+    };
+    const relationshipStates = measure('relationshipStates', () =>
+      this.relationshipController.getAllStates(),
+    );
     // Collect markers once for this projection. Otherwise every active/accepted
     // quest repeats the same world and staged-quest scan before the map does it again.
-    const questMarkers = this.collectQuestMapMarkers();
+    const questMarkers = measure('questMarkers', () => this.collectQuestMapMarkers());
     const describeQuest = (quest: Quest) => ({
       id: quest.id,
       label: quest.label,
@@ -2448,12 +2460,14 @@ export class SnakeGame implements QuestRuntime {
       subtasks: this.getQuestSubtasks(quest.id),
     });
     return {
-      worldRooms: roomIds
-        ? roomIds.flatMap((id) => {
-            const room = this.world.peekCachedRoom(id);
-            return room ? [room] : [];
-          })
-        : [...this.world.snapshot().values()],
+      worldRooms: measure('worldRooms', () =>
+        roomIds
+          ? roomIds.flatMap((id) => {
+              const room = this.world.peekCachedRoom(id);
+              return room ? [room] : [];
+            })
+          : [...this.world.snapshot().values()],
+      ),
       specialState: this.specialStats.exportState(),
       levelProgression: this.levelProgression,
       raccoon: {
@@ -2463,48 +2477,54 @@ export class SnakeGame implements QuestRuntime {
         stashedTotal: this.raccoonStashedTotal,
       },
       worldSeed: this.worldSeed,
-      farming: this.farming.projection(roomIds ?? [this.snake.currentRoomId], this.localPlayerId),
-      flags: roomIds
-        ? Object.fromEntries(
-            Object.entries(this.snake.flags).filter(
-              ([key]) =>
-                !['actors.save', 'events.save', 'rumors.save', 'factions.v2.save'].includes(key),
-            ),
-          )
-        : { ...this.snake.flags },
+      farming: measure('farming', () =>
+        this.farming.projection(roomIds ?? [this.snake.currentRoomId], this.localPlayerId),
+      ),
+      flags: measure('flags', () =>
+        roomIds
+          ? Object.fromEntries(
+              Object.entries(this.snake.flags).filter(
+                ([key]) =>
+                  !['actors.save', 'events.save', 'rumors.save', 'factions.v2.save'].includes(key),
+              ),
+            )
+          : { ...this.snake.flags },
+      ),
       inventory: Object.fromEntries(this.inventory.getAllItems()),
       equipment: Object.fromEntries(this.inventory.getAllEquipped()),
-      quests: {
+      quests: measure('quests', () => ({
         offeredId: this.getOfferedQuest()?.id,
         active: this.getActiveQuests().map(describeQuest),
         accepted: this.getAcceptedQuests().map(describeQuest),
         completedIds: this.getCompletedQuestIds(),
         markerQuestId: this.getActiveQuestMarkerQuestId(),
         markers: this.selectQuestMapMarkers(questMarkers),
-      },
+      })),
       special: this.getSpecialStatsView(),
       specialModifiers: this.getSpecialGameplayModifiers(),
       fishingModifiers: this.getFishingSpecialModifiers(),
-      relationships: this.getDatingCandidateViews(),
+      relationships: measure('datingCandidates', () => this.getDatingCandidateViews()),
       relationshipStates: Object.fromEntries(relationshipStates.map((state) => [state.id, state])),
-      relationshipActions: Object.fromEntries(
-        relationshipStates.map(({ id }) => [
-          id,
-          this.relationshipController.getAvailableChoices(id),
-        ]),
+      relationshipActions: measure('relationshipActions', () =>
+        Object.fromEntries(
+          relationshipStates.map(({ id }) => [
+            id,
+            this.relationshipController.getAvailableChoices(id),
+          ]),
+        ),
       ),
       profiles: this.getPresentRelationshipProfilesForRoom(),
       atmosphere: this.getAtmosphereState(),
       atmosphereView: this.getAtmosphereForRoom(),
-      construction: {
+      construction: measure('construction', () => ({
         placement: this.getStructurePlacement(),
         preview: this.previewStructurePlacement(),
         structures: this.placedStructures(),
         claim: this.getRoomClaim(),
         claims: this.getRoomClaims(),
-      },
-      actors: this.getActorsInCurrentRoom(),
-      town: this.getCurrentTown(),
+      })),
+      actors: measure('actors', () => this.getActorsInCurrentRoom()),
+      town: measure('town', () => this.getCurrentTown()),
       cars: this.getCars(),
       followers: this.getFollowers(),
       animalCompanions: this.getAnimalCompanions(),
