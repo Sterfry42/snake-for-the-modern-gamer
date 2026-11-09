@@ -3653,11 +3653,12 @@ export default class SnakeScene extends Phaser.Scene {
 
   private async performInteractAction(): Promise<void> {
     if (this.tryPlaceAlchemyStation()) return;
-    if (await this.interactFarmTarget()) return;
+    // A construction preview owns Interact, even when it overlaps cultivated soil.
     if (this.snakeGame.getStructurePlacement()) {
       this.confirmStructurePlacement();
       return;
     }
+    if (await this.interactFarmTarget()) return;
     if (this.tryEnterCar()) return;
     if (await this.tryInteractHouseGarden()) return;
     if (this.tryInteractQuestTarget()) return;
