@@ -160,6 +160,44 @@ describe('agriculture real authoritative session transactions', () => {
     expect(game.getRoomClaim()).toBeUndefined();
     expect(game.getScore()).toBe(0);
   });
+  it('uses a reusable claim flag to activate land mode without bypassing authoritative pricing', async () => {
+    const { game, session, alice, contextToken } = fixture();
+    game.runForPlayer(alice, () => {
+      game.getInventory().addItem('claim-flag');
+      const selected = game.useInventoryItem('claim-flag');
+      expect(selected.ok).toBe(true);
+      expect(selected.consume).toBe(false);
+      expect(game.getFarmTool()).toBe('claim-flag');
+      game.setScore(40);
+    });
+
+    const claim = {
+      type: 'territoryAction' as const,
+      action: 'claimCurrentRoom' as const,
+      playerId: alice,
+      nonce: 1,
+      contextToken: contextToken(alice),
+    };
+    expect((await session.executeCommand(claim)).ok).toBe(true);
+    expect(game.getRoomClaim()?.ownerId).toBe(alice);
+    expect(game.runForPlayer(alice, () => game.getScore())).toBe(0);
+    expect(
+      game.runForPlayer(alice, () => game.getInventory().getItemCount('claim-flag')),
+    ).toBe(1);
+
+    // A fresh valid request on owned land does not buy the same room twice.
+    expect((await session.executeCommand({ ...claim, nonce: 2 })).ok).toBe(true);
+    expect(game.runForPlayer(alice, () => game.getScore())).toBe(0);
+    expect(
+      (await session.executeCommand({
+        type: 'farmToolAction',
+        action: 'exit',
+        playerId: alice,
+      })).ok,
+    ).toBe(true);
+    expect(game.runForPlayer(alice, () => game.getFarmTool())).toBeUndefined();
+  });
+
   it('separate farm and harvest grants survive a real checkpoint round trip', async () => {
     const { game, session, alice, bob, contextToken, farm } = fixture();
     game.setScore(40);
