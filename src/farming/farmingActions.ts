@@ -49,7 +49,11 @@ export function executeFarmAction(ctx: FarmActionContext, action: FarmAction): F
   const x = ctx.head.x + dx,
     y = ctx.head.y + dy;
   if (action.action === 'refillCan') {
-    if (!ctx.inventory.getItemCount('watering-can')) return fail('Requires a watering can.');
+    if (
+      !ctx.inventory.getItemCount('watering-can') &&
+      !ctx.inventory.getItemCount('garden-watering-can')
+    )
+      return fail('Requires a watering can.');
     const nearWater = [
       [0, 0],
       [1, 0],
@@ -106,10 +110,15 @@ export function executeFarmAction(ctx: FarmActionContext, action: FarmAction): F
   if (action.action === 'till') {
     if (!ctx.inventory.getItemCount('farm-hoe'))
       return fail('Requires a hoe (general merchant, 12 score).');
-    if (cell)
-      return cell.crop
-        ? fail('A crop is already here; clear it deliberately.')
-        : { ok: true, message: 'Already tilled; no charge.' };
+    if (cell) {
+      if (cell.crop) return fail('A crop is already here; clear it deliberately.');
+      if (cell.weeds > 0) {
+        cell.weeds = 0;
+        ctx.farms.touch(ctx.room.id, cell);
+        return { ok: true, message: 'Weeds removed with the hoe.' };
+      }
+      return { ok: true, message: 'Already tilled; no charge.' };
+    }
     const substrate = greenhouse ? 'artificial' : resolveSoilSubstrate(ctx.room, x, y);
     if (!substrate) return fail('Unsuitable ground.');
     if (!ctx.farms.till(ctx.room.id, ctx.room.biomeId, x, y, substrate))
@@ -137,7 +146,11 @@ export function executeFarmAction(ctx: FarmActionContext, action: FarmAction): F
       break;
     }
     case 'water':
-      if (!ctx.inventory.getItemCount('watering-can') || ctx.getCharges() < 1)
+      if (
+        (!ctx.inventory.getItemCount('watering-can') &&
+          !ctx.inventory.getItemCount('garden-watering-can')) ||
+        ctx.getCharges() < 1
+      )
         return fail('Requires a charged watering can. Refill beside water or use a refill.');
       ctx.setCharges(ctx.getCharges() - 1);
       cell.moisture = Math.min(100, cell.moisture + 50);
@@ -168,8 +181,10 @@ export function executeFarmAction(ctx: FarmActionContext, action: FarmAction): F
       cell.weeds = 0;
       break;
     case 'compost':
-      if (ctx.inventory.getItemCount('farm-compost') < 1) return fail('Requires compost.');
-      ctx.inventory.removeItem('farm-compost');
+      const compost =
+        ctx.inventory.getItemCount('farm-compost') > 0 ? 'farm-compost' : 'garden-fertilizer';
+      if (ctx.inventory.getItemCount(compost) < 1) return fail('Requires compost.');
+      ctx.inventory.removeItem(compost);
       cell.fertility = Math.min(100, cell.fertility + 25);
       break;
     case 'magicBed':

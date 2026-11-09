@@ -120,7 +120,8 @@ export const FARM_ITEMS: readonly Item[] = [
   ...FARM_TOOLS.map((tool) => ({
     id: tool.id,
     name: tool.name,
-    description: 'Farming tool or supply. Use from Farming.',
+    description:
+      'Use from inventory or the farm tools shortcut. Tools enable deliberate step-by-step tending.',
     category: 'material' as const,
   })),
   ...CROPS.flatMap((crop) => [
@@ -128,7 +129,7 @@ export const FARM_ITEMS: readonly Item[] = [
       id: crop.seedItemId,
       name: `${crop.label} Seeds`,
       category: 'material' as const,
-      description: `${crop.seasons.join('/')} outdoors; ${crop.growDays} world days. ${crop.contraband ? 'Contraband. Black-market source.' : 'General merchant.'}`,
+      description: `${crop.seasons.join('/')} outdoors; ${crop.growDays} world days. Use to select planting mode. ${crop.contraband ? 'Contraband. Black-market source.' : 'Seasonal merchant supply.'}`,
     },
     ...(['normal', 'good', 'excellent'] as const).map((quality) => ({
       id: produceItem(crop, quality),

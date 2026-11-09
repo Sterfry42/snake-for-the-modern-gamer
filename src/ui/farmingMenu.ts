@@ -3,7 +3,7 @@ import type { GameConnection } from '../session/GameConnection.js';
 import type { SceneActionCommand } from '../session/SceneActionCommand.js';
 import type { ChoicePopup } from './choicePopup.js';
 import type { NormalizedChoiceOption } from './choicePopupModel.js';
-import { CROPS, FARM_RECIPES, resolveProduce } from '../farming/cropCatalog.js';
+import { CROPS } from '../farming/cropCatalog.js';
 import { describeFarmCell } from '../farming/farmingActions.js';
 import { STRUCTURE_BLUEPRINTS } from '../building/structureBlueprint.js';
 
@@ -25,7 +25,12 @@ export class FarmingMenu {
     return this.active;
   }
   getTarget() {
-    return this.active ? { ...this.target } : undefined;
+    const tool = this.game().getFarmTool();
+    return tool
+      ? { dx: this.game().getFarmToolTarget().x, dy: this.game().getFarmToolTarget().y }
+      : this.active
+        ? { ...this.target }
+        : undefined;
   }
   private target = { dx: 0, dy: 0 };
   constructor(
@@ -45,6 +50,9 @@ export class FarmingMenu {
   }
   purchaseHouse(kind: Extract<SceneActionCommand, { type: 'houseAction' }>['kind']) {
     return this.transact({ type: 'houseAction', kind });
+  }
+  sellToMerchant(merchantActorId: string, itemId: string, count: number) {
+    return this.transact({ type: 'farmSellAction', merchantActorId, itemId, count });
   }
   private async transact(intent: AgricultureIntent) {
     const game = this.game(),
@@ -68,216 +76,222 @@ export class FarmingMenu {
     this.notify(result.message ?? result.reason ?? (result.ok ? 'Done.' : 'Action rejected.'));
     this.root();
   }
+  /** Direct world interaction; uses the existing nonce/context authority boundary. */
+  async perform(
+    action:
+      | 'till'
+      | 'plant'
+      | 'water'
+      | 'harvest'
+      | 'inspect'
+      | 'weed'
+      | 'compost'
+      | 'magicBed'
+      | 'clear'
+      | 'refillCan'
+      | 'toggleGate'
+      | 'reinforce',
+    target: { dx: number; dy: number },
+    seedItemId?: string,
+  ): Promise<{ ok: boolean; message: string }> {
+    const result = await this.transact({
+      type: 'farmingAction',
+      action,
+      target,
+      ...(seedItemId ? { seedItemId } : {}),
+      ...(action === 'clear' ? { confirmed: true } : {}),
+    });
+    return { ok: result.ok, message: result.message ?? result.reason ?? 'Unavailable.' };
+  }
+
+  private close(): void {
+    this.active = false;
+    this.popup.hide();
+    void this.connection().send({
+      type: 'playerInteraction',
+      playerId: this.game().getLocalPlayerId(),
+      mode: this.game().getFarmTool() ? 'manual' : 'playing',
+    });
+  }
+
+  private selectTool(itemId: string): void {
+    const game = this.game();
+    this.active = false;
+    this.popup.hide();
+    void Promise.resolve(
+      this.connection().send({
+        type: 'useItem',
+        itemId,
+        playerId: game.getLocalPlayerId(),
+      }),
+    ).then((result) => {
+      this.notify(result.message ?? result.reason ?? 'Tool selected.');
+      void this.connection().send({
+        type: 'playerInteraction',
+        playerId: game.getLocalPlayerId(),
+        mode: result.ok ? 'manual' : 'playing',
+      });
+    });
+  }
+
   private root(): void {
-    const game = this.game(),
-      room = game.getCurrentRoom();
-    const head = game.getSnakeBody()[0],
-      position = head && game.resolveRoomPosition(head);
-    const cell =
-      position &&
-      game
-        .getFarmCells()
-        .find(
-          (cell) =>
-            cell.x === position.localX + this.target.dx &&
-            cell.y === position.localY + this.target.dy,
-        );
-    const claim = game.getRoomClaim();
+    const game = this.game();
+    const ownedSeeds = CROPS.filter(
+      (crop) => game.getInventory().getItemCount(crop.seedItemId) > 0,
+    );
+    const tool = game.getFarmTool();
     const options: NormalizedChoiceOption[] = [
       {
-        id: 'target',
-        title: `Target: ${this.target.dx}, ${this.target.dy} from head`,
-        description: cell
-          ? describeFarmCell(cell, cell.substrate === 'artificial')
-          : 'Untilled ground. Suitable unclaimed wilderness is free to cultivate.',
+        id: 'seeds',
+        title: `Plant seeds (${ownedSeeds.length} varieties)`,
+        description: 'Select an owned seed. Move deliberately and interact to plant repeatedly.',
+        disabled: ownedSeeds.length === 0,
       },
-      ...(
-        [
-          'till',
-          'water',
-          'harvest',
-          'inspect',
-          'weed',
-          'compost',
-          'refillCan',
-          'magicBed',
-          'toggleGate',
-          'reinforce',
-        ] as const
-      ).map((action) => ({
-        id: action,
-        title: action === 'refillCan' ? 'Refill watering can' : action,
-        description:
-          action === 'water'
-            ? `${game.getFlag<number>('farm.canCharges') ?? 8}/8 charges; +50 moisture.`
-            : 'Authority checks terrain, tools, access and current crop state.',
-      })),
       {
-        id: 'plant',
-        title: 'Plant seeds',
-        description: 'Select an owned seed. One seed per successful plant.',
+        id: 'hoe',
+        title: 'Use hoe',
+        description: 'Till suitable ground one step at a time.',
+        disabled: game.getInventory().getItemCount('farm-hoe') === 0,
       },
-      { id: 'clear', title: 'Clear crop…', description: 'Deliberate removal; awards no produce.' },
+      {
+        id: 'water',
+        title: 'Use watering can',
+        description: `${game.getFlag<number>('farm.canCharges') ?? 8}/8 charges. Water soil by interacting.`,
+        disabled:
+          game.getInventory().getItemCount('watering-can') === 0 &&
+          game.getInventory().getItemCount('garden-watering-can') === 0,
+      },
+      {
+        id: 'refillCan',
+        title: 'Refill watering can',
+        description: 'Stand beside water, or carry a refill.',
+      },
+      {
+        id: 'tend',
+        title: 'Other soil actions',
+        description: 'Inspect, clear, weed, compost or prepare a specialty bed.',
+      },
       {
         id: 'territory',
-        title: `Territory: ${claim?.ownerId ?? 'unclaimed'}`,
-        description:
-          'Purchase, release, grant separate farm/harvest/build rights, or designate a community bed.',
+        title: 'Territory & permissions',
+        description: 'Claims and shared cultivation rights; no deed needed for wilderness.',
       },
       {
         id: 'build',
-        title: 'Structures & defenses',
-        description: 'Preview is free; score is charged only on successful placement confirmation.',
+        title: 'Construction & defenses',
+        description: 'Build fences, sprinklers and greenhouses in construction mode.',
       },
       {
         id: 'journal',
         title: 'Crop journal',
-        description: `${game.getAtmosphereState().season}; ${game.getAtmosphereForRoom().localVisual}. Seeds, climate, seasons, uses and incidents.`,
-      },
-      {
-        id: 'sell',
-        title: 'Sell produce',
-        description:
-          'Choose actual goods and a nearby open merchant. Contraband requires a black market.',
-      },
-      {
-        id: 'cook',
-        title: 'Cook farm recipes',
-        description: 'Requires a nearby cooking source and one produce item of any quality.',
+        description: 'Crop seasons, growth, recipes and recorded incidents.',
       },
       {
         id: 'leave',
-        title: 'Leave Farming · resume movement',
-        description: 'Close Farming. World time continues while tending.',
+        title: tool ? 'Return to farming tool' : 'Leave',
+        description: 'Close this menu.',
       },
     ];
-    this.popup.show(`Farming · ${room.id}`, options, (id) => {
-      if (id === 'leave') {
-        this.active = false;
-        void this.connection().send({
-          type: 'playerInteraction',
-          playerId: game.getLocalPlayerId(),
-          mode: 'playing',
+    this.popup.show('Farm tools', options, (id) => {
+      if (id === 'leave') return this.close();
+      if (id === 'seeds') return this.seeds();
+      if (id === 'hoe') return this.selectTool('farm-hoe');
+      if (id === 'water')
+        return this.selectTool(
+          game.getInventory().getItemCount('watering-can') > 0
+            ? 'watering-can'
+            : 'garden-watering-can',
+        );
+      if (id === 'refillCan') {
+        const result = this.perform('refillCan', { dx: 0, dy: 0 });
+        void result.then((value) => {
+          this.notify(value.message);
+          this.root();
         });
         return;
       }
-      if (id === 'target') {
-        this.chooseTarget();
-        return;
-      }
-      if (id === 'plant') {
-        this.seeds();
-        return;
-      }
-      if (id === 'journal') {
-        this.journal();
-        return;
-      }
-      if (id === 'territory') {
-        this.territory();
-        return;
-      }
-      if (id === 'build') {
-        this.build();
-        return;
-      }
-      if (id === 'sell') {
-        this.sell();
-        return;
-      }
-      if (id === 'cook') {
-        this.cook();
-        return;
-      }
+      if (id === 'tend') return this.otherActions();
+      if (id === 'territory') return this.territory();
+      if (id === 'build') return this.build();
+      if (id === 'journal') return this.journal();
+    });
+  }
+
+  private otherActions(): void {
+    const head = this.game().getSnakeBody()[0];
+    const position = head && this.game().resolveRoomPosition(head);
+    const direction = this.game().getFarmToolTarget();
+    const cell =
+      position &&
+      this.game()
+        .getFarmCells()
+        .find(
+          (candidate) =>
+            candidate.x === position.localX + direction.x &&
+            candidate.y === position.localY + direction.y,
+        );
+    const options: NormalizedChoiceOption[] = [
+      {
+        id: 'inspect',
+        title: 'Inspect highlighted tile',
+        description: cell
+          ? describeFarmCell(cell, cell.substrate === 'artificial')
+          : 'Untilled ground.',
+      },
+      { id: 'weed', title: 'Remove weeds', description: 'Care for this patch.' },
+      { id: 'compost', title: 'Apply compost', description: 'Restore fertility.' },
+      { id: 'magicBed', title: 'Apply luminous substrate', description: 'Prepare magic crops.' },
+      { id: 'clear', title: 'Clear crop (destructive)', description: 'Remove without a harvest.' },
+      { id: 'back', title: 'Back', description: 'Return to tools.' },
+    ];
+    this.popup.show('Soil care', options, (id) => {
+      if (id === 'back') return this.root();
+      const target = { dx: direction.x, dy: direction.y };
       if (id === 'clear') {
         this.popup.show(
-          'Clear living crop?',
+          'Destroy this crop?',
           [
-            { id: 'yes', title: 'Confirm removal', description: 'No produce or score reward.' },
+            { id: 'yes', title: 'Remove without reward', description: 'Cannot be undone.' },
             { id: 'no', title: 'Cancel', description: 'Keep the crop.' },
           ],
-          (choice) =>
-            choice === 'yes'
-              ? void this.send({
-                  type: 'farmingAction',
-                  action: 'clear',
-                  confirmed: true,
-                  target: this.target,
-                })
-              : this.root(),
+          (choice) => {
+            if (choice === 'yes')
+              void this.perform('clear', target).then((r) => {
+                this.notify(r.message);
+                this.root();
+              });
+            else this.root();
+          },
         );
         return;
       }
-      const action = [
-        'till',
-        'water',
-        'harvest',
-        'inspect',
-        'weed',
-        'compost',
-        'refillCan',
-        'magicBed',
-        'toggleGate',
-        'reinforce',
-      ].find((action) => action === id);
-      if (
-        action === 'till' ||
-        action === 'water' ||
-        action === 'harvest' ||
-        action === 'inspect' ||
-        action === 'weed' ||
-        action === 'compost' ||
-        action === 'refillCan' ||
-        action === 'magicBed' ||
-        action === 'toggleGate' ||
-        action === 'reinforce'
-      )
-        void this.send({ type: 'farmingAction', action, target: this.target });
+      if (id === 'inspect' || id === 'weed' || id === 'compost' || id === 'magicBed') {
+        void this.perform(id, target).then((r) => {
+          this.notify(r.message);
+          this.root();
+        });
+      }
     });
   }
-  private chooseTarget(): void {
-    const targets = [
-      { dx: 0, dy: 0 },
-      { dx: 0, dy: -1 },
-      { dx: 1, dy: 0 },
-      { dx: 0, dy: 1 },
-      { dx: -1, dy: 0 },
-    ];
-    this.popup.show(
-      'Choose stationary target',
-      targets.map((target, i) => ({
-        id: String(i),
-        title: ['Head', 'North', 'East', 'South', 'West'][i] ?? '',
-        description: `${target.dx}, ${target.dy}`,
-      })),
-      (id) => {
-        const target = targets[Number(id)];
-        if (target) this.target = target;
-        this.root();
-      },
-    );
-  }
+
   private seeds(): void {
+    const owned = CROPS.filter(
+      (crop) => this.game().getInventory().getItemCount(crop.seedItemId) > 0,
+    );
     this.popup.show(
-      'Plant owned seeds',
+      'Choose seed to plant',
       [
-        ...CROPS.map((crop) => ({
+        ...owned.map((crop) => ({
           id: crop.seedItemId,
-          title: `${crop.label}: ${this.game().getInventory().getItemCount(crop.seedItemId)}`,
-          description: `${crop.seasons.join('/')}, ${crop.growDays} world days. ${crop.specialty ? 'Specialty substrate required.' : ''}`,
-          disabled: this.game().getInventory().getItemCount(crop.seedItemId) < 1,
+          title: `${crop.label} ×${this.game().getInventory().getItemCount(crop.seedItemId)}`,
+          description: `${crop.seasons.join('/')}; ${crop.growDays} days. ${crop.specialty ? 'Needs specialty soil.' : ''}`,
         })),
-        { id: 'back', title: 'Back', description: '' },
+        { id: 'back', title: 'Back', description: 'Return to farm tools.' },
       ],
-      (id) =>
-        id === 'back'
-          ? this.root()
-          : void this.send({
-              type: 'farmingAction',
-              action: 'plant',
-              seedItemId: id,
-              target: this.target,
-            }),
+      (id) => {
+        if (id === 'back') return this.root();
+        if (owned.some((crop) => crop.seedItemId === id)) this.selectTool(id);
+      },
     );
   }
   private journal(): void {
@@ -406,70 +420,6 @@ export class FarmingMenu {
           type: 'playerInteraction',
           mode: 'playing',
           playerId: this.game().getLocalPlayerId(),
-        });
-      },
-    );
-  }
-  private sell(): void {
-    const game = this.game();
-    const merchant = game
-      .getActorsInCurrentRoom()
-      .find(
-        (actor) => game.canInteractWithActor(actor.id) && game.getActorShopView(actor.id)?.open,
-      );
-    if (!merchant) {
-      this.notify('Move beside an open merchant to sell.');
-      this.root();
-      return;
-    }
-    const goods = game
-      .getInventory()
-      .getAllItems()
-      .filter(([id, count]) => count > 0 && resolveProduce(id));
-    this.popup.show(
-      `Sell to ${merchant.displayName}`,
-      [
-        ...goods.map(([id, count]) => ({
-          id,
-          title: `${id} ×${count}`,
-          description: 'Sell this stack at the server-calculated quality price.',
-        })),
-        { id: 'back', title: 'Back', description: '' },
-      ],
-      (id) => {
-        if (id === 'back') return this.root();
-        void this.send({
-          type: 'farmSellAction',
-          merchantActorId: merchant.id,
-          itemId: id,
-          count: game.getInventory().getItemCount(id),
-        });
-      },
-    );
-  }
-  private cook(): void {
-    this.popup.show(
-      'Farm cooking',
-      [
-        ...FARM_RECIPES.map((recipe) => ({
-          id: recipe.id,
-          title: recipe.name,
-          description: `Uses one ${recipe.input} of any quality. Restores hunger and one heart.`,
-        })),
-        { id: 'back', title: 'Back', description: '' },
-      ],
-      (id) => {
-        if (id === 'back') return this.root();
-        void Promise.resolve(
-          this.connection().send({
-            type: 'inventoryAction',
-            action: 'cook',
-            recipeId: id,
-            playerId: this.game().getLocalPlayerId(),
-          }),
-        ).then((result) => {
-          this.notify(result.message ?? 'Cooking rejected.');
-          this.root();
         });
       },
     );

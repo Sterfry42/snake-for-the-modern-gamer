@@ -300,7 +300,11 @@ export class GameInteractionMenus {
         description: [menu.subtitle, menu.moodSummary].filter(Boolean).join('\n'),
         options: [
           ...menu.options
-            .filter((option) => ACTOR_ACTIONS.has(option.id) && option.id !== 'leave')
+            .filter(
+              (option) =>
+                (ACTOR_ACTIONS.has(option.id) || option.id.startsWith('quest:')) &&
+                option.id !== 'leave',
+            )
             .map((option) => ({
               id: option.id,
               label: option.label,
@@ -482,6 +486,11 @@ export class GameInteractionMenus {
       return { ok: true };
     }
     if (optionId === 'take-quest') return this.offerQuest(playerId, state.actorId);
+    if (optionId.startsWith('quest:')) {
+      const result = await this.game.chooseActorInteraction(state.actorId, optionId);
+      if (result.ok) this.dialogue(playerId, state.actorId, [result.message]);
+      return { ok: result.ok, message: result.message };
+    }
     if (optionId === 'apologize' || optionId === 'threaten' || optionId === 'parley') {
       const line =
         optionId === 'apologize'

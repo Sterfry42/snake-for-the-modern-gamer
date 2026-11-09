@@ -21,6 +21,7 @@ describe('boss snapshot presentation', () => {
   it('carries bosses through the client snapshot without exposing authoritative boss state', () => {
     const game = createGame();
     game.reset({ preserveRunSeed: true });
+    game.bosses.clearAll();
     const roomId = game.getCurrentRoom().id;
     game.bosses.spawnBoss(roomId, 'freak-dennis', game.getRoom(roomId));
     const authoritativeBoss = game.getBosses(roomId)[0];

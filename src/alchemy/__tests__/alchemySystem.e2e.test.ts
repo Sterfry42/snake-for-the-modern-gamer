@@ -7,6 +7,7 @@ import {
   offsetPosition,
 } from '../../test/headless/scenarioFixtures.js';
 import type { RoomSnapshot } from '../../world/types.js';
+import { executeSceneGameplayAction } from '../../session/SceneGameplayActions.js';
 import { ALCHEMY_RECIPES, getReleasedAlchemyRecipes } from '../alchemyCatalog.js';
 import {
   ALCHEMY_STATION_ITEM_ID,
@@ -334,6 +335,75 @@ describe('alchemy headless end-to-end', () => {
         { stat: 'pickupRadius', operation: 'add', value: 8 },
       ],
     });
+  });
+
+  it('records learned, brewed and used potion counters through the real game model and save', () => {
+    const scenario = createHeadlessScenario({ seed: 'alchemy-quest-progress-regression' });
+    learnPhaseAndGrantIngredients(scenario, 1);
+    expect(scenario.game.getFlag('recipesDiscovered')).toBe(1);
+    scenario.game.grantInventoryItem(ALCHEMY_STATION_ITEM_ID, 1);
+    const placed = scenario.game.deployAlchemyStation(
+      offsetPosition(firstWalkableTile(scenario), 4, 0),
+    );
+    expect(placed.ok).toBe(true);
+    if (!placed.ok) return;
+
+    expect(
+      scenario.game.brewAlchemyRecipe('phase', {
+        kind: 'alchemy-station',
+        source: 'placed',
+        worldObjectId: placed.station.id,
+      }).ok,
+    ).toBe(true);
+    expect(scenario.game.getFlag('potionsCrafted')).toBe(1);
+    expect(scenario.game.useInventoryItem('potion-phase').ok).toBe(true);
+    expect(scenario.game.getFlag('potionsUsed')).toBe(1);
+
+    const reloaded = HeadlessScenario.fromSave(scenario.game.getSaveData());
+    expect(reloaded.game.getFlag('recipesDiscovered')).toBe(1);
+    expect(reloaded.game.getFlag('potionsCrafted')).toBe(1);
+    expect(reloaded.game.getFlag('potionsUsed')).toBe(1);
+  });
+
+  it('requires inventory arming and an adjacent tile for authoritative deployment', () => {
+    const scenario = createHeadlessScenario({ seed: 'alchemy-deploy-command-regression' });
+    scenario.game.grantInventoryItem(ALCHEMY_STATION_ITEM_ID, 1);
+    const head = scenario.game.getSnakeBody()[0];
+    expect(head).toBeDefined();
+    if (!head) return;
+    const local = scenario.game.resolveRoomPosition(head);
+    expect(local).not.toBeNull();
+    if (!local) throw new Error('The player must be in a room to test station deployment.');
+
+    const invalid = executeSceneGameplayAction(scenario.game, {
+      type: 'worldInteraction',
+      action: 'alchemy-place',
+      target: { x: local.localX + 5, y: local.localY + 5 },
+      playerId: scenario.game.getLocalPlayerId(),
+    });
+    expect(invalid.ok).toBe(false);
+
+    expect(scenario.game.useInventoryItem(ALCHEMY_STATION_ITEM_ID)).toMatchObject({
+      ok: true,
+      consume: false,
+    });
+    expect(scenario.game.getFlag('alchemy.placementArmed')).toBe(true);
+    const remote = executeSceneGameplayAction(scenario.game, {
+      type: 'worldInteraction',
+      action: 'alchemy-place',
+      target: { x: local.localX + 5, y: local.localY + 5 },
+      playerId: scenario.game.getLocalPlayerId(),
+    });
+    expect(remote.ok).toBe(false);
+    expect(scenario.game.getInventory().getItemCount(ALCHEMY_STATION_ITEM_ID)).toBe(1);
+
+    const canceled = executeSceneGameplayAction(scenario.game, {
+      type: 'worldInteraction',
+      action: 'alchemy-cancel',
+      playerId: scenario.game.getLocalPlayerId(),
+    });
+    expect(canceled.ok).toBe(true);
+    expect(scenario.game.getFlag('alchemy.placementArmed')).toBeUndefined();
   });
 
   it('wizard alchemy offers are atomic and preserve existing wizard goods', () => {

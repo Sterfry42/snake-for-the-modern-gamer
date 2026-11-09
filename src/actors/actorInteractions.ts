@@ -12,6 +12,7 @@ export type ActorInteractionId =
   | 'ask-rumor'
   | 'ask-personal'
   | 'take-quest'
+  | `quest:${string}`
   | 'shop'
   | 'romance'
   | 'give-gift'

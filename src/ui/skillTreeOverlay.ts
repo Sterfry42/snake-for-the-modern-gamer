@@ -7,6 +7,7 @@ import type {
   SkillPerkState,
 } from '../systems/skillTree.js';
 import { getItem } from '../inventory/itemRegistry.js';
+import { CROPS, FARM_TOOLS } from '../farming/cropCatalog.js';
 import { isLocatorItemId } from '../world/biomeLocators.js';
 import { positiveMod } from '../world/generation/worldHash.js';
 import type { EquipableItem, EquipmentSlot, Item } from '../inventory/item.js';
@@ -3815,7 +3816,12 @@ export class SkillTreeOverlay {
           this.structuredContainer,
           this.structuredGraphics,
           { x: card.x + card.width - 62, y: card.y + 14, width: 50, height: 20 },
-          item?.category === 'food' || item?.kind === 'consumable' ? 'USE' : 'VIEW',
+          item?.category === 'food' ||
+            item?.kind === 'consumable' ||
+            FARM_TOOLS.some((tool) => tool.id === itemId) ||
+            CROPS.some((crop) => crop.seedItemId === itemId)
+            ? 'USE'
+            : 'VIEW',
           uiColors.accentGear,
           uiColors.accentGear,
         );
@@ -5691,8 +5697,13 @@ export class SkillTreeOverlay {
     if (!this.selectedInventoryItemId) return;
     const item = getItem(this.selectedInventoryItemId);
     if (!item || item.kind === 'equipment') return;
-    // Only show the Use button for locator items.
-    if (!isLocatorItemId(item.id)) return;
+    // Tools and seeds are actively usable; do not hide them behind the old J menu.
+    if (
+      !isLocatorItemId(item.id) &&
+      !FARM_TOOLS.some((tool) => tool.id === item.id) &&
+      !CROPS.some((crop) => crop.seedItemId === item.id)
+    )
+      return;
 
     const detailPanelX = this.detailPanel.x;
     const detailPanelY = this.detailPanel.y;
@@ -5850,8 +5861,19 @@ export class SkillTreeOverlay {
     ) {
       return false;
     }
-    const result = await this.scene.useInventoryItem(this.selectedInventoryItemId);
-    if (!(result.ok && this.selectedInventoryItemId === 'bomb')) {
+    const itemId = this.selectedInventoryItemId;
+    const result = await this.scene.useInventoryItem(itemId);
+    if (
+      result.ok &&
+      (CROPS.some((crop) => crop.seedItemId === itemId) ||
+        (FARM_TOOLS.some((tool) => tool.id === itemId) && itemId !== 'farm-water-refill') ||
+        itemId === 'garden-watering-can' ||
+        itemId === 'garden-fertilizer')
+    ) {
+      this.scene.togglePauseMenu(false);
+      return true;
+    }
+    if (!(result.ok && itemId === 'bomb')) {
       this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
     }
     this.refresh();
@@ -5893,6 +5915,12 @@ export class SkillTreeOverlay {
     const hints = [i18n.getFeatureString('hintPressInspect')];
     if (item.category === 'food' || item.kind === 'consumable') {
       hints.push('Press U to use.');
+    }
+    if (
+      FARM_TOOLS.some((tool) => tool.id === itemId) ||
+      CROPS.some((crop) => crop.seedItemId === itemId)
+    ) {
+      hints.push('Press U or use the detail button to select for deliberate farming.');
     }
     if (itemId === 'raw-meat' || itemId === 'fish-meat') {
       hints.push('Press C to cook near a cooking source.');

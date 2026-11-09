@@ -70,6 +70,7 @@ export interface ResolveShopProfileContext {
   townId?: string;
   worldSeed: string;
   stockPeriod: number;
+  season?: import('../world/atmosphereTypes.js').Season;
   priceScalar: number;
   stockCountBonus: number;
   hasAlchemyStation: boolean;
@@ -114,6 +115,18 @@ const POTION_MAKER_SUPPLIES: readonly VillageShopSupplyOffer[] = [
     itemId: 'ingredient-dew',
     price: 5,
     note: 'Common alchemy component. Dawn in a jar, somehow legal.',
+  },
+  {
+    id: 'ingredient-pearl-apple',
+    itemId: 'ingredient-pearl-apple',
+    price: 11,
+    note: 'Starter Phase and Shield reagent.',
+  },
+  {
+    id: 'ingredient-quartz',
+    itemId: 'ingredient-quartz',
+    price: 8,
+    note: 'Crushed quartz for the starter Phase recipe.',
   },
   {
     id: 'ingredient-yuzu-apple',
@@ -290,7 +303,16 @@ export const DEFAULT_SHOP_PROFILES: ReadonlyMap<string, ShopProfile> = new Map(
     }),
     profile('potion-maker', {
       consumables: { poolId: 'potion-maker-consumables', randomCount: 4 },
-      items: { poolId: 'potion-maker-items', anchored: ['alchemy-station'], randomCount: 3 },
+      items: {
+        poolId: 'potion-maker-items',
+        anchored: [
+          'alchemy-station',
+          'ingredient-pearl-apple',
+          'ingredient-quartz',
+          'ingredient-dew',
+        ],
+        randomCount: 3,
+      },
     }),
     profile('wizard', {
       consumables: { poolId: 'wizard-consumables', randomCount: 4 },
@@ -367,14 +389,21 @@ const DEFAULT_SHOP_OFFER_POOL_LIST: ShopOfferPool[] = [
     'potion-maker-items',
     'items',
     POTION_MAKER_SUPPLIES.filter((offer) =>
-      ['alchemy-station', 'ingredient-honey', 'ingredient-dew', 'ingredient-yuzu-apple'].includes(
-        offer.id,
-      ),
+      [
+        'alchemy-station',
+        'ingredient-honey',
+        'ingredient-dew',
+        'ingredient-pearl-apple',
+        'ingredient-quartz',
+        'ingredient-yuzu-apple',
+      ].includes(offer.id),
     ),
     {
       'alchemy-station': 2,
       'ingredient-honey': 18,
       'ingredient-dew': 20,
+      'ingredient-pearl-apple': 15,
+      'ingredient-quartz': 18,
       'ingredient-yuzu-apple': 12,
     },
   ),
@@ -582,16 +611,36 @@ export function resolveShopProfileTabs(
     }
   }
   if (!context.profiles && (profileId === 'general-merchant' || profileId === 'black-market')) {
-    const crops = CROPS.filter((crop) =>
-      profileId === 'black-market' ? crop.contraband : !crop.contraband,
+    const eligible = CROPS.filter((crop) =>
+      profileId === 'black-market'
+        ? crop.contraband
+        : !crop.contraband && crop.seasons.includes(context.season ?? 'spring'),
     );
+    const crops = [...eligible]
+      .sort(
+        (a, b) =>
+          stableStringHashUnsigned(
+            `${context.worldSeed}:${context.townId ?? profileId}:${context.stockPeriod}:${a.id}`,
+          ) -
+          stableStringHashUnsigned(
+            `${context.worldSeed}:${context.townId ?? profileId}:${context.stockPeriod}:${b.id}`,
+          ),
+      )
+      .slice(0, profileId === 'black-market' ? 1 : 4);
     const offers: ShopOfferView[] = crops.map((crop) => ({
       id: crop.seedItemId,
       itemId: crop.seedItemId,
       category: 'items',
       label: `${crop.label} Seeds`,
       price: crop.seedCost,
-      quantity: 1,
+      quantity:
+        profileId === 'black-market'
+          ? 4
+          : 8 +
+            (stableStringHashUnsigned(
+              `${context.worldSeed}:${context.stockPeriod}:${crop.id}:quantity`,
+            ) %
+              8),
       note: `${crop.growDays} world days; ${crop.seasons.join('/')}. Yield ${crop.yield}; produce sells for ${crop.value} each.`,
     }));
     if (profileId === 'general-merchant')
@@ -603,7 +652,7 @@ export function resolveShopProfileTabs(
           label: tool.name,
           price: tool.price,
           quantity: 1,
-          note: 'Use from Farming (J). Free cultivation on suitable wilderness.',
+          note: 'Use from inventory to work the land one step at a time.',
         })),
       );
     const items = tabs.find((tab) => tab.id === 'items');
@@ -743,4 +792,21 @@ function defaultSupplyQuantity(offer: VillageShopSupplyOffer, category: ShopTabI
     return 1;
   }
   return 5;
+}
+
+/** Retail reference for resale quotes, independent of today's random shop shelf. */
+export function referenceRetailPrice(itemId: string): number | undefined {
+  const seed = CROPS.find((crop) => crop.seedItemId === itemId);
+  if (seed) return seed.seedCost;
+  const farmTool = FARM_TOOLS.find((tool) => tool.id === itemId);
+  if (farmTool) return farmTool.price;
+  const offers = [
+    ...VILLAGE_SHOP_SUPPLIES,
+    ...VILLAGE_SHOP_EQUIPMENT,
+    ...BLACK_MARKET_SUPPLIES,
+    ...BLACK_MARKET_EQUIPMENT,
+    ...POTION_MAKER_SUPPLIES,
+    ...WIZARD_SUPPLIES,
+  ];
+  return offers.find((offer) => offer.itemId === itemId)?.price;
 }
