@@ -65,6 +65,7 @@ import {
   TREE_PADDING,
   type PauseMenuLayout,
 } from './core/PauseMenuLayout.js';
+import { StructuredScrollScheduler } from './core/structuredScrollScheduler.js';
 import { TouchScrollTracker } from './core/touchScrollTracker.js';
 import { uiColors, uiMotion } from './theme/uiTokens.js';
 import type { AchievementManager } from '../achievements/achievementManager.js';
@@ -194,7 +195,7 @@ const TAB_ACCENTS: Record<PrimaryTabId, number> = {
 };
 
 type PrimaryTabId = 'growth' | 'gear' | 'world' | 'system';
-type TabId =
+export type TabId =
   | 'skills'
   | 'special'
   | 'spells'
@@ -441,12 +442,21 @@ export class SkillTreeOverlay {
   private readonly overlayX: number;
   private readonly overlayY: number;
   private readonly touchScrollTracker = new TouchScrollTracker();
+  // Scroll events only record their target offset; the per-frame shell tick
+  // rebuilds the content at most once, so a 240 Hz touch flood costs one
+  // rebuild per rendered frame instead of one per pointer event.
+  private readonly structuredScrollScheduler = new StructuredScrollScheduler();
+  private readonly specialScrollScheduler = new StructuredScrollScheduler();
   private readonly specialChanceMaskGraphics: Phaser.GameObjects.Graphics;
   private readonly scrollHintText: Phaser.GameObjects.Text;
   private readonly achievementTree: AchievementTreeOverlay | null;
   private readonly scrollOffsets: Partial<Record<TabId, number>> = {};
   private structuredContentHeight = 0;
   private specialChanceScrollOffset = 0;
+  // Perf probe: counts scroll events against full content rebuilds so the
+  // e2e suite can prove scrolling stays coalesced instead of rebuilding the
+  // whole tab on every pointer event (the phone's slow-scroll bug).
+  private readonly scrollPerf = { events: 0, rebuilds: 0, rebuildTimeMs: 0 };
   private customizationRowMap: Array<{ row: number; actionId: string }> = [];
 
   private hoveredPerkId: string | null = null;
@@ -4502,6 +4512,7 @@ export class SkillTreeOverlay {
         onClick: () => {
           this.handlers.onFeedAnimalCompanion?.(companion.id);
           this.buildStructuredTabContent('companions');
+          this.structuredScrollScheduler.markBuilt(this.getStructuredScrollOffset());
         },
       });
       addUiButton(this.scene, this.structuredContainer, this.structuredGraphics, {
@@ -4516,6 +4527,7 @@ export class SkillTreeOverlay {
         onClick: () => {
           this.handlers.onReleaseAnimalCompanion?.(companion.id);
           this.buildStructuredTabContent('companions');
+          this.structuredScrollScheduler.markBuilt(this.getStructuredScrollOffset());
         },
       });
       y += 88;
@@ -5508,7 +5520,11 @@ export class SkillTreeOverlay {
   }
 
   private onShellUpdate(): void {
+    const started = performance.now();
     this.drawShellFrame();
+    this.shellPerf.frames += 1;
+    this.shellPerf.ms += performance.now() - started;
+    this.flushCoalescedScrollRebuilds();
   }
 
   private updateSpotifyPanelVisibility(): void {
@@ -6286,6 +6302,7 @@ export class SkillTreeOverlay {
     if (!this.visible) {
       return;
     }
+    this.scrollPerf.events += 1;
     if (this.activeTab === 'special') {
       this.applySpecialChanceScrollOffset(this.specialChanceScrollOffset + deltaY);
       return;
@@ -6487,7 +6504,26 @@ export class SkillTreeOverlay {
         )
         .setVisible(true);
     }
-    this.buildStructuredTabContent(this.activeTab);
+    this.structuredScrollScheduler.queue(offset);
+  }
+
+  /**
+   * Per-frame flush for the coalesced scroll rebuilds. Runs from
+   * onShellUpdate, which only ticks while the menu is visible.
+   */
+  private flushCoalescedScrollRebuilds(): void {
+    if (this.isStructuredTab(this.activeTab) && this.structuredScrollScheduler.consume() !== null) {
+      this.timeScrollRebuild(() => this.buildStructuredTabContent(this.activeTab));
+    }
+    if (this.activeTab === 'special' && this.specialScrollScheduler.consume() !== null) {
+      const view = this.handlers.getSpecialView?.();
+      if (view) {
+        this.timeScrollRebuild(() => {
+          this.buildSpecialDerivedContent(view);
+          this.drawSpecialUi(view);
+        });
+      }
+    }
   }
 
   private applyScrollableTextOffset(
@@ -6539,11 +6575,7 @@ export class SkillTreeOverlay {
     this.specialChanceScrollOffset = offset;
     this.specialChanceText.setY(this.detailPanel.y + 14 - offset);
     if (this.visible && this.activeTab === 'special') {
-      const view = this.handlers.getSpecialView?.();
-      if (view) {
-        this.buildSpecialDerivedContent(view);
-        this.drawSpecialUi(view);
-      }
+      this.specialScrollScheduler.queue(offset);
     }
     void maxScroll;
     this.scrollHintText.setVisible(false).setText('');
@@ -6699,6 +6731,7 @@ export class SkillTreeOverlay {
     this.specialChanceText.setText('');
     this.specialRowMap = [];
     this.applySpecialChanceScrollOffset();
+    this.specialScrollScheduler.markBuilt(this.specialChanceScrollOffset);
     this.drawSpecialUi(view);
   }
 
@@ -7464,6 +7497,7 @@ export class SkillTreeOverlay {
 
     if (structuredActive) {
       this.buildStructuredTabContent(this.activeTab);
+      this.structuredScrollScheduler.markBuilt(this.getStructuredScrollOffset());
       if (!this.hintSticky) {
         const hintByTab: Partial<Record<TabId, string>> = {
           inventory: i18n.getFeatureString('hintInventory'),
@@ -8744,6 +8778,86 @@ export class SkillTreeOverlay {
         (tab) => tab.id,
       ),
     };
+  }
+
+  /**
+   * Dev-only perf probe for the e2e suite: how many scroll events arrived,
+   * how many full content rebuilds they caused, and the time those rebuilds
+   * cost. The whole point is that rebuilds must stay far below events.
+   */
+  getScrollPerf(): {
+    events: number;
+    rebuilds: number;
+    rebuildTimeMs: number;
+    tab: TabId;
+    offset: number;
+  } {
+    return {
+      events: this.scrollPerf.events,
+      rebuilds: this.scrollPerf.rebuilds,
+      rebuildTimeMs: this.scrollPerf.rebuildTimeMs,
+      tab: this.activeTab,
+      offset: this.scrollOffsets[this.activeTab] ?? 0,
+    };
+  }
+
+  resetScrollPerf(): void {
+    this.scrollPerf.events = 0;
+    this.scrollPerf.rebuilds = 0;
+    this.scrollPerf.rebuildTimeMs = 0;
+  }
+
+  /** Switch the open menu to a tab, mirroring controller tab cycling. */
+  setTab(tabId: TabId): void {
+    this.setActiveTab(tabId);
+  }
+
+  /**
+   * Content rectangle of the active tab in canvas coordinates, or null while
+   * hidden. Lets the e2e suite drive a real pointer drag through the list.
+   */
+  getScrollTargetRect(): { x: number; y: number; width: number; height: number } | null {
+    if (!this.visible) {
+      return null;
+    }
+    const content = this.getPauseMenuLayout().content;
+    return {
+      x: this.overlayX + content.x,
+      y: this.overlayY + content.y,
+      width: content.width,
+      height: content.height,
+    };
+  }
+
+  private timeScrollRebuild<T>(run: () => T): T {
+    const started = performance.now();
+    try {
+      return run();
+    } finally {
+      this.scrollPerf.rebuilds += 1;
+      this.scrollPerf.rebuildTimeMs += performance.now() - started;
+    }
+  }
+
+  /**
+   * Dev-only perf probe for the e2e suite: per-frame cost of the animated
+   * shell redraw while the menu is open. The shell is the biggest steady
+   * per-frame JS cost of the pause menu, so its share of the frame budget
+   * has to stay small on phones.
+   */
+  private readonly shellPerf = { frames: 0, ms: 0 };
+
+  getShellPerf(): { frames: number; ms: number; avgMsPerFrame: number } {
+    return {
+      frames: this.shellPerf.frames,
+      ms: this.shellPerf.ms,
+      avgMsPerFrame: this.shellPerf.frames > 0 ? this.shellPerf.ms / this.shellPerf.frames : 0,
+    };
+  }
+
+  resetShellPerf(): void {
+    this.shellPerf.frames = 0;
+    this.shellPerf.ms = 0;
   }
 
   private setActiveTab(tabId: TabId): void {
