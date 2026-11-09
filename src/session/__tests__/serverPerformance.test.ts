@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WebSocket } from 'ws';
 import { SnakeGame } from '../../game/snakeGame.js';
 import { QuestRegistry } from '../../quests/questRegistry.js';
-import { Quest, type QuestRuntime } from '../../quests/quest.js';
+import { Quest } from '../../quests/quest.js';
 import { defaultGameConfig } from '../../config/gameConfig.js';
 import { AuthoritativeGameSession } from '../AuthoritativeGameSession.js';
 import { SnapshotDeltaEncoder, SnapshotDeltaAssembler } from '../SnapshotDelta.js';
@@ -452,7 +452,7 @@ describe('bounded server replication and simulation', () => {
   it('builds quest map markers once for all quest summaries in a network snapshot', () => {
     const { game, room } = setup();
     class SnapshotQuest extends Quest {
-      isCompleted(_runtime: QuestRuntime): boolean {
+      isCompleted(): boolean {
         return false;
       }
     }
