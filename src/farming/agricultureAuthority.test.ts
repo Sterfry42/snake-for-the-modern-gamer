@@ -7,6 +7,7 @@ import { SceneReadReplica } from '../session/SceneReadReplica.js';
 import { createBaseActor } from '../actors/actorFactory.js';
 import { WORLD_DAY_MS } from './farmingState.js';
 import { CROPS } from './cropCatalog.js';
+import { referenceRetailPrice } from '../shops/shopProfiles.js';
 import type { SceneActionCommand } from '../session/SceneActionCommand.js';
 
 function fixture() {
@@ -222,17 +223,59 @@ describe('agriculture real authoritative session transactions', () => {
     expect(game.getInventory().getItemCount('produce-radish-excellent')).toBe(0);
     expect(game.sellFarmProduce(merchant.id, 'produce-radish-excellent', 2).ok).toBe(false);
     expect(game.getScore()).toBe(6);
-    game.getInventory().addItem('cannabis-bud');
-    expect(game.sellFarmProduce(merchant.id, 'cannabis-bud', 1).ok).toBe(false);
+    game.getInventory().addItem('cannabis-bud', 2);
+    // All merchants buy saleable goods; a specialist pays more for their category.
+    expect(game.getMerchantSellOffers(merchant.id).find((offer) =>
+      offer.itemId === 'cannabis-bud')?.price).toBe(15);
+    expect(game.sellFarmProduce(merchant.id, 'cannabis-bud', 1).ok).toBe(true);
+    expect(game.getScore()).toBe(21);
     game.getActorSystem().registry.update(merchant.id, (actor) => ({
       ...actor,
       role: 'blackMarketMerchant',
       shopProfileId: 'black-market',
     }));
+    expect(game.getMerchantSellOffers(merchant.id).find((offer) =>
+      offer.itemId === 'cannabis-bud')?.price).toBeGreaterThan(15);
     expect(game.sellFarmProduce(merchant.id, 'cannabis-bud', 1).ok).toBe(true);
     expect(game.getInventory().getItemCount('cannabis-bud')).toBe(0);
-    expect(game.getScore()).toBe(21);
+    expect(game.getScore()).toBeGreaterThan(36);
   });
+  it('gives specialist merchants a premium, but never lets resale beat purchase price', () => {
+    const { game, room } = fixture();
+    const merchant = createBaseActor({
+      id: 'potion-merchant',
+      displayName: 'Potion Merchant',
+      kind: 'civilian',
+      role: 'shopkeeper',
+      species: 'human',
+      thickness: 'medium',
+      currentRoomId: room.id,
+    });
+    merchant.presence = {
+      roomId: room.id,
+      position: { x: 5, y: 6 },
+      materialized: true,
+      stationary: true,
+    };
+    game.getActorSystem().registry.upsert(merchant);
+    game.getInventory().addItem('healing-potion', 2);
+    const ordinary = game.getMerchantSellOffers(merchant.id).find(
+      (offer) => offer.itemId === 'healing-potion',
+    );
+    expect(ordinary?.price).toBeGreaterThan(0);
+    game.getActorSystem().registry.update(merchant.id, (actor) => ({
+      ...actor,
+      role: 'potionMaker',
+      shopProfileId: 'potion-maker',
+    }));
+    const specialist = game.getMerchantSellOffers(merchant.id).find(
+      (offer) => offer.itemId === 'healing-potion',
+    );
+    expect(specialist?.specialty).toBe(true);
+    expect(specialist?.price).toBeGreaterThan(ordinary!.price);
+    expect(specialist!.price).toBeLessThan(referenceRetailPrice('healing-potion')!);
+  });
+
   it.each(CROPS.filter((crop) => !crop.contraband).map((crop) => crop.id))(
     'ordinary crop %s has a real vendor sale',
     (cropId) => {

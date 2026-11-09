@@ -5840,8 +5840,17 @@ export class SkillTreeOverlay {
     ) {
       return false;
     }
-    const result = await this.scene.useInventoryItem(this.selectedInventoryItemId);
-    if (!(result.ok && this.selectedInventoryItemId === 'bomb')) {
+    const itemId = this.selectedInventoryItemId;
+    const result = await this.scene.useInventoryItem(itemId);
+    if (result.ok && (
+      CROPS.some((crop) => crop.seedItemId === itemId) ||
+      (FARM_TOOLS.some((tool) => tool.id === itemId) && itemId !== 'farm-water-refill') ||
+      itemId === 'garden-watering-can' || itemId === 'garden-fertilizer'
+    )) {
+      this.scene.togglePauseMenu(false);
+      return true;
+    }
+    if (!(result.ok && itemId === 'bomb')) {
       this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
     }
     this.refresh();

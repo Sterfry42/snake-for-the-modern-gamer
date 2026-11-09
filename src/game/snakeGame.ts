@@ -7300,6 +7300,7 @@ export class SnakeGame implements QuestRuntime {
   /** Farming uses inventory tools without consuming an armor/weapon slot. */
   getFarmTool(): string | undefined {
     const tool = this.getFlag<string>('farm.selectedTool');
+    if (!tool || this.inventory.getItemCount(tool) < 1) return undefined;
     return tool === 'farm-hoe' || tool === 'watering-can' ||
       tool === 'garden-watering-can' || tool === 'farm-compost' ||
       tool === 'garden-fertilizer' || tool === 'farm-magic-bed' ||
@@ -7312,6 +7313,7 @@ export class SnakeGame implements QuestRuntime {
 
   exitFarmToolMode(): { ok: boolean; message: string } {
     this.setFlag('farm.selectedTool', undefined);
+    this.setFlag('traversal.manualResumePending', undefined);
     return { ok: true, message: 'Put away farming tools.' };
   }
 
@@ -7405,11 +7407,15 @@ export class SnakeGame implements QuestRuntime {
       if (!Number.isInteger(dx) || !Number.isInteger(dy) || Math.abs(dx) + Math.abs(dy) > 1)
         return { ok: false, message: 'Choose an adjacent structure.' };
       const structure = this.construction.getStructureAt(room.id, local.x + dx, local.y + dy);
-      if (action.action === 'toggleGate')
+      if (action.action === 'toggleGate') {
+        const ok = this.construction.toggleGate(
+          room.id, local.x + dx, local.y + dy, this.localPlayerId,
+        );
         return {
-          ok: this.construction.toggleGate(room.id, local.x + dx, local.y + dy, this.localPlayerId),
-          message: 'Gate operation requires build permission.',
+          ok,
+          message: ok ? 'Gate toggled.' : 'Gate operation requires build permission.',
         };
+      }
       if (
         !structure ||
         !this.construction.can(room.id, this.localPlayerId, 'build') ||
@@ -7727,10 +7733,11 @@ export class SnakeGame implements QuestRuntime {
     return this.inventory.getAllItems().flatMap(([itemId, count]) => {
       const item = getItem(itemId);
       if (!item || count <= 0 || item.category === 'quest') return [];
-      if (!produce && referenceRetailPrice(itemId) === undefined) return [];
       const produce = resolveProduce(itemId);
-      const retail = (produce ? produce.crop.seedCost : referenceRetailPrice(itemId)) ?? 10;
-      if (retail < 4 && !produce) return [];
+      // Crops are not sold as seeds: seed cost is an input, NOT the price of a
+      // harvested vegetable. An independently priced harvested crop can be profitable.
+      const retail = referenceRetailPrice(itemId) ??
+        (produce ? Math.max(produce.crop.value * 2, 4) : item.category === 'material' ? 12 : 24);
       const specialty = market === 'black-market'
         ? Boolean(produce?.crop.contraband)
         : market === 'butcher'
@@ -7749,11 +7756,12 @@ export class SnakeGame implements QuestRuntime {
       const base = produce
         ? Math.floor(produce.crop.value * QUALITY_MULTIPLIERS[produce.quality])
         : Math.max(1, Math.floor(retail * 0.18));
-      const premium = specialty ? Math.max(base, Math.floor(base * 1.25)) : base;
+      const premium = specialty ? Math.max(base + 1, Math.floor(base * 1.25)) : base;
       const listed = shop.offers.find((offer) => offer.itemId === itemId)?.price;
-      // Nonproduce resale is lower than even a 0.25x retail discount; produce
-      // is valued against its seed cost, since shops do not retail harvested crops.
-      const ceiling = produce ? produce.crop.seedCost - 1 : Math.ceil(retail * 0.25) - 1;
+      // Reselling a bought item is never profitable even when the source shop
+      // discounts it to 25% of reference price. Harvested goods have their own
+      // retail reference; the cost of a seed is NOT a cap on produce value.
+      const ceiling = produce ? retail - 1 : Math.max(1, Math.ceil(retail * 0.25) - 1);
       const price = Math.min(premium, ceiling, listed === undefined ? Infinity : listed - 1);
       return price > 0 ? [{ itemId, label: item.name, count, price, specialty }] : [];
     });
@@ -8560,7 +8568,7 @@ export class SnakeGame implements QuestRuntime {
       message:
         lessonPreview && lessonPreview.spellId
           ? `The wizard teaches you ${lessonPreview.spellId}.`
-          : `Purchased ${count} ${offer.label}.`,
+          : count === 1 ? `Purchased ${offer.label}.` : `Purchased ${count} ${offer.label}.`,
       actorId,
       offerId,
       scoreBefore,
