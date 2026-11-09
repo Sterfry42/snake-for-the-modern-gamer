@@ -7329,6 +7329,7 @@ export class SnakeGame implements QuestRuntime {
     const tool = this.getFlag<string>('farm.selectedTool');
     if (!tool || this.inventory.getItemCount(tool) < 1) return undefined;
     return tool === 'farm-hoe' ||
+      tool === 'claim-flag' ||
       tool === 'watering-can' ||
       tool === 'garden-watering-can' ||
       tool === 'farm-compost' ||
@@ -20700,6 +20701,7 @@ export class SnakeGame implements QuestRuntime {
 
     if (
       itemId === 'farm-hoe' ||
+      itemId === 'claim-flag' ||
       itemId === 'watering-can' ||
       itemId === 'garden-watering-can' ||
       itemId === 'farm-compost' ||
@@ -20713,7 +20715,10 @@ export class SnakeGame implements QuestRuntime {
       this.setFlag('farm.selectedTool', itemId);
       return {
         ok: true,
-        message: `${item.name} selected. Move deliberately, Interact to use it, Escape to put away. J opens the seed picker.`,
+        message:
+          itemId === 'claim-flag'
+            ? 'Claim Flag ready. Move deliberately; Interact to claim wilderness or manage this territory. Escape puts it away.'
+            : `${item.name} selected. Move deliberately, Interact to use it, Escape to put away.`,
         color: '#9cff9c',
         consume: false,
       };
