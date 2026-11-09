@@ -3814,13 +3814,17 @@ export default class SnakeScene extends Phaser.Scene {
         type: 'construction',
         action: 'confirm',
         playerId: this.snakeGame.getLocalPlayerId(),
+      }).then((result) => {
+        if (result.ok) this.resumeAfterStructurePlacement();
+        else this.showQuestHintPopup(result.message ?? result.reason ?? 'Cannot build here.', '#ffd166');
       });
       return;
     }
     const result = this.snakeGame.confirmStructurePlacement();
     if (result.ok) {
       this.snakeRenderer.markStaticRoomDirty(result.structure.roomId);
-      this.showQuestHintPopup('Small House placed.', '#5dd6a2');
+      this.showQuestHintPopup('Structure placed.', '#5dd6a2');
+      this.resumeAfterStructurePlacement();
     } else {
       const reasons = result.validation?.reasons.join(', ') ?? 'no placement preview';
       this.showQuestHintPopup(`Cannot build here: ${reasons}.`, '#ff6b6b');
@@ -3834,12 +3838,23 @@ export default class SnakeScene extends Phaser.Scene {
         type: 'construction',
         action: 'cancel',
         playerId: this.snakeGame.getLocalPlayerId(),
+      }).then((result) => {
+        if (result.ok) this.resumeAfterStructurePlacement();
       });
       return;
     }
     this.snakeGame.cancelStructurePlacement();
+    this.resumeAfterStructurePlacement();
     this.showQuestHintPopup('Construction canceled.', '#9ad1ff');
     this.isDirty = true;
+  }
+
+  private resumeAfterStructurePlacement(): void {
+    void this.gameConnection.send({
+      type: 'playerInteraction',
+      mode: 'playing',
+      playerId: this.snakeGame.getLocalPlayerId(),
+    });
   }
 
   private drawStructurePlacementPreview(visible: boolean): void {
@@ -12030,7 +12045,11 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.drivingCar) {
       return 'driving';
     }
-    if (this.snakeGame.getFarmTool() || this.isManualHouseMovementActive()) {
+    if (
+      this.snakeGame.getFarmTool() ||
+      this.snakeGame.getStructurePlacement() ||
+      this.isManualHouseMovementActive()
+    ) {
       return 'manual-room';
     }
     return 'action';
