@@ -2437,11 +2437,14 @@ export class SnakeGame implements QuestRuntime {
     roomIds?: readonly string[],
   ): import('../session/SceneClientState.js').SceneClientState {
     const relationshipStates = this.relationshipController.getAllStates();
+    // Collect markers once for this projection. Otherwise every active/accepted
+    // quest repeats the same world and staged-quest scan before the map does it again.
+    const questMarkers = this.collectQuestMapMarkers();
     const describeQuest = (quest: Quest) => ({
       id: quest.id,
       label: quest.label,
       description: quest.description,
-      objectives: this.getQuestObjectiveSummaries(quest.id),
+      objectives: this.questObjectiveSummariesFromMarkers(quest.id, questMarkers),
       subtasks: this.getQuestSubtasks(quest.id),
     });
     return {
@@ -2477,7 +2480,7 @@ export class SnakeGame implements QuestRuntime {
         accepted: this.getAcceptedQuests().map(describeQuest),
         completedIds: this.getCompletedQuestIds(),
         markerQuestId: this.getActiveQuestMarkerQuestId(),
-        markers: this.getQuestMapMarkers(),
+        markers: this.selectQuestMapMarkers(questMarkers),
       },
       special: this.getSpecialStatsView(),
       specialModifiers: this.getSpecialGameplayModifiers(),
@@ -17072,7 +17075,14 @@ export class SnakeGame implements QuestRuntime {
   }
 
   getQuestObjectiveSummaries(questId: string): QuestObjectiveSummary[] {
-    return this.collectQuestMapMarkers()
+    return this.questObjectiveSummariesFromMarkers(questId, this.collectQuestMapMarkers());
+  }
+
+  private questObjectiveSummariesFromMarkers(
+    questId: string,
+    markers: readonly QuestMapMarker[],
+  ): QuestObjectiveSummary[] {
+    return markers
       .filter((marker) => marker.questId === questId)
       .map((marker) => {
         const [x = 0, y = 0, z = 0] = marker.roomId.split(',').map((part) => Number(part));
@@ -17304,7 +17314,10 @@ export class SnakeGame implements QuestRuntime {
   }
 
   getQuestMapMarkers(): QuestMapMarker[] {
-    const markers = this.collectQuestMapMarkers();
+    return this.selectQuestMapMarkers(this.collectQuestMapMarkers());
+  }
+
+  private selectQuestMapMarkers(markers: QuestMapMarker[]): QuestMapMarker[] {
     const activeQuestId = this.getActiveQuestMarkerQuestId();
     if (!activeQuestId) {
       return markers;

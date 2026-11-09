@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WebSocket } from 'ws';
 import { SnakeGame } from '../../game/snakeGame.js';
 import { QuestRegistry } from '../../quests/questRegistry.js';
+import { Quest, type QuestRuntime } from '../../quests/quest.js';
 import { defaultGameConfig } from '../../config/gameConfig.js';
 import { AuthoritativeGameSession } from '../AuthoritativeGameSession.js';
 import { SnapshotDeltaEncoder, SnapshotDeltaAssembler } from '../SnapshotDelta.js';
@@ -446,6 +447,34 @@ describe('bounded server replication and simulation', () => {
     await session.advance(100);
     expect(Number(game.getFlag<number>('timeMs') ?? 0)).toBeGreaterThan(before);
     expect(game.getPlayer(creator)?.lifecycle?.kind).toBe('creating');
+  });
+
+  it('builds quest map markers once for all quest summaries in a network snapshot', () => {
+    const { game, room } = setup();
+    class SnapshotQuest extends Quest {
+      isCompleted(_runtime: QuestRuntime): boolean {
+        return false;
+      }
+    }
+    const quests = [
+      new SnapshotQuest('snapshot-quest-one', 'One', 'First quest'),
+      new SnapshotQuest('snapshot-quest-two', 'Two', 'Second quest'),
+    ];
+    vi.spyOn(game, 'getActiveQuests').mockReturnValue(quests);
+    vi.spyOn(game, 'getAcceptedQuests').mockReturnValue(quests);
+    game.setFlag('quest.story.crystal-clause', {
+      questId: 'crystal-clause',
+      stage: 'hunting',
+      giverRoomId: room.id,
+    });
+    const knownRooms = vi.spyOn(game, 'getGeneratedRoomIds');
+    const state = game.getSceneClientState([room.id]);
+    expect(state.quests.active).toHaveLength(2);
+    expect(state.quests.accepted).toHaveLength(2);
+    expect(knownRooms).toHaveBeenCalledTimes(1);
+    expect(state.quests.markers).toEqual(game.getQuestMapMarkers());
+    for (const quest of state.quests.active)
+      expect(quest.objectives).toEqual(game.getQuestObjectiveSummaries(quest.id));
   });
 
   it('stops idle world clocks in an all-creating lobby and resumes on activation', async () => {
