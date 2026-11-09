@@ -236,7 +236,12 @@ export function isClientCommand(value: unknown): value is ClientCommand {
         (value.actorId === undefined || validIdentifier(value.actorId))
       );
     case 'purchase':
-      return validIdentifier(value.actorId) && validIdentifier(value.offerId);
+      return validIdentifier(value.actorId) && validIdentifier(value.offerId) &&
+        (value.count === undefined ||
+          (Number.isSafeInteger(value.count) && Number(value.count) >= 1 && Number(value.count) <= 100));
+    case 'farmToolAction':
+      return value.action === 'exit' ||
+        (value.action === 'step' && isCardinalDirection(value.direction));
     case 'relationshipAction':
       return (
         validIdentifier(value.actorId) &&
