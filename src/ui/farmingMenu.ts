@@ -318,11 +318,10 @@ export class FarmingMenu {
         ).then((result) => {
           if (!result.ok) {
             this.notify(result.message ?? result.reason ?? 'Cannot build here.');
-            return;
           }
           void this.connection().send({
             type: 'playerInteraction',
-            mode: 'manual',
+            mode: result.ok || this.game().getFarmTool() ? 'manual' : 'playing',
             playerId: this.game().getLocalPlayerId(),
           });
         });
