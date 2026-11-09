@@ -284,8 +284,7 @@ function executeConstructionAction(
     case 'begin':
       return { ok: game.beginStructurePlacement(command.blueprintId) };
     case 'step':
-      game.stepStructurePlacement(command.direction);
-      return { ok: Boolean(game.getStructurePlacement()) };
+      return game.stepStructurePlacement(command.direction);
     case 'face':
       if (!game.getStructurePlacement()) return { ok: false, reason: 'No active placement.' };
       game.faceStructurePlacement(command.direction);
