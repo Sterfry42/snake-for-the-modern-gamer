@@ -151,6 +151,34 @@ describe('room snapshot cache', () => {
     expect(cache.size).toBe(1);
   });
 
+  it('measures archive churn and resets telemetry without flushing rooms', async () => {
+    const cache = new RoomSnapshotCache(1);
+    const first = cache.prepare(room('0,0,0'));
+    cache.set(first.id, first);
+    cache.set('1,0,0', cache.prepare(room('1,0,0')));
+    expect(cache.peek(first.id)).toBe(first);
+    first.layout[0] = '..';
+    await Promise.resolve();
+
+    const report = cache.getDiagnostics(true);
+    expect(report.roomHotEvictions).toBe(1);
+    expect(report.roomArchiveWrites).toBe(2);
+    expect(report.roomColdPeeks).toBe(1);
+    expect(report.roomArchiveSerializationMs).toBeGreaterThanOrEqual(0);
+    expect(report.maximumRoomArchiveSerializationMs).toBeLessThanOrEqual(
+      report.roomArchiveSerializationMs,
+    );
+    expect(cache.getDiagnostics()).toEqual({
+      roomArchiveWrites: 0,
+      roomArchiveSerializationMs: 0,
+      maximumRoomArchiveSerializationMs: 0,
+      roomColdHydrations: 0,
+      roomColdPeeks: 0,
+      roomHotEvictions: 0,
+    });
+    expect(cache.peek(first.id)?.layout).toEqual(['..']);
+  });
+
   it('ignores edits through stale room proxies after replacement and deletion', () => {
     const cache = new RoomSnapshotCache(1);
     const old = cache.prepare(room('0,0,0'));

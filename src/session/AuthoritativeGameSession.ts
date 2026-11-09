@@ -174,7 +174,7 @@ export class AuthoritativeGameSession implements LocalAuthoritativeRuntime {
   getPerformanceReport(reset = false) {
     const report = {
       ...this.performance.read(
-        { ...this.game.getServerSimulationGauges(), connectedPlayers: this.connections.size },
+        { ...this.game.getServerSimulationGauges(reset), connectedPlayers: this.connections.size },
         reset,
       ),
       ...this.getQueueDiagnostics(),

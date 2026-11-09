@@ -71,6 +71,9 @@ export class WorldService {
   getKnownRoomCount(): number {
     return this.rooms.knownSize;
   }
+  getRoomCacheDiagnostics(reset = false) {
+    return this.rooms.getDiagnostics(reset);
+  }
   mergeReplicaRooms(rooms: readonly RoomSnapshot[]): void {
     this.replicaOnly = true;
     for (const room of rooms) this.rooms.set(room.id, room);

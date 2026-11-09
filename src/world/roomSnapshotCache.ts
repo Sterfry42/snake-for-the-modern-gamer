@@ -28,6 +28,12 @@ export class RoomSnapshotCache implements Iterable<[string, RoomSnapshot]> {
   private readonly archived = new Map<string, ArchivedRoom>();
   private readonly watchers = new WeakMap<object, Set<ChangeReference>>();
   private readonly originals = new WeakMap<object, object>();
+  private archiveWrites = 0;
+  private archiveSerializationMs = 0;
+  private maximumArchiveSerializationMs = 0;
+  private coldRoomHydrations = 0;
+  private coldRoomPeeks = 0;
+  private hotRoomEvictions = 0;
 
   constructor(private readonly capacity = MAX_HOT_ROOMS) {
     if (!Number.isInteger(capacity) || capacity < 1) throw new Error('Invalid room cache capacity');
@@ -43,6 +49,37 @@ export class RoomSnapshotCache implements Iterable<[string, RoomSnapshot]> {
   /** Per-room change counters for hot and archived rooms, keyed by room id. */
   getRevisions(): ReadonlyMap<string, number> {
     return this.revisions;
+  }
+
+  /** Per-sample cache churn and serialization counters; no room data is copied. */
+  getDiagnostics(reset = false) {
+    const report = {
+      roomArchiveWrites: this.archiveWrites,
+      roomArchiveSerializationMs: this.archiveSerializationMs,
+      maximumRoomArchiveSerializationMs: this.maximumArchiveSerializationMs,
+      roomColdHydrations: this.coldRoomHydrations,
+      roomColdPeeks: this.coldRoomPeeks,
+      roomHotEvictions: this.hotRoomEvictions,
+    };
+    if (reset) {
+      this.archiveWrites = 0;
+      this.archiveSerializationMs = 0;
+      this.maximumArchiveSerializationMs = 0;
+      this.coldRoomHydrations = 0;
+      this.coldRoomPeeks = 0;
+      this.hotRoomEvictions = 0;
+    }
+    return report;
+  }
+
+  private serializeForArchive(room: RoomSnapshot): string {
+    const startedAt = performance.now();
+    const serialized = JSON.stringify(room);
+    const durationMs = performance.now() - startedAt;
+    this.archiveWrites++;
+    this.archiveSerializationMs += durationMs;
+    this.maximumArchiveSerializationMs = Math.max(this.maximumArchiveSerializationMs, durationMs);
+    return serialized;
   }
 
   has(id: string): boolean {
@@ -61,7 +98,8 @@ export class RoomSnapshotCache implements Iterable<[string, RoomSnapshot]> {
       record.pending = true;
       // Hold the edited room until its archive is refreshed, coalescing synchronous edits.
       queueMicrotask(() => {
-        if (this.archived.get(room.id) === record) record.serialized = JSON.stringify(room);
+        if (this.archived.get(room.id) === record)
+          record.serialized = this.serializeForArchive(room);
         record.pending = false;
       });
     };
@@ -137,9 +175,11 @@ export class RoomSnapshotCache implements Iterable<[string, RoomSnapshot]> {
     if (hot) return hot;
     const record = this.archived.get(id);
     if (!record) return undefined;
+    this.coldRoomPeeks++;
     const retained = record.reference.deref();
     if (retained) return retained;
     const room = this.prepare(JSON.parse(record.serialized) as RoomSnapshot);
+    this.coldRoomHydrations++;
     // A cold proxy can be collected again when the read is complete. Keep
     // hot-room ownership unchanged and preserve edits via archive watchers.
     record.reference = typeof WeakRef === 'function' ? new WeakRef(room) : { deref: () => room };
@@ -151,8 +191,11 @@ export class RoomSnapshotCache implements Iterable<[string, RoomSnapshot]> {
     if (!room) {
       const record = this.archived.get(id);
       if (!record) return undefined;
-      room =
-        record.reference.deref() ?? this.prepare(JSON.parse(record.serialized) as RoomSnapshot);
+      room = record.reference.deref();
+      if (!room) {
+        room = this.prepare(JSON.parse(record.serialized) as RoomSnapshot);
+        this.coldRoomHydrations++;
+      }
       this.archived.delete(id);
     }
     if (!room) return undefined;
@@ -199,10 +242,11 @@ export class RoomSnapshotCache implements Iterable<[string, RoomSnapshot]> {
       if (!oldest) return;
       const [id, room] = oldest;
       this.archived.set(id, {
-        serialized: JSON.stringify(this.originals.get(room) ?? room),
+        serialized: this.serializeForArchive((this.originals.get(room) ?? room) as RoomSnapshot),
         reference: typeof WeakRef === 'function' ? new WeakRef(room) : { deref: () => room },
       });
       this.hot.delete(id);
+      this.hotRoomEvictions++;
     }
   }
 }

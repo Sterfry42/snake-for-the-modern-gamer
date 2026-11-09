@@ -2264,7 +2264,7 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
-  getServerSimulationGauges() {
+  getServerSimulationGauges(resetRoomCacheCounters = false) {
     const occupied = new Set(
       this.getPlayers()
         .filter((player) => isPlayerInWorld(player))
@@ -2276,6 +2276,7 @@ export class SnakeGame implements QuestRuntime {
     return {
       cachedRooms: this.world.getCachedRoomCount(),
       knownRooms: this.world.getKnownRoomCount(),
+      ...this.world.getRoomCacheDiagnostics(resetRoomCacheCounters),
       materializedRooms: occupied.size,
       totalActors,
       activeActors,
