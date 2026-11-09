@@ -1,0 +1,1 @@
+import{E as r,W as a}from"./index-Cm1BQBsO.js";import{Q as o}from"./quest-DCM-IEEX.js";class l extends o{isCompleted(e){return!1}}const p=[...r,...a].map(({id:t,label:e,description:s})=>new l(t,e,s??"A consequential local story."));export{p as default};

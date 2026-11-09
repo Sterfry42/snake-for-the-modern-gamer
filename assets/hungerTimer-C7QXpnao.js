@@ -1,1 +1,0 @@
-import{F as r}from"./feature-CFPbSMp7.js";import{c as t}from"./index-B0GXaK3O.js";class n extends r{constructor(){super("hungerTimer","Hunger Timer")}onRegister(e){e.setFlag("timeSinceEat",0)}onActionStep(e){t(e)}onAppleEaten(e){e.setFlag("timeSinceEat",0)}}const o=new n;export{o as default};
