@@ -194,7 +194,7 @@ const TAB_ACCENTS: Record<PrimaryTabId, number> = {
 };
 
 type PrimaryTabId = 'growth' | 'gear' | 'world' | 'system';
-type TabId =
+export type TabId =
   | 'skills'
   | 'special'
   | 'spells'
@@ -447,6 +447,10 @@ export class SkillTreeOverlay {
   private readonly scrollOffsets: Partial<Record<TabId, number>> = {};
   private structuredContentHeight = 0;
   private specialChanceScrollOffset = 0;
+  // Perf probe: counts scroll events against full content rebuilds so the
+  // e2e suite can prove scrolling stays coalesced instead of rebuilding the
+  // whole tab on every pointer event (the phone's slow-scroll bug).
+  private readonly scrollPerf = { events: 0, rebuilds: 0, rebuildTimeMs: 0 };
   private customizationRowMap: Array<{ row: number; actionId: string }> = [];
 
   private hoveredPerkId: string | null = null;
@@ -6286,6 +6290,7 @@ export class SkillTreeOverlay {
     if (!this.visible) {
       return;
     }
+    this.scrollPerf.events += 1;
     if (this.activeTab === 'special') {
       this.applySpecialChanceScrollOffset(this.specialChanceScrollOffset + deltaY);
       return;
@@ -6487,7 +6492,7 @@ export class SkillTreeOverlay {
         )
         .setVisible(true);
     }
-    this.buildStructuredTabContent(this.activeTab);
+    this.timeScrollRebuild(() => this.buildStructuredTabContent(this.activeTab));
   }
 
   private applyScrollableTextOffset(
@@ -6541,8 +6546,10 @@ export class SkillTreeOverlay {
     if (this.visible && this.activeTab === 'special') {
       const view = this.handlers.getSpecialView?.();
       if (view) {
-        this.buildSpecialDerivedContent(view);
-        this.drawSpecialUi(view);
+        this.timeScrollRebuild(() => {
+          this.buildSpecialDerivedContent(view);
+          this.drawSpecialUi(view);
+        });
       }
     }
     void maxScroll;
@@ -8744,6 +8751,65 @@ export class SkillTreeOverlay {
         (tab) => tab.id,
       ),
     };
+  }
+
+  /**
+   * Dev-only perf probe for the e2e suite: how many scroll events arrived,
+   * how many full content rebuilds they caused, and the time those rebuilds
+   * cost. The whole point is that rebuilds must stay far below events.
+   */
+  getScrollPerf(): {
+    events: number;
+    rebuilds: number;
+    rebuildTimeMs: number;
+    tab: TabId;
+    offset: number;
+  } {
+    return {
+      events: this.scrollPerf.events,
+      rebuilds: this.scrollPerf.rebuilds,
+      rebuildTimeMs: this.scrollPerf.rebuildTimeMs,
+      tab: this.activeTab,
+      offset: this.scrollOffsets[this.activeTab] ?? 0,
+    };
+  }
+
+  resetScrollPerf(): void {
+    this.scrollPerf.events = 0;
+    this.scrollPerf.rebuilds = 0;
+    this.scrollPerf.rebuildTimeMs = 0;
+  }
+
+  /** Switch the open menu to a tab, mirroring controller tab cycling. */
+  setTab(tabId: TabId): void {
+    this.setActiveTab(tabId);
+  }
+
+  /**
+   * Content rectangle of the active tab in canvas coordinates, or null while
+   * hidden. Lets the e2e suite drive a real pointer drag through the list.
+   */
+  getScrollTargetRect(): { x: number; y: number; width: number; height: number } | null {
+    if (!this.visible) {
+      return null;
+    }
+    const content = this.getPauseMenuLayout().content;
+    return {
+      x: this.overlayX + content.x,
+      y: this.overlayY + content.y,
+      width: content.width,
+      height: content.height,
+    };
+  }
+
+  private timeScrollRebuild<T>(run: () => T): T {
+    const started = performance.now();
+    try {
+      return run();
+    } finally {
+      this.scrollPerf.rebuilds += 1;
+      this.scrollPerf.rebuildTimeMs += performance.now() - started;
+    }
   }
 
   private setActiveTab(tabId: TabId): void {

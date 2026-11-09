@@ -568,6 +568,18 @@ interface SnakeE2EWindowApi {
   syncMobileControls(): void;
   getTouchControlsPreference(): import('../input/touchDetection.js').TouchControlsPreference;
   getStartChoicesOpen(): boolean;
+
+  getScrollPerf(): ReturnType<
+    import('../ui/skillTreeOverlay.js').SkillTreeOverlay['getScrollPerf']
+  >;
+  resetScrollPerf(): void;
+  setPauseTab(tabId: import('../ui/skillTreeOverlay.js').TabId): void;
+  getPauseScrollTarget(): { x: number; y: number; width: number; height: number } | null;
+
+  getParticlePerf(): ReturnType<import('../ui/juice.js').JuiceManager['getParticlePerf']>;
+  debugBurst(worldX: number, worldY: number, count: number): void;
+  startUnicornGlitter(): void;
+  stopUnicornGlitter(): void;
 }
 
 declare global {
@@ -4210,6 +4222,14 @@ export default class SnakeScene extends Phaser.Scene {
       syncMobileControls: () => this.syncMobileControls(),
       getTouchControlsPreference: () => loadTouchControlsPreference(),
       getStartChoicesOpen: () => Boolean(this.getFlag('run.startChoicesReady')),
+      getScrollPerf: () => this.skillTree.getOverlay().getScrollPerf(),
+      resetScrollPerf: () => this.skillTree.getOverlay().resetScrollPerf(),
+      setPauseTab: (tabId) => this.skillTree.getOverlay().setTab(tabId),
+      getPauseScrollTarget: () => this.skillTree.getOverlay().getScrollTargetRect(),
+      getParticlePerf: () => this.juice.getParticlePerf(),
+      debugBurst: (worldX, worldY, count) => this.juice.debugBurst(worldX, worldY, count),
+      startUnicornGlitter: () => this.juice.startUnicornGlitter(),
+      stopUnicornGlitter: () => this.juice.stopUnicornGlitter(),
     };
   }
 

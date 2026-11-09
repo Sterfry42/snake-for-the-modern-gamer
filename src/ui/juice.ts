@@ -8756,4 +8756,27 @@ export class JuiceManager {
       }
     }
   }
+
+  /**
+   * Dev-only perf probe for the e2e suite: live pressure on the particle
+   * layer and the tween manager. Every spawned circle is a display-list
+   * object plus a tween, so these counts track the churn that makes
+   * particles heavy on phones.
+   */
+  getParticlePerf(): { liveParticles: number; activeTweens: number; unicornTrail: number } {
+    return {
+      liveParticles: this.particleLayer.list.length,
+      activeTweens: this.scene.tweens.getTweens().length,
+      unicornTrail: this.unicornTrailParticles.length,
+    };
+  }
+
+  /** Deterministic burst for perf storms in the e2e suite. */
+  debugBurst(worldX: number, worldY: number, count: number): void {
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffd166, 0xff6b6b, 0x5dd6a2, 0x8fd8ff],
+      count,
+      radius: 60,
+    });
+  }
 }
