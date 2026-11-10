@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { contextualQuestPages } from '../questGiverDialogue.js';
+import { contextualQuestPages, questGiverStatusLine } from '../questGiverDialogue.js';
 import { getQuestDialogue } from '../questDialogue.js';
 
 const errand = {
@@ -49,6 +49,17 @@ describe('role-aware quest dialogue', () => {
     const voiced = getQuestDialogue(errand, { role: 'guard' });
     expect(original.pages.length).toBeGreaterThan(0);
     expect(voiced.pages.join(' ')).toContain('watch');
-    expect(voiced.pages.join(' ')).toContain(errand.description);
+    expect(voiced.pages.join(' ')).toContain(erra
+  it('gives generated house NPCs stable, distinct personalities and status lines', () => {
+    const aur = { role: 'sage', giverName: 'Aurex' };
+    const cyrene = { role: 'sage', giverName: 'Cyrene' };
+    const first = contextualQuestPages(errand, aur, []);
+    expect(contextualQuestPages(errand, aur, [])).toEqual(first);
+    expect(contextualQuestPages(errand, cyrene, [])).not.toEqual(first);
+    expect(questGiverStatusLine(aur, 'none')).not.toBe(questGiverStatusLine(cyrene, 'none'));
+    expect(questGiverStatusLine(aur, 'active', errand.label)).toContain(errand.label);
+    expect(questGiverStatusLine(aur, 'completed', errand.label)).toContain(errand.label);
+  });
+nd.description);
   });
 });
