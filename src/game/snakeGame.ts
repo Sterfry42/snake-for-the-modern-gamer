@@ -12478,11 +12478,26 @@ export class SnakeGame implements QuestRuntime {
     if (portal && this.getLoadedActorTravelLegTarget(actor, currentRoom, portal.destRoomId)) {
       return portal.destRoomId;
     }
-    const currentDistance = this.roomIdDistance(currentRoom.id, goalRoomId);
+    // Interior layer IDs are not coordinates. Route across outdoor rooms to the
+    // entrance's parent room first, then enter the layer on the next travel leg.
+    const goalEntrance = this.world.getLayerEntranceByLayerId(goalRoomId);
+    const town = actor.townId ? this.world.getTownById(actor.townId) : undefined;
+    const townBuildingParent = town?.buildings.find(
+      (building) =>
+        building.templateId &&
+        (goalRoomId === `layer:townInterior:${town.id}:${building.templateId}` ||
+          goalRoomId === `layer:townInterior:${town.id}:${building.id}:${building.templateId}`),
+    )?.roomId;
+    const routeGoalRoomId =
+      goalEntrance?.parentRoomId ??
+      this.world.peekCachedRoom(goalRoomId)?.layer?.parentRoomId ??
+      townBuildingParent ??
+      goalRoomId;
+    const currentDistance = this.roomIdDistance(currentRoom.id, routeGoalRoomId);
     const neighbor = this.getNeighborRoomIds(currentRoom.id)
-      .filter((roomId) => this.isCoordinateRoomId(roomId) && this.isCoordinateRoomId(goalRoomId))
-      .filter((roomId) => this.roomIdDistance(roomId, goalRoomId) < currentDistance)
-      .sort((a, b) => this.roomIdDistance(a, goalRoomId) - this.roomIdDistance(b, goalRoomId))
+      .filter((roomId) => this.isCoordinateRoomId(roomId) && this.isCoordinateRoomId(routeGoalRoomId))
+      .filter((roomId) => this.roomIdDistance(roomId, routeGoalRoomId) < currentDistance)
+      .sort((a, b) => this.roomIdDistance(a, routeGoalRoomId) - this.roomIdDistance(b, routeGoalRoomId))
       .find((roomId) => this.getLoadedActorTravelLegTarget(actor, currentRoom, roomId));
     if (neighbor) {
       return neighbor;
