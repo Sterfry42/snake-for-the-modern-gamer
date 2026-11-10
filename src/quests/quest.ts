@@ -37,6 +37,12 @@ export abstract class Quest {
     return 'generic';
   }
 
+  /** Allows scripted quests to reject stale/orphaned saved active records. */
+  isValidRestoredState(runtime: QuestRuntime): boolean {
+    void runtime;
+    return true;
+  }
+
   constructor(
     public readonly id: string,
     public readonly label: string,
