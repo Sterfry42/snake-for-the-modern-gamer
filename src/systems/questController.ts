@@ -201,7 +201,9 @@ export class QuestController {
   getQuestForGiver(roomId: string, runtime: QuestRuntime): QuestGiverRequest {
     let assignedId = this.giverAssignments.get(roomId);
     let quest = assignedId ? (this.registry.getById(assignedId) ?? null) : null;
-    if (quest && (!canOfferQuestFromSource(quest, 'house') || !this.canOfferFromGiver(quest, runtime, roomId))) {
+    // Existing bindings include explicit named-encounter assignments. Source
+    // restrictions apply when *choosing* a random job, not when revisiting its giver.
+    if (quest && !this.canOfferFromGiver(quest, runtime, roomId)) {
       this.giverAssignments.delete(roomId);
       assignedId = undefined;
       quest = null;
