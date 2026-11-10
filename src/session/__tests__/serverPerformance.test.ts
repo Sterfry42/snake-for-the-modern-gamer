@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WebSocket } from 'ws';
 import { SnakeGame } from '../../game/snakeGame.js';
 import { QuestRegistry } from '../../quests/questRegistry.js';
+import { Quest } from '../../quests/quest.js';
 import { defaultGameConfig } from '../../config/gameConfig.js';
 import { AuthoritativeGameSession } from '../AuthoritativeGameSession.js';
 import { SnapshotDeltaEncoder, SnapshotDeltaAssembler } from '../SnapshotDelta.js';
@@ -149,6 +150,39 @@ describe('bounded server replication and simulation', () => {
     expect(report.maximumPayloadBytes).toBeLessThan(legacyBytes / 4);
     expect(report.snapshotBuildMs).toBeGreaterThan(0);
     expect(report.averageActorTickMs).toBeGreaterThan(0);
+  });
+
+  it('does not mutate tracked town room geometry from read-only town projections', async () => {
+    const { game, room, session } = setup();
+    const town = createPhysicalHumanTown({
+      townId: 'readonly-town',
+      biomeId: 'verdigris-basin',
+      seed: 815,
+      districtRoomIds: { [room.id]: 'square' },
+      entranceRoomId: room.id,
+      exitRoomIds: [],
+    });
+    // The ordinary trainer-injection path clones human towns. Use a town
+    // without that special treatment to exercise the no-runtime fast path.
+    town.townTags = [];
+    room.town = town;
+    const revisionBefore = game.getRoomRevisions().get(room.id);
+    const originalTown = room.town;
+
+    const first = game.getCurrentTown();
+    expect(first?.id).toBe('readonly-town');
+    expect(game.getCurrentTown()).toEqual(first);
+    const scene = game.getSceneClientState([room.id]);
+    expect(scene.town).toEqual(first);
+    expect(room.town).toBe(originalTown);
+    expect(game.getRoomRevisions().get(room.id)).toBe(revisionBefore);
+
+    session.configureHosting();
+    const playerId = session.registerConnection('town-reader', 'Reader');
+    const afterConnection = game.getRoomRevisions().get(room.id);
+    await session.getConnectionSnapshot(playerId);
+    await session.getConnectionSnapshot(playerId);
+    expect(game.getRoomRevisions().get(room.id)).toBe(afterConnection);
   });
 
   it('does not invalidate unchanged populated town geometry on every actor tick', async () => {
@@ -407,5 +441,115 @@ describe('bounded server replication and simulation', () => {
       activity: { kind: 'mapping' },
     });
     expect(game.getServerSimulationGauges().knownRooms).toBe(count);
+  });
+
+  it('leaves read-only snapshot operations free of gameplay side effects and retries failed publishes', async () => {
+    const { game, session } = setup();
+    session.configureHosting();
+    const playerId = session.registerConnection('reader', 'Reader');
+    const encounter = vi.spyOn(game, 'beginAdjacentRandomEncounter');
+    await session.getConnectionSnapshot(playerId);
+    expect(encounter).not.toHaveBeenCalled();
+
+    await expect(
+      session.publishNetworkState(() => {
+        throw new Error('synthetic socket failure');
+      }),
+    ).rejects.toThrow('synthetic socket failure');
+    let published = 0;
+    await session.publishNetworkState(() => {
+      published++;
+    });
+    expect(published).toBe(1);
+    expect(encounter).not.toHaveBeenCalled();
+  });
+
+  it('keeps world clocks active for a playing character beside a creating character', async () => {
+    const { game } = setup();
+    const session = new AuthoritativeGameSession({
+      game,
+      manageBasicFeatures: true,
+      requireCharacterCreation: true,
+    });
+    session.configureHosting();
+    const creator = session.registerConnection('creator', 'Creator');
+    const player = session.registerConnection('player', 'Player');
+    expect(game.getPlayer(creator)?.lifecycle?.kind).toBe('creating');
+    game.getPlayer(player)!.lifecycle = { kind: 'active' };
+    const before = Number(game.getFlag<number>('timeMs') ?? 0);
+    await session.advance(100);
+    expect(Number(game.getFlag<number>('timeMs') ?? 0)).toBeGreaterThan(before);
+    expect(game.getPlayer(creator)?.lifecycle?.kind).toBe('creating');
+  });
+
+  it('builds quest map markers once for all quest summaries in a network snapshot', () => {
+    const { game, room } = setup();
+    class SnapshotQuest extends Quest {
+      isCompleted(): boolean {
+        return false;
+      }
+    }
+    const quests = [
+      new SnapshotQuest('snapshot-quest-one', 'One', 'First quest'),
+      new SnapshotQuest('snapshot-quest-two', 'Two', 'Second quest'),
+    ];
+    vi.spyOn(game, 'getActiveQuests').mockReturnValue(quests);
+    vi.spyOn(game, 'getAcceptedQuests').mockReturnValue(quests);
+    game.setFlag('quest.story.crystal-clause', {
+      questId: 'crystal-clause',
+      stage: 'hunting',
+      giverRoomId: room.id,
+    });
+    const knownRooms = vi.spyOn(game, 'getGeneratedRoomIds');
+    const state = game.getSceneClientState([room.id]);
+    expect(state.quests.active).toHaveLength(2);
+    expect(state.quests.accepted).toHaveLength(2);
+    expect(knownRooms).toHaveBeenCalledTimes(1);
+    const profiledPhases: Record<string, number> = {};
+    game.getSceneClientState([room.id], (phase, durationMs) => {
+      profiledPhases[phase] = durationMs;
+    });
+    expect(Object.keys(profiledPhases)).toEqual(
+      expect.arrayContaining([
+        'worldRooms',
+        'flags',
+        'questMarkers',
+        'quests',
+        'relationshipActions',
+        'construction',
+        'actors',
+        'town',
+      ]),
+    );
+    expect(Object.values(profiledPhases).every((ms) => ms >= 0)).toBe(true);
+    expect(state.quests.markers).toEqual(game.getQuestMapMarkers());
+    for (const quest of state.quests.active)
+      expect(quest.objectives).toEqual(game.getQuestObjectiveSummaries(quest.id));
+  });
+
+  it('stops idle world clocks in an all-creating lobby and resumes on activation', async () => {
+    const { game } = setup();
+    const session = new AuthoritativeGameSession({
+      game,
+      manageBasicFeatures: true,
+      requireCharacterCreation: true,
+    });
+    session.configureHosting();
+    const playerId = session.registerConnection('creator', 'Creator');
+    expect(game.getPlayer(playerId)?.lifecycle?.kind).toBe('creating');
+    let publications = 0;
+    await session.publishNetworkState(() => {
+      publications++;
+    });
+    const before = Number(game.getFlag<number>('timeMs') ?? 0);
+    await session.advance(100);
+    await session.publishNetworkState(() => {
+      publications++;
+    });
+    expect(Number(game.getFlag<number>('timeMs') ?? 0)).toBe(before);
+    expect(publications).toBe(1);
+    game.getPlayer(playerId)!.lifecycle = { kind: 'active' };
+    await session.advance(100);
+    expect(Number(game.getFlag<number>('timeMs') ?? 0)).toBeGreaterThan(before);
   });
 });

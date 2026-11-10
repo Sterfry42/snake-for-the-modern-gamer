@@ -1,6 +1,12 @@
 export interface ServerPerformanceGauges {
   cachedRooms: number;
   knownRooms: number;
+  roomArchiveWrites: number;
+  roomArchiveSerializationMs: number;
+  maximumRoomArchiveSerializationMs: number;
+  roomColdHydrations: number;
+  roomColdPeeks: number;
+  roomHotEvictions: number;
   materializedRooms: number;
   totalActors: number;
   activeActors: number;

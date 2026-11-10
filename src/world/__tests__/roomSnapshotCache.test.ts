@@ -51,6 +51,64 @@ describe('room snapshot cache', () => {
     }
   });
 
+  it('peeks at cold rooms without promoting them and retains edits', async () => {
+    const cache = new RoomSnapshotCache(1);
+    const first = cache.prepare(room('0,0,0'));
+    cache.set(first.id, first);
+    const hot = cache.prepare(room('1,0,0'));
+    cache.set(hot.id, hot);
+    expect(cache.size).toBe(1);
+
+    const cold = cache.peek(first.id);
+    expect(cold).toBe(first);
+    expect(cache.peek(hot.id)).toBe(hot);
+    expect(cache.size).toBe(1);
+    cold!.layout[0] = '..';
+    await Promise.resolve();
+    expect(cache.peek(first.id)?.layout).toEqual(['..']);
+    expect(cache.size).toBe(1);
+    expect(cache.get(hot.id)).toBe(hot);
+    expect(cache.peek('unknown')).toBeUndefined();
+  });
+
+  it('rehydrates cold peeks after collection without evicting hot rooms', async () => {
+    const references: Array<{ value: object | undefined }> = [];
+    vi.stubGlobal(
+      'WeakRef',
+      class {
+        private readonly reference: { value: object | undefined };
+        constructor(value: object) {
+          this.reference = { value };
+          references.push(this.reference);
+        }
+        deref(): object | undefined {
+          return this.reference.value;
+        }
+      },
+    );
+    try {
+      const cache = new RoomSnapshotCache(1);
+      const first = cache.prepare(room('0,0,0'));
+      cache.set(first.id, first);
+      const hot = cache.prepare(room('1,0,0'));
+      cache.set(hot.id, hot);
+      first.layout[0] = '..';
+      await Promise.resolve();
+
+      // Simulate the original archived proxy's weak reference expiring.
+      for (const reference of references)
+        if (reference.value === first) reference.value = undefined;
+      const cold = cache.peek(first.id);
+      expect(cold).not.toBe(first);
+      expect(cold?.layout).toEqual(['..']);
+      expect(cache.peek(first.id)).toBe(cold);
+      expect(cache.get(hot.id)).toBe(hot);
+      expect(cache.size).toBe(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('world-wide reads do not churn or promote the hot-room working set', () => {
     const cache = new RoomSnapshotCache(2);
     for (let index = 0; index < 12; index++) {
@@ -91,6 +149,53 @@ describe('room snapshot cache', () => {
     expect(cache.get(first.id)?.portals).toHaveLength(1);
     expect(new Map(cache).size).toBe(2);
     expect(cache.size).toBe(1);
+  });
+
+  it('measures archive churn and resets telemetry without flushing rooms', async () => {
+    const cache = new RoomSnapshotCache(1);
+    const first = cache.prepare(room('0,0,0'));
+    cache.set(first.id, first);
+    cache.set('1,0,0', cache.prepare(room('1,0,0')));
+    expect(cache.peek(first.id)).toBe(first);
+    first.layout[0] = '..';
+    await Promise.resolve();
+
+    const report = cache.getDiagnostics(true);
+    expect(report.roomHotEvictions).toBe(1);
+    expect(report.roomArchiveWrites).toBe(2);
+    expect(report.roomColdPeeks).toBe(1);
+    expect(report.roomArchiveSerializationMs).toBeGreaterThanOrEqual(0);
+    expect(report.maximumRoomArchiveSerializationMs).toBeLessThanOrEqual(
+      report.roomArchiveSerializationMs,
+    );
+    expect(cache.getDiagnostics()).toEqual({
+      roomArchiveWrites: 0,
+      roomArchiveSerializationMs: 0,
+      maximumRoomArchiveSerializationMs: 0,
+      roomColdHydrations: 0,
+      roomColdPeeks: 0,
+      roomHotEvictions: 0,
+    });
+    expect(cache.peek(first.id)?.layout).toEqual(['..']);
+  });
+
+  it('ignores edits through stale room proxies after replacement and deletion', () => {
+    const cache = new RoomSnapshotCache(1);
+    const old = cache.prepare(room('0,0,0'));
+    cache.set(old.id, old);
+    const fresh = cache.prepare(room('0,0,0'));
+    cache.set(fresh.id, fresh);
+    const revision = cache.getRevision(fresh.id);
+    old.layout[0] = '##';
+    expect(cache.getRevision(fresh.id)).toBe(revision);
+    expect(cache.peek(fresh.id)?.layout).toEqual(['.#']);
+
+    fresh.layout[0] = '..';
+    expect(cache.getRevision(fresh.id)).toBeGreaterThan(revision);
+    cache.delete(fresh.id);
+    fresh.layout[0] = '##';
+    expect(cache.getRevision(fresh.id)).toBe(0);
+    expect(cache.peek(fresh.id)).toBeUndefined();
   });
 
   it('removes archived rooms and does not revive cleared runs', () => {
