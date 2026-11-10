@@ -28,6 +28,7 @@ determines which *source* may surface each one:
 | Town noticeboard | Explicitly permitted ambient and specialist challenges only |
 | Town large-job contact | `STAGED_TOWN_QUEST_IDS`, with its original staged world objective |
 | Named encounter | An authoritative `offerSpecificQuestById` call from the owning character |
+| Specialist town actor | Curated role-specific jobs bound to the actual actor ID |
 | Scripted romance | The relationship flow owns `deep-lying-bouquet`; no random offer |
 
 An unclassified new quest appears nowhere until it is deliberately assigned to
@@ -41,8 +42,9 @@ route. Do not invent a giver or silently replace a character's motivation.
 The quest controller retains existing explicit giver assignments even when
 their quest is normally excluded from ambient distribution. This is essential
 for returning to the actual NPC after accepting a named encounter. Generic
-room assignment is still keyed by room ID; future multi-NPC quest bindings
-should be upgraded to actor IDs rather than guessed from room coordinates.
+room assignment is still keyed by room ID, but specialist town actors now keep
+assignments in `quest.roleGiverAssignments` keyed by actor ID, including save/load.
+Future bespoke multi-NPC stories should use actor IDs rather than room coordinates.
 
 ## Role-Sensitive Quest Dialogue
 
