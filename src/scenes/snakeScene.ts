@@ -22105,7 +22105,7 @@ export default class SnakeScene extends Phaser.Scene {
             contextualQuestPages(
               quest,
               {
-                role: actorRole ?? 'resident',
+                role: actorRole === 'questGiver' ? 'civicOfficial' : (actorRole ?? 'resident'),
                 giverName: profile.displayName,
                 locationName: this.snakeGame.getCurrentRoom().biomeTitle,
                 preserveAuthored: true,
