@@ -71,12 +71,17 @@ export class QuestController {
     runtime: QuestRuntime,
   ): void {
     const completed = Array.from(new Set(state.completed ?? []));
+    // Old generic-giver saves could contain wedding quests without a relationship stage.
+    // Preserve genuine completed history, but allow invalid active offers to be retried properly.
+    const validSavedQuest = (id: string): boolean =>
+      completed.includes(id) ||
+      (this.registry.getById(id)?.isValidRestoredState(runtime) ?? true);
     const accepted = Array.from(
       new Set([...(state.accepted ?? []), ...(state.active ?? []), ...completed]),
-    );
+    ).filter(validSavedQuest);
     const active: Quest[] = [];
     for (const id of state.active ?? []) {
-      if (completed.includes(id)) {
+      if (completed.includes(id) || !validSavedQuest(id)) {
         continue;
       }
       const quest = this.registry.getById(id);
