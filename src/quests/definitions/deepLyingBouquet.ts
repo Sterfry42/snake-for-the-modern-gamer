@@ -6,6 +6,15 @@ class DeepLyingBouquetQuest extends Quest {
     return 'scripted';
   }
 
+  override isValidRestoredState(runtime: QuestRuntime): boolean {
+    const instances = runtime.getFlag<Array<{ questId: string; relationshipId?: string }>>(
+      'quest.staged.instances',
+    );
+    return Array.isArray(instances) && instances.some(
+      (instance) => instance.questId === this.id && Boolean(instance.relationshipId),
+    );
+  }
+
   constructor() {
     super(
       'deep-lying-bouquet',
