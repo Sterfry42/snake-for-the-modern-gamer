@@ -48,6 +48,7 @@ export class QuestController {
     this.offered = null;
     this.offeredByRoomId = undefined;
     this.giverAssignments.clear();
+    runtime.setFlag('quest.roleGiverAssignments', undefined);
     this.assignInitialQuests(runtime);
   }
 
@@ -241,10 +242,14 @@ export class QuestController {
     runtime: QuestRuntime,
   ): QuestGiverRequest {
     const key = `actor:${actorId}`;
-    const previousId = this.giverAssignments.get(key);
+    const savedAssignments = runtime.getFlag<Record<string, string>>('quest.roleGiverAssignments') ?? {};
+    const previousId = this.giverAssignments.get(key) ?? savedAssignments[actorId];
     let quest = previousId ? this.registry.getById(previousId) : undefined;
     if (quest && !canRoleOfferQuest(role, quest.id)) {
       this.giverAssignments.delete(key);
+      const { [actorId]: invalid, ...valid } = savedAssignments;
+      void invalid;
+      runtime.setFlag('quest.roleGiverAssignments', valid);
       quest = undefined;
     }
     if (!quest) {
@@ -254,6 +259,7 @@ export class QuestController {
       quest = eligible[Math.floor(this.rng() * eligible.length)];
       if (!quest) return { quest: null, state: 'none' };
       this.giverAssignments.set(key, quest.id);
+      runtime.setFlag('quest.roleGiverAssignments', { ...savedAssignments, [actorId]: quest.id });
     }
     if (this.completed.includes(quest.id)) return { quest, state: 'completed' };
     if (this.accepted.includes(quest.id) || this.active.some((active) => active.id === quest.id)) {
