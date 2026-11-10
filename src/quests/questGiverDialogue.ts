@@ -54,6 +54,41 @@ const VOICES: Record<'sage' | 'resident' | 'guard' | 'wizard' | 'merchant' | 'th
   },
 };
 
+// Loose house sages are people, not one shared dialogue vending machine. Give
+// each generated resident a stable voice based on their generated identity.
+const HOUSE_VOICES: readonly Voice[] = [
+  VOICES.sage,
+  {
+    opening: 'I have checked the road twice today. Something about it still bothers me.',
+    reason: 'I would handle this myself, except somebody needs to keep an eye on the place.',
+    closing: 'When you return, knock twice. I am not opening the door for every passing noise.',
+  },
+  {
+    opening: 'I keep notes on travelers and the things they manage to survive.',
+    reason: 'There is a pattern here. I will understand it better once I hear what happened.',
+    closing: 'I would appreciate a careful account, even if the answer is simply that it was difficult.',
+  },
+  {
+    opening: 'I do not ordinarily ask strangers for favors, but I need some practical help.',
+    reason: 'I would rather solve a small problem today than explain a large disaster tomorrow.',
+    closing: 'Find me here when you are done. I believe in settling what I owe.',
+  },
+  {
+    opening: 'The last traveler who came through gave me a good story and a terrible warning.',
+    reason: 'Most of what people say is rumor. The important part is finding out what is true.',
+    closing: 'Tell me the interesting details. No need to make yourself the hero of every sentence.',
+  },
+];
+
+function voiceForHouseGiver(name: string | undefined): Voice {
+  if (!name) return HOUSE_VOICES[0]!;
+  let hash = 0;
+  for (let index = 0; index < name.length; index++) {
+    hash = (Math.imul(hash, 31) + name.charCodeAt(index)) >>> 0;
+  }
+  return HOUSE_VOICES[hash % HOUSE_VOICES.length]!;
+}
+
 function voiceForRole(role: string): Voice {
   if (role === 'guard' || role === 'gateGuard') return VOICES.guard;
   if (role === 'wizard' || role === 'potionMaker') return VOICES.wizard;
@@ -93,7 +128,9 @@ export function contextualQuestPages(
   context: QuestGiverDialogueContext,
   authoredPages: readonly string[],
 ): string[] {
-  const voice = voiceForRole(context.role);
+  const voice = context.role === 'sage'
+    ? voiceForHouseGiver(context.giverName)
+    : voiceForRole(context.role);
   const location = context.locationName ? ` Around ${context.locationName}, that matters.` : '';
   const request = quest.description.replace(/[.\s]+$/, '') + '.';
   if (context.preserveAuthored && authoredPages.length > 0) {
@@ -104,4 +141,23 @@ export function contextualQuestPages(
     `Here is what needs doing: ${request} ${stakesForQuest(quest.id)}`,
     `${voice.reason} ${voice.closing}`,
   ];
+}
+
+/** Reactions use the same identity as the offer, instead of a universal stock line. */
+export function questGiverStatusLine(
+  context: QuestGiverDialogueContext,
+  status: 'active' | 'completed' | 'none',
+  questLabel?: string,
+): string {
+  const voice = context.role === 'sage'
+    ? voiceForHouseGiver(context.giverName)
+    : voiceForRole(context.role);
+  switch (status) {
+    case 'active':
+      return `I still need the work on ${questLabel ?? 'that job'} finished. ${voice.closing}`;
+    case 'completed':
+      return `${questLabel ?? 'That job'} is already behind us. ${voice.closing}`;
+    case 'none':
+      return `Nothing I can use your help with right now. ${voice.reason}`;
+  }
 }
