@@ -4689,6 +4689,7 @@ export class SnakeGame implements QuestRuntime {
     }
     const activeDuel = this.getFlag<{ id: string; rewardScore?: number }>('npc.activeDuel');
     if (activeDuel && !this.enemies.hasEnemyWithId(activeDuel.id)) {
+      if (activeDuel.id === 'kappa-duel') this.setFlag('kappa.defeated', true);
       if (activeDuel.id !== 'freak-joey' && activeDuel.rewardScore) {
         this.addScore(activeDuel.rewardScore);
       }
@@ -18055,6 +18056,11 @@ export class SnakeGame implements QuestRuntime {
     if (encounter.kind === 'duel') {
       const started = this.startNamedDuel(encounter.id, encounter.name, encounter.rewardScore);
       if (started) {
+        // A named challenge remains attached to its actual opponent, not a random house sage.
+        if (encounter.questId) {
+          const quest = this.questController.offerSpecificQuestById(encounter.questId, this, encounter.roomId);
+          if (quest) this.questController.acceptOffered(this);
+        }
         if (encounter.oneShot) {
           this.resolvedWandererEncounters.add(encounter.id);
         }
