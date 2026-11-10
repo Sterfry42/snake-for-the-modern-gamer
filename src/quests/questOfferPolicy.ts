@@ -41,7 +41,7 @@ export const BOARD_ONLY_QUEST_IDS = new Set([
   'garden-master', 'garden-companions', 'herd-master',
   'honey-collector', 'kingdom-diplomat', 'legendary-hunter',
   'rare-collector', 'seven-dragon-temples', 'settlement-builder',
-  'trade-master', 'wildlife-photographer', 'wolf-tamer',
+  'trade-master', 'wildlife-photographer', 'wolf-tamer', 'tame-the-fox',
 ]);
 
 // Positive list: a newly added quest is NOT automatically something a random
