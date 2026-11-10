@@ -123,6 +123,7 @@ import { QuestController } from '../systems/questController.js';
 import type { QuestGiverRequest } from '../systems/questController.js';
 import type { Quest } from '../quests/quest.js';
 import type { QuestRegistry } from '../quests/questRegistry.js';
+import { canRoleOfferQuests } from '../quests/questOfferPolicy.js';
 import {
   clearSavedGameData,
   getSavedGameData,
@@ -16811,6 +16812,25 @@ export class SnakeGame implements QuestRuntime {
       };
     }
     return this.questController.getQuestForGiver(roomId, this);
+  }
+
+  /** Specialist town residents share mechanical work without impersonating story characters. */
+  requestQuestFromRoleActor(actorId: string): QuestGiverRequest {
+    const actor = this.actors.getActor(actorId);
+    if (
+      !actor ||
+      actor.flags.source !== 'townResident' ||
+      !canRoleOfferQuests(actor.role) ||
+      !this.canInteractWithActor(actorId)
+    ) {
+      return { quest: null, state: 'none' };
+    }
+    return this.questController.getQuestForRoleGiver(
+      actor.id,
+      actor.role,
+      this.snake.currentRoomId,
+      this,
+    );
   }
 
   private getQuestScale(questId: string): 'small' | 'large' {
