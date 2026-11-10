@@ -15,6 +15,55 @@ The player should be able to:
 
 The important shift is that quests are no longer just "do number until complete." A quest can have stages, world targets, map markers, dialogue beats, and a return step.
 
+## Quest Distribution and NPC Ownership
+
+Registration is not permission to give a quest. `QuestRegistry` stores definitions
+for save restoration and scripted callers; `questOfferPolicy.ts` explicitly
+determines which *source* may surface each one:
+
+| Source | Eligibility |
+| --- | --- |
+| Starting quests | Only `AMBIENT_HOUSE_QUEST_IDS`; no personal or staged stories |
+| Random house quest giver | Same curated ambient allowlist |
+| Town noticeboard | General challenges, specialist skills, and newly registered non-story quests |
+| Town large-job contact | `STAGED_TOWN_QUEST_IDS`, with its original staged world objective |
+| Named encounter | An authoritative `offerSpecificQuestById` call from the owning character |
+| Scripted romance | The relationship flow owns `deep-lying-bouquet`; no random offer |
+
+A quest that is absent from the house allowlist stays off the random house path
+even when a future contributor adds it to `builtInQuests.ts`. Named quests
+remain registered and can be explicitly started by the correct character.
+When editing a quest's story, decide who owns it before adding another offer
+route. Do not invent a giver or silently replace a character's motivation.
+
+The quest controller retains existing explicit giver assignments even when
+their quest is normally excluded from ambient distribution. This is essential
+for returning to the actual NPC after accepting a named encounter. Generic
+room assignment is still keyed by room ID; future multi-NPC quest bindings
+should be upgraded to actor IDs rather than guessed from room coordinates.
+
+## Role-Sensitive Quest Dialogue
+
+`questGiverDialogue.ts` provides distinct motivations, warnings, and follow-ups
+for guards, wizards, merchants, thieves, civic contacts, residents, and loose
+house NPCs. Generated house givers receive a stable speech variation based
+on their name, so talking twice does not reroll their personality.
+The dialogue uses the actual quest objective; it **does not** impersonate
+the autobiographical first-person histories found in legacy quest text.
+Named town contacts can retain their authored pages while receiving an
+appropriate role-specific framing line.
+
+Localized ES/FR quest pages remain in use until the role variants are
+translated. Do not replace localized story text with English-only generated
+dialogue. World-side quest mechanics and rewards remain authoritative;
+the client only selects how dialogue is presented.
+
+A new staged quest must also create its actual `quest.staged.instances` record
+on acceptance before it promises a target marker. A quest that only returns
+`false` from `isCompleted` without a stage/progress hook should not be
+exposed as a generic job. The old Miko and ramen encounters remain flavor
+interactions until their quest-progress counters have actual gameplay producers.
+
 ## Core Quest Shape
 
 Each quest should be a small state machine.
