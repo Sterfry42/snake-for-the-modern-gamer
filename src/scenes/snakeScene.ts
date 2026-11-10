@@ -160,7 +160,7 @@ import {
   type ActorActivityPropPalette,
 } from '../ui/spriteRecipes/actorActivityPropRecipe.js';
 import { getQuestDialogue } from '../quests/questDialogue.js';
-import { contextualQuestPages } from '../quests/questGiverDialogue.js';
+import { contextualQuestPages, questGiverStatusLine } from '../quests/questGiverDialogue.js';
 import { i18n } from '../i18n/i18nManager.js';
 import { AVAILABLE_LANGUAGES } from '../i18n/types.js';
 import { createMobileControls, type MobileControls } from '../ui/mobileControls.js';
@@ -19860,7 +19860,7 @@ export default class SnakeScene extends Phaser.Scene {
         giverName,
         [
           ...dialogue.pages.slice(0, 1),
-          `${i18n.getFeatureString('alreadyCarriesThis')} ${request.quest.label}. Finish it, then come slither back to me.`,
+          `${i18n.getFeatureString('alreadyCarriesThis')} ${request.quest.label}. ${questGiverStatusLine(questVoice, 'active', request.quest.label)}`,
         ],
         {
           onClose: () => this.closeQuestPopup(),
@@ -19878,7 +19878,7 @@ export default class SnakeScene extends Phaser.Scene {
         giverName,
         [
           `${i18n.getFeatureString('taskAlreadyDone')} ${request.quest.label}.`,
-          'Come back when the tunnels have another favor to ask of your scales.',
+          questGiverStatusLine(questVoice, 'completed', request.quest.label),
         ],
         {
           onClose: () => this.closeQuestPopup(),
@@ -19891,7 +19891,13 @@ export default class SnakeScene extends Phaser.Scene {
       return true;
     }
 
-    this.showQuestHintPopup('No quests right now');
+    this.showQuestDialogue(
+      giverName,
+      [questGiverStatusLine(questVoice, 'none')],
+      { onClose: () => this.closeQuestPopup() },
+      { closeLabel: 'Leave' },
+      speaker,
+    );
     return true;
   }
 
