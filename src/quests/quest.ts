@@ -29,7 +29,14 @@ export interface QuestRuntime {
   getCatchJournal?(): CatchJournalAccess | undefined;
 }
 
+export type QuestAcquisition = 'generic' | 'scripted';
+
 export abstract class Quest {
+  /** Scripted quests must be started by their owning gameplay system, not random NPCs. */
+  get acquisition(): QuestAcquisition {
+    return 'generic';
+  }
+
   constructor(
     public readonly id: string,
     public readonly label: string,
