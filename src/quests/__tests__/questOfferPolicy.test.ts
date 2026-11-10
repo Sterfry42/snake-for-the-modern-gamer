@@ -2,7 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { Quest, type QuestRuntime } from '../quest.js';
 import { QuestRegistry } from '../questRegistry.js';
 import { QuestController } from '../../systems/questController.js';
-import { canOfferQuestFromSource, canRoleOfferQuest, canRoleOfferQuests } from '../questOfferPolicy.js';
+import {
+  canOfferQuestFromSource,
+  canRoleOfferQuest,
+  canRoleOfferQuests,
+  NAMED_ENCOUNTER_QUEST_IDS,
+  SCRIPTED_QUEST_IDS,
+} from '../questOfferPolicy.js';
 
 class NeverCompletedQuest extends Quest {
   constructor(id: string) {
@@ -128,6 +134,20 @@ describe('quest distribution contracts', () => {
       quest: { id: 'alchemy-basics' },
       state: 'active',
     });
+  });
+
+  it('classifies every built-in quest; new content must choose an intentional entry point', async () => {
+    const registry = new QuestRegistry();
+    await registry.loadBuiltIns();
+    const unclassified = registry.getAll().filter((quest) =>
+      !(['starting', 'house', 'board', 'town'] as const).some((source) =>
+        canOfferQuestFromSource(quest, source),
+      ) &&
+      !NAMED_ENCOUNTER_QUEST_IDS.has(quest.id) &&
+      !SCRIPTED_QUEST_IDS.has(quest.id) &&
+      quest.acquisition !== 'scripted',
+    );
+    expect(unclassified.map((quest) => quest.id)).toEqual([]);
   });
 
 });
