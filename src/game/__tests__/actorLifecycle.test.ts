@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { defaultGameConfig } from '../../config/gameConfig.js';
 import { QuestRegistry } from '../../quests/questRegistry.js';
 import { SnakeGame } from '../snakeGame.js';
+import type { Actor } from '../../actors/actorTypes.js';
+import type { RoomSnapshot } from '../../world/types.js';
 
 function createGame(): SnakeGame {
   return new SnakeGame(defaultGameConfig, new QuestRegistry(), {});
@@ -44,4 +46,43 @@ describe('Actor simulation lifecycle', () => {
 
     expect(game.getActorSystem().getTickCount()).toBe(10);
   });
+  it('routes a returning guild contact through the street containing the interior entrance', () => {
+    const game = createGame();
+    const internals = game as unknown as {
+      world: {
+        getLayerEntranceByLayerId: (id: string) => { parentRoomId: string } | undefined;
+        peekCachedRoom: (id: string) => RoomSnapshot | undefined;
+        getTownById: (id: string) => undefined;
+      };
+      getLoadedActorTravelLegTarget: () => { x: number; y: number } | undefined;
+      getNeighborRoomIds: (roomId: string) => string[];
+      selectNextActorTravelRoomForActor: (
+        actor: Actor,
+        room: RoomSnapshot,
+        goalRoomId: string,
+      ) => string;
+    };
+    vi.spyOn(internals.world, 'getLayerEntranceByLayerId').mockReturnValue({
+      parentRoomId: '2,0,0',
+    });
+    vi.spyOn(internals, 'getNeighborRoomIds').mockReturnValue(['2,0,0']);
+    vi.spyOn(internals, 'getLoadedActorTravelLegTarget').mockReturnValue({ x: 4, y: 4 });
+    const actor = game.getActorSystem().registry.ensureTownResidentActor({
+      residentId: 'guild-boss',
+      name: 'Guild Contact',
+      role: 'thiefContact',
+      townId: 'seaside',
+      currentRoomId: '1,0,0',
+      workRoomId: 'layer:townInterior:seaside:thievesGuild',
+    });
+    const room = { id: '1,0,0', portals: [] } as RoomSnapshot;
+    expect(
+      internals.selectNextActorTravelRoomForActor(
+        actor,
+        room,
+        'layer:townInterior:seaside:thievesGuild',
+      ),
+    ).toBe('2,0,0');
+  });
+
 });
