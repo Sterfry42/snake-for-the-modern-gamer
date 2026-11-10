@@ -11,7 +11,7 @@ export interface QuestGiverDialogueContext {
 
 type Voice = { opening: string; reason: string; closing: string };
 
-const VOICES: Record<string, Voice> = {
+const VOICES: Record<'sage' | 'resident' | 'guard' | 'wizard' | 'merchant' | 'thief' | 'civic' | 'bartender', Voice> = {
   sage: {
     opening: 'I have been keeping track of the trouble that passes through these rooms.',
     reason: 'I can point you toward the work, but I cannot promise the world will cooperate.',
@@ -61,7 +61,7 @@ function voiceForRole(role: string): Voice {
   if (role === 'civicOfficial' || role === 'scribe') return VOICES.civic;
   if (role === 'bartender' || role === 'innkeeper' || role === 'cardDealer') return VOICES.bartender;
   if (role === 'shopkeeper' || role.endsWith('Merchant') || role === 'butcher') return VOICES.merchant;
-  return VOICES[role] ?? VOICES.sage;
+  return VOICES[role as keyof typeof VOICES] ?? VOICES.sage;
 }
 
 function stakesForQuest(id: string): string {
