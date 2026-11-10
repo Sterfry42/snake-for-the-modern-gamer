@@ -22102,16 +22102,18 @@ export default class SnakeScene extends Phaser.Scene {
           this.juice.questOffered();
           this.showQuestDialogue(
             profile.displayName,
-            contextualQuestPages(
-              quest,
-              {
-                role: actorRole === 'questGiver' ? 'civicOfficial' : (actorRole ?? 'resident'),
-                giverName: profile.displayName,
-                locationName: this.snakeGame.getCurrentRoom().biomeTitle,
-                preserveAuthored: true,
-              },
-              quest.pages,
-            ),
+            i18n.getCurrentLanguage() === 'en'
+              ? contextualQuestPages(
+                  quest,
+                  {
+                    role: actorRole === 'questGiver' ? 'civicOfficial' : (actorRole ?? 'resident'),
+                    giverName: profile.displayName,
+                    locationName: this.snakeGame.getCurrentRoom().biomeTitle,
+                    preserveAuthored: true,
+                  },
+                  quest.pages,
+                )
+              : quest.pages,
             {
               onAccept: async () => {
                 const accepted = await this.actorIntent('accept-quest');
