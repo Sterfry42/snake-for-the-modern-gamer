@@ -34,25 +34,54 @@ export const NAMED_ENCOUNTER_QUEST_IDS = new Set([
 // they have a specialist NPC interaction. An arbitrary house sage cannot claim
 // to be the archaeologist, shrine maiden, alchemist, or guild official.
 export const BOARD_ONLY_QUEST_IDS = new Set([
-  'alchemy-basics', 'alchemy-apprentice', 'alchemy-master',
-  'animal-ambassador', 'biome-explorer', 'big-catcher',
-  'bird-watcher', 'egg-hunter', 'ecosystem-explorer',
-  'fisherman', 'buy-2-upgrades', 'buy-4-upgrades', 'garden-tutorial', 'garden-expansion',
-  'garden-master', 'garden-companions', 'herd-master',
-  'honey-collector', 'kingdom-diplomat', 'legendary-hunter',
-  'rare-collector', 'seven-dragon-temples', 'settlement-builder',
-  'trade-master', 'wildlife-photographer', 'wolf-tamer', 'tame-the-fox',
+  'alchemy-basics',
+  'alchemy-apprentice',
+  'alchemy-master',
+  'animal-ambassador',
+  'biome-explorer',
+  'big-catcher',
+  'bird-watcher',
+  'egg-hunter',
+  'ecosystem-explorer',
+  'fisherman',
+  'buy-2-upgrades',
+  'buy-4-upgrades',
+  'garden-tutorial',
+  'garden-expansion',
+  'garden-master',
+  'garden-companions',
+  'herd-master',
+  'honey-collector',
+  'kingdom-diplomat',
+  'legendary-hunter',
+  'rare-collector',
+  'seven-dragon-temples',
+  'settlement-builder',
+  'trade-master',
+  'wildlife-photographer',
+  'wolf-tamer',
+  'tame-the-fox',
 ]);
 
 // Positive list: a newly added quest is NOT automatically something a random
 // person in a house (or the starting quest lottery) is permitted to narrate.
 // New content must deliberately opt into this ambient category.
 export const AMBIENT_HOUSE_QUEST_IDS = new Set([
-  'eat-5-apples', 'eat-12-apples', 'explore-10-rooms',
-  'hunt-rabbit', 'bear-hunter', 'hide-collector',
-  'score-50', 'reach-length-10', 'reach-length-15',
-  'speed-snacker', 'room-dasher', 'room-sprint',
-  'treasure-hunter', 'loot-and-power', 'powerup-fiend',
+  'eat-5-apples',
+  'eat-12-apples',
+  'explore-10-rooms',
+  'hunt-rabbit',
+  'bear-hunter',
+  'hide-collector',
+  'score-50',
+  'reach-length-10',
+  'reach-length-15',
+  'speed-snacker',
+  'room-dasher',
+  'room-sprint',
+  'treasure-hunter',
+  'loot-and-power',
+  'powerup-fiend',
 ]);
 
 export function canOfferQuestFromSource(
