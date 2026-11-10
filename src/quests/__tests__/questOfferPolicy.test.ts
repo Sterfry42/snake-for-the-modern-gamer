@@ -54,7 +54,7 @@ describe('quest distribution contracts', () => {
     const board = controller.getOfferableQuests(runtime, undefined, 'board').map((q) => q.id);
     expect(board).toContain('garden-master');
     expect(board).toContain('archaeology.first-dig');
-    expect(board).toContain('new-quest-with-no-policy');
+    expect(board).not.toContain('new-quest-with-no-policy');
     expect(board).not.toContain('find-my-baby');
     expect(board).not.toContain('tanukis-shenanigans');
     expect(board).not.toContain('deep-lying-bouquet');
@@ -77,12 +77,12 @@ describe('quest distribution contracts', () => {
     expect(controller.getQuestForGiver('encounter-room', runtime).state).toBe('active');
   });
 
-  it('rejects unclassified new quests from houses rather than silently expanding the pool', () => {
+  it('rejects unclassified new quests from every public distribution source', () => {
     expect(canOfferQuestFromSource(
       new NeverCompletedQuest('new-quest-with-no-policy'), 'house',
     )).toBe(false);
     expect(canOfferQuestFromSource(
       new NeverCompletedQuest('new-quest-with-no-policy'), 'board',
-    )).toBe(true);
+    )).toBe(false);
   });
 });
