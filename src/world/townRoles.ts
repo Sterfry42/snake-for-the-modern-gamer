@@ -50,6 +50,8 @@ const STATIONARY_TOWN_ROLES = new Set<string>([
   'gateGuard',
   ...TOWN_MERCHANT_ROLE_VALUES,
   'questGiver',
+  'thiefContact',
+  'guildContact',
   'civicOfficial',
 ]);
 const TOWN_GUARD_ROLES = new Set<string>(['guard', 'gateGuard']);
