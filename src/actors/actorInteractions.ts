@@ -2,6 +2,7 @@ import type { Actor } from './actorTypes.js';
 import { getActorIndicators, type ActorIndicator } from './actorIndicators.js';
 import { i18n } from '../i18n/i18nManager.js';
 import { isTownShopRole } from '../world/townRoles.js';
+import { canRoleOfferQuests } from '../quests/questOfferPolicy.js';
 import type { CivicInteractionContext, MayoralPlatformId } from '../civic/civicTypes.js';
 
 export type ActorInteractionId =
@@ -138,7 +139,10 @@ function buildBaseInteractionOptions(actor: Actor): ActorInteractionOption[] {
 
   if (actor.kind !== 'animal' && actor.kind !== 'enemy') {
     options.push({ id: 'talk', label: tActor('talk'), enabled: true, priority: 90 });
-    if (actor.role === 'questGiver') {
+    if (
+      actor.role === 'questGiver' ||
+      (actor.flags.source === 'townResident' && canRoleOfferQuests(actor.role))
+    ) {
       options.push({
         id: 'take-quest',
         label: tActor('takeQuest'),
