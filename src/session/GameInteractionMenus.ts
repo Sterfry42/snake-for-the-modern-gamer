@@ -191,7 +191,9 @@ export class GameInteractionMenus {
       const large = this.game.isCurrentTownLargeQuestGiverActor(command.actorId);
       const request = large
         ? { quest: this.game.getTownLargeQuestForActor(command.actorId), state: 'available' }
-        : this.game.requestQuestFromGiver(this.game.getCurrentRoom().id);
+        : this.game.getActorRole(command.actorId) === 'questGiver'
+          ? this.game.requestQuestFromGiver(this.game.getCurrentRoom().id)
+          : this.game.requestQuestFromRoleActor(command.actorId);
       if (!request.quest) return { ok: false, reason: 'No work is available here right now.' };
       state.offeredQuest =
         request.state === 'available' ? { id: request.quest.id, large } : undefined;
@@ -539,12 +541,19 @@ export class GameInteractionMenus {
     const large = this.game.isCurrentTownLargeQuestGiverActor(actorId);
     const request = large
       ? { quest: this.game.getTownLargeQuestForActor(actorId), state: 'available' }
-      : this.game.requestQuestFromGiver(this.game.getCurrentRoom().id);
+      : this.game.getActorRole(actorId) === 'questGiver'
+        ? this.game.requestQuestFromGiver(this.game.getCurrentRoom().id)
+        : this.game.requestQuestFromRoleActor(actorId);
     if (!request.quest) {
       this.dialogue(playerId, actorId, ['No work is available here right now.']);
       return { ok: true };
     }
-    const dialogue = getQuestDialogue(request.quest);
+    const actor = this.game.getActorSystem().getActor(actorId);
+    const dialogue = getQuestDialogue(request.quest, {
+      role: large ? 'civicOfficial' : (actor?.role ?? 'sage'),
+      giverName: actor?.displayName,
+      preserveAuthored: large,
+    });
     if (request.state !== 'available') {
       this.dialogue(playerId, actorId, [
         `${request.state === 'completed' ? 'Completed' : 'Already accepted'}: ${request.quest.label}.`,
