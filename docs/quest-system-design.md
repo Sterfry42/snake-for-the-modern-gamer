@@ -25,11 +25,13 @@ determines which *source* may surface each one:
 | --- | --- |
 | Starting quests | Only `AMBIENT_HOUSE_QUEST_IDS`; no personal or staged stories |
 | Random house quest giver | Same curated ambient allowlist |
-| Town noticeboard | General challenges, specialist skills, and newly registered non-story quests |
+| Town noticeboard | Explicitly permitted ambient and specialist challenges only |
 | Town large-job contact | `STAGED_TOWN_QUEST_IDS`, with its original staged world objective |
 | Named encounter | An authoritative `offerSpecificQuestById` call from the owning character |
 | Scripted romance | The relationship flow owns `deep-lying-bouquet`; no random offer |
 
+An unclassified new quest appears nowhere until it is deliberately assigned to
+an appropriate offer source; the board is not a fallback catch-all.
 A quest that is absent from the house allowlist stays off the random house path
 even when a future contributor adds it to `builtInQuests.ts`. Named quests
 remain registered and can be explicitly started by the correct character.
