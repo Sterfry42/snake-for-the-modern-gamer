@@ -19,6 +19,8 @@ export const STAGED_TOWN_QUEST_IDS = new Set([
 
 // These belong to a particular character/scene. Named encounters and scripted
 // gameplay can still invoke offerSpecificQuestById on the authoritative server.
+export const SCRIPTED_QUEST_IDS = new Set(['deep-lying-bouquet']);
+
 export const NAMED_ENCOUNTER_QUEST_IDS = new Set([
   'explore-6-rooms',       // Lindsey
   'survive-20s-no-eat',   // Aurex
@@ -57,7 +59,7 @@ export function canOfferQuestFromSource(
   quest: Pick<Quest, 'id' | 'acquisition'>,
   source: QuestOfferSource,
 ): boolean {
-  if (quest.acquisition === 'scripted' || NAMED_ENCOUNTER_QUEST_IDS.has(quest.id)) {
+  if (quest.acquisition === 'scripted' || SCRIPTED_QUEST_IDS.has(quest.id) || NAMED_ENCOUNTER_QUEST_IDS.has(quest.id)) {
     return false;
   }
   if (STAGED_TOWN_QUEST_IDS.has(quest.id)) {
