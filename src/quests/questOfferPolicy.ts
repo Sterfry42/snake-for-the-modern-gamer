@@ -59,11 +59,18 @@ export function canOfferQuestFromSource(
   quest: Pick<Quest, 'id' | 'acquisition'>,
   source: QuestOfferSource,
 ): boolean {
-  if (quest.acquisition === 'scripted' || SCRIPTED_QUEST_IDS.has(quest.id) || NAMED_ENCOUNTER_QUEST_IDS.has(quest.id)) {
+  if (
+    quest.acquisition === 'scripted' ||
+    SCRIPTED_QUEST_IDS.has(quest.id) ||
+    NAMED_ENCOUNTER_QUEST_IDS.has(quest.id)
+  ) {
     return false;
   }
   if (STAGED_TOWN_QUEST_IDS.has(quest.id)) {
     return source === 'town';
+  }
+  if (BOARD_ONLY_QUEST_IDS.has(quest.id) || quest.id.startsWith('archaeology.')) {
+    return source === 'board';
   }
   if (source === 'town') return false;
   if (source === 'house' || source === 'starting') {
