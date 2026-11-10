@@ -84,6 +84,40 @@ export const AMBIENT_HOUSE_QUEST_IDS = new Set([
   'powerup-fiend',
 ]);
 
+
+/**
+ * A narrow repertoire for actual town residents. An NPC may only offer these
+ * mechanical jobs; named romances, staged stories and unrelated specialties
+ * still require their original world interactions.
+ */
+const SPECIALIST_ROLE_QUESTS: Readonly<Record<string, readonly string[]>> = {
+  guard: ['hunt-rabbit', 'bear-hunter', 'hide-collector'],
+  gateGuard: ['hunt-rabbit', 'bear-hunter', 'hide-collector'],
+  wizard: ['alchemy-basics', 'alchemy-apprentice', 'alchemy-master'],
+  potionMaker: ['alchemy-basics', 'alchemy-apprentice', 'alchemy-master'],
+  thief: ['treasure-hunter', 'loot-and-power', 'powerup-fiend'],
+  thiefContact: ['treasure-hunter', 'loot-and-power', 'powerup-fiend'],
+  guildContact: ['treasure-hunter', 'loot-and-power', 'powerup-fiend'],
+  mapper: ['explore-10-rooms', 'archaeology.first-dig', 'archaeology.fossil-hunter'],
+  shopkeeper: ['buy-2-upgrades', 'buy-4-upgrades'],
+  equipmentMerchant: ['buy-2-upgrades', 'buy-4-upgrades'],
+  bartender: ['eat-5-apples', 'eat-12-apples'],
+  innkeeper: ['eat-5-apples', 'eat-12-apples'],
+};
+
+export function canRoleOfferQuests(role: string): boolean {
+  return Boolean(SPECIALIST_ROLE_QUESTS[role]?.length);
+}
+
+export function canRoleOfferQuest(role: string, questId: string): boolean {
+  return (
+    (SPECIALIST_ROLE_QUESTS[role]?.includes(questId) ?? false) &&
+    !SCRIPTED_QUEST_IDS.has(questId) &&
+    !STAGED_TOWN_QUEST_IDS.has(questId) &&
+    !NAMED_ENCOUNTER_QUEST_IDS.has(questId)
+  );
+}
+
 export function canOfferQuestFromSource(
   quest: Pick<Quest, 'id' | 'acquisition'>,
   source: QuestOfferSource,
