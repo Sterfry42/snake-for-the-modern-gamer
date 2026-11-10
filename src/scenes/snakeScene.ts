@@ -160,6 +160,7 @@ import {
   type ActorActivityPropPalette,
 } from '../ui/spriteRecipes/actorActivityPropRecipe.js';
 import { getQuestDialogue } from '../quests/questDialogue.js';
+import { contextualQuestPages } from '../quests/questGiverDialogue.js';
 import { i18n } from '../i18n/i18nManager.js';
 import { AVAILABLE_LANGUAGES } from '../i18n/types.js';
 import { createMobileControls, type MobileControls } from '../ui/mobileControls.js';
@@ -19766,6 +19767,11 @@ export default class SnakeScene extends Phaser.Scene {
     }
     const giverName = giver.name ?? 'Quest Giver';
     const speaker = { portraitId: giver.portraitId };
+    const questVoice = {
+      role: room.town ? 'resident' : 'sage',
+      giverName,
+      locationName: room.biomeTitle,
+    };
 
     if (room.cave?.templateId === 'caveDweller') {
       const response = await this.gameConnection.send({
@@ -19807,7 +19813,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     if (request.state === 'available' && request.quest) {
       const quest = request.quest;
-      const dialogue = getQuestDialogue(request.quest);
+      const dialogue = getQuestDialogue(request.quest, questVoice);
       this.juice.questOffered();
       this.showQuestDialogue(
         giverName,
@@ -19849,7 +19855,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     if (request.state === 'active' && request.quest) {
-      const dialogue = getQuestDialogue(request.quest);
+      const dialogue = getQuestDialogue(request.quest, questVoice);
       this.showQuestDialogue(
         giverName,
         [
@@ -22090,7 +22096,16 @@ export default class SnakeScene extends Phaser.Scene {
           this.juice.questOffered();
           this.showQuestDialogue(
             profile.displayName,
-            quest.pages,
+            contextualQuestPages(
+              quest,
+              {
+                role: actorRole ?? 'resident',
+                giverName: profile.displayName,
+                locationName: this.snakeGame.getCurrentRoom().biomeTitle,
+                preserveAuthored: true,
+              },
+              quest.pages,
+            ),
             {
               onAccept: async () => {
                 const accepted = await this.actorIntent('accept-quest');
