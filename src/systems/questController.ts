@@ -245,10 +245,16 @@ export class QuestController {
     const savedAssignments = runtime.getFlag<Record<string, string>>('quest.roleGiverAssignments') ?? {};
     const previousId = this.giverAssignments.get(key) ?? savedAssignments[actorId];
     let quest = previousId ? this.registry.getById(previousId) : undefined;
-    if (quest && !canRoleOfferQuest(role, quest.id)) {
+    const failedOrInvalid = quest && (
+      !canRoleOfferQuest(role, quest.id) ||
+      (this.accepted.includes(quest.id) &&
+        !this.completed.includes(quest.id) &&
+        !this.active.some((activeQuest) => activeQuest.id === quest.id))
+    );
+    if (failedOrInvalid) {
       this.giverAssignments.delete(key);
-      const { [actorId]: invalid, ...valid } = savedAssignments;
-      void invalid;
+      const { [actorId]: ignored, ...valid } = savedAssignments;
+      void ignored;
       runtime.setFlag('quest.roleGiverAssignments', valid);
       quest = undefined;
     }
