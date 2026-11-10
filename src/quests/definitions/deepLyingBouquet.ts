@@ -2,6 +2,10 @@ import { Quest } from '../quest.js';
 import type { QuestRuntime } from '../quest.js';
 
 class DeepLyingBouquetQuest extends Quest {
+  override get acquisition(): 'scripted' {
+    return 'scripted';
+  }
+
   constructor() {
     super(
       'deep-lying-bouquet',
