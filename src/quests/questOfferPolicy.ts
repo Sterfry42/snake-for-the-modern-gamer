@@ -37,7 +37,7 @@ export const BOARD_ONLY_QUEST_IDS = new Set([
   'alchemy-basics', 'alchemy-apprentice', 'alchemy-master',
   'animal-ambassador', 'biome-explorer', 'big-catcher',
   'bird-watcher', 'egg-hunter', 'ecosystem-explorer',
-  'fisherman', 'garden-tutorial', 'garden-expansion',
+  'fisherman', 'buy-2-upgrades', 'buy-4-upgrades', 'garden-tutorial', 'garden-expansion',
   'garden-master', 'garden-companions', 'herd-master',
   'honey-collector', 'kingdom-diplomat', 'legendary-hunter',
   'rare-collector', 'seven-dragon-temples', 'settlement-builder',
@@ -76,7 +76,7 @@ export function canOfferQuestFromSource(
   if (source === 'house' || source === 'starting') {
     return AMBIENT_HOUSE_QUEST_IDS.has(quest.id);
   }
-  // Boards can advertise ordinary tasks and specialist challenges, but never
-  // take ownership of a named person's authored story.
-  return true;
+  // A future quest must explicitly opt in rather than appearing on every
+  // noticeboard simply because somebody added it to the registry.
+  return source === 'board' && AMBIENT_HOUSE_QUEST_IDS.has(quest.id);
 }
