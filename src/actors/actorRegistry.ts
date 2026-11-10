@@ -229,6 +229,9 @@ export class ActorRegistry {
     if (existing.schedule && incoming.schedule) {
       const mergedSchedule = {
         ...existing.schedule,
+        policyId: incoming.schedule.policyId,
+        routines: incoming.schedule.routines,
+        permanentDuty: incoming.schedule.permanentDuty,
         homeRoomId: incoming.schedule.homeRoomId ?? existing.schedule.homeRoomId,
         workRoomId: incoming.schedule.workRoomId ?? existing.schedule.workRoomId,
         sleepRoomId: incoming.schedule.sleepRoomId ?? existing.schedule.sleepRoomId,
@@ -256,9 +259,13 @@ export class ActorRegistry {
         return (
           this.update(existing.id, (actor) => ({
             ...actor,
-            homeRoomId: actor.homeRoomId ?? incoming.homeRoomId,
+            homeRoomId:
+              incoming.role === 'thief' || incoming.role === 'thiefContact'
+                ? incoming.homeRoomId
+                : (actor.homeRoomId ?? incoming.homeRoomId),
             workRoomId: incoming.workRoomId ?? actor.workRoomId,
             schedule: mergedSchedule,
+            scheduleGoal: undefined,
           })) ?? existing
         );
       }
@@ -552,6 +559,8 @@ function actorActivityEquals(
 function actorScheduleEquals(left: ActorSchedule, right: ActorSchedule): boolean {
   return (
     left.policyId === right.policyId &&
+    left.permanentDuty === right.permanentDuty &&
+    left.routines === right.routines &&
     left.homeRoomId === right.homeRoomId &&
     left.workRoomId === right.workRoomId &&
     left.sleepRoomId === right.sleepRoomId &&
