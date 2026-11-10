@@ -3,7 +3,7 @@
  */
 import type { Quest, QuestRuntime } from '../quests/quest.js';
 import type { QuestRegistry } from '../quests/questRegistry.js';
-import { canOfferQuestFromSource, type QuestOfferSource } from '../quests/questOfferPolicy.js';
+import { canOfferQuestFromSource, canRoleOfferQuest, type QuestOfferSource } from '../quests/questOfferPolicy.js';
 
 export interface QuestGiverRequest {
   quest: Quest | null;
@@ -228,6 +228,38 @@ export class QuestController {
       return { quest, state: 'active' };
     }
 
+    this.offered = quest;
+    this.offeredByRoomId = roomId;
+    return { quest, state: 'available' };
+  }
+
+  /** Offer a curated job from a real town actor, independent of house room assignments. */
+  getQuestForRoleGiver(
+    actorId: string,
+    role: string,
+    roomId: string,
+    runtime: QuestRuntime,
+  ): QuestGiverRequest {
+    const key = `actor:${actorId}`;
+    const previousId = this.giverAssignments.get(key);
+    let quest = previousId ? this.registry.getById(previousId) : undefined;
+    if (quest && !canRoleOfferQuest(role, quest.id)) {
+      this.giverAssignments.delete(key);
+      quest = undefined;
+    }
+    if (!quest) {
+      const eligible = this.collectEligibleQuests(runtime, roomId, 'board').filter((candidate) =>
+        canRoleOfferQuest(role, candidate.id),
+      );
+      quest = eligible[Math.floor(this.rng() * eligible.length)];
+      if (!quest) return { quest: null, state: 'none' };
+      this.giverAssignments.set(key, quest.id);
+    }
+    if (this.completed.includes(quest.id)) return { quest, state: 'completed' };
+    if (this.accepted.includes(quest.id) || this.active.some((active) => active.id === quest.id)) {
+      return { quest, state: 'active' };
+    }
+    if (quest.isCompleted(runtime)) return { quest: null, state: 'none' };
     this.offered = quest;
     this.offeredByRoomId = roomId;
     return { quest, state: 'available' };
