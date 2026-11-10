@@ -391,7 +391,7 @@ export const JADE_PEAK_ENCOUNTERS: readonly WandererEncounter[] = [
   {
     id: 'shrine-maiden-miko',
     name: 'Shrine Maiden Miko',
-    kind: 'quest',
+    kind: 'flavor',
     weight: 1.2,
     minRoomsVisited: 2,
     zoneTags: ['upper', 'surface'],
@@ -405,14 +405,14 @@ export const JADE_PEAK_ENCOUNTERS: readonly WandererEncounter[] = [
     repeatPages: [
       'Miko bows gracefully. The paper lanterns flicker in a wind that does not touch her.',
     ],
-    acceptLabel: 'Promise ten apples',
+    acceptLabel: 'Leave offering',
     rejectLabel: 'Bow and depart',
-    questId: 'shrine-maidens-request',
+    rewardScore: 15,
   },
   {
     id: 'yokai-chef',
     name: 'The Ramen Master',
-    kind: 'quest',
+    kind: 'flavor',
     weight: 0.9,
     minRoomsVisited: 3,
     zoneTags: ['upper', 'east'],
@@ -421,15 +421,15 @@ export const JADE_PEAK_ENCOUNTERS: readonly WandererEncounter[] = [
     pages: [
       'Behind a modest wooden stand, a chef with ink-dark hair stirs a steaming pot with fierce concentration. A faint smoke scent lingers -- or perhaps imagination.',
       '"Welcome, welcome! The best broth in all the provinces. Or the dimension. However many there are." *burps smoke*',
-      '"The special needs three rare ingredients. Bring those back, and I will make you a bowl the mountains will envy."',
+      '"Try the special. It does not eat you back. Usually."',
     ],
     repeatPages: [
       'The chef slides a steaming bowl across the counter without looking up, as if the broth has opinions about being served.',
       '"More broth? Or are you still building up the courage to ask how much it costs in souls?"',
     ],
-    acceptLabel: 'Gather ingredients',
+    acceptLabel: 'Order ramen',
     rejectLabel: 'Just looking',
-    questId: 'ramen-recipe-hunt',
+    rewardScore: 12,
   },
   {
     id: 'kappa-duel',
