@@ -90,7 +90,8 @@ export class QuestController {
       if (!quest || active.some((entry) => entry.id === id)) {
         continue;
       }
-      quest.onAccept(runtime);
+      // Save flags already contain the original acceptance baseline. Re-running
+      // onAccept during load would erase all progress made before the save.
       active.push(quest);
     }
     this.active = active;
