@@ -907,13 +907,11 @@ export function createPhysicalHumanTown(args: {
     factionId:
       spot.role === 'thiefContact' || spot.role === 'thief' ? 'thieves-guild' : 'human-town',
     homeRoomId: roomFor(
-      spot.role === 'thiefContact'
-        ? 'guildHideout'
-        : spot.role === 'thief'
-          ? 'backAlley'
-          : spot.role === 'resident'
-            ? 'residentialStreet'
-        : spot.role === 'civicOfficial'
+      spot.role === 'thief'
+        ? 'backAlley'
+        : spot.role === 'resident'
+          ? 'residentialStreet'
+          : spot.role === 'civicOfficial'
           ? 'townCenter'
           : spot.role === 'questGiver' || spot.role === 'bartender' || spot.role === 'cardDealer'
             ? 'townCenter'
@@ -936,8 +934,12 @@ export function createPhysicalHumanTown(args: {
       .filter((building) => building.kind === 'residentialHome' && building.ownerResidentId)
       .map((building) => [building.ownerResidentId!, building]),
   );
+  const guildInterior = town.buildings.find((building) => building.kind === 'guildAccess');
   town.residents = town.residents.map((resident) => {
     const home = residentialHomeByOwner.get(resident.id);
+    if (resident.role === 'thiefContact' && guildInterior?.templateId) {
+      return { ...resident, homeRoomId: createTownLayerId(town.id, guildInterior.templateId) };
+    }
     return home?.templateId
       ? {
           ...resident,
