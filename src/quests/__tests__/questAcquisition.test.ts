@@ -6,7 +6,7 @@ import { QuestController } from '../../systems/questController.js';
 
 class OrdinaryQuest extends Quest {
   constructor() {
-    super('ordinary', 'Ordinary errand', 'An ordinary quest.');
+    super('eat-5-apples', 'Ordinary errand', 'An ordinary quest.');
   }
 
   override isCompleted(): boolean {
@@ -48,12 +48,12 @@ describe('quest acquisition ownership', () => {
     registry.register(new OrdinaryQuest());
     const controller = new QuestController(registry, {
       initialQuestCount: 2,
-      initialQuestIds: ['deep-lying-bouquet', 'ordinary'],
+      initialQuestIds: ['deep-lying-bouquet', 'eat-5-apples'],
       rng: () => 0,
     });
 
     controller.reset(runtime);
-    expect(controller.getActive().map((quest) => quest.id)).toEqual(['ordinary']);
+    expect(controller.getActive().map((quest) => quest.id)).toEqual(['eat-5-apples']);
     expect(controller.getAcceptedIds()).not.toContain('deep-lying-bouquet');
   });
 
@@ -66,6 +66,7 @@ describe('quest acquisition ownership', () => {
     expect(controller.acceptOffered(runtime)).toBe(bouquetQuest);
     expect(controller.getActive().map((quest) => quest.id)).toContain('deep-lying-bouquet');
   });
+
   it('clears legacy orphaned wedding quests without losing genuine relationship quests', () => {
     const { registry, runtime } = fixture();
     const controller = new QuestController(registry, { initialQuestCount: 0 });
@@ -90,5 +91,4 @@ describe('quest acquisition ownership', () => {
     expect(controller.getActive().map((quest) => quest.id)).toEqual(['deep-lying-bouquet']);
     expect(controller.getAcceptedIds()).toEqual(['deep-lying-bouquet']);
   });
-
 });
