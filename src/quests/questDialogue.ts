@@ -227,7 +227,9 @@ export function getQuestDialogue(
     pages: buildFallbackQuestPages(quest),
   };
 
-  if (!context) return authored;
+  // Until these role variants have Spanish/French translations, preserve the
+  // existing localized authored quest pages instead of forcing English dialogue.
+  if (!context || i18n.getCurrentLanguage() !== 'en') return authored;
 
   return {
     ...authored,
