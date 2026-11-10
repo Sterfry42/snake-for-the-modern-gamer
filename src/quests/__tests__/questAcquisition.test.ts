@@ -66,4 +66,29 @@ describe('quest acquisition ownership', () => {
     expect(controller.acceptOffered(runtime)).toBe(bouquetQuest);
     expect(controller.getActive().map((quest) => quest.id)).toContain('deep-lying-bouquet');
   });
+  it('clears legacy orphaned wedding quests without losing genuine relationship quests', () => {
+    const { registry, runtime } = fixture();
+    const controller = new QuestController(registry, { initialQuestCount: 0 });
+    const saved = {
+      active: ['deep-lying-bouquet'],
+      accepted: ['deep-lying-bouquet'],
+      completed: [],
+    };
+
+    controller.restoreQuestIds(saved, runtime);
+    expect(controller.getActive()).toEqual([]);
+    expect(controller.getAcceptedIds()).toEqual([]);
+
+    runtime.setFlag('quest.staged.instances', [
+      {
+        questId: 'deep-lying-bouquet',
+        relationshipId: 'relationship:future-spouse',
+        stage: 'find-bouquet',
+      },
+    ]);
+    controller.restoreQuestIds(saved, runtime);
+    expect(controller.getActive().map((quest) => quest.id)).toEqual(['deep-lying-bouquet']);
+    expect(controller.getAcceptedIds()).toEqual(['deep-lying-bouquet']);
+  });
+
 });
