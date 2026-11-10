@@ -16833,7 +16833,7 @@ export class SnakeGame implements QuestRuntime {
     const key = `town.largeQuest.${town.id}`;
     const selectedQuestId = this.getFlag<string>(key);
     const offerable = this.questController
-      .getOfferableQuests(this, this.snake.currentRoomId)
+      .getOfferableQuests(this, this.snake.currentRoomId, 'town')
       .filter((candidate) => !TOWN_QUEST_EXCLUDED_IDS.has(candidate.id))
       .filter((candidate) => this.getQuestScale(candidate.id) === 'large');
     if (selectedQuestId) {
