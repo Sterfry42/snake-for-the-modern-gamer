@@ -19860,7 +19860,7 @@ export default class SnakeScene extends Phaser.Scene {
         giverName,
         [
           ...dialogue.pages.slice(0, 1),
-          `${i18n.getFeatureString('alreadyCarriesThis')} ${request.quest.label}. ${questGiverStatusLine(questVoice, 'active', request.quest.label)}`,
+          `${i18n.getFeatureString('alreadyCarriesThis')} ${request.quest.label}. ${i18n.getCurrentLanguage() === 'en' ? questGiverStatusLine(questVoice, 'active', request.quest.label) : 'Finish it, then come slither back to me.'}`,
         ],
         {
           onClose: () => this.closeQuestPopup(),
@@ -19878,7 +19878,9 @@ export default class SnakeScene extends Phaser.Scene {
         giverName,
         [
           `${i18n.getFeatureString('taskAlreadyDone')} ${request.quest.label}.`,
-          questGiverStatusLine(questVoice, 'completed', request.quest.label),
+          i18n.getCurrentLanguage() === 'en'
+            ? questGiverStatusLine(questVoice, 'completed', request.quest.label)
+            : 'Come back when the tunnels have another favor to ask of your scales.',
         ],
         {
           onClose: () => this.closeQuestPopup(),
@@ -19893,7 +19895,9 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.showQuestDialogue(
       giverName,
-      [questGiverStatusLine(questVoice, 'none')],
+      [i18n.getCurrentLanguage() === 'en'
+        ? questGiverStatusLine(questVoice, 'none')
+        : 'No quests right now.'],
       { onClose: () => this.closeQuestPopup() },
       { closeLabel: 'Leave' },
       speaker,
