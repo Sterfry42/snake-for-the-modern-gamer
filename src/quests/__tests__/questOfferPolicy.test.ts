@@ -118,6 +118,16 @@ describe('quest distribution contracts', () => {
       quest: { id: 'alchemy-basics' },
       state: 'active',
     });
+    const restored = new QuestController(registry, { initialQuestCount: 0 });
+    restored.restoreQuestIds({
+      active: controller.getActive().map((quest) => quest.id),
+      accepted: controller.getAcceptedIds(),
+      completed: controller.getCompletedIds(),
+    }, runtime);
+    expect(restored.getQuestForRoleGiver('wizard-a', 'wizard', 'town-square', runtime)).toMatchObject({
+      quest: { id: 'alchemy-basics' },
+      state: 'active',
+    });
   });
 
 });
