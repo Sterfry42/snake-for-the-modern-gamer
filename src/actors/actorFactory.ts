@@ -108,6 +108,20 @@ const GOBLIN_SCHEDULE: ActorSchedule = {
   },
 };
 
+const GUILD_CONTACT_ROUTINES: ActorSchedule['routines'] = {
+  dawn: { behavior: 'work', goalKind: 'work', priority: 34, roomTarget: 'work' },
+  day: { behavior: 'work', goalKind: 'work', priority: 34, roomTarget: 'work' },
+  dusk: { behavior: 'work', goalKind: 'work', priority: 34, roomTarget: 'work' },
+  night: { behavior: 'work', goalKind: 'work', priority: 34, roomTarget: 'work' },
+};
+
+const THIEF_NIGHT_SHIFT_ROUTINES: ActorSchedule['routines'] = {
+  dawn: { behavior: 'roam', goalKind: 'wander', priority: 16, roomTarget: 'home' },
+  day: { behavior: 'roam', goalKind: 'wander', priority: 16, roomTarget: 'home' },
+  dusk: { behavior: 'roam', goalKind: 'wander', priority: 16, roomTarget: 'home' },
+  night: { behavior: 'socialize', goalKind: 'socialize', priority: 24, roomTarget: 'work' },
+};
+
 export function createDefaultMood(tags: readonly ActorPersonalityTag[] = []): ActorMood {
   return {
     fear: tags.includes('cowardly') || tags.includes('paranoid') ? 35 : 15,
@@ -397,6 +411,26 @@ function scheduleForTownResidentRole(
       workPosition: args.postPosition ? { ...args.postPosition } : undefined,
       patrolRoomIds: args.workRoomId ? [args.workRoomId] : undefined,
       permanentDuty: role === 'gateGuard',
+    };
+  }
+  if (role === 'thiefContact' || role === 'guildContact') {
+    return {
+      policyId: 'thieves-guild-contact',
+      homeRoomId: args.workRoomId ?? args.currentRoomId,
+      workRoomId: args.workRoomId ?? args.currentRoomId,
+      fixedPostRoomId: args.workRoomId ?? args.currentRoomId,
+      fixedPostPosition: args.postPosition ? { ...args.postPosition } : undefined,
+      workPosition: args.postPosition ? { ...args.postPosition } : undefined,
+      permanentDuty: true,
+      routines: GUILD_CONTACT_ROUTINES,
+    };
+  }
+  if (role === 'thief') {
+    return {
+      policyId: 'thieves-guild-night-shift',
+      homeRoomId: args.homeRoomId ?? args.currentRoomId,
+      workRoomId: args.workRoomId ?? args.currentRoomId,
+      routines: THIEF_NIGHT_SHIFT_ROUTINES,
     };
   }
   const schedule: ActorSchedule = {
