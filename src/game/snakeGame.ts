@@ -599,6 +599,9 @@ interface ActorConversationRuntime {
 
 const ACTOR_TRAVEL_MOVE_COOLDOWN_TICKS = 4;
 const ACTOR_TRAVEL_MOVE_COOLDOWN_MS = 400;
+// Player-seeking encounters should catch the snake instead of following from a room away.
+const SEEK_PLAYER_MOVE_COOLDOWN_TICKS = 1;
+const SEEK_PLAYER_MOVE_COOLDOWN_MS = ACTOR_TRAVEL_MOVE_COOLDOWN_MS / 4;
 
 export interface FootballInstance {
   id: string;
@@ -11615,7 +11618,11 @@ export class SnakeGame implements QuestRuntime {
         }
         continue;
       }
-      if (travelTarget && body.moveCooldown > ACTOR_TRAVEL_MOVE_COOLDOWN_TICKS) {
+      const travelCooldownTicks =
+        actor?.goal?.kind === 'seekPlayer'
+          ? SEEK_PLAYER_MOVE_COOLDOWN_TICKS
+          : ACTOR_TRAVEL_MOVE_COOLDOWN_TICKS;
+      if (travelTarget && body.moveCooldown > travelCooldownTicks) {
         body.moveCooldown = 0;
       }
       body.moveCooldown -= 1;
@@ -11630,7 +11637,7 @@ export class SnakeGame implements QuestRuntime {
         continue;
       }
       body.moveCooldown = travelTarget
-        ? ACTOR_TRAVEL_MOVE_COOLDOWN_TICKS
+        ? travelCooldownTicks
         : !isHostile && !roomDangerActive
           ? Math.max(15, decision.moveCooldown * 3)
           : decision.moveCooldown;
@@ -12087,7 +12094,11 @@ export class SnakeGame implements QuestRuntime {
         ...current,
         flags: {
           ...current.flags,
-          actorTravelNextAtMs: nowMs + ACTOR_TRAVEL_MOVE_COOLDOWN_MS,
+          actorTravelNextAtMs:
+            nowMs +
+            (actor.goal?.kind === 'seekPlayer'
+              ? SEEK_PLAYER_MOVE_COOLDOWN_MS
+              : ACTOR_TRAVEL_MOVE_COOLDOWN_MS),
         },
       }));
       if (this.actorReachedLoadedTransitionTarget(currentRoom, nextPosition, travelTarget)) {
@@ -12219,7 +12230,11 @@ export class SnakeGame implements QuestRuntime {
       ...current,
       flags: {
         ...current.flags,
-        actorTravelNextAtMs: nowMs + ACTOR_TRAVEL_MOVE_COOLDOWN_MS,
+        actorTravelNextAtMs:
+            nowMs +
+            (actor.goal?.kind === 'seekPlayer'
+              ? SEEK_PLAYER_MOVE_COOLDOWN_MS
+              : ACTOR_TRAVEL_MOVE_COOLDOWN_MS),
       },
     }));
     this.actors.setPresence(
