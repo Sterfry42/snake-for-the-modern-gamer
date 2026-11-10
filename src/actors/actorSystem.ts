@@ -291,13 +291,24 @@ export class ActorSystem {
     roomNumber?: number,
     atmosphere?: ResolvedAtmosphereView,
   ): Actor[] {
+    const guildTemplate = town.buildings?.find((building) => building.kind === 'guildAccess')?.templateId;
+    const guildRoomId = guildTemplate
+      ? `layer:townInterior:${town.id}:${guildTemplate}`
+      : undefined;
     const actors = town.residents.map((resident) => {
       const workRoomId =
+        (resident.role === 'thief' ? guildRoomId : undefined) ??
         interiorWorkRoomIdForResident(town, resident.id) ??
         serviceInteriorRoomIdForResident(town, resident) ??
         interiorPresenceRoomIdForResident(town, resident.id) ??
         resident.workRoomId;
-      const logicalRoomId = logicalRoomIdForTownResident(town, resident, roomId, workRoomId);
+      // The night-shift thieves begin outside; their schedule takes them into the guild at night.
+      const logicalRoomId = logicalRoomIdForTownResident(
+        town,
+        resident,
+        roomId,
+        resident.role === 'thief' ? resident.workRoomId : workRoomId,
+      );
       const postPosition = initialTownResidentPosition(town, resident, logicalRoomId);
       return this.registry.ensureTownResidentActor({
         actorId: resident.actorId,
