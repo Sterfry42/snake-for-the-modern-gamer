@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { Quest, type QuestRuntime } from '../quest.js';
 import { QuestRegistry } from '../questRegistry.js';
 import { QuestController } from '../../systems/questController.js';
-import { canOfferQuestFromSource } from '../questOfferPolicy.js';
+import { canOfferQuestFromSource, canRoleOfferQuest, canRoleOfferQuests } from '../questOfferPolicy.js';
 
 class NeverCompletedQuest extends Quest {
   constructor(id: string) {
@@ -85,4 +85,39 @@ describe('quest distribution contracts', () => {
       new NeverCompletedQuest('new-quest-with-no-policy'), 'board',
     )).toBe(false);
   });
+  it('gives actual professionals different jobs even when they share a room', () => {
+    const { registry, runtime } = fixture();
+    registry.register(new NeverCompletedQuest('alchemy-basics'));
+    registry.register(new NeverCompletedQuest('hunt-rabbit'));
+    registry.register(new NeverCompletedQuest('treasure-hunter'));
+    const controller = new QuestController(registry, { initialQuestCount: 0, rng: () => 0 });
+
+    const wizard = controller.getQuestForRoleGiver('wizard-a', 'wizard', 'town-square', runtime);
+    const guard = controller.getQuestForRoleGiver('guard-b', 'guard', 'town-square', runtime);
+    const thief = controller.getQuestForRoleGiver('thief-c', 'thiefContact', 'town-square', runtime);
+
+    expect(wizard.quest?.id).toBe('alchemy-basics');
+    expect(guard.quest?.id).toBe('hunt-rabbit');
+    expect(thief.quest?.id).toBe('treasure-hunter');
+    expect(controller.getQuestForRoleGiver('wizard-a', 'wizard', 'town-square', runtime).quest?.id)
+      .toBe('alchemy-basics');
+    expect(controller.getQuestForGiver('town-square', runtime).quest?.id).toBe('eat-5-apples');
+    expect(canRoleOfferQuests('wizard')).toBe(true);
+    expect(canRoleOfferQuest('wizard', 'deep-lying-bouquet')).toBe(false);
+    expect(canRoleOfferQuest('guard', 'alchemy-basics')).toBe(false);
+  });
+
+  it('lets an actor finish or revisit their own accepted specialist quest', () => {
+    const { registry, runtime } = fixture();
+    registry.register(new NeverCompletedQuest('alchemy-basics'));
+    const controller = new QuestController(registry, { initialQuestCount: 0, rng: () => 0 });
+    expect(controller.getQuestForRoleGiver('wizard-a', 'wizard', 'town-square', runtime).state)
+      .toBe('available');
+    expect(controller.acceptOffered(runtime)?.id).toBe('alchemy-basics');
+    expect(controller.getQuestForRoleGiver('wizard-a', 'wizard', 'town-square', runtime)).toMatchObject({
+      quest: { id: 'alchemy-basics' },
+      state: 'active',
+    });
+  });
+
 });
