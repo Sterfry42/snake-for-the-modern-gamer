@@ -3,6 +3,7 @@
  */
 import type { Quest, QuestRuntime } from '../quests/quest.js';
 import type { QuestRegistry } from '../quests/questRegistry.js';
+import { canOfferQuestFromSource, type QuestOfferSource } from '../quests/questOfferPolicy.js';
 
 export interface QuestGiverRequest {
   quest: Quest | null;
@@ -174,8 +175,8 @@ export class QuestController {
     return quest;
   }
 
-  getOfferableQuests(runtime: QuestRuntime, giverRoomId?: string): Quest[] {
-    return this.collectEligibleQuests(runtime, giverRoomId);
+  getOfferableQuests(runtime: QuestRuntime, giverRoomId?: string, source?: QuestOfferSource): Quest[] {
+    return this.collectEligibleQuests(runtime, giverRoomId, source ?? (giverRoomId ? 'house' : 'board'));
   }
 
   acceptSpecificQuestById(id: string, runtime: QuestRuntime, giverRoomId?: string): Quest | null {
@@ -200,14 +201,14 @@ export class QuestController {
   getQuestForGiver(roomId: string, runtime: QuestRuntime): QuestGiverRequest {
     let assignedId = this.giverAssignments.get(roomId);
     let quest = assignedId ? (this.registry.getById(assignedId) ?? null) : null;
-    if (quest && !this.canOfferFromGiver(quest, runtime, roomId)) {
+    if (quest && (!canOfferQuestFromSource(quest, 'house') || !this.canOfferFromGiver(quest, runtime, roomId))) {
       this.giverAssignments.delete(roomId);
       assignedId = undefined;
       quest = null;
     }
 
     if (!quest) {
-      quest = this.pickEligibleQuest(runtime, roomId);
+      quest = this.pickEligibleQuest(runtime, roomId, 'house');
       if (!quest) {
         return { quest: null, state: 'none' };
       }
@@ -282,7 +283,7 @@ export class QuestController {
   }
 
   private assignNewQuests(runtime: QuestRuntime, requestedCount: number): void {
-    const available = this.collectEligibleQuests();
+    const available = this.collectEligibleQuests(runtime, undefined, 'starting');
     const maxAssignable = Math.min(requestedCount, this.maxActiveQuests - this.active.length);
 
     for (let i = 0; i < maxAssignable && available.length > 0; i++) {
@@ -308,7 +309,7 @@ export class QuestController {
           break;
         }
         const quest = this.registry.getById(id);
-        if (!quest || quest.acquisition !== 'generic') {
+        if (!quest || !canOfferQuestFromSource(quest, 'starting')) {
           continue;
         }
         if (this.active.some((q) => q.id === quest.id) || this.completed.includes(quest.id)) {
@@ -331,7 +332,7 @@ export class QuestController {
     }
   }
 
-  private collectEligibleQuests(runtime?: QuestRuntime, giverRoomId?: string): Quest[] {
+  private collectEligibleQuests(runtime?: QuestRuntime, giverRoomId?: string, source: QuestOfferSource = 'starting'): Quest[] {
     const exclude = new Set<string>([
       ...this.accepted,
       ...this.completed,
@@ -342,12 +343,12 @@ export class QuestController {
     }
     return this.registry
       .getAvailable(exclude)
-      .filter((quest) => quest.acquisition === 'generic')
+      .filter((quest) => canOfferQuestFromSource(quest, source))
       .filter((quest) => this.canOfferFromGiver(quest, runtime, giverRoomId));
   }
 
-  private pickEligibleQuest(runtime?: QuestRuntime, giverRoomId?: string): Quest | null {
-    const available = this.collectEligibleQuests(runtime, giverRoomId);
+  private pickEligibleQuest(runtime?: QuestRuntime, giverRoomId?: string, source: QuestOfferSource = 'house'): Quest | null {
+    const available = this.collectEligibleQuests(runtime, giverRoomId, source);
     if (available.length === 0) {
       return null;
     }
