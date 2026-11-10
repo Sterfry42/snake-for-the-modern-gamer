@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { contextualQuestPages, questGiverStatusLine } from '../questGiverDialogue.js';
 import { getQuestDialogue } from '../questDialogue.js';
+import { i18n } from '../../i18n/i18nManager.js';
 
 const errand = {
   id: 'hunt-rabbit',
@@ -62,4 +63,16 @@ describe('role-aware quest dialogue', () => {
   });
 nd.description);
   });
+  it('preserves localized authored pages when an untranslated role voice is requested', () => {
+    const originalLanguage = i18n.getCurrentLanguage();
+    try {
+      i18n.setLanguage('es');
+      expect(getQuestDialogue(errand, { role: 'wizard' })).toEqual(getQuestDialogue(errand));
+      i18n.setLanguage('fr');
+      expect(getQuestDialogue(errand, { role: 'guard' })).toEqual(getQuestDialogue(errand));
+    } finally {
+      i18n.setLanguage(originalLanguage);
+    }
+  });
+
 });
