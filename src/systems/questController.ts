@@ -303,7 +303,7 @@ export class QuestController {
           break;
         }
         const quest = this.registry.getById(id);
-        if (!quest) {
+        if (!quest || quest.acquisition !== 'generic') {
           continue;
         }
         if (this.active.some((q) => q.id === quest.id) || this.completed.includes(quest.id)) {
@@ -337,6 +337,7 @@ export class QuestController {
     }
     return this.registry
       .getAvailable(exclude)
+      .filter((quest) => quest.acquisition === 'generic')
       .filter((quest) => this.canOfferFromGiver(quest, runtime, giverRoomId));
   }
 
