@@ -67,7 +67,14 @@ describe('quest distribution contracts', () => {
     const controller = new QuestController(registry, { initialQuestCount: 0 });
     expect(controller.offerSpecificQuestById('tanukis-shenanigans', runtime, 'encounter-room')?.id)
       .toBe('tanukis-shenanigans');
+    // A named encounter's original giver retains their own quest even though
+    // random houses and public boards cannot originate it.
+    expect(controller.getQuestForGiver('encounter-room', runtime)).toMatchObject({
+      quest: { id: 'tanukis-shenanigans' },
+      state: 'available',
+    });
     expect(controller.acceptOffered(runtime)?.id).toBe('tanukis-shenanigans');
+    expect(controller.getQuestForGiver('encounter-room', runtime).state).toBe('active');
   });
 
   it('rejects unclassified new quests from houses rather than silently expanding the pool', () => {
