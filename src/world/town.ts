@@ -907,8 +907,12 @@ export function createPhysicalHumanTown(args: {
     factionId:
       spot.role === 'thiefContact' || spot.role === 'thief' ? 'thieves-guild' : 'human-town',
     homeRoomId: roomFor(
-      spot.role === 'resident'
-        ? 'residentialStreet'
+      spot.role === 'thiefContact'
+        ? 'guildHideout'
+        : spot.role === 'thief'
+          ? 'backAlley'
+          : spot.role === 'resident'
+            ? 'residentialStreet'
         : spot.role === 'civicOfficial'
           ? 'townCenter'
           : spot.role === 'questGiver' || spot.role === 'bartender' || spot.role === 'cardDealer'
