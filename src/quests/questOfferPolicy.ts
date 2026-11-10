@@ -42,6 +42,17 @@ export const BOARD_ONLY_QUEST_IDS = new Set([
   'trade-master', 'wildlife-photographer', 'wolf-tamer',
 ]);
 
+// Positive list: a newly added quest is NOT automatically something a random
+// person in a house (or the starting quest lottery) is permitted to narrate.
+// New content must deliberately opt into this ambient category.
+export const AMBIENT_HOUSE_QUEST_IDS = new Set([
+  'eat-5-apples', 'eat-12-apples', 'explore-10-rooms',
+  'hunt-rabbit', 'bear-hunter', 'hide-collector',
+  'score-50', 'reach-length-10', 'reach-length-15',
+  'speed-snacker', 'room-dasher', 'room-sprint',
+  'treasure-hunter', 'loot-and-power', 'powerup-fiend',
+]);
+
 export function canOfferQuestFromSource(
   quest: Pick<Quest, 'id' | 'acquisition'>,
   source: QuestOfferSource,
@@ -52,8 +63,11 @@ export function canOfferQuestFromSource(
   if (STAGED_TOWN_QUEST_IDS.has(quest.id)) {
     return source === 'town';
   }
-  if (BOARD_ONLY_QUEST_IDS.has(quest.id) || quest.id.startsWith('archaeology.')) {
-    return source === 'board';
+  if (source === 'town') return false;
+  if (source === 'house' || source === 'starting') {
+    return AMBIENT_HOUSE_QUEST_IDS.has(quest.id);
   }
+  // Boards can advertise ordinary tasks and specialist challenges, but never
+  // take ownership of a named person's authored story.
   return true;
 }
