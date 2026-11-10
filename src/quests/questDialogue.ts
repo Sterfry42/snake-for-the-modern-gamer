@@ -4,6 +4,7 @@
 import type { Quest } from './quest.js';
 import type { QuestDialogue } from '../i18n/types.js';
 import { i18n } from '../i18n/i18nManager.js';
+import { contextualQuestPages, type QuestGiverDialogueContext } from './questGiverDialogue.js';
 
 const CUSTOM_DIALOGUES: Record<string, QuestDialogue> = {
   'explore-6-rooms': {
@@ -218,19 +219,20 @@ const CUSTOM_DIALOGUES: Record<string, QuestDialogue> = {
 
 export function getQuestDialogue(
   quest: Pick<Quest, 'id' | 'label' | 'description'>,
+  context?: QuestGiverDialogueContext,
 ): QuestDialogue {
   const translation = i18n.getQuestDialogue(quest.id);
+  const authored = translation ?? CUSTOM_DIALOGUES[quest.id] ?? {
+    title: i18n.getQuestString(quest.id)?.label ?? quest.label,
+    pages: buildFallbackQuestPages(quest),
+  };
 
-  if (translation) {
-    return translation;
-  }
+  if (!context) return authored;
 
-  return (
-    CUSTOM_DIALOGUES[quest.id] ?? {
-      title: i18n.getQuestString(quest.id)?.label ?? quest.label,
-      pages: buildFallbackQuestPages(quest),
-    }
-  );
+  return {
+    ...authored,
+    pages: contextualQuestPages(quest, context, authored.pages),
+  };
 }
 
 function buildFallbackQuestPages(quest: Pick<Quest, 'id' | 'label' | 'description'>): string[] {
