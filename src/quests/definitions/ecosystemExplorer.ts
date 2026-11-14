@@ -16,7 +16,6 @@ class EcosystemExplorerQuest extends Quest {
 
   override onReward(runtime: QuestRuntime): void {
     runtime.addScore(50);
-    runtime.addItem('ecosystem-badge', 1);
   }
 }
 

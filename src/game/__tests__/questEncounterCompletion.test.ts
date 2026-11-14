@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { CARD_DEFINITIONS, CARD_TO_ITEM_MIGRATION } from '../../cards/cardGame.js';
 import { defaultGameConfig } from '../../config/gameConfig.js';
+import { getItem } from '../../inventory/itemRegistry.js';
 import { JADE_PEAK_ENCOUNTERS } from '../../npcs/encounters.js';
 import { QuestRegistry } from '../../quests/questRegistry.js';
 import type { QuestRuntime } from '../../quests/quest.js';
@@ -171,6 +173,48 @@ describe('wanderer encounter quest gates', () => {
       },
     ]);
     expect(herdMaster.isCompleted(runtime)).toBe(true);
+  });
+
+  it('grants only registry-resolvable items for every built-in quest reward', async () => {
+    const registry = new QuestRegistry();
+    await registry.loadBuiltIns();
+    // Legacy world-effect cards are valid CardIds too; saves migrate them
+    // to items on load.
+    const cardIds = new Set([
+      ...CARD_DEFINITIONS.map((card) => card.id),
+      ...Object.keys(CARD_TO_ITEM_MIGRATION),
+    ]);
+    const grantedItems: string[] = [];
+    const grantedCards: string[] = [];
+    const runtime: QuestRuntime = {
+      getSnakeLength: () => 1,
+      getScore: () => 0,
+      addScore: () => {},
+      addItem: (itemId: string) => {
+        grantedItems.push(itemId);
+      },
+      addCardToCollection: (cardId: string) => {
+        grantedCards.push(cardId);
+      },
+      addCosmeticReward: () => {},
+      getFlag: () => undefined,
+      setFlag: () => {},
+    };
+
+    expect(registry.getAll().length).toBeGreaterThan(20);
+    for (const quest of registry.getAll()) {
+      quest.onReward(runtime);
+    }
+
+    expect(grantedItems.length).toBeGreaterThan(0);
+    for (const itemId of grantedItems) {
+      // addItem drops unknown ids silently, so a missing definition means
+      // the reward never reaches the player.
+      expect(getItem(itemId), `quest reward item "${itemId}" is not registered`).toBeDefined();
+    }
+    for (const cardId of grantedCards) {
+      expect(cardIds.has(cardId), `quest reward card "${cardId}" is not registered`).toBe(true);
+    }
   });
 
   it('ignores non-deer companions when counting the herd', () => {

@@ -16,7 +16,6 @@ class KingdomDiplomatQuest extends Quest {
 
   override onReward(runtime: QuestRuntime): void {
     runtime.addScore(200);
-    runtime.addItem('royal-invitation', 1);
   }
 }
 

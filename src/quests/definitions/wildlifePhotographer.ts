@@ -16,7 +16,6 @@ class WildlifePhotographerQuest extends Quest {
 
   override onReward(runtime: QuestRuntime): void {
     runtime.addScore(75);
-    runtime.addItem('camera-film', 5);
   }
 }
 

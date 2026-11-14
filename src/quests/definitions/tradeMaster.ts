@@ -16,7 +16,6 @@ class TradeMasterQuest extends Quest {
 
   override onReward(runtime: QuestRuntime): void {
     runtime.addScore(125);
-    runtime.addItem('trade-goods', 10);
   }
 }
 

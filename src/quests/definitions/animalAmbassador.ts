@@ -16,7 +16,6 @@ class AnimalAmbassadorQuest extends Quest {
 
   override onReward(runtime: QuestRuntime): void {
     runtime.addScore(100);
-    runtime.addItem('animal-whistle', 1);
   }
 }
 

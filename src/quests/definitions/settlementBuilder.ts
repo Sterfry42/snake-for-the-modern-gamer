@@ -16,7 +16,6 @@ class SettlementBuilderQuest extends Quest {
 
   override onReward(runtime: QuestRuntime): void {
     runtime.addScore(150);
-    runtime.addItem('settlement-plans', 1);
   }
 }
 
