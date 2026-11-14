@@ -184,6 +184,7 @@ import { ControllerInput } from '../input/controllerInput.js';
 import { ControllerFeedback, type ControllerFeedbackKind } from '../input/controllerFeedback.js';
 import { InputModeManager } from '../input/inputModeManager.js';
 import { EmoticonOverlay } from '../ui/emoticonOverlay.js';
+import { getAllHatDefinitions } from '../cosmetics/index.js';
 import type { ControllerNavCommand } from '../input/controllerNavigation.js';
 import {
   shouldBlockPauseToggle,
@@ -14144,12 +14145,14 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   getSnakeHatDefinitions(): readonly { id: VillageShopHatId; label: string; price: number }[] {
-    const shopHats = getVillageShopDefinition(this.snakeGame.getCurrentRoom().biomeId).hats;
-    const unlocked = new Set(this.snakeCosmetics.unlockedHats);
-    const hats = shopHats.filter((hat) => hat.id === LEGACY_COWBOY_HAT_ID || unlocked.has(hat.id));
-    if (unlocked.has(HELL_ESCAPE_HAT_ID) && !hats.some((hat) => hat.id === HELL_ESCAPE_HAT_ID)) {
-      hats.push({ id: HELL_ESCAPE_HAT_ID, label: 'Demon Horns', price: 0 });
-    }
+    // The equip menu lists the full hat catalog filtered to what the player
+    // owns, so non-sale hats (demon horns, quest-exclusive helm and broth)
+    // are equippable once unlocked. The cowboy hat stays visible as the
+    // default purchase option.
+    const unlocked = new Set<string>(this.snakeCosmetics.unlockedHats);
+    const hats = getAllHatDefinitions()
+      .filter((hat) => hat.id === LEGACY_COWBOY_HAT_ID || unlocked.has(hat.id))
+      .map((hat) => ({ id: hat.id as VillageShopHatId, label: hat.label, price: hat.cost }));
     return hats.length > 0
       ? hats
       : [{ id: LEGACY_COWBOY_HAT_ID, label: 'Cowboy Hat', price: COWBOY_HAT_COST }];
@@ -15032,10 +15035,10 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const themes = this.getSnakeThemeDefinitions();
-    const shop =
-      this.getCurrentVillageShop() ??
-      getVillageShopDefinition(this.snakeGame.getCurrentRoom().biomeId);
-    const hatOffers = shop.hats;
+    // Quest cosmetic rewards validate against the full catalogs, not the
+    // current biome's shop stock: quest-exclusive hats (dragon helm,
+    // master broth, demon horns) are never on sale.
+    const hats = getAllHatDefinitions();
     for (const reward of rewards) {
       if (reward.type === 'style') {
         const styleId = reward.id as SnakeThemeId;
@@ -15049,7 +15052,7 @@ export default class SnakeScene extends Phaser.Scene {
       } else {
         const hatId = reward.id as VillageShopHatId;
         if (
-          hatOffers.some((hat) => hat.id === hatId) &&
+          hats.some((hat) => hat.id === hatId) &&
           !this.snakeCosmetics.unlockedHats.includes(hatId)
         ) {
           this.snakeCosmetics.unlockedHats = [...this.snakeCosmetics.unlockedHats, hatId];

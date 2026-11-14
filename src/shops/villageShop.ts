@@ -28,6 +28,8 @@ export const ALL_VILLAGE_SHOP_HAT_IDS = [
   'market-cap',
   'ember-cowl',
   'pearl-crown',
+  'dragon-helm',
+  'master-broth',
   'unicorn-horn',
   'demon-horns',
 ] as const;
@@ -373,11 +375,18 @@ export const VILLAGE_SHOP_HATS: readonly VillageShopHatOffer[] = [
   { id: 'market-cap', label: 'Market Cap', price: 18 },
   { id: 'ember-cowl', label: 'Ember Cowl', price: 30 },
   { id: 'pearl-crown', label: 'Pearl Crown', price: 42 },
+  { id: 'dragon-helm', label: 'Dragon Helm', price: 0 },
+  { id: 'master-broth', label: 'Master Broth', price: 0 },
   { id: 'unicorn-horn', label: 'Unicorn Horn', price: 55 },
   { id: 'demon-horns', label: 'Demon Horns', price: 0 },
 ];
 
-export const VILLAGE_SHOP_SOLD_HATS = VILLAGE_SHOP_HATS.filter((hat) => hat.id !== 'demon-horns');
+// Quest-exclusive and special hats exist in the catalog but are never
+// sold: demon horns come from the hell escape, and the helm and broth
+// hats are quest rewards.
+const UNSOLD_HAT_IDS = new Set<string>(['demon-horns', 'dragon-helm', 'master-broth']);
+
+export const VILLAGE_SHOP_SOLD_HATS = VILLAGE_SHOP_HATS.filter((hat) => !UNSOLD_HAT_IDS.has(hat.id));
 
 export const VILLAGE_SHOP_COWBELLS: readonly VillageShopCowbellOffer[] = [
   {
