@@ -355,6 +355,26 @@ Creative mode works as a block-placement sandbox but is likewise uncraftable (cr
 
 ---
 
+## #47 — Removed geometry skills leave dead wall/fault/collapse code behind
+
+**Status:** Confirmed  
+**Area:** Snake movement / skill migration  
+**Impact:** Dead code only (no live behavior bug)
+
+The geometry branch skills (`wallWhisper`, `masonry`, `seismicPulse`, `faultLine`, `collapseControl`, `terraShield`, `worldEater`, `ghostSkin`, `mirrorImage`) were intentionally removed from the skill catalog with refunds (`src/systems/skillMigration.ts`), but gameplay code still reads their flags:
+
+- **Still functional through items:** masonry (`equipment.masonryEnabled`), wall sense (`equipment.wallSenseRadiusBonus`), seismic pulse (`equipment.seismicPulseRadiusBonus`), invulnerability bonus (`equipment.invulnerabilityBonus`, two items). The dead removed-skill base branches OR'd alongside them — `geometry.masonryEnabled`, `geometry.wallSenseRadius`, `geometry.seismicPulseRadius`, and the same-pattern `fortitude.invulnerabilityBonus` (from the removed `secondWind` perk, while the live `wardedBody` skill writes only `fortitude.invulnerability`) — are dead but harmless.
+- **Fully dead in new runs (no skill writer, no item writer):** `geometry.faultLineEnabled` → `applyFaultLine()` is unreachable; `geometry.collapseControlEnabled`/`equipment.collapseControlEnabled` → `triggerCollapseControl()` is unreachable; `geometry.canEatWalls`, `geometry.terraShield`, `traversal.ghostShield` → `tryConsumeWall()` can never succeed, so `geometry.wallEaten` → `handleWallEaten()` → `geometry.worldEaterReward` never fire. Only the Jade Katana's `equipment.wallSmiteEnabled` wall-break path remains live.
+- Legacy saves from before the removal can still carry these flags via flag-map restore, so the paths are reachable for those saves — a reason not to rip the interleaved `snakeState.ts` wall-collision branch without a save-normalization pass.
+
+**Fix direction:**
+
+- Strip the unreachable branches (`applyFaultLine`, collapse-control gate, shield/canEatWalls wall-eater chain) or restore item equivalents for the retired mechanics.
+- If stripped, normalize/remove the stale `geometry.*`/`traversal.ghostShield` flags at save load so legacy saves match new-run behavior.
+- Keep `equipment.wallSmiteEnabled` (Jade Katana) untouched — it is live and achievement-tracked.
+
+---
+
 ## #38 — Fishing catch journal does not round-trip through save/load
 
 **Status:** Confirmed  
@@ -1021,11 +1041,11 @@ Test:
 
 # Running Tally
 
-**Total tracked IDs: 46**
+**Total tracked IDs: 47**
 
 - **P0:** #1, #2, #3, #19, #20, #23, #24, #32, #33, #34, #35, #36, #37, #38, #39, #44, #45
 - **P1:** #4, #5, #6, #7, #8, #9, #10, #11, #21, #22, #25, #28, #29, #31, #41, #42, #43, #46
-- **P2:** #12, #13, #26, #27, #30, #40
+- **P2:** #12, #13, #26, #27, #30, #40, #47
 - **P3:** #14, #15, #16, #17, #18
 
 > #42 intentionally remains in the stable-ID ledger but is an expanded confirmation of #4 rather than a separate implementation task.
