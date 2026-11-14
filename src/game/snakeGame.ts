@@ -117,6 +117,7 @@ import {
   feedAnimalCompanion,
   getCompanionHuntingBonus,
   normalizeAnimalCompanions,
+  normalizeTamedTypes,
   toAnimalCompanionView,
   type AnimalCompanion,
   type AnimalCompanionView,
@@ -18092,6 +18093,12 @@ export class SnakeGame implements QuestRuntime {
       joinedAtRoom: this.getRoomsVisitedCount(),
     };
     this.setAnimalCompanionState([...companions, companion]);
+    // Quest progress counts species ever tamed, so releasing the animal
+    // later does not un-tame the type.
+    const tamedTypes = normalizeTamedTypes(this.getFlag('animals.tamedTypes'));
+    if (!tamedTypes.includes(animal.type)) {
+      this.setFlag('animals.tamedTypes', [...tamedTypes, animal.type]);
+    }
     this.emitWorldEvent({
       type: 'animal-tamed',
       roomId,

@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import type { AnimalManager } from '../../animals/animalManager.js';
+import type { AnimalInstance } from '../../animals/types.js';
 import { CARD_DEFINITIONS, CARD_TO_ITEM_MIGRATION } from '../../cards/cardGame.js';
 import { defaultGameConfig } from '../../config/gameConfig.js';
 import { getItem } from '../../inventory/itemRegistry.js';
@@ -8,6 +10,9 @@ import type { QuestRuntime } from '../../quests/quest.js';
 import kappasChallenge from '../../quests/definitions/kappasChallenge.js';
 import tanukisShenanigans from '../../quests/definitions/tanukisShenanigans.js';
 import herdMaster from '../../quests/definitions/herdMaster.js';
+import tameTheFox from '../../quests/definitions/tameTheFox.js';
+import wolfTamer from '../../quests/definitions/wolfTamer.js';
+import animalAmbassador from '../../quests/definitions/animalAmbassador.js';
 import type { InventorySystem } from '../../inventory/inventory.js';
 import type { EnemyManager } from '../../systems/enemies.js';
 import type { QuestController } from '../../systems/questController.js';
@@ -24,6 +29,7 @@ interface GameInternals {
   enemies: EnemyManager;
   inventory: InventorySystem;
   questController: QuestController;
+  animals: AnimalManager;
   settleActiveDuel(): void;
 }
 
@@ -227,5 +233,81 @@ describe('wanderer encounter quest gates', () => {
     ]);
 
     expect(herdMaster.isCompleted(runtime)).toBe(false);
+  });
+});
+
+describe('taming quest progress', () => {
+  // The Animal Kingdom feature that used to write the animalsTamed counter
+  // was removed; the quests now read animals.tamedTypes, which the live
+  // taming path maintains.
+  function injectAnimal(game: SnakeGame, animal: AnimalInstance): void {
+    const store = (internalsOf(game).animals as unknown as { animals: Map<string, AnimalInstance[]> }).animals;
+    const list = store.get(animal.roomId) ?? [];
+    list.push(animal);
+    store.set(animal.roomId, list);
+  }
+
+  it('records the tamed species and completes Tame the Fox through the live taming path', () => {
+    const registry = new QuestRegistry();
+    registry.register(tameTheFox);
+    const game = createGame(registry);
+    const room = game.getCurrentRoom();
+
+    injectAnimal(game, {
+      id: 'fox-test-1',
+      type: 'fox',
+      roomId: room.id,
+      position: { x: 3, y: 3 },
+      direction: { x: 1, y: 0 },
+      moveCooldown: 0,
+      isTamed: false,
+      flashTicks: 0,
+    });
+    game.addScore(25);
+    game.addItem('rope', 1);
+
+    expect(tameTheFox.isCompleted(game as unknown as QuestRuntime)).toBe(false);
+
+    const result = game.attemptTameAnimal('fox-test-1');
+    expect(result.ok).toBe(true);
+
+    expect(game.getFlag<string[]>('animals.tamedTypes')).toEqual(['fox']);
+    expect(game.getInventory().getItemCount('rope')).toBe(0);
+    expect(tameTheFox.isCompleted(game as unknown as QuestRuntime)).toBe(true);
+  });
+
+  it('keeps Wolf Tamer scoped to wolves', () => {
+    const game = createGame();
+    const runtime = game as unknown as QuestRuntime;
+
+    game.setFlag('animals.tamedTypes', ['fox', 'deer']);
+    expect(wolfTamer.isCompleted(runtime)).toBe(false);
+
+    game.setFlag('animals.tamedTypes', ['fox', 'wolf']);
+    expect(wolfTamer.isCompleted(runtime)).toBe(true);
+  });
+
+  it('counts distinct tamed types for Animal Ambassador', () => {
+    const game = createGame();
+    const runtime = game as unknown as QuestRuntime;
+
+    game.setFlag('animals.tamedTypes', ['fox', 'wolf', 'deer', 'jackalope']);
+    expect(animalAmbassador.isCompleted(runtime)).toBe(false);
+
+    game.setFlag('animals.tamedTypes', ['fox', 'wolf', 'deer', 'jackalope', 'coyote']);
+    expect(animalAmbassador.isCompleted(runtime)).toBe(true);
+  });
+
+  it('treats duplicated and junky tamed types entries as a clean set', () => {
+    const game = createGame();
+    const runtime = game as unknown as QuestRuntime;
+    // Corrupted or hand-edited saves can carry junk; the quests must read a
+    // normalized, deduped view instead of the raw flag.
+    game.setFlag('animals.tamedTypes', ['fox', 'fox', null, 'wolf', 7, 'deer']);
+
+    expect(tameTheFox.isCompleted(runtime)).toBe(true);
+    expect(wolfTamer.isCompleted(runtime)).toBe(true);
+    // Three clean types, not five raw entries.
+    expect(animalAmbassador.isCompleted(runtime)).toBe(false);
   });
 });
