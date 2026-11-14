@@ -329,6 +329,32 @@ The system already has a global chunk serialization capability, but the save pat
 
 ---
 
+## #46 — Minecraft survival mode is a dead loop
+
+**Status:** Confirmed  
+**Area:** Minecraft / survival progression  
+**Impact:** Feature unreachable beyond sandbox placement
+
+Minecraft mode (Shift+C) starts in survival with an empty inventory and an empty player-block layer. Several independent gaps make the survival loop impossible:
+
+1. **Two disjoint block worlds.** Rendered terrain comes from the chunk manager (`generateChunk`), but every interaction reads `room.minecraftBlocks` (`tryBreakBlock`, `tryPlaceBlock`, mining, farming). No non-test code ever copies generated terrain into `room.minecraftBlocks`, so all visible terrain is purely decorative and cannot be broken or farmed on.
+2. **No starting tools and no bare-hand mining.** `MinecraftPlayer.canInteractWithBlock()` returns `false` for every solid block without an equipped tool, so the empty inventory cannot mine anything. No entry path grants a starting tool.
+3. **Basic recipes have no UI surface.** The only crafting UI opens by interacting with a placed `crafting_table` block and lists only `craftingTable: true` recipes (`getCraftingTableRecipes()`). The 10 basic recipes — including the crafting table itself, planks, sticks, torch, furnace, and bed — are unreachable.
+4. **The crafting table cannot be placed in survival.** `getHeldBlockType()` never returns `crafting_table`, so even a crafted table item could never be placed (creative palette placement works).
+5. **Terrain generation has no wood.** `generateTerrainBlock()` only emits stone/dirt/gravel/sand/ores/lava/grass, so even a wired-up mining loop could not produce planks.
+
+Creative mode works as a block-placement sandbox but is likewise uncraftable (creative breaking has no drops, so no materials).
+
+**Fix direction (design decision required):**
+
+- Sync generated chunk terrain into `room.minecraftBlocks` (or make interactions read the chunk layer with placement overrides).
+- Add wood trees to terrain generation and a starting tool (or bare-hand wood mining).
+- Provide a hand-crafting UI surface for `craftingTable: false` recipes.
+- Include `crafting_table` (and other placeable specials) in `getHeldBlockType()`.
+- Add survival-entry regression tests: obtain wood → planks → sticks → crafting table → wooden tools → farmland.
+
+---
+
 ## #38 — Fishing catch journal does not round-trip through save/load
 
 **Status:** Confirmed  
@@ -995,10 +1021,10 @@ Test:
 
 # Running Tally
 
-**Total tracked IDs: 45**
+**Total tracked IDs: 46**
 
 - **P0:** #1, #2, #3, #19, #20, #23, #24, #32, #33, #34, #35, #36, #37, #38, #39, #44, #45
-- **P1:** #4, #5, #6, #7, #8, #9, #10, #11, #21, #22, #25, #28, #29, #31, #41, #42, #43
+- **P1:** #4, #5, #6, #7, #8, #9, #10, #11, #21, #22, #25, #28, #29, #31, #41, #42, #43, #46
 - **P2:** #12, #13, #26, #27, #30, #40
 - **P3:** #14, #15, #16, #17, #18
 
