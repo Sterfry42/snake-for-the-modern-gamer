@@ -459,7 +459,9 @@ export function createActorFromAnimal(
     thickness: args.isTamed ? 'medium' : 'thin',
     displayName: args.animalName,
     personality: predator ? ['hungry', 'brave'] : ['cowardly'],
-    factionId: predator ? 'wildlife.predator' : 'wildlife.prey',
+    // Canonical faction ids match the DEFAULT_RELATIONS table and
+    // factionsInWorldEvent; dotted names would never resolve a relation.
+    factionId: predator ? 'predators' : 'wildlife',
     currentRoomId: args.roomId,
     health: {
       current: currentHealth,
@@ -522,7 +524,7 @@ export function createActorFromEnemy(args: EnsureEnemyActorArgs): Actor {
     thickness: isDuelist || args.encounterKind === 'npc-hostile' ? 'medium' : 'thin',
     displayName,
     personality: isGoblin ? ['goblin', 'sharp', 'greedy'] : ['violent', 'hungry'],
-    factionId: isGoblin ? 'goblin-camps' : isShark ? 'wildlife.predator' : 'bandits',
+    factionId: isGoblin ? 'goblin-camps' : isShark ? 'predators' : 'bandits',
     currentRoomId: args.roomId,
     health: {
       current: currentHealth,
