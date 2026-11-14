@@ -12,6 +12,7 @@ import type { RandomGenerator } from '../core/rng.js';
 import { parseRoomId, type RoomCoordinate } from './roomAddress.js';
 import type { WorldGenerationIdentity } from './generation/worldGenerationIdentity.js';
 import { positiveMod } from './generation/worldHash.js';
+import { isSolidTile } from './tiles.js';
 
 export interface TransitFloorBlock {
   tiles: Vector2Like[];
@@ -378,4 +379,56 @@ export class TransitStationResolver {
   private getRegionKey(coord: RoomCoordinate): string {
     return `${Math.floor(coord.x / this.config.regionSize)},${Math.floor(coord.y / this.config.regionSize)}`;
   }
+}
+
+/**
+ * Whether a room tile is a legal transit arrival tile: the snake dies
+ * instantly on solid terrain and drowns on water without gear, so a
+ * station exit must never point at either. Layout rows are row strings.
+ */
+export function isSafeTransitExitTile(
+  layout: ReadonlyArray<string | undefined>,
+  x: number,
+  y: number,
+): boolean {
+  const tile = layout[y]?.[x];
+  return tile !== undefined && !isSolidTile(tile) && tile !== '~';
+}
+
+/**
+ * Resolve a transit exit to a tile the snake can actually stand on.
+ *
+ * Destination exits are computed at the room center, but generated terrain
+ * (mountains, rivers, masonry) can make that tile solid or liquid, which
+ * would kill the player on arrival. When the requested tile is unsafe, walk
+ * an expanding square spiral until the nearest safe tile is found. The
+ * search is deterministic so save/load replays resolve identically.
+ */
+export function resolveSafeTransitExit(
+  layout: ReadonlyArray<string | undefined>,
+  exit: Vector2Like,
+): Vector2Like {
+  if (isSafeTransitExitTile(layout, exit.x, exit.y)) {
+    return { x: exit.x, y: exit.y };
+  }
+  const rows = layout.length;
+  const cols = layout[0]?.length ?? 0;
+  const maxRadius = Math.max(cols, rows);
+  for (let radius = 1; radius <= maxRadius; radius += 1) {
+    for (let dy = -radius; dy <= radius; dy += 1) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        // Only visit the ring boundary at this radius.
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+        const x = exit.x + dx;
+        const y = exit.y + dy;
+        if (x < 0 || y < 0 || y >= rows || x >= cols) continue;
+        if (isSafeTransitExitTile(layout, x, y)) {
+          return { x, y };
+        }
+      }
+    }
+  }
+  // No safe tile anywhere (fully solid room); keep the original exit so
+  // behavior is unchanged rather than inventing an off-grid position.
+  return { x: exit.x, y: exit.y };
 }

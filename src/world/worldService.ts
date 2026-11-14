@@ -25,7 +25,7 @@ import {
   type LayerTemplateId,
 } from '../layers/layerTypes.js';
 import { generateDecorations } from './bulletTrainService.js';
-import { generateTransitRooms } from './transitShared.js';
+import { generateTransitRooms, resolveSafeTransitExit } from './transitShared.js';
 import type { BulletTrainDestination, BulletTrainJourney } from './bulletTrainTypes.js';
 import { BulletTrainStructureResolver } from './generation/bulletTrainResolver.js';
 import { parseRoomId } from './generation/multiRoomStructures.js';
@@ -1003,6 +1003,18 @@ export class WorldService {
     const destination = destinations.find((d) => d.roomId === destinationRoomId);
     if (!destination) return null;
 
+    // The resolver nominates the destination room's center as the exit tile;
+    // snap it to a standable tile so the player never arrives inside a wall.
+    // Peek the cache rather than forcing generation: replicas only hold the
+    // rooms the server replicated, and an unknown room keeps the nominal exit.
+    const destinationRoom = this.rooms.get(destinationRoomId);
+    const safeExit = destinationRoom
+      ? resolveSafeTransitExit(destinationRoom.layout, {
+          x: destination.exitX,
+          y: destination.exitY,
+        })
+      : { x: destination.exitX, y: destination.exitY };
+
     const transitRooms = generateTransitRooms(stationRoomId, destinationRoomId, this.rng);
 
     return {
@@ -1011,8 +1023,8 @@ export class WorldService {
       stationEntranceX: room.bulletTrainStation.entranceX,
       stationEntranceY: room.bulletTrainStation.entranceY,
       destinationRoomId,
-      destinationExitX: destination.exitX,
-      destinationExitY: destination.exitY,
+      destinationExitX: safeExit.x,
+      destinationExitY: safeExit.y,
       transitRooms,
       transitProgress: 0,
       startedAtMs: Date.now(),
@@ -1320,13 +1332,23 @@ export class WorldService {
     const destination = destinations.find((d) => d.roomId === destinationRoomId);
     if (!destination) return null;
 
+    // Same arrival safety as the bullet train: the exit must be standable.
+    // Peek the cache rather than forcing generation (see bullet train above).
+    const destinationRoom = this.rooms.get(destinationRoomId);
+    const safeExit = destinationRoom
+      ? resolveSafeTransitExit(destinationRoom.layout, {
+          x: destination.exitX,
+          y: destination.exitY,
+        })
+      : { x: destination.exitX, y: destination.exitY };
+
     return createCoasterJourney(
       stationRoomId,
       room.rollercoasterStation.entranceX,
       room.rollercoasterStation.entranceY,
       destinationRoomId,
-      destination.exitX,
-      destination.exitY,
+      safeExit.x,
+      safeExit.y,
       room.rollercoasterStation.theme,
       this.rng,
     );

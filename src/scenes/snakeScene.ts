@@ -21093,8 +21093,10 @@ export default class SnakeScene extends Phaser.Scene {
       journey,
       arrivalFlavor: chosen.arrivalFlavor,
       destinationRoomId: chosen.roomId,
-      destinationExitX: chosen.exitX,
-      destinationExitY: chosen.exitY,
+      // The journey holds the arrival-safe exit (snapped off walls/water);
+      // the menu entry still carries the nominal center tile.
+      destinationExitX: journey.destinationExitX,
+      destinationExitY: journey.destinationExitY,
       stationRoomId: journey.stationRoomId,
       destinationCoordinates: chosen.coordinates,
       onArrival: (arrivalData) => this.handleBulletTrainArrival(arrivalData),
@@ -21350,8 +21352,10 @@ export default class SnakeScene extends Phaser.Scene {
       journey,
       arrivalFlavor: chosen.arrivalFlavor,
       destinationRoomId: chosen.roomId,
-      destinationExitX: chosen.exitX,
-      destinationExitY: chosen.exitY,
+      // The journey holds the arrival-safe exit (snapped off walls/water);
+      // the menu entry still carries the nominal center tile.
+      destinationExitX: journey.destinationExitX,
+      destinationExitY: journey.destinationExitY,
       stationRoomId: journey.stationRoomId,
       destinationCoordinates: chosen.coordinates,
       theme,
