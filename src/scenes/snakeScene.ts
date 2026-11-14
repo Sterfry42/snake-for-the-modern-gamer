@@ -4354,7 +4354,10 @@ export default class SnakeScene extends Phaser.Scene {
       !currentRoomForAppleFx.town &&
       currentRoomForAppleFx.layer?.kind !== 'townInterior'
     ) {
-      const world = this.tileToWorld(this.currentApple.position);
+      // Apple snapshots store room-local tile positions, so the room offset
+      // must not be stripped again (tileToWorld expects global coordinates
+      // and would shift the sparkle by a whole room outside room 0,0,0).
+      const world = this.tileToWorldLocalInRoom(this.currentApple.position);
       if (this.random() < 0.06) {
         this.juice.appleIdle(world.x, world.y);
       }
