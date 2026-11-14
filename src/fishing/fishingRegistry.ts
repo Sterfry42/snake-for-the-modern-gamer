@@ -167,7 +167,7 @@ export class FishingRegistry {
         getEscapeChance(zone, state.fish.fightAggression),
         modifiers.fishRetention,
       );
-      if (this.rng() < dangerEscapeChance) {
+      if (dangerEscapeChance > 0 && this.rng() < dangerEscapeChance) {
         // Small chance of line break in danger
         if (this.rng() < applyReduction(0.01, modifiers.fishingStability)) {
           updated.lineBroken = true;
@@ -178,6 +178,25 @@ export class FishingRegistry {
           };
           return { state: updated, result };
         }
+        updated.escaped = true;
+        updated.complete = true;
+        const result: FishingSessionResult = {
+          caught: false,
+          reason: 'escape',
+        };
+        return { state: updated, result };
+      }
+    }
+
+    // Check for warning zone escape chance (the documented 0.02 * fightAggression
+    // per tick — skipping this roll would make the escape curve flat between
+    // safe and danger)
+    if (zone === 'warning-low' || zone === 'warning-high') {
+      const warningEscapeChance = applyReduction(
+        getEscapeChance(zone, state.fish.fightAggression),
+        modifiers.fishRetention,
+      );
+      if (warningEscapeChance > 0 && this.rng() < warningEscapeChance) {
         updated.escaped = true;
         updated.complete = true;
         const result: FishingSessionResult = {
