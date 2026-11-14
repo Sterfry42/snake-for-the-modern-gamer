@@ -878,9 +878,11 @@ class StarforgedVanguardFeature extends Feature {
     if (!head) {
       return;
     }
+    // Head segments are global grid coordinates; tileToWorld converts them
+    // into current-room scene pixels (raw multiplication only works in
+    // room 0,0,0).
     const cell = scene.grid.cell;
-    const x = head.x * cell + cell / 2;
-    const y = head.y * cell + cell / 2;
+    const { x, y } = scene.tileToWorld(head);
     const ring = scene.add
       .circle(x, y, cell * 0.8, 0x9df7ff, 0.16)
       .setStrokeStyle(2, 0xe8f8ff, 0.9)
@@ -902,8 +904,7 @@ class StarforgedVanguardFeature extends Feature {
       return;
     }
     const cell = scene.grid.cell;
-    const x = head.x * cell + cell / 2;
-    const y = head.y * cell + cell / 2;
+    const { x, y } = scene.tileToWorld(head);
     for (let index = 0; index < 3; index += 1) {
       const ring = scene.add
         .circle(x, y, cell * (0.9 + index * 0.35), 0x5f8dff, 0.12)
@@ -1441,9 +1442,7 @@ class StarforgedVanguardFeature extends Feature {
       return;
     }
     const color = pickDestiny3Palette(state.tick + state.playerPower).primary;
-    const cell = scene.grid.cell;
-    const x = head.x * cell + cell / 2;
-    const y = head.y * cell + cell / 2;
+    const { x, y } = scene.tileToWorld(head);
     for (let index = 0; index < 5; index += 1) {
       const mote = scene.add
         .circle(x, y, 2 + index * 0.3, color, 0.75)
