@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { createRng } from '../core/rng.js';
 import { RelationshipController } from './relationshipController.js';
 import type { RelationshipState } from './relationshipTypes.js';
 
-function createRuntime() {
+function createRuntime(rng: () => number = createRng('relationship-test')) {
   const flags: Record<string, unknown> = {};
   return {
     flags,
@@ -15,6 +16,7 @@ function createRuntime() {
           flags[key] = value;
         }
       },
+      rng,
     }),
   };
 }
@@ -217,6 +219,44 @@ describe('RelationshipController', () => {
 
     const giftResult = controller.applyGift('marta', 'stale-bread', 'Stale Bread', ['ledger'], 13);
     expect(giftResult.outcome).toEqual({ tier: 'neutral', mood: 'neutral' });
+  });
+
+  it('rolls child catch from the seeded rng so replays stay deterministic', () => {
+    const install = (rng: () => number) => {
+      const { flags, controller } = createRuntime(rng);
+      flags['relationships.states'] = {
+        parent: makeState({
+          id: 'parent',
+          displayName: 'Parent',
+          stage: 'lover',
+          affection: 80,
+          trust: 60,
+          romanceOptIn: true,
+          children: [
+            {
+              id: 'kid',
+              parentRelationshipId: 'parent',
+              name: 'Kid',
+              type: 'snakelet',
+              createdRoom: 0,
+              memories: [],
+            },
+          ],
+        }),
+      };
+      return controller.applyChoice('parent', 'child-catch', 100);
+    };
+
+    // A fixed rng value pins the score: difficulty is floor(100/50)=2, so
+    // maxScore is 16 and floor(0.5 * 17) is 8.
+    const pinned = install(() => 0.5);
+    expect(pinned.ok).toBe(true);
+    expect(pinned.reward).toEqual({ kind: 'score', amount: 80 });
+
+    // Two identically seeded controllers must replay the same catch.
+    const first = install(createRng('child-catch-seed'));
+    const second = install(createRng('child-catch-seed'));
+    expect(first).toEqual(second);
   });
 
   it('persists authored relationship personality as the runtime source of truth', () => {

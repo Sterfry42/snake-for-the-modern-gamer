@@ -1445,6 +1445,7 @@ export class SnakeGame implements QuestRuntime {
     this.relationshipController = new RelationshipController({
       getFlag: (key) => this.getFlag(key),
       setFlag: (key, value) => this.setFlag(key, value),
+      rng: this._rng,
     });
     this.actors = new ActorSystem();
     this.actors.setTelemetrySink((event) => this.emitActorTelemetry(event));
