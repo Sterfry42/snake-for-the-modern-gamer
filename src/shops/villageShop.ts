@@ -386,7 +386,9 @@ export const VILLAGE_SHOP_HATS: readonly VillageShopHatOffer[] = [
 // hats are quest rewards.
 const UNSOLD_HAT_IDS = new Set<string>(['demon-horns', 'dragon-helm', 'master-broth']);
 
-export const VILLAGE_SHOP_SOLD_HATS = VILLAGE_SHOP_HATS.filter((hat) => !UNSOLD_HAT_IDS.has(hat.id));
+export const VILLAGE_SHOP_SOLD_HATS = VILLAGE_SHOP_HATS.filter(
+  (hat) => !UNSOLD_HAT_IDS.has(hat.id),
+);
 
 export const VILLAGE_SHOP_COWBELLS: readonly VillageShopCowbellOffer[] = [
   {

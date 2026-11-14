@@ -4,7 +4,11 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { HAT_DEFINITIONS } from '../../cosmetics/cosmeticCatalog.js';
-import { ALL_VILLAGE_SHOP_HAT_IDS, VILLAGE_SHOP_HATS, VILLAGE_SHOP_SOLD_HATS } from '../villageShop.js';
+import {
+  ALL_VILLAGE_SHOP_HAT_IDS,
+  VILLAGE_SHOP_HATS,
+  VILLAGE_SHOP_SOLD_HATS,
+} from '../villageShop.js';
 
 describe('village shop completeness', () => {
   describe('hats', () => {

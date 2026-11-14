@@ -44,7 +44,7 @@ function seedTanukiEncounter(game: SnakeGame): void {
 }
 
 describe('wanderer encounter quest gates', () => {
-  it('completes Kappa\'s Challenge when the kappa duel is won', () => {
+  it("completes Kappa's Challenge when the kappa duel is won", () => {
     const registry = new QuestRegistry();
     registry.register(kappasChallenge);
     const game = createGame(registry);
@@ -80,7 +80,7 @@ describe('wanderer encounter quest gates', () => {
     expect(game.getFlag('npc.activeDuel')).toMatchObject({ id: 'kappa-duel' });
   });
 
-  it('completes Tanuki\'s Shenanigans when the tanuki is refused and pays it out directly', () => {
+  it("completes Tanuki's Shenanigans when the tanuki is refused and pays it out directly", () => {
     const registry = new QuestRegistry();
     registry.register(tanukisShenanigans);
     const game = createGame(registry);
@@ -100,7 +100,7 @@ describe('wanderer encounter quest gates', () => {
     expect(internals.inventory.getItemCount('cloak-furoshiki')).toBeGreaterThanOrEqual(1);
   });
 
-  it('completes Tanuki\'s Shenanigans when the tanuki is accepted and pays the quest out', () => {
+  it("completes Tanuki's Shenanigans when the tanuki is accepted and pays the quest out", () => {
     const registry = new QuestRegistry();
     registry.register(tanukisShenanigans);
     const game = createGame(registry);
@@ -241,7 +241,9 @@ describe('taming quest progress', () => {
   // was removed; the quests now read animals.tamedTypes, which the live
   // taming path maintains.
   function injectAnimal(game: SnakeGame, animal: AnimalInstance): void {
-    const store = (internalsOf(game).animals as unknown as { animals: Map<string, AnimalInstance[]> }).animals;
+    const store = (
+      internalsOf(game).animals as unknown as { animals: Map<string, AnimalInstance[]> }
+    ).animals;
     const list = store.get(animal.roomId) ?? [];
     list.push(animal);
     store.set(animal.roomId, list);
