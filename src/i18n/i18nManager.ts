@@ -107,7 +107,12 @@ class I18nManager {
   }
 
   getCommon(key: string): string {
-    return getNestedString(this.translations[this.currentLanguage]?.common, key) ?? key;
+    const current = getNestedString(this.translations[this.currentLanguage]?.common, key);
+    if (current !== undefined) return current;
+    // Fallback to English
+    const en = getNestedString(this.translations['en']?.common, key);
+    if (en !== undefined) return en;
+    return key;
   }
 
   getActorVoice(entryId: string, part: 'line' | 'beat'): string | undefined {
