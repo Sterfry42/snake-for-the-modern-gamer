@@ -442,11 +442,13 @@ export class FishingMinigame {
     const progressLabel = i18n.getFeatureString('fishingProgressLabel');
     this.progressText!.setText(`${progressLabel}: ${Math.round(state.progress)}%`);
 
-    // Resolve zone label via i18n
-    const zoneKey =
-      `fishingZone${zoneInfo.zone.charAt(0).toUpperCase() + zoneInfo.zone.slice(1)}` as string;
-    const resolvedZone = i18n.getFeatureString(zoneKey) ?? zoneInfo.zone.toUpperCase();
-    this.zoneText!.setText(resolvedZone);
+    // Resolve zone label via i18n. The i18n table defines one key per
+    // danger level (fishingZoneSafe/Warning/Danger/Critical), so the label
+    // must be keyed off dangerLevel — zone names like 'warning-low' have
+    // no matching feature string and would render as raw keys.
+    const dangerLevelLabel =
+      zoneInfo.dangerLevel.charAt(0).toUpperCase() + zoneInfo.dangerLevel.slice(1);
+    this.zoneText!.setText(i18n.getFeatureString(`fishingZone${dangerLevelLabel}`));
 
     const zoneColors: Record<string, string> = {
       safe: '#44ff44',
