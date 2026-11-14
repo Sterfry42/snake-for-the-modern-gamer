@@ -5570,9 +5570,12 @@ export class SnakeGame implements QuestRuntime {
       return;
     }
     this.setFlag(key, true);
+    const anchor = this.localToWorld(roomId, reveal);
     this.setFlag('ui.libertyLandmarkReveal', {
       roomId,
       ...reveal,
+      x: anchor.x,
+      y: anchor.y,
     });
   }
 
@@ -5697,7 +5700,8 @@ export class SnakeGame implements QuestRuntime {
         y: aged.position.y + aged.direction.y,
       };
       if (!this.isCatchableFootballTile(room, nextPosition)) {
-        this.setFlag('ui.footballFumble', { roomId, x: aged.position.x, y: aged.position.y });
+        const fumbleWorld = this.localToWorld(roomId, aged.position);
+        this.setFlag('ui.footballFumble', { roomId, x: fumbleWorld.x, y: fumbleWorld.y });
         nextFootballs.push({ ...aged, state: 'grounded', age: 0, maxAge: 3 });
         roomsChanged.add(roomId);
         continue;
@@ -5723,8 +5727,8 @@ export class SnakeGame implements QuestRuntime {
         });
         this.setFlag('ui.footballPass', {
           roomId,
-          from: nextPosition,
-          to: headLocal,
+          from: this.localToWorld(roomId, nextPosition),
+          to: this.localToWorld(roomId, headLocal),
         });
         roomsChanged.add(roomId);
         continue;
@@ -6794,10 +6798,11 @@ export class SnakeGame implements QuestRuntime {
         actorId,
       );
     });
+    const hostilityAnchor = this.localToWorld(room.id, town.center);
     this.setFlag('ui.townHostility', {
       roomId: room.id,
-      x: town.center.x,
-      y: town.center.y,
+      x: hostilityAnchor.x,
+      y: hostilityAnchor.y,
       label,
     });
   }
@@ -18359,8 +18364,8 @@ export class SnakeGame implements QuestRuntime {
     this.footballs.set(roomId, footballs);
     this.setFlag('ui.footballPass', {
       roomId,
-      from: origin,
-      to: spawn,
+      from: this.localToWorld(roomId, origin),
+      to: this.localToWorld(roomId, spawn),
     });
     return football;
   }
@@ -18387,10 +18392,11 @@ export class SnakeGame implements QuestRuntime {
     const bonusScore = caffeine > 0 ? 30 : 15;
     this.addScore(bonusScore);
     this.setFlag('liberty.caffeineCatches', caffeine > 0 ? caffeine - 1 : undefined);
+    const catchWorld = this.localToWorld(roomId, localPosition);
     this.setFlag('ui.footballCatch', {
       roomId,
-      x: localPosition.x,
-      y: localPosition.y,
+      x: catchWorld.x,
+      y: catchWorld.y,
       score: bonusScore,
     });
     return bonusScore;
@@ -23124,10 +23130,11 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('ui.questInteraction', {
       message: 'A portal opens nearby. A future version of you unfolds through it.',
     });
+    const portalAnchor = this.localToWorld(targetRoomId, portal);
     this.setFlag('ui.freakYouPortal', {
       roomId: targetRoomId,
-      x: portal.x,
-      y: portal.y,
+      x: portalAnchor.x,
+      y: portalAnchor.y,
       startedAtMs: this.getFlag<number>('timeMs') ?? 0,
       durationMs: 3500,
     });
