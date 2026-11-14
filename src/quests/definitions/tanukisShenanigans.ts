@@ -14,7 +14,9 @@ class TanukisShenanigans extends Quest {
   }
 
   override onReward(runtime: import('../quest.js').QuestRuntime): void {
-    runtime.addItem('furoshiki', 1);
+    // The cloth is the real registry item (slot: cloak); the bare
+    // 'furoshiki' id never resolved and was silently dropped.
+    runtime.addItem('cloak-furoshiki', 1);
     runtime.addScore(30);
   }
 }

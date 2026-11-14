@@ -4762,15 +4762,30 @@ export class SnakeGame implements QuestRuntime {
       this.resolvedWandererEncounters.add('freak-joey');
       this.addScore(25);
     }
-    const activeDuel = this.getFlag<{ id: string; rewardScore?: number }>('npc.activeDuel');
-    if (activeDuel && !this.enemies.hasEnemyWithId(activeDuel.id)) {
-      if (activeDuel.id !== 'freak-joey' && activeDuel.rewardScore) {
-        this.addScore(activeDuel.rewardScore);
-      }
-      this.setFlag('npc.activeDuel', undefined);
-    }
+    this.settleActiveDuel();
 
     return null;
+  }
+
+  /**
+   * Settle a named duel once its duelist has left the field. The reward
+   * credits the winner, and duels that gate a registered quest flip the
+   * quest's completion flag here so the quest controller can pay out.
+   */
+  private settleActiveDuel(): void {
+    const activeDuel = this.getFlag<{ id: string; rewardScore?: number }>('npc.activeDuel');
+    if (!activeDuel || this.enemies.hasEnemyWithId(activeDuel.id)) {
+      return;
+    }
+    if (activeDuel.id !== 'freak-joey' && activeDuel.rewardScore) {
+      this.addScore(activeDuel.rewardScore);
+    }
+    if (activeDuel.id === 'kappa-duel') {
+      // Kappa's Challenge completes through the duel route; the cucumber
+      // offering remains a mountain legend.
+      this.setFlag('kappa.defeated', true);
+    }
+    this.setFlag('npc.activeDuel', undefined);
   }
 
   private stepRivalSnakeEnemies(roomsChanged: Set<string>): { currentRoomAppleChanged: boolean } {
@@ -18548,6 +18563,9 @@ export class SnakeGame implements QuestRuntime {
       if (encounter.oneShot) {
         this.resolvedWandererEncounters.add(encounter.id);
       }
+      if (encounter.id === 'tanuki-shenanigans') {
+        this.settleTanukiShenanigansQuest();
+      }
       return { kind: encounter.kind, accepted: false };
     }
 
@@ -18574,6 +18592,13 @@ export class SnakeGame implements QuestRuntime {
         }
         if (encounter.oneShot) {
           this.resolvedWandererEncounters.add(encounter.id);
+        }
+        if (encounter.id === 'tanuki-shenanigans') {
+          // The offer is out and the trickster is met. The flag flips only
+          // after the offer so isCompleted was still false when the offer
+          // was placed; the completion poll (or the accept press) picks up
+          // the reward from here.
+          this.setFlag('tanuki.found', true);
         }
         return { kind: 'quest', accepted: true };
       }
@@ -25225,6 +25250,34 @@ export class SnakeGame implements QuestRuntime {
     this.wandererHistory.set(id, {
       ...current,
       seen: current.seen + 1,
+    });
+  }
+
+  /**
+   * Meeting the trickster in the bamboo grove is finding it, even when the
+   * player hesitates instead of accepting. The flipped flag would otherwise
+   * block the quest offer (isCompleted returns true) and strand the reward
+   * forever, so the quest is paid out directly when no offer is in flight.
+   */
+  private settleTanukiShenanigansQuest(): void {
+    this.setFlag('tanuki.found', true);
+    const quest = this.registry.getById('tanukis-shenanigans');
+    if (!quest) {
+      return;
+    }
+    const completed = this.questController.completeQuestById(quest.id, this);
+    if (!completed) {
+      return;
+    }
+    this.emitWorldEvent({
+      type: 'quest-completed',
+      roomId: this.snake.currentRoomId,
+      severity: 20,
+      loudness: 8,
+      tags: ['quest', 'completed', quest.id],
+      summary: `${quest.label} was completed.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { questId: quest.id, label: quest.label },
     });
   }
 
