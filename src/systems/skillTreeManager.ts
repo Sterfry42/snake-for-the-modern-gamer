@@ -571,10 +571,11 @@ export class SkillTreeManager implements SkillTreeRuntime {
   }
 
   onArcanePulseCast(): void {
-    const head = this.scene.snakeGame.getSnakeBody()[0];
-    const cell = this.scene.grid.cell;
-    const worldX = head ? head.x * cell + cell / 2 : (this.scene.grid.cols * cell) / 2;
-    const worldY = head ? head.y * cell + cell / 2 : (this.scene.grid.rows * cell) / 2;
+    // tileToWorld strips the current room offset — raw `head.x * cell`
+    // only lands in the right place in room 0,0,0.
+    const { x: worldX, y: worldY } = this.scene.tileToWorld(
+      this.scene.snakeGame.getSnakeBody()[0] ?? null,
+    );
 
     this.scene.addScore(4);
     this.scene.growSnake(2);
@@ -603,10 +604,9 @@ export class SkillTreeManager implements SkillTreeRuntime {
   onArcaneVeilTriggered(): void {
     this.juice.arcaneVeilBurst();
 
-    const head = this.scene.snakeGame.getSnakeBody()[0];
-    const cell = this.scene.grid.cell;
-    const worldX = head ? head.x * cell + cell / 2 : (this.scene.grid.cols * cell) / 2;
-    const worldY = head ? head.y * cell + cell / 2 : (this.scene.grid.rows * cell) / 2;
+    const { x: worldX, y: worldY } = this.scene.tileToWorld(
+      this.scene.snakeGame.getSnakeBody()[0] ?? null,
+    );
 
     const veil = this.scene.add
       .circle(worldX, worldY, 18, 0xffffff, 0.25)
@@ -638,10 +638,9 @@ export class SkillTreeManager implements SkillTreeRuntime {
   }
 
   onSpellCastPresentation(color: number, radius = 12, message?: string): void {
-    const head = this.scene.snakeGame.getSnakeBody()[0];
-    const cell = this.scene.grid.cell;
-    const worldX = head ? head.x * cell + cell / 2 : (this.scene.grid.cols * cell) / 2;
-    const worldY = head ? head.y * cell + cell / 2 : (this.scene.grid.rows * cell) / 2;
+    const { x: worldX, y: worldY } = this.scene.tileToWorld(
+      this.scene.snakeGame.getSnakeBody()[0] ?? null,
+    );
 
     this.juice.arcaneSpellUnlocked();
 
@@ -667,10 +666,9 @@ export class SkillTreeManager implements SkillTreeRuntime {
   onSummonFamiliarCast(): void {
     this.scene.snakeGame.summonRatFamiliar(90);
 
-    const head = this.scene.snakeGame.getSnakeBody()[0];
-    const cell = this.scene.grid.cell;
-    const worldX = head ? head.x * cell + cell / 2 : (this.scene.grid.cols * cell) / 2;
-    const worldY = head ? head.y * cell + cell / 2 : (this.scene.grid.rows * cell) / 2;
+    const { x: worldX, y: worldY } = this.scene.tileToWorld(
+      this.scene.snakeGame.getSnakeBody()[0] ?? null,
+    );
 
     this.juice.arcaneSpellUnlocked();
 

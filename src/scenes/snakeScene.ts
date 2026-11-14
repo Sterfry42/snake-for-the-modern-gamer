@@ -12121,7 +12121,14 @@ export default class SnakeScene extends Phaser.Scene {
       this.juice.setDangerLevel(0);
     }
   }
-  private tileToWorld(position?: Vector2Like | null): { x: number; y: number } {
+  /**
+   * Canonical global-tile → scene-pixel conversion for the current room.
+   * Snake body segments are stored in global grid coordinates (room offset
+   * included), so callers must route head/world positions through this
+   * helper instead of multiplying by `grid.cell` directly — direct
+   * multiplication only renders correctly in room 0,0,0.
+   */
+  tileToWorld(position?: Vector2Like | null): { x: number; y: number } {
     const cell = this.grid.cell;
     const fallback = this.snakeGame.getSnakeBody()[0] ?? {
       x: this.grid.cols / 2,
