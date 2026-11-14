@@ -335,7 +335,7 @@ export class BossManager {
       }
       // Fallback: biased toward center if no flee direction works
       if (boss.body.length > 0 && this.rng() < 0.5) {
-        const dir = this._pickDirectionTowardCenter(boss, Math.random);
+        const dir = this._pickDirectionTowardCenter(boss, this.rng);
         if (dir) {
           boss.direction = dir;
           this.attemptMove(boss, boss.direction, deps, true);
@@ -424,7 +424,7 @@ export class BossManager {
     }
     // Proximity not met: shuffle biased toward center
     if (boss.body.length > 0 && this.rng() < 0.2) {
-      const dir = this._pickDirectionTowardCenter(boss, Math.random);
+      const dir = this._pickDirectionTowardCenter(boss, this.rng);
       if (dir) {
         boss.direction = dir;
         this.attemptMove(boss, boss.direction, deps, true);
