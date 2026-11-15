@@ -44,6 +44,7 @@ interface SnakeGamePrivate {
   findEncounterSpawn(roomId: string): Vector2Like | null;
   materializeActorsForRoom(room: RoomSnapshot): number;
   maybeMarkTownHostility(room: RoomSnapshot): void;
+  queueLibertyLandmarkReveal(roomId: string, room: RoomSnapshot): void;
   noteBanditRaidDefeat(enemy: EnemyInstance, eaten: boolean): void;
   tickFactionRaidGameplay(): void;
   tickNpcBodies(room: RoomSnapshot): void;
@@ -123,6 +124,43 @@ describe('Liberty footballs', () => {
     game.stepFootballs({ x: 0, y: 0 });
 
     expect(game.getFootballs('0,0,0')).toHaveLength(0);
+  });
+
+  it('anchors football FX flags to global tile coordinates in non-origin rooms', () => {
+    const game = createGame();
+    const { cols } = defaultGameConfig.grid;
+
+    game.spawnFootball('1,0,0', { x: 5, y: 5 }, { x: 1, y: 0 });
+
+    const pass = game.getFlag<{ roomId: string; from: Vector2Like; to: Vector2Like }>(
+      'ui.footballPass',
+    );
+    expect(pass?.roomId).toBe('1,0,0');
+    expect(pass?.from).toEqual({ x: 5 + cols, y: 5 });
+    expect(pass?.to).toEqual({ x: 6 + cols, y: 5 });
+    game.setFlag('ui.footballPass', undefined);
+
+    expect(game.catchFootball('1,0,0', { x: 6, y: 5 })).toBe(true);
+    const catchFx = game.getFlag<{ roomId: string; x: number; y: number }>('ui.footballCatch');
+    expect(catchFx?.roomId).toBe('1,0,0');
+    expect(catchFx?.x).toBe(6 + cols);
+    expect(catchFx?.y).toBe(5);
+    game.setFlag('ui.footballCatch', undefined);
+
+    game.placeSnakeBodyAtLocal('1,0,0', { x: 10, y: 10 }, { x: 1, y: 0 });
+    const room = game.getRoom('1,0,0');
+    const rows = room.layout.map((row) => row.split(''));
+    rows[5]![7] = '#';
+    room.layout = rows.map((row) => row.join(''));
+    game.spawnFootball('1,0,0', { x: 5, y: 5 }, { x: 1, y: 0 });
+    game.setFlag('ui.footballPass', undefined);
+
+    game.stepFootballs();
+
+    const fumble = game.getFlag<{ roomId: string; x: number; y: number }>('ui.footballFumble');
+    expect(fumble?.roomId).toBe('1,0,0');
+    expect(fumble?.x).toBe(6 + cols);
+    expect(fumble?.y).toBe(5);
   });
 });
 
@@ -492,6 +530,66 @@ describe('town and guild hostility split', () => {
 
     expect(game.isTownHostileForRoom(town, '0,0,0')).toBe(false);
     expect(game.isTownHostileForRoom(town, '1,0,0')).toBe(true);
+  });
+
+  it('anchors town hostility and liberty landmark FX flags to global coordinates', () => {
+    const game = createGame();
+    const { cols, rows } = defaultGameConfig.grid;
+    const roomId = '2,1,0';
+    const room = game.getRoom(roomId);
+    room.layout = Array.from({ length: rows }, () => '.'.repeat(cols));
+    room.town = {
+      id: 'hostile-town',
+      name: 'Hostile Town',
+      wantedLevel: 4,
+      suspicion: 30,
+      reputation: 10,
+      center: { x: 8, y: 8 },
+      residents: [],
+      districtByRoomId: { [roomId]: 'gate' },
+    } as unknown as never;
+
+    (game as unknown as SnakeGamePrivate).maybeMarkTownHostility(room);
+
+    const hostility = game.getFlag<{ roomId: string; x: number; y: number; label: string }>(
+      'ui.townHostility',
+    );
+    expect(hostility?.roomId).toBe(roomId);
+    expect(hostility?.x).toBe(8 + 2 * cols);
+    expect(hostility?.y).toBe(8 + 1 * rows);
+
+    game.setFlag('ui.townHostility', undefined);
+    room.allNiteDiner = {
+      dinerName: 'All-Nite Diner',
+      cook: { x: 7, y: 7 },
+    } as unknown as never;
+    room.biomeId = 'liberty-badlands';
+
+    (game as unknown as SnakeGamePrivate).queueLibertyLandmarkReveal(roomId, room);
+
+    const reveal = game.getFlag<{ roomId: string; x: number; y: number; kind: string }>(
+      'ui.libertyLandmarkReveal',
+    );
+    expect(reveal?.roomId).toBe(roomId);
+    expect(reveal?.kind).toBe('diner');
+    expect(reveal?.x).toBe(7 + 2 * cols);
+    expect(reveal?.y).toBe(7 + 1 * rows);
+  });
+
+  it('anchors the Freak You portal FX to global coordinates in the target room', () => {
+    const game = createGame();
+    const { cols, rows } = defaultGameConfig.grid;
+
+    (game as unknown as { startFreakYouQuest: (giverRoomId: string) => void }).startFreakYouQuest(
+      '0,0,0',
+    );
+
+    const portal = game.getFlag<{ roomId: string; x: number; y: number }>('ui.freakYouPortal');
+    expect(portal).toBeTruthy();
+    const [roomX = 0, roomY = 0] = portal!.roomId.split(',').map(Number);
+    expect(portal!.roomId).not.toBe('0,0,0');
+    expect(portal!.x).toBe(roomX * cols + Math.floor(cols / 2));
+    expect(portal!.y).toBe(roomY * rows + Math.floor(rows / 2));
   });
 
   it('does not spawn guard hostile shells from non-open wanted suspicion alone', () => {

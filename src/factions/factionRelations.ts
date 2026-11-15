@@ -100,7 +100,14 @@ export function relationBetweenFactions(a: string, b: string): FactionRelationSt
 }
 
 export function actorPrimaryFaction(actor: Actor): ActorFactionId | string {
-  if (actor.factionId) return String(actor.factionId);
+  if (actor.factionId) {
+    // Legacy saves used dotted wildlife faction ids that never matched the
+    // DEFAULT_RELATIONS table; normalize them onto the canonical keys.
+    const factionId = String(actor.factionId);
+    if (factionId === 'wildlife.predator') return 'predators';
+    if (factionId === 'wildlife.prey') return 'wildlife';
+    return factionId;
+  }
   switch (actor.role) {
     case 'guard':
     case 'gateGuard':

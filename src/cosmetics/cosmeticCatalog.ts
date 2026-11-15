@@ -166,6 +166,8 @@ export const HAT_DEFINITIONS: readonly HatDefinition[] = [
   { id: 'market-cap', label: 'Market Cap', cost: 18 },
   { id: 'ember-cowl', label: 'Ember Cowl', cost: 30 },
   { id: 'pearl-crown', label: 'Pearl Crown', cost: 42 },
+  { id: 'dragon-helm', label: 'Dragon Helm', cost: 0 },
+  { id: 'master-broth', label: 'Master Broth', cost: 0 },
   { id: 'unicorn-horn', label: 'Unicorn Horn', cost: 55 },
   { id: 'demon-horns', label: 'Demon Horns', cost: 0 },
 ];

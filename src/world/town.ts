@@ -1291,7 +1291,7 @@ export function applyTownCrime(town: TownStructure, crime: TownCrime): TownStruc
     0,
     100,
   );
-  next.rumors = [rumorFromCrime(next, crime), ...next.rumors].slice(0, 8);
+  next.rumors = [rumorFromCrime(next, crime, nextCrimeRumorSeq(next)), ...next.rumors].slice(0, 8);
   if (crime.kind === 'guildJobDiscovered' && next.thievesGuild) {
     next.thievesGuild.karma = clamp(next.thievesGuild.karma - 5, -100, 100);
   }
@@ -1621,12 +1621,31 @@ function getReputationDelta(crime: TownCrime): number {
   }
 }
 
-function rumorFromCrime(town: TownStructure, crime: TownCrime): TownRumor {
+/**
+ * Rumor ids persist in town runtime state, so the next crime rumor sequence is
+ * derived from the highest surviving crime rumor id. Keying on list length
+ * collided once the rumor list hit its cap, letting two different crimes share
+ * an id and get deduplicated as one in actor conversations.
+ */
+function nextCrimeRumorSeq(town: TownStructure): number {
+  const prefix = `rumor-${town.id}-`;
+  let maxSeq = 0;
+  for (const rumor of town.rumors) {
+    if (!rumor.id.startsWith(prefix)) continue;
+    const value = Number(rumor.id.slice(prefix.length));
+    if (Number.isInteger(value) && value > maxSeq) {
+      maxSeq = value;
+    }
+  }
+  return maxSeq + 1;
+}
+
+function rumorFromCrime(town: TownStructure, crime: TownCrime, seq: number): TownRumor {
   const summary = crime.witnessed
     ? `The snake was seen committing ${crime.kind.replace(/([A-Z])/g, ' $1').toLowerCase()}.`
     : `Someone whispers that ${town.name} is missing something and a snake was nearby.`;
   return {
-    id: `rumor-${town.id}-${town.rumors.length + 1}`,
+    id: `rumor-${town.id}-${seq}`,
     townId: town.id,
     kind: 'crime',
     summary,

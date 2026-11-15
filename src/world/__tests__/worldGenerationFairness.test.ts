@@ -288,6 +288,26 @@ function oppositeEdgeTile(
     : room.layout[grid.rows - 1]?.[index];
 }
 
+const TOWN_CORNER_EDGES: Record<
+  'northWest' | 'northEast' | 'southWest' | 'southEast',
+  readonly ['north' | 'south' | 'east' | 'west', 'north' | 'south' | 'east' | 'west']
+> = {
+  northWest: ['north', 'west'],
+  northEast: ['north', 'east'],
+  southWest: ['south', 'west'],
+  southEast: ['south', 'east'],
+};
+
+function townBlockedSides(room: RoomSnapshot): ReadonlySet<string> {
+  const blocked = new Set<string>(room.townPerimeter?.sidesFacingTown ?? []);
+  for (const corner of room.townPerimeter?.cornersFacingTown ?? []) {
+    for (const side of TOWN_CORNER_EDGES[corner]) {
+      blocked.add(side);
+    }
+  }
+  return blocked;
+}
+
 function neighborEdgeTile(
   room: RoomSnapshot,
   direction: 'east' | 'south',
@@ -464,7 +484,17 @@ describe('world generation fairness', () => {
           if (!first || !second) {
             continue;
           }
-          if (first.town || first.townPerimeter || second.town || second.townPerimeter) {
+          const oppositeSide = direction === 'east' ? 'west' : 'north';
+          // Town district rooms are fully walled interiors; town perimeter rooms
+          // are deliberately walled only on the sides (and corners) facing the
+          // town. Every other border edge is normal terrain and must stay
+          // mutually consistent with its neighbor.
+          if (
+            first.town ||
+            second.town ||
+            townBlockedSides(first).has(direction) ||
+            townBlockedSides(second).has(oppositeSide)
+          ) {
             continue;
           }
           const length =

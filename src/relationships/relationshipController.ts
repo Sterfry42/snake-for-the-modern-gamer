@@ -27,6 +27,7 @@ import { clamp } from '../core/math.js';
 interface RelationshipRuntime {
   getFlag<T = unknown>(key: string): T | undefined;
   setFlag(key: string, value: unknown): void;
+  rng: () => number;
 }
 
 const STATES_FLAG = 'relationships.states';
@@ -1801,7 +1802,7 @@ export class RelationshipController {
     const childAge = roomsVisited - child.createdRoom;
     const difficulty = Math.min(8, Math.floor(childAge / 50));
     const maxScore = 10 + difficulty * 3;
-    const score = Math.floor(Math.random() * (maxScore + 1));
+    const score = Math.floor(this.runtime.rng() * (maxScore + 1));
 
     if (score >= 5) {
       // Successful catch

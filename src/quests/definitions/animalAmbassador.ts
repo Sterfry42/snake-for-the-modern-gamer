@@ -1,5 +1,6 @@
 import { Quest } from '../quest.js';
 import type { QuestRuntime } from '../quest.js';
+import { normalizeTamedTypes } from '../../animals/companions.js';
 
 class AnimalAmbassadorQuest extends Quest {
   constructor() {
@@ -7,16 +8,11 @@ class AnimalAmbassadorQuest extends Quest {
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {
-    return this.progressSinceAccept(runtime, 'animalsTamed') >= 5;
-  }
-
-  protected override baselineKeys(): readonly string[] {
-    return ['animalsTamed'];
+    return normalizeTamedTypes(runtime.getFlag('animals.tamedTypes')).length >= 5;
   }
 
   override onReward(runtime: QuestRuntime): void {
     runtime.addScore(100);
-    runtime.addItem('animal-whistle', 1);
   }
 }
 

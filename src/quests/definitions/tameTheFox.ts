@@ -1,5 +1,6 @@
 import { Quest } from '../quest.js';
 import type { QuestRuntime } from '../quest.js';
+import { normalizeTamedTypes } from '../../animals/companions.js';
 
 class TameTheFoxQuest extends Quest {
   constructor() {
@@ -7,11 +8,7 @@ class TameTheFoxQuest extends Quest {
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {
-    return this.progressSinceAccept(runtime, 'animalsTamed') >= 1;
-  }
-
-  protected override baselineKeys(): readonly string[] {
-    return ['animalsTamed'];
+    return normalizeTamedTypes(runtime.getFlag('animals.tamedTypes')).includes('fox');
   }
 
   override onReward(runtime: QuestRuntime): void {

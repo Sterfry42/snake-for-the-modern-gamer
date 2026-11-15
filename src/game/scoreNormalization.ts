@@ -73,18 +73,8 @@ export function normalizeScore(
   const normalizedAmount = Math.min(amount, remaining);
   tickMap.set(category, currentTotal + normalizedAmount);
 
-  // Clean up old ticks (keep last 100 ticks)
-  if (tickMap.size > 50) {
-    const tickKeys = Array.from(tickMap.keys())
-      .map(Number)
-      .sort((a, b) => a - b);
-    const cutoff = tickKeys[Math.max(0, tickKeys.length - 20)] ?? 0;
-    for (const [keyStr] of tickMap) {
-      if (Number(keyStr) < cutoff) {
-        tickMap.delete(keyStr);
-      }
-    }
-  }
+  // Tick-map pruning happens in advanceNormalizationTick; this per-category
+  // map only holds the current tick's category totals and never grows.
 
   return Math.max(1, Math.ceil(normalizedAmount));
 }

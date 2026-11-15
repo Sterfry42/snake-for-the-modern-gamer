@@ -34,6 +34,20 @@ export function normalizeAnimalCompanions(value: unknown): AnimalCompanion[] {
     .filter((entry) => entry.id.length > 0);
 }
 
+/**
+ * Distinct animal types the player has ever tamed this run. Taming is a
+ * one-way street for quest progress: releasing a companion does not un-tame
+ * the species, so the set only grows.
+ */
+export function normalizeTamedTypes(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  for (const entry of value) {
+    if (typeof entry === 'string' && entry.length > 0) seen.add(entry);
+  }
+  return [...seen];
+}
+
 export function getCompanionBondTier(bond: number): string {
   if (bond >= 20) return 'SOULBOUND';
   if (bond >= 10) return 'LOYAL';

@@ -5,6 +5,7 @@ import type { BiomeMap } from '../biomeMap.js';
 import type { ProtectedCells, RoomGenerationContext } from '../types.js';
 import type { WorldGenerationIdentity } from '../worldGenerationIdentity.js';
 import { hashRoomCoordinates } from '../worldHash.js';
+import { mergeProtectedCells } from '../edgeAccess.js';
 
 export class CrossRoomFeatureOperations {
   private readonly worldSalt: number;
@@ -20,18 +21,15 @@ export class CrossRoomFeatureOperations {
     if (context.isOcean || context.isDenseForest) {
       return;
     }
-    this.placeCrossRoomBarriers(
-      context.layout,
-      context.grid,
-      context.roomId,
+    // Barriers and rivers cross room borders, so they must respect the reserved
+    // edge-access cells of every room they touch; clobbering a reserved runup
+    // leaves one side of the border open and the other walled in.
+    const protectedCells = mergeProtectedCells(
+      context.protectedCells,
       context.spawnGuard?.protected,
     );
-    this.placeCrossRoomRivers(
-      context.layout,
-      context.grid,
-      context.roomId,
-      context.spawnGuard?.protected,
-    );
+    this.placeCrossRoomBarriers(context.layout, context.grid, context.roomId, protectedCells);
+    this.placeCrossRoomRivers(context.layout, context.grid, context.roomId, protectedCells);
   }
 
   private placeCrossRoomBarriers(

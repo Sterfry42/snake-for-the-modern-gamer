@@ -20,8 +20,7 @@ export class AuthoritativeDeaths {
     const progression = this.progression();
     const execution =
       Boolean(this.game.getFlag('boss.insultedAngel')) ||
-      this.game.getFlag('internal.killedByBossKind') === 'angel' ||
-      this.game.getFlag('player.killedByBossKind') === 'angel';
+      this.game.getFlag('internal.killedByBossKind') === 'angel';
     let source: RescueSource | undefined;
     if (execution) {
       progression.skills.setExtraLives(0);

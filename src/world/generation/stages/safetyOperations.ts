@@ -44,12 +44,19 @@ export class SafetyOperations {
     if (!context.town && !context.townPerimeter) {
       context.canvas.ensureHardEntranceRunups(5);
     }
-    const edgeAccessPlans =
-      context.town || context.townPerimeter
-        ? (context.reservedEdgeAccess ?? []).filter(
-            (plan) => plan.reason === 'townGate' || plan.reason === 'townExit',
-          )
-        : (context.reservedEdgeAccess ?? []);
+    const reservedEdgeAccess = context.reservedEdgeAccess ?? [];
+    const edgeAccessPlans = context.town
+      ? reservedEdgeAccess.filter(
+          (plan) => plan.reason === 'townGate' || plan.reason === 'townExit',
+        )
+      : context.townPerimeter
+        ? reservedEdgeAccess.filter((plan) => {
+            // Only the town-facing side is walled with a gate; the remaining
+            // edges are normal terrain and keep their reserved openings.
+            const facesTown = context.townPerimeter?.sidesFacingTown?.includes(plan.side);
+            return !facesTown || plan.reason === 'townGate' || plan.reason === 'townExit';
+          })
+        : reservedEdgeAccess;
     for (const plan of edgeAccessPlans) {
       carveEdgeOpening(context.layout, context.grid, plan);
     }

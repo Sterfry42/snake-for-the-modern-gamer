@@ -1,8 +1,14 @@
 import { readFileSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { ALL_VILLAGE_SHOP_HAT_IDS, VILLAGE_SHOP_HATS } from '../villageShop.js';
+import { HAT_DEFINITIONS } from '../../cosmetics/cosmeticCatalog.js';
+import {
+  ALL_VILLAGE_SHOP_HAT_IDS,
+  VILLAGE_SHOP_HATS,
+  VILLAGE_SHOP_SOLD_HATS,
+} from '../villageShop.js';
 
 describe('village shop completeness', () => {
   describe('hats', () => {
@@ -23,6 +29,43 @@ describe('village shop completeness', () => {
     it('ALL_VILLAGE_SHOP_HAT_IDS and VILLAGE_SHOP_HATS have the same count', () => {
       expect(ALL_VILLAGE_SHOP_HAT_IDS.length).toBe(VILLAGE_SHOP_HATS.length);
     });
+  });
+});
+
+describe('quest hat rewards', () => {
+  // Quest rewards are validated against the full hat catalogs at apply
+  // time, so every hat a quest grants must exist in both catalogs even
+  // though quest-exclusive hats are never on sale.
+  function questGrantedHatIds(): string[] {
+    const definitionsDir = resolve(import.meta.dirname, '../../quests/definitions');
+    const granted = new Set<string>();
+    for (const file of readdirSync(definitionsDir)) {
+      if (!file.endsWith('.ts')) continue;
+      const source = readFileSync(resolve(definitionsDir, file), 'utf-8');
+      for (const match of source.matchAll(/addCosmeticReward\(\s*'hat'\s*,\s*'([^']+)'\s*\)/g)) {
+        granted.add(match[1]);
+      }
+    }
+    return [...granted];
+  }
+
+  it('every quest-granted hat id resolves in the shop and cosmetic catalogs', () => {
+    const catalogIds = new Set<string>(VILLAGE_SHOP_HATS.map((hat) => hat.id));
+    const cosmeticIds = new Set<string>(HAT_DEFINITIONS.map((hat) => hat.id));
+    const granted = questGrantedHatIds();
+    expect(granted.length).toBeGreaterThan(0);
+    for (const hatId of granted) {
+      expect(catalogIds.has(hatId), `quest hat "${hatId}" is not in VILLAGE_SHOP_HATS`).toBe(true);
+      expect(cosmeticIds.has(hatId), `quest hat "${hatId}" is not in HAT_DEFINITIONS`).toBe(true);
+    }
+  });
+
+  it('keeps quest-exclusive hats out of the sale list', () => {
+    const soldIds = new Set<string>(VILLAGE_SHOP_SOLD_HATS.map((hat) => hat.id));
+    for (const hatId of ['dragon-helm', 'master-broth', 'demon-horns']) {
+      expect(soldIds.has(hatId)).toBe(false);
+    }
+    expect(VILLAGE_SHOP_SOLD_HATS.length).toBe(VILLAGE_SHOP_HATS.length - 3);
   });
 });
 

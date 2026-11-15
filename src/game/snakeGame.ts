@@ -117,6 +117,7 @@ import {
   feedAnimalCompanion,
   getCompanionHuntingBonus,
   normalizeAnimalCompanions,
+  normalizeTamedTypes,
   toAnimalCompanionView,
   type AnimalCompanion,
   type AnimalCompanionView,
@@ -1445,6 +1446,7 @@ export class SnakeGame implements QuestRuntime {
     this.relationshipController = new RelationshipController({
       getFlag: (key) => this.getFlag(key),
       setFlag: (key, value) => this.setFlag(key, value),
+      rng: this._rng,
     });
     this.actors = new ActorSystem();
     this.actors.setTelemetrySink((event) => this.emitActorTelemetry(event));
@@ -4761,15 +4763,30 @@ export class SnakeGame implements QuestRuntime {
       this.resolvedWandererEncounters.add('freak-joey');
       this.addScore(25);
     }
-    const activeDuel = this.getFlag<{ id: string; rewardScore?: number }>('npc.activeDuel');
-    if (activeDuel && !this.enemies.hasEnemyWithId(activeDuel.id)) {
-      if (activeDuel.id !== 'freak-joey' && activeDuel.rewardScore) {
-        this.addScore(activeDuel.rewardScore);
-      }
-      this.setFlag('npc.activeDuel', undefined);
-    }
+    this.settleActiveDuel();
 
     return null;
+  }
+
+  /**
+   * Settle a named duel once its duelist has left the field. The reward
+   * credits the winner, and duels that gate a registered quest flip the
+   * quest's completion flag here so the quest controller can pay out.
+   */
+  private settleActiveDuel(): void {
+    const activeDuel = this.getFlag<{ id: string; rewardScore?: number }>('npc.activeDuel');
+    if (!activeDuel || this.enemies.hasEnemyWithId(activeDuel.id)) {
+      return;
+    }
+    if (activeDuel.id !== 'freak-joey' && activeDuel.rewardScore) {
+      this.addScore(activeDuel.rewardScore);
+    }
+    if (activeDuel.id === 'kappa-duel') {
+      // Kappa's Challenge completes through the duel route; the cucumber
+      // offering remains a mountain legend.
+      this.setFlag('kappa.defeated', true);
+    }
+    this.setFlag('npc.activeDuel', undefined);
   }
 
   private stepRivalSnakeEnemies(roomsChanged: Set<string>): { currentRoomAppleChanged: boolean } {
@@ -5553,9 +5570,12 @@ export class SnakeGame implements QuestRuntime {
       return;
     }
     this.setFlag(key, true);
+    const anchor = this.localToWorld(roomId, reveal);
     this.setFlag('ui.libertyLandmarkReveal', {
       roomId,
       ...reveal,
+      x: anchor.x,
+      y: anchor.y,
     });
   }
 
@@ -5680,7 +5700,8 @@ export class SnakeGame implements QuestRuntime {
         y: aged.position.y + aged.direction.y,
       };
       if (!this.isCatchableFootballTile(room, nextPosition)) {
-        this.setFlag('ui.footballFumble', { roomId, x: aged.position.x, y: aged.position.y });
+        const fumbleWorld = this.localToWorld(roomId, aged.position);
+        this.setFlag('ui.footballFumble', { roomId, x: fumbleWorld.x, y: fumbleWorld.y });
         nextFootballs.push({ ...aged, state: 'grounded', age: 0, maxAge: 3 });
         roomsChanged.add(roomId);
         continue;
@@ -5706,8 +5727,8 @@ export class SnakeGame implements QuestRuntime {
         });
         this.setFlag('ui.footballPass', {
           roomId,
-          from: nextPosition,
-          to: headLocal,
+          from: this.localToWorld(roomId, nextPosition),
+          to: this.localToWorld(roomId, headLocal),
         });
         roomsChanged.add(roomId);
         continue;
@@ -6777,10 +6798,11 @@ export class SnakeGame implements QuestRuntime {
         actorId,
       );
     });
+    const hostilityAnchor = this.localToWorld(room.id, town.center);
     this.setFlag('ui.townHostility', {
       roomId: room.id,
-      x: town.center.x,
-      y: town.center.y,
+      x: hostilityAnchor.x,
+      y: hostilityAnchor.y,
       label,
     });
   }
@@ -18076,6 +18098,12 @@ export class SnakeGame implements QuestRuntime {
       joinedAtRoom: this.getRoomsVisitedCount(),
     };
     this.setAnimalCompanionState([...companions, companion]);
+    // Quest progress counts species ever tamed, so releasing the animal
+    // later does not un-tame the type.
+    const tamedTypes = normalizeTamedTypes(this.getFlag('animals.tamedTypes'));
+    if (!tamedTypes.includes(animal.type)) {
+      this.setFlag('animals.tamedTypes', [...tamedTypes, animal.type]);
+    }
     this.emitWorldEvent({
       type: 'animal-tamed',
       roomId,
@@ -18336,8 +18364,8 @@ export class SnakeGame implements QuestRuntime {
     this.footballs.set(roomId, footballs);
     this.setFlag('ui.footballPass', {
       roomId,
-      from: origin,
-      to: spawn,
+      from: this.localToWorld(roomId, origin),
+      to: this.localToWorld(roomId, spawn),
     });
     return football;
   }
@@ -18364,10 +18392,11 @@ export class SnakeGame implements QuestRuntime {
     const bonusScore = caffeine > 0 ? 30 : 15;
     this.addScore(bonusScore);
     this.setFlag('liberty.caffeineCatches', caffeine > 0 ? caffeine - 1 : undefined);
+    const catchWorld = this.localToWorld(roomId, localPosition);
     this.setFlag('ui.footballCatch', {
       roomId,
-      x: localPosition.x,
-      y: localPosition.y,
+      x: catchWorld.x,
+      y: catchWorld.y,
       score: bonusScore,
     });
     return bonusScore;
@@ -18547,6 +18576,9 @@ export class SnakeGame implements QuestRuntime {
       if (encounter.oneShot) {
         this.resolvedWandererEncounters.add(encounter.id);
       }
+      if (encounter.id === 'tanuki-shenanigans') {
+        this.settleTanukiShenanigansQuest();
+      }
       return { kind: encounter.kind, accepted: false };
     }
 
@@ -18573,6 +18605,13 @@ export class SnakeGame implements QuestRuntime {
         }
         if (encounter.oneShot) {
           this.resolvedWandererEncounters.add(encounter.id);
+        }
+        if (encounter.id === 'tanuki-shenanigans') {
+          // The offer is out and the trickster is met. The flag flips only
+          // after the offer so isCompleted was still false when the offer
+          // was placed; the completion poll (or the accept press) picks up
+          // the reward from here.
+          this.setFlag('tanuki.found', true);
         }
         return { kind: 'quest', accepted: true };
       }
@@ -23091,10 +23130,11 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('ui.questInteraction', {
       message: 'A portal opens nearby. A future version of you unfolds through it.',
     });
+    const portalAnchor = this.localToWorld(targetRoomId, portal);
     this.setFlag('ui.freakYouPortal', {
       roomId: targetRoomId,
-      x: portal.x,
-      y: portal.y,
+      x: portalAnchor.x,
+      y: portalAnchor.y,
       startedAtMs: this.getFlag<number>('timeMs') ?? 0,
       durationMs: 3500,
     });
@@ -25224,6 +25264,34 @@ export class SnakeGame implements QuestRuntime {
     this.wandererHistory.set(id, {
       ...current,
       seen: current.seen + 1,
+    });
+  }
+
+  /**
+   * Meeting the trickster in the bamboo grove is finding it, even when the
+   * player hesitates instead of accepting. The flipped flag would otherwise
+   * block the quest offer (isCompleted returns true) and strand the reward
+   * forever, so the quest is paid out directly when no offer is in flight.
+   */
+  private settleTanukiShenanigansQuest(): void {
+    this.setFlag('tanuki.found', true);
+    const quest = this.registry.getById('tanukis-shenanigans');
+    if (!quest) {
+      return;
+    }
+    const completed = this.questController.completeQuestById(quest.id, this);
+    if (!completed) {
+      return;
+    }
+    this.emitWorldEvent({
+      type: 'quest-completed',
+      roomId: this.snake.currentRoomId,
+      severity: 20,
+      loudness: 8,
+      tags: ['quest', 'completed', quest.id],
+      summary: `${quest.label} was completed.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { questId: quest.id, label: quest.label },
     });
   }
 
