@@ -25,6 +25,8 @@ export interface SnakeSpritePalette {
   patternColor: string;
   outlineColor: string;
   eyeColor: string;
+  /** Little legs poking out the sides. Defaults to `outlineColor`. */
+  feetColor?: string;
 }
 
 const VARIANTS: readonly SnakeSpriteVariant[] = [
@@ -374,6 +376,38 @@ const TAIL_UP = {
   ] as const,
 };
 
+// Every segment carries feet poking out the sides — the little legs that
+// make a snake a snake. Drawn after the body so the feet sit on top of the
+// silhouette edges. Local space is the unrotated "<segment-family>-up" figure.
+const HEAD_FEET = [
+  [0, 5],
+  [0, 6],
+  [7, 5],
+  [7, 6],
+] as const;
+const BODY_FEET = [
+  [2, 0],
+  [3, 0],
+  [4, 7],
+  [5, 7],
+] as const;
+const TURN_FEET = [
+  [0, 0],
+  [0, 1],
+  [7, 5],
+  [7, 6],
+] as const;
+const TAIL_FEET = [
+  [0, 1],
+  [0, 2],
+  [7, 1],
+  [7, 2],
+] as const;
+
+function feetColorFor(palette: SnakeSpritePalette): string {
+  return palette.feetColor ?? palette.outlineColor;
+}
+
 function drawHead(
   context: CanvasRenderingContext2D,
   direction: 'up' | 'right' | 'down' | 'left',
@@ -386,6 +420,7 @@ function drawHead(
   drawPixels(context, rotatePoints(HEAD_BASE.belly, turns), pixelSize, palette.bellyColor);
   drawPixels(context, rotatePoints(HEAD_BASE.pattern, turns), pixelSize, palette.patternColor);
   drawPixels(context, rotatePoints(HEAD_BASE.eyes, turns), pixelSize, palette.eyeColor);
+  drawPixels(context, rotatePoints(HEAD_FEET, turns), pixelSize, feetColorFor(palette));
 }
 
 function drawBody(
@@ -409,6 +444,7 @@ function drawBody(
     pixelSize,
     palette.patternColor,
   );
+  drawPixels(context, rotatePoints(BODY_FEET, turns), pixelSize, feetColorFor(palette));
 }
 
 function drawTurn(
@@ -421,6 +457,7 @@ function drawTurn(
   drawPixels(context, rotatePoints(TURN_LEFT_UP.base, turns), pixelSize, palette.baseColor);
   drawPixels(context, rotatePoints(TURN_LEFT_UP.belly, turns), pixelSize, palette.bellyColor);
   drawPixels(context, rotatePoints(TURN_LEFT_UP.pattern, turns), pixelSize, palette.patternColor);
+  drawPixels(context, rotatePoints(TURN_FEET, turns), pixelSize, feetColorFor(palette));
 }
 
 function drawTail(
@@ -434,6 +471,7 @@ function drawTail(
   drawPixels(context, rotatePoints(TAIL_UP.base, turns), pixelSize, palette.baseColor);
   drawPixels(context, rotatePoints(TAIL_UP.belly, turns), pixelSize, palette.bellyColor);
   drawPixels(context, rotatePoints(TAIL_UP.pattern, turns), pixelSize, palette.patternColor);
+  drawPixels(context, rotatePoints(TAIL_FEET, turns), pixelSize, feetColorFor(palette));
 }
 
 export const snakeSpriteRecipe: RuntimeSpriteRecipe<SnakeSpriteVariant, SnakeSpritePalette> = {
@@ -446,6 +484,7 @@ export const snakeSpriteRecipe: RuntimeSpriteRecipe<SnakeSpriteVariant, SnakeSpr
       palette.patternColor,
       palette.outlineColor,
       palette.eyeColor,
+      palette.feetColor ?? palette.outlineColor,
     ].join('-');
   },
   draw(context, variant, size, palette): void {
