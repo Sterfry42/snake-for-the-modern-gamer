@@ -1,3 +1,4 @@
+import type { WorldWork } from '../world/WorldWork.js';
 import { rememberStoryChoice } from '../quests/storyQuestCharacter.js';
 import { getStoryQuestDefinition, STORY_QUESTS } from '../quests/storyQuestCatalog.js';
 import { storyQuestConsequence } from '../quests/storyQuestConsequences.js';
@@ -992,6 +993,7 @@ export interface StepResult {
     current: AppleSnapshot | null;
     stateChanged: boolean;
     typeId?: string;
+    consumedSpawnId?: number;
   };
   roomsChanged: Set<string>;
   roomChanged: boolean;
@@ -3122,6 +3124,7 @@ export class SnakeGame implements QuestRuntime {
     let appleWorldPosition: Vector2Like | null = null;
     let appleEaten = false;
     let appleTypeId: string | undefined;
+    let consumedSpawnId: number | undefined;
 
     if (outcome.appleEaten) {
       const appleTransactionId = createDebugTransactionId('apple');
@@ -3181,6 +3184,7 @@ export class SnakeGame implements QuestRuntime {
       appleWorldPosition = consumption.worldPosition ?? null;
       appleStateChanged = appleStateChanged || consumption.changed;
       appleTypeId = consumption.typeId;
+      consumedSpawnId = consumption.consumedSpawnId;
 
       const nowMs = Number(this.getFlag<number>('timeMs') ?? 0);
       const lastAppleMs = Number(
@@ -3738,6 +3742,7 @@ export class SnakeGame implements QuestRuntime {
         current: appleSnapshot,
         stateChanged: appleStateChanged,
         typeId: appleTypeId,
+        consumedSpawnId,
       },
       roomsChanged,
       roomChanged: roomHasChanged,
@@ -12095,16 +12100,14 @@ export class SnakeGame implements QuestRuntime {
         : !isHostile && !roomDangerActive
           ? Math.max(15, decision.moveCooldown * 3)
           : decision.moveCooldown;
-      const travelPath = travelTarget
-        ? findActorGridPath({
-            start: body.position,
-            goals: [travelTarget],
-            canStandAt: (position) => this.canNpcBodyStandAt(room, body, position),
-          })
-        : undefined;
+      const travelPath = travelTarget ? this.planNpcTravel(room, body, travelTarget) : undefined;
+      if (travelTarget && travelPath === undefined) {
+        body.moveCooldown = 1;
+        continue;
+      }
       if (travelTarget) {
         work.pathsRequested = (work.pathsRequested ?? 0) + 1;
-        if (!travelPath) {
+        if (travelPath === null) {
           if (actor) {
             this.actors.recordActorTelemetry('actor.path_blocked', actor.id, 'loaded-travel-path', {
               roomId: room.id,
@@ -12255,6 +12258,58 @@ export class SnakeGame implements QuestRuntime {
   private farActorWorkCursor = 0;
   private lastFidelityNowMs = 0;
   private nextBusinessRecoveryAtMs = 0;
+
+  private worldWork?: WorldWork;
+  private readonly pathJobs = new Map<
+    string,
+    {
+      key: string;
+      result?: { directions: Vector2Like[] } | null;
+    }
+  >();
+
+  setBackgroundWorldWork(work: WorldWork): void {
+    this.worldWork = work;
+  }
+
+  private planNpcTravel(room: RoomSnapshot, body: NpcBodyState, target: Vector2Like) {
+    const local = () =>
+      findActorGridPath({
+        start: body.position,
+        goals: [target],
+        canStandAt: (position) => this.canNpcBodyStandAt(room, body, position),
+      });
+    if (!this.worldWork?.available()) return local();
+    const id = body.actorId ?? body.relationshipId;
+    const key = `${this.getReplicationEpoch()}:${room.id}:${this.world.getRoomRevision(room.id)}:${body.position.x},${body.position.y}:${target.x},${target.y}`;
+    const previous = this.pathJobs.get(id);
+    if (previous?.key === key) return previous.result;
+    if (!this.worldWork.canAccept()) return undefined;
+    if (this.pathJobs.size >= 96 && !previous) {
+      const oldest = this.pathJobs.keys().next().value;
+      if (oldest !== undefined) this.pathJobs.delete(oldest);
+    }
+    const entry: { key: string; result?: { directions: Vector2Like[] } | null } = { key };
+    const { cols, rows } = this.config.grid;
+    const walkable = new Uint8Array(cols * rows);
+    for (let y = 0; y < rows; y++)
+      for (let x = 0; x < cols; x++)
+        if (this.canNpcBodyStandAt(room, body, { x, y })) walkable[y * cols + x] = 1;
+    if (
+      !this.worldWork.request(
+        { kind: 'path', start: body.position, goal: target, cols, rows, walkable },
+        (result) => {
+          if (this.pathJobs.get(id) !== entry) return;
+          if (!result) this.pathJobs.delete(id);
+          else if (result.kind === 'path')
+            entry.result = result.directions && { directions: result.directions };
+        },
+      )
+    )
+      return undefined;
+    this.pathJobs.set(id, entry);
+    return undefined;
+  }
 
   enableServerSimulationFidelity(): void {
     this.serverSimulationFidelity = true;
@@ -15603,6 +15658,14 @@ export class SnakeGame implements QuestRuntime {
     this.snake.forceDirection(x, y);
   }
 
+  isInPlayerHouseInterior(): boolean {
+    const head = this.snake.bodySegments[0];
+    if (!head || this.snake.currentRoomId !== HOUSE_ROOM_ID) return false;
+    const { x, y } = this.worldToLocal(HOUSE_ROOM_ID, head);
+    const tile = this.getCurrentRoom().layout[y]?.[x];
+    return Boolean(tile && 'WETCKBPLDRZ'.includes(tile));
+  }
+
   getFlag<T = unknown>(key: string): T | undefined {
     return this.snake.flags[key] as T | undefined;
   }
@@ -18730,7 +18793,7 @@ export class SnakeGame implements QuestRuntime {
     return placed;
   }
 
-  firePlayerShot(direction: Vector2Like): boolean {
+  firePlayerShot(direction: Vector2Like, presentationId?: number): boolean {
     const active = this.powerupState;
     const hasGunEquipped = Boolean(this.getFlag<boolean>('equipment.gunEnabled'));
     const hasLegacyGunPowerup = Boolean(active && active.kind === 'gun' && active.remaining > 0);
@@ -18756,6 +18819,7 @@ export class SnakeGame implements QuestRuntime {
       }
       this.setFlag('equipment.libertyFootballCharges', Math.max(0, footballCharges - 1));
       this.setFlag('ui.playerShot', {
+        presentationId,
         x: head.x,
         y: head.y,
         roomId: this.snake.currentRoomId,
@@ -18771,6 +18835,7 @@ export class SnakeGame implements QuestRuntime {
       const fired = this.firePlayerBulletAndHandleDefeats(localHead, direction);
       if (fired) {
         this.setFlag('ui.playerShot', {
+          presentationId,
           x: head.x,
           y: head.y,
           roomId: this.snake.currentRoomId,
@@ -18797,6 +18862,7 @@ export class SnakeGame implements QuestRuntime {
         this.damageVisibleNpcActor(profile, position);
         this.angerNpc(this.snake.currentRoomId, 'shot');
         this.setFlag('ui.playerShot', {
+          presentationId,
           x: head.x,
           y: head.y,
           roomId: this.snake.currentRoomId,
@@ -18832,6 +18898,7 @@ export class SnakeGame implements QuestRuntime {
       );
       this.handleGoblinCampEntered(this.snake.currentRoomId, room);
       this.setFlag('ui.playerShot', {
+        presentationId,
         x: head.x,
         y: head.y,
         roomId: this.snake.currentRoomId,
@@ -18846,6 +18913,7 @@ export class SnakeGame implements QuestRuntime {
         this.setFlag('equipment.libertyFootballCharges', Math.max(0, footballCharges - 1));
       }
       this.setFlag('ui.playerShot', {
+        presentationId,
         x: head.x,
         y: head.y,
         roomId: this.snake.currentRoomId,

@@ -1,3 +1,5 @@
+import { isStatefulRandomGenerator } from '../core/rng.js';
+import type { WorldWork, WorldResult } from './WorldWork.js';
 import type { GridConfig, WorldConfig } from '../config/gameConfig.js';
 import type { Vector2Like } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
@@ -142,6 +144,62 @@ export class WorldService {
     return [...this.rooms.keys()];
   }
 
+  private readonly preparedTerrain = new Map<
+    string,
+    {
+      state: number;
+      ready?: Extract<WorldResult, { kind: 'room' }>;
+    }
+  >();
+
+  prefetchTerrain(roomId: string, work: WorldWork): void {
+    if (
+      !work.canAccept() ||
+      this.rooms.has(roomId) ||
+      this.preparedTerrain.has(roomId) ||
+      !isStatefulRandomGenerator(this.rng)
+    )
+      return;
+    if (this.preparedTerrain.size >= 24) {
+      const oldest = this.preparedTerrain.keys().next().value;
+      if (oldest !== undefined) this.preparedTerrain.delete(oldest);
+    }
+    const state = this.rng.getState();
+    const item: { state: number; ready?: Extract<WorldResult, { kind: 'room' }> } = { state };
+    if (
+      work.request(
+        {
+          kind: 'room',
+          id: roomId,
+          grid: this.grid,
+          config: this.generatorWorldConfig,
+          identity: this.worldGenerationIdentity,
+          rngState: state,
+        },
+        (result) => {
+          if (this.preparedTerrain.get(roomId) !== item) return;
+          if (result?.kind === 'room') item.ready = result;
+          else this.preparedTerrain.delete(roomId);
+        },
+      )
+    )
+      this.preparedTerrain.set(roomId, item);
+  }
+
+  private generateTerrain(roomId: string): RoomSnapshot {
+    const prepared = this.preparedTerrain.get(roomId);
+    this.preparedTerrain.delete(roomId);
+    if (
+      prepared?.ready &&
+      isStatefulRandomGenerator(this.rng) &&
+      (prepared.state === prepared.ready.rngState || this.rng.getState() === prepared.state)
+    ) {
+      if (prepared.state !== prepared.ready.rngState) this.rng.setState(prepared.ready.rngState);
+      return prepared.ready.room;
+    }
+    return this.generator.generate(roomId);
+  }
+
   getRoom(roomId: string): RoomSnapshot {
     assertValidRoomId(roomId);
     if (this.replicaOnly && !this.rooms.has(roomId))
@@ -192,7 +250,7 @@ export class WorldService {
         this.emitRoomGeneratedDebug(room, performance.now() - generationStartedAt);
         return room;
       }
-      const room = this.rooms.prepare(this.generator.generate(roomId));
+      const room = this.rooms.prepare(this.generateTerrain(roomId));
       for (const entrance of room.layerEntrances ?? []) {
         this.registerLayerEntrance(entrance);
       }

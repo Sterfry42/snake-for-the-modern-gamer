@@ -185,7 +185,7 @@ export function executeSceneGameplayAction(
     }
     case 'combatAction': {
       if (command.action === 'fire') {
-        const ok = game.firePlayerShot(command.direction);
+        const ok = game.firePlayerShot(command.direction, command.presentationId);
         return ok ? { ok } : { ok, reason: 'shot-unavailable' };
       }
       const result = game.throwBombToward(command.direction);

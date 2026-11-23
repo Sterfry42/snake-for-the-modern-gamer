@@ -86,6 +86,7 @@ import { mixColor } from '../ui/colorUtils.js';
 import { PartyOverlay } from '../ui/partyOverlay.js';
 import { WebSocketGameConnection } from '../session/WebSocketGameConnection.js';
 import { PlayerHoldSynchronizer } from '../session/PlayerHoldSynchronizer.js';
+import { AppleBitePresentation } from '../session/AppleBitePresentation.js';
 import type { DeathEncounterView, DeathChoice } from '../players/playerLifecycle.js';
 import type { ClientCommand, CommandResult } from '../session/ClientCommand.js';
 import { ServerConnectionMenu } from '../ui/serverConnectionMenu.js';
@@ -2047,6 +2048,9 @@ export default class SnakeScene extends Phaser.Scene {
   private sceneClient: SceneGameClient | null = null;
   private readReplica: SceneReadReplica | null = null;
   private stopLocalAuthority: (() => void) | null = null;
+  private nextShotPresentationId = 0;
+  private readonly predictedShots = new Set<number>();
+  private readonly appleBites = new AppleBitePresentation();
   private readonly remoteHold = new PlayerHoldSynchronizer();
   private remoteConnectionStatus: 'connected' | 'reconnecting' | 'closed' = 'connected';
   private readonly presentationFlags = new Map<string, unknown>();
@@ -2296,6 +2300,10 @@ export default class SnakeScene extends Phaser.Scene {
         this.partyOverlay = new PartyOverlay(backend, () => this.leaveServer());
         connection.onStatus?.((status) => {
           this.remoteConnectionStatus = status;
+          if (status !== 'connected') {
+            this.appleBites.reset();
+            this.predictedShots.clear();
+          }
           this.partyOverlay?.setStatus(status);
         });
       }
@@ -2369,6 +2377,17 @@ export default class SnakeScene extends Phaser.Scene {
               event.outcome.messages,
             );
           }
+          return;
+        }
+        if (event.type === 'apple.bite') {
+          if (event.epoch !== this.currentSnapshot?.replication?.epoch) return;
+          this.appleBites.useEpoch(event.epoch);
+          if (
+            event.roomId === this.currentRoomId &&
+            this.appleBites.confirm(event.spawnId, event.revision)
+          )
+            this.playAppleBite(event.position, event.roomId);
+          this.isDirty = true;
           return;
         }
         if (event.type === 'gameplay.outcome') {
@@ -3031,11 +3050,35 @@ export default class SnakeScene extends Phaser.Scene {
         this.isDirty = true;
         return;
       }
+      const head = this.snakeGame.getSnakeBody()[0];
+      const powerup = this.snakeGame.getFlag<{ kind: string; remaining: number }>('powerup.active');
+      const gun =
+        Boolean(this.snakeGame.getFlag('equipment.gunEnabled')) ||
+        (powerup?.kind === 'gun' && powerup.remaining > 0);
+      const bomb = tool === 'bomb-slingshot';
+      const armed =
+        bomb || gun || Number(this.snakeGame.getFlag('equipment.libertyFootballCharges') ?? 0) > 0;
+      let presentationId: number | undefined;
+      if (head && armed && this.remoteConnectionStatus === 'connected') {
+        const world = this.tileToWorld(head);
+        if (gun && !bomb) {
+          presentationId = ++this.nextShotPresentationId;
+          this.predictedShots.add(presentationId);
+          if (this.predictedShots.size > 64) {
+            const oldest = this.predictedShots.values().next().value;
+            if (oldest !== undefined) this.predictedShots.delete(oldest);
+          }
+          this.juice.playerShot(world.x, world.y, direction.x, direction.y);
+        } else this.juice.attackWindup(world.x, world.y, direction.x, direction.y);
+      }
       void this.submitRemote({
         type: 'combatAction',
-        action: tool === 'bomb-slingshot' ? 'bomb' : 'fire',
+        action: bomb ? 'bomb' : 'fire',
         direction,
+        presentationId,
         playerId: this.snakeGame.getLocalPlayerId(),
+      }).then((result) => {
+        if (!result.ok && presentationId !== undefined) this.predictedShots.delete(presentationId);
       });
       return;
     }
@@ -4297,12 +4340,24 @@ export default class SnakeScene extends Phaser.Scene {
     });
   }
 
+  private playAppleBite(position: Vector2Like, roomId: string): void {
+    const world = this.tileToWorldInRoom(position, roomId);
+    this.juice.appleChomp(world.x, world.y, 0, 'normal');
+    this.playControllerFeedback('reward');
+  }
+
   private presentActionOutcome(result: ActionOutcome): void {
     this.updateBossEncounter();
     this.currentApple = result.apple.current ?? null;
 
     if (result.apple.eaten) {
-      this.playControllerFeedback('reward');
+      const playBite =
+        !this.sceneClient ||
+        result.apple.typeId !== 'normal' ||
+        result.apple.consumedSpawnId === undefined ||
+        result.movementRevision === undefined ||
+        this.appleBites.confirm(result.apple.consumedSpawnId, result.movementRevision);
+      if (playBite) this.playControllerFeedback('reward');
       this.recordAchievementEvent({
         type: 'apple:eaten',
         appleTypeId: result.apple.typeId ?? 'normal',
@@ -4313,12 +4368,13 @@ export default class SnakeScene extends Phaser.Scene {
       }
       if (result.apple.worldPosition) {
         const violenceLevel = Number(this.getFlag<number>('killstreak.appleJuiceLevel') ?? 0);
-        this.juice.appleChomp(
-          result.apple.worldPosition.x,
-          result.apple.worldPosition.y,
-          violenceLevel,
-          result.apple.typeId,
-        );
+        if (playBite)
+          this.juice.appleChomp(
+            result.apple.worldPosition.x,
+            result.apple.worldPosition.y,
+            violenceLevel,
+            result.apple.typeId,
+          );
         const streak = Number(this.getFlag<number>('appleStreak') ?? 0);
         this.juice.appleStreak(
           result.apple.worldPosition.x,
@@ -4414,6 +4470,11 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private presentStepNotifications(): void {
+    if (this.getFlag('ui.houseRestPulse')) {
+      const cam = this.cameras.main;
+      this.juice.houseRestPulse(cam.midPoint.x, cam.midPoint.y + 10);
+      this.setFlag('ui.houseRestPulse', undefined);
+    }
     const consumedPhoenix = this.getFlag<{ itemId: string }>('equipment.itemPhoenixConsumed');
     if (consumedPhoenix) {
       const item = getItem(consumedPhoenix.itemId);
@@ -5020,7 +5081,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
 
-    if (this.isInHouse()) {
+    if (!this.sceneClient) {
       this.setFlag('timeSinceEat', 0);
       this.houseRestCounter++;
       if (this.houseRestCounter >= 60) {
@@ -6730,11 +6791,17 @@ export default class SnakeScene extends Phaser.Scene {
 
   setDir(x: number, y: number) {
     this.emitInputActionDebug('move', this.inputModeManager.getMode(), `${x},${y}`);
-    this.gameConnection.send({
+    const command = {
       type: 'setDirection',
       playerId: this.snakeGame.getLocalPlayerId(),
       direction: { x, y },
-    });
+    } satisfies ClientCommand;
+    if (this.sceneClient) {
+      this.syncRemoteMovementHold();
+      void this.sceneClient.send(command).catch((error: unknown) => {
+        this.showQuestHintPopup(error instanceof Error ? error.message : String(error), '#ff6b6b');
+      });
+    } else this.gameConnection.send(command);
   }
 
   private isDebugTwoSnakeRequested(): boolean {
@@ -11968,27 +12035,31 @@ export default class SnakeScene extends Phaser.Scene {
     return true;
   }
 
+  private syncRemoteMovementHold(): void {
+    if (!this.sceneClient || this.remoteConnectionStatus !== 'connected') return;
+    const mode = this.getGameMode();
+    const hold =
+      mode === 'manual-room'
+        ? 'manual'
+        : mode === 'action' || mode === 'driving'
+          ? 'playing'
+          : mode === 'paused'
+            ? 'paused'
+            : 'dialogue';
+    if (
+      this.remoteHold.shouldSend(hold, this.sceneClient.getPlayerInteraction(), performance.now())
+    ) {
+      void this.submitRemote({
+        type: 'playerInteraction',
+        playerId: this.snakeGame.getLocalPlayerId(),
+        mode: hold,
+      });
+    }
+  }
+
   private updateSimulation(deltaMs: number): void {
     if (this.sceneClient) {
-      const mode = this.getGameMode();
-      const hold =
-        mode === 'manual-room'
-          ? 'manual'
-          : mode === 'action' || mode === 'driving'
-            ? 'playing'
-            : mode === 'paused'
-              ? 'paused'
-              : 'dialogue';
-      if (
-        this.remoteConnectionStatus === 'connected' &&
-        this.remoteHold.shouldSend(hold, this.sceneClient.getPlayerInteraction(), performance.now())
-      ) {
-        void this.submitRemote({
-          type: 'playerInteraction',
-          playerId: this.snakeGame.getLocalPlayerId(),
-          mode: hold,
-        });
-      }
+      this.syncRemoteMovementHold();
       this.atmosphereAudioManager.refresh();
       return;
     }
@@ -12520,12 +12591,16 @@ export default class SnakeScene extends Phaser.Scene {
       dx: number;
       dy: number;
       style?: 'bullet' | 'football';
+      presentationId?: number;
     }>('ui.playerShot');
     if (playerShot) {
       const world = this.tileToWorldInRoom({ x: playerShot.x, y: playerShot.y }, playerShot.roomId);
       if (playerShot.style === 'football') {
         this.juice.footballShot(world.x, world.y, playerShot.dx, playerShot.dy);
-      } else {
+      } else if (
+        playerShot.presentationId === undefined ||
+        !this.predictedShots.delete(playerShot.presentationId)
+      ) {
         this.juice.playerShot(world.x, world.y, playerShot.dx, playerShot.dy);
       }
       this.setFlag('ui.playerShot', undefined);
@@ -13031,7 +13106,43 @@ export default class SnakeScene extends Phaser.Scene {
     const room = roomSnapshot?.room ?? this.snakeGame.getCurrentRoom();
     const snakeBody = localPlayer?.body ?? Array.from(this.snakeGame.getSnakeBody());
     const renderedSnakeBody = this.drivingCar?.roomId === room.id ? [] : snakeBody;
-    const currentApple = roomSnapshot?.apples ?? this.currentApple;
+    let currentApple = roomSnapshot ? (roomSnapshot.apples ?? null) : this.currentApple;
+    let hiddenAppleTile: Vector2Like | undefined;
+    if (this.sceneClient && currentApple && !binocularsView) {
+      this.appleBites.useEpoch(snapshot.replication?.epoch);
+      const now = performance.now();
+      const revision = authoritativePlayer?.movementRevision ?? 0;
+      const predictedRevision = this.gameConnection.getMovementPresentationRevision?.() ?? revision;
+      const head = predictedMovement?.body[0];
+      const eligible =
+        this.remoteConnectionStatus === 'connected' &&
+        Boolean(authoritativePlayer?.alive && authoritativePlayer.movementPredictionAllowed) &&
+        room.id === authoritativePlayer?.roomId &&
+        room.id === currentApple.roomId;
+      const [roomX, roomY] = this.parseRoomCoordinates(room.id);
+      if (eligible && head && predictedRevision > revision) {
+        if (
+          this.appleBites.predict(
+            currentApple,
+            {
+              x: head.x - roomX * this.grid.cols,
+              y: head.y - roomY * this.grid.rows,
+            },
+            predictedRevision,
+            now,
+          )
+        )
+          this.playAppleBite(head, room.id);
+      }
+      const actualHead = authoritativePlayer?.body[0];
+      const authoritativeAtApple =
+        actualHead?.x === currentApple.position.x + roomX * this.grid.cols &&
+        actualHead?.y === currentApple.position.y + roomY * this.grid.rows;
+      if (this.appleBites.hidden(currentApple, revision, now, eligible, authoritativeAtApple)) {
+        hiddenAppleTile = currentApple.position;
+        currentApple = null;
+      }
+    }
     const placedAlchemyStation = this.snakeGame.getAlchemyState().placedStation;
     const baseSense = this.getFlag<number>('geometry.wallSenseRadius') ?? 0;
     const equipSense = this.getFlag<number>('equipment.wallSenseRadiusBonus') ?? 0;
@@ -13145,6 +13256,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.firstPersonInputFacing = null;
       this.firstPersonRenderer.hide();
       this.snakeRenderer.render(room, renderedSnakeBody, room.id, currentApple, {
+        hiddenAppleTile,
         wallSenseRadius,
         snakeColor,
         poweredUp: Boolean(pActive),
@@ -13164,7 +13276,8 @@ export default class SnakeScene extends Phaser.Scene {
           .map((player) => ({
             id: player.id,
             name: player.name,
-            body: this.gameConnection.getPeerMovementPresentation?.(player.id)?.body ?? player.body,
+            body: player.body,
+            presentationBody: this.gameConnection.getPeerMovementPresentation?.(player.id)?.body,
             direction: player.direction,
             appearance: player.appearance,
             activeEmoticon: player.activeEmoticon,
@@ -13193,6 +13306,7 @@ export default class SnakeScene extends Phaser.Scene {
         renderScale: binocularsView ? 1 / 3 : 1,
       });
     }
+    if (predictedMovement) this.gameConnection.recordMovementFrame?.(direction);
     this.drawStructurePlacementPreview(!binocularsView && !firstPersonRendered);
     if (!binocularsView && !firstPersonRendered) {
       this.drawCars(room.id);
@@ -15397,20 +15511,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private isInPlayerHouseInterior(): boolean {
-    if (!this.isInHouse()) {
-      return false;
-    }
-    return this.isOnInteriorTile();
-  }
-
-  private isOnInteriorTile(): boolean {
-    const local = this.getHeadLocalInCurrentRoom();
-    if (!local) return false;
-    const room = this.snakeGame.getCurrentRoom();
-    const tile = room.layout[local.y]?.[local.x];
-    if (!tile) return false;
-    // Interior tiles (wood, rug, trim, and furniture) across any generated house.
-    return 'WETCKBPLDRZ'.includes(tile);
+    return this.snakeGame.isInPlayerHouseInterior();
   }
 
   private isManualHouseMovementActive(): boolean {

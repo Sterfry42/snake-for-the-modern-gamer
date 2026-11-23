@@ -1,4 +1,5 @@
-import type { ClientDiagnostic } from './ClientDiagnostic.js';
+import { diagnosticText, type ClientDiagnostic } from './ClientDiagnostic.js';
+import type { PlayerInteraction } from './SceneActionCommand.js';
 import type { Vector2Like } from '../core/math.js';
 import { MAX_RESUME_INPUTS } from './MovementResume.js';
 import { ClientMovementPredictor } from './ClientMovementPredictor.js';
@@ -24,8 +25,11 @@ export class WebSocketGameConnection implements GameConnection {
   private readyResolved = false;
   private readonly predictor = new ClientMovementPredictor();
   private readonly peers = new PeerMovementPresentation();
-  private readonly directionInputs = new Map<number, Vector2Like>();
-  private desiredHold = 'playing';
+  private desiredHold: PlayerInteraction = 'playing';
+  private interactionRelease?: Promise<CommandResult>;
+  private lastMovementInput?: { direction: Vector2Like; at: number };
+  private movementUnchangedSince = performance.now();
+  private reportedMovementStall = false;
   private readonly handoffDirections: Vector2Like[] = [];
   connectionId: string | null = null;
   playerId: string | null = null;
@@ -56,6 +60,7 @@ export class WebSocketGameConnection implements GameConnection {
       resolve: (result: CommandResult) => void;
       reject: (error: Error) => void;
       timer: ReturnType<typeof setTimeout>;
+      direction: boolean;
     }
   >();
   private readonly url: string;
@@ -73,8 +78,16 @@ export class WebSocketGameConnection implements GameConnection {
           browserState,
           pendingCommands: this.pending.size,
         });
-      const visibility = () =>
-        lifecycle(document.visibilityState === 'hidden' ? 'hidden' : 'visible');
+      const visibility = () => {
+        const hidden = document.visibilityState === 'hidden';
+        this.movementUnchangedSince = performance.now();
+        this.reportedMovementStall = false;
+        if (!hidden && this.snapshot && this.status === 'connected') {
+          this.predictor.resetClock();
+          this.predictor.seedFrom(this.snapshot, performance.now(), this.desiredHold === 'playing');
+        }
+        lifecycle(hidden ? 'hidden' : 'visible');
+      };
       const hide = () => {
         lifecycle('pagehide');
         this.pageSuspended = true;
@@ -87,6 +100,7 @@ export class WebSocketGameConnection implements GameConnection {
         lifecycle('pageshow');
         if (!this.pageSuspended || this.closed) return;
         this.pageSuspended = false;
+        if (this.socket?.readyState === WebSocket.CLOSING) return;
         this.ready
           .then(() =>
             this.connect(
@@ -142,17 +156,22 @@ export class WebSocketGameConnection implements GameConnection {
             saveServerCredential(this.url, 'resume', message.resumeToken);
             clearTimeout(this.handshakeTimer);
             this.attempt = 0;
-            this.directionInputs.clear();
+            this.movementUnchangedSince = performance.now();
+            this.reportedMovementStall = false;
+            this.lastMovementInput = undefined;
             this.predictor.discardReplayedInputs();
+            this.predictor.resetClock();
             this.assembler.reset(message.snapshot);
             this.publish(message.snapshot);
             this.setStatus('connected');
             clearInterval(this.clockTimer);
             const probe = () => {
-              if (socket.readyState === WebSocket.OPEN)
+              if (socket.readyState === WebSocket.OPEN) {
+                this.checkMovementStall();
                 socket.send(
                   JSON.stringify({ type: 'movementClock', clientTimeMs: performance.now() }),
                 );
+              }
             };
             probe();
             this.clockTimer = setInterval(probe, 1000);
@@ -178,9 +197,9 @@ export class WebSocketGameConnection implements GameConnection {
           case 'movement': {
             const next = this.assembler.applyMovement(message.update);
             if (!next) break;
+            this.observeMovement(next);
             this.snapshot = next;
             if (message.update.player.id === this.playerId) {
-              this.acknowledgeDirections(next);
               this.predictor.accept(
                 next.players[next.localPlayerId],
                 message.update.epoch,
@@ -194,20 +213,12 @@ export class WebSocketGameConnection implements GameConnection {
             break;
           }
           case 'event':
-            this.notify(this.events, message.event, 'event');
+            this.notify(this.events, message.event, 'event', message.event.type);
             break;
           case 'result': {
-            if (!message.result.ok) {
-              this.directionInputs.delete(message.id);
-              this.predictor.rejectDirection(message.id, message.result.reason);
-              if (this.snapshot)
-                this.predictor.seedFrom(
-                  this.snapshot,
-                  performance.now(),
-                  this.desiredHold === 'playing',
-                );
-            }
             const request = this.pending.get(message.id);
+            if (!message.result.ok && request?.direction)
+              this.rejectDirection(message.id, message.result.reason);
             if (request) {
               clearTimeout(request.timer);
               this.pending.delete(message.id);
@@ -259,6 +270,16 @@ export class WebSocketGameConnection implements GameConnection {
     if (command.type === 'playerInteraction') {
       this.desiredHold = command.mode;
       if (command.mode !== 'playing') this.predictor.cancel();
+      else if (this.snapshot && this.status === 'connected')
+        this.predictor.seedFrom(this.snapshot, performance.now(), true);
+    }
+    if (command.type === 'setDirection') {
+      this.lastMovementInput = { direction: command.direction, at: performance.now() };
+      const release = this.interactionRelease;
+      if (release && this.desiredHold === 'playing') {
+        const result = await release;
+        if (!result.ok) return result;
+      }
     }
     const socket = this.socket;
     if (!this.closed && this.status === 'reconnecting' && command.type === 'setDirection') {
@@ -286,14 +307,15 @@ export class WebSocketGameConnection implements GameConnection {
       const accepted = this.predictor.direction(command.direction, performance.now(), id);
       const intent = this.predictor.turnIntent;
       if (!accepted && this.snapshot?.players[command.playerId]?.movementPredictionAllowed)
-        return { ok: true };
-      this.directionInputs.set(id, { ...command.direction });
+        return this.predictor.directionIgnored
+          ? { ok: true }
+          : { ok: false, reason: 'Movement prediction is waiting for the server.' };
       command = { ...command, inputSequence: id, ...intent };
     }
-    return new Promise((resolve, reject) => {
+    const response = new Promise<CommandResult>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
-        this.directionInputs.delete(id);
+        if (command.type === 'setDirection') this.rejectDirection(id, 'command-timeout');
         this.reportDiagnostic({
           event: 'command-timeout',
           requestId: id,
@@ -302,31 +324,35 @@ export class WebSocketGameConnection implements GameConnection {
         });
         reject(new Error('Game command timed out'));
       }, 10000);
-      this.pending.set(id, { resolve, reject, timer });
+      this.pending.set(id, { resolve, reject, timer, direction: command.type === 'setDirection' });
       try {
         socket.send(JSON.stringify({ type: 'command', id, command }));
       } catch (error) {
         clearTimeout(timer);
         this.pending.delete(id);
-        this.directionInputs.delete(id);
+        if (command.type === 'setDirection') this.rejectDirection(id, 'send-failed');
         reject(error);
       }
     });
+    if (command.type === 'playerInteraction' && command.mode === 'playing') {
+      this.interactionRelease = response;
+      try {
+        return await response;
+      } finally {
+        if (this.interactionRelease === response) this.interactionRelease = undefined;
+      }
+    }
+    return response;
+  }
+
+  private rejectDirection(id: number, reason?: string): void {
+    this.predictor.rejectDirection(id, reason);
+    if (this.snapshot)
+      this.predictor.seedFrom(this.snapshot, performance.now(), this.desiredHold === 'playing');
   }
 
   private reportDiagnostic(
-    details: Pick<ClientDiagnostic, 'event' | 'pendingCommands'> &
-      Partial<
-        Pick<
-          ClientDiagnostic,
-          | 'requestId'
-          | 'commandType'
-          | 'closeCode'
-          | 'browserState'
-          | 'closeWasClean'
-          | 'presentationKind'
-        >
-      >,
+    details: Omit<ClientDiagnostic, 'type' | 'previousConnectionId' | 'snapshotAgeMs'>,
   ): void {
     if (!this.diagnosticsEnabled || !this.connectionId) return;
     if (this.diagnostics.length >= 8) this.diagnostics.shift();
@@ -359,6 +385,7 @@ export class WebSocketGameConnection implements GameConnection {
     handlers: Iterable<(value: T) => void>,
     value: T,
     presentationKind: NonNullable<ClientDiagnostic['presentationKind']>,
+    gameplayEvent?: string,
   ): void {
     for (const handler of handlers) {
       try {
@@ -368,6 +395,10 @@ export class WebSocketGameConnection implements GameConnection {
         this.reportDiagnostic({
           event: 'presentation-error',
           presentationKind,
+          gameplayEvent,
+          errorMessage: diagnosticText(error instanceof Error ? error.message : error, 300),
+          errorStack: diagnosticText(error instanceof Error ? error.stack : undefined, 1500),
+          ...this.movementDiagnosticContext(),
           pendingCommands: this.pending.size,
         });
       }
@@ -380,12 +411,20 @@ export class WebSocketGameConnection implements GameConnection {
     return player ? this.predictor.presentation(player) : null;
   }
 
+  getMovementPresentationRevision(): number {
+    return this.predictor.presentationRevision;
+  }
+
+  recordMovementFrame(direction: Vector2Like): void {
+    this.predictor.recordMovementFrame(direction);
+  }
+
   getMovementDiagnostics() {
     return this.predictor.getDiagnostics();
   }
 
   getPeerMovementPresentation(playerId: string) {
-    return this.peers.sample(playerId);
+    return this.peers.sample(playerId, performance.now());
   }
   hasPeerMovementPresentation(): boolean {
     return this.peers.active();
@@ -398,7 +437,7 @@ export class WebSocketGameConnection implements GameConnection {
 
   onSnapshot(handler: (snapshot: GameSnapshot) => void): () => void {
     this.snapshots.add(handler);
-    if (this.snapshot) handler(structuredClone(this.snapshot));
+    if (this.snapshot) this.notify([handler], structuredClone(this.snapshot), 'snapshot');
     return () => this.snapshots.delete(handler);
   }
   onMovement(handler: (update: MovementUpdate) => void): () => void {
@@ -411,7 +450,7 @@ export class WebSocketGameConnection implements GameConnection {
   }
   onStatus(handler: (status: ConnectionStatus) => void): () => void {
     this.statuses.add(handler);
-    handler(this.status);
+    this.notify([handler], this.status, 'status');
     return () => this.statuses.delete(handler);
   }
   onDisconnect(handler: (reason: string) => void): () => void {
@@ -427,7 +466,6 @@ export class WebSocketGameConnection implements GameConnection {
     this.rejectPending(new Error('Game connection closed'));
     this.socket?.close(1000, 'Left server');
     this.diagnostics.length = 0;
-    this.directionInputs.clear();
     this.snapshots.clear();
     this.movements.clear();
     this.events.clear();
@@ -445,21 +483,83 @@ export class WebSocketGameConnection implements GameConnection {
   }
   private publish(snapshot: GameSnapshot): void {
     this.lastSnapshotAt = performance.now();
-    this.acknowledgeDirections(snapshot);
+    this.observeMovement(snapshot);
     this.predictor.seedFrom(snapshot, performance.now(), this.desiredHold === 'playing');
     this.peers.accept(snapshot);
     this.snapshot = snapshot;
     for (const handler of this.snapshots)
       this.notify([handler], structuredClone(snapshot), 'snapshot');
   }
-  private acknowledgeDirections(snapshot: GameSnapshot): void {
-    if (!snapshot.players[snapshot.localPlayerId]?.movementPredictionAllowed)
-      this.directionInputs.clear();
-    const acknowledged =
-      snapshot.players[snapshot.localPlayerId]?.acknowledgedDirectionSequence ?? 0;
-    for (const sequence of this.directionInputs.keys())
-      if (sequence <= acknowledged) this.directionInputs.delete(sequence);
+  private observeMovement(snapshot: GameSnapshot): void {
+    if (
+      this.snapshot?.replication?.epoch !== snapshot.replication?.epoch ||
+      this.snapshot?.players[snapshot.localPlayerId]?.movementRevision !==
+        snapshot.players[snapshot.localPlayerId]?.movementRevision
+    ) {
+      this.movementUnchangedSince = performance.now();
+      this.reportedMovementStall = false;
+    }
   }
+
+  private movementDiagnosticContext() {
+    const input = this.lastMovementInput;
+    const direction = input?.direction;
+    const lastInputDirection =
+      direction?.x === 1
+        ? 'right'
+        : direction?.x === -1
+          ? 'left'
+          : direction?.y === 1
+            ? 'down'
+            : direction?.y === -1
+              ? 'up'
+              : undefined;
+    const roomId = this.snapshot?.viewport.centerRoomId;
+    return {
+      browserState: typeof document === 'undefined' ? undefined : document.visibilityState,
+      snapshotTick: this.snapshot?.tick,
+      snapshotEpoch: this.snapshot?.replication?.epoch,
+      snapshotRoomId: roomId,
+      snapshotRoomRevision: roomId ? this.snapshot?.replication?.roomRevisions[roomId] : undefined,
+      movementRevision: this.snapshot?.players[this.snapshot.localPlayerId]?.movementRevision,
+      desiredInteraction: this.desiredHold,
+      lastInputDirection,
+      lastInputAgeMs: input ? performance.now() - input.at : undefined,
+    } satisfies Partial<ClientDiagnostic>;
+  }
+
+  private checkMovementStall(): void {
+    if (
+      !this.diagnosticsEnabled ||
+      this.reportedMovementStall ||
+      !this.snapshot ||
+      typeof document === 'undefined' ||
+      document.visibilityState !== 'visible'
+    )
+      return;
+    const player = this.snapshot.players[this.snapshot.localPlayerId];
+    const now = performance.now();
+    if (
+      !player?.alive ||
+      now - this.movementUnchangedSince < Math.max(5000, (player.movementIntervalMs ?? 0) * 3)
+    )
+      return;
+    this.reportedMovementStall = true;
+    if (
+      this.desiredHold === 'playing' &&
+      player.movementPredictionAllowed &&
+      now - this.lastSnapshotAt < 500
+    ) {
+      this.predictor.resetClock(now);
+      this.predictor.seedFrom(this.snapshot, now, true);
+    }
+    this.reportDiagnostic({
+      event: 'movement-stalled',
+      ...this.movementDiagnosticContext(),
+      pendingCommands: this.pending.size,
+    });
+  }
+
   private rejectPending(error: Error): void {
     for (const request of this.pending.values()) {
       clearTimeout(request.timer);

@@ -114,6 +114,13 @@ describe('movement reliability', () => {
     expect(hold.shouldSend('playing', 'dialogue', 505)).toBe(true);
   });
 
+  it('supersedes an in-flight hold even while the snapshot still says playing', () => {
+    const hold = new PlayerHoldSynchronizer();
+    expect(hold.shouldSend('playing', 'playing', 0)).toBe(false);
+    expect(hold.shouldSend('paused', 'playing', 1)).toBe(true);
+    expect(hold.shouldSend('playing', 'playing', 2)).toBe(true);
+  });
+
   it('cancels speculative movement when a menu opens, without creating an offline hold command', () => {
     const { session, id } = setup();
     const snapshot = session.getSnapshot(id);
@@ -127,7 +134,7 @@ describe('movement reliability', () => {
     expect(session.getSnapshot(id).ui.playerInteraction).toBe('playing');
   });
 
-  it('presents peer steps immediately on exact grid cells without mutating snapshots, including room changes, death and suspension', async () => {
+  it('interpolates peer steps without mutating snapshots and snaps across rooms, corrections and death', async () => {
     const { game, session, id } = setup();
     const bob = session.registerConnection('bob', 'Bob');
     game.runForPlayer(bob, () =>
@@ -139,9 +146,12 @@ describe('movement reliability', () => {
     await session.advance(100);
     const next = session.getSnapshot(id);
     const copy = structuredClone(next);
-    peers.accept(next);
-    expect(peers.sample(bob)?.body[0].x).toBe(11);
-    expect(peers.active()).toBe(false);
+    peers.accept(next, 100);
+    expect(peers.sample(bob, 100)?.body[0].x).toBe(10);
+    expect(peers.sample(bob, 137.5)?.body[0].x).toBe(10.5);
+    expect(peers.sample(bob, 175)?.body[0].x).toBe(11);
+    expect(peers.active(150)).toBe(true);
+    expect(peers.active(210)).toBe(false);
     expect(peers.sample(bob)?.body).toEqual(next.players[bob].body);
     expect(next).toEqual(copy);
     next.players[bob].roomId = '1,0,0';

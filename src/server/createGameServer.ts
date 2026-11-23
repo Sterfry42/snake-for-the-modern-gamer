@@ -6,7 +6,7 @@ import { createServer } from 'node:http';
 import { randomUUID, randomBytes, timingSafeEqual, createHash } from 'node:crypto';
 import { SpawnAreaUnavailable } from '../players/safePlayerSpawn.js';
 import { WebSocketServer, WebSocket } from 'ws';
-import { AuthoritativeGameSession } from '../session/AuthoritativeGameSession.js';
+import type { GameServerSession } from './GameServerSession.js';
 import {
   GAME_PROTOCOL_VERSION,
   parseCommandMessage,
@@ -29,10 +29,7 @@ export interface GameServerOptions {
 }
 
 /** Transport only. The session owns player allocation and gameplay. */
-export function createGameServer(
-  session: AuthoritativeGameSession,
-  options: GameServerOptions = {},
-) {
+export function createGameServer(session: GameServerSession, options: GameServerOptions = {}) {
   session.configureHosting();
   const channels = new Map<
     string,
@@ -87,6 +84,7 @@ export function createGameServer(
   let pendingAttachments = 0;
   let skippedNetworkTicks = 0;
   let maximumPublicationMs = 0;
+  let maximumImmediateEventMs = 0;
   let lastPublicationAt = performance.now();
   const closeSocket = (socket: WebSocket, code: number, cause: string, reason: string) => {
     const details = socketDetails.get(socket);
@@ -132,25 +130,33 @@ export function createGameServer(
       sockets.emit('connection', ws, request);
     });
   });
-  const publish = (socket: WebSocket, message: ServerMessage) => {
+  const serialize = (message: ServerMessage) => {
+    const text = JSON.stringify(message);
+    return { text, bytes: Buffer.byteLength(text) };
+  };
+  const publish = (
+    socket: WebSocket,
+    message: ServerMessage,
+    prepared?: ReturnType<typeof serialize>,
+  ) => {
     if (socket.readyState !== WebSocket.OPEN) return;
     if (socket.bufferedAmount > 4 * 1024 * 1024) {
       closeSocket(socket, 1013, 'outbound-backpressure', 'Client is too slow');
       return;
     }
     const startedAt = performance.now();
-    const serialized = JSON.stringify(message);
+    const { text, bytes } = prepared ?? serialize(message);
+    const serializeMs = prepared ? 0 : performance.now() - startedAt;
     if (message.type === 'welcome' || message.type === 'delta')
-      session.performance.payload(Buffer.byteLength(serialized), performance.now() - startedAt);
-    else if (message.type === 'movement')
-      session.performance.movement(Buffer.byteLength(serialized), performance.now() - startedAt);
+      session.performance.payload(bytes, serializeMs);
+    else if (message.type === 'movement') session.performance.movement(bytes, serializeMs);
     const details = socketDetails.get(socket);
     if (details) {
-      details.sentBytes += Buffer.byteLength(serialized);
+      details.sentBytes += bytes;
       details.maximumBufferedBytes = Math.max(details.maximumBufferedBytes, socket.bufferedAmount);
     }
-    socket.send(serialized, (error) => {
-      if (!error) return;
+    socket.send(text, (error) => {
+      if (!error || (details?.closeCause && 'code' in error && error.code === 'ECANCELED')) return;
       log('error', 'socket.send-failed', {
         connectionId: details?.connectionId,
         playerId: details?.playerId,
@@ -164,16 +170,27 @@ export function createGameServer(
     delete publicPlayer.movementPredictionAllowed;
     delete publicPlayer.acknowledgedDirectionSequence;
     delete publicPlayer.directionQueue;
-    const publicUpdate = { ...update, player: publicPlayer };
+    const publicMessage: ServerMessage = {
+      type: 'movement',
+      update: { ...update, player: publicPlayer },
+    };
+    let publicPayload: ReturnType<typeof serialize> | undefined;
     for (const [id, channel] of channels) {
       if (channel.socket.readyState !== WebSocket.OPEN) continue;
       if (socketDetails.get(channel.socket)?.playerId === update.player.id)
         session.recordPublishedMovement(id, update);
-      publish(channel.socket, {
-        type: 'movement',
-        update:
-          socketDetails.get(channel.socket)?.playerId === update.player.id ? update : publicUpdate,
-      });
+      if (socketDetails.get(channel.socket)?.playerId === update.player.id) {
+        publish(channel.socket, { type: 'movement', update });
+      } else {
+        // Charge serialization to the first send, then reuse the bytes for peers.
+        if (publicPayload) publish(channel.socket, publicMessage, publicPayload);
+        else {
+          const startedAt = performance.now();
+          publicPayload = serialize(publicMessage);
+          session.performance.movementEncoding(performance.now() - startedAt);
+          publish(channel.socket, publicMessage, publicPayload);
+        }
+      }
       const details = socketDetails.get(channel.socket)!;
       if (details.playerId === update.player.id && details.roomId !== update.player.roomId) {
         details.roomId = update.player.roomId;
@@ -335,7 +352,7 @@ export function createGameServer(
       }
       const digest = (token: string) => createHash('sha256').update(token).digest('hex');
       let playerId = requestedToken
-        ? session.resolveResumeDigest(digest(requestedToken))
+        ? await session.resolveResumeDigest(digest(requestedToken))
         : undefined;
       const knownIdentity = Boolean(playerId);
       const resumeToken = playerId ? requestedToken : randomBytes(32).toString('hex');
@@ -369,22 +386,35 @@ export function createGameServer(
       };
       const eventSubscription = session.onEvent((event) => {
         if ('playerId' in event && event.playerId !== playerId) return;
-        channel.pending.push({ message: { type: 'event', event } });
+        if (event.type === 'apple.bite' && channels.has(connectionId)) {
+          maximumImmediateEventMs = Math.max(
+            maximumImmediateEventMs,
+            performance.timeOrigin + performance.now() - event.committedAt,
+          );
+          publish(socket, { type: 'event', event });
+        } else channel.pending.push({ message: { type: 'event', event } });
       });
+      const settleConnection = (work: Promise<void>) => {
+        void work.catch((error: unknown) =>
+          log('warn', 'connection.cleanup-failed', { connectionId, error }),
+        );
+      };
       socket.once('close', (code) => {
         channels.delete(connectionId);
         eventSubscription();
         if (active.get(playerId)?.connectionId === connectionId) active.delete(playerId);
         if (closing || code === 1000) {
-          void session.detachConnection(
-            connectionId,
-            closing ? 'server-shutdown' : 'intentional-leave',
+          settleConnection(
+            session.detachConnection(
+              connectionId,
+              closing ? 'server-shutdown' : 'intentional-leave',
+            ),
           );
         } else {
-          void session.suspendConnection(connectionId);
+          settleConnection(session.suspendConnection(connectionId));
           const timer = setTimeout(() => {
             suspensionTimers.delete(timer);
-            void session.detachConnection(connectionId, 'grace-expired');
+            settleConnection(session.detachConnection(connectionId, 'grace-expired'));
           }, MOVEMENT_GRACE_MS);
           suspensionTimers.add(timer);
           timer.unref();
@@ -455,11 +485,14 @@ export function createGameServer(
         ) {
           if (receivedAt - lastClockProbeAt >= 250) {
             lastClockProbeAt = receivedAt;
-            publish(socket, {
-              type: 'movementClock',
-              clientTimeMs: clock.clientTimeMs,
-              serverTimeMs: session.getMovementClockTime(),
-            });
+            const clientTimeMs = clock.clientTimeMs;
+            void Promise.resolve(session.getMovementClockTime())
+              .then((serverTimeMs) => {
+                publish(socket, { type: 'movementClock', clientTimeMs, serverTimeMs });
+              })
+              .catch((error: unknown) =>
+                log('warn', 'network.clock-failed', { connectionId, error }),
+              );
           }
           return;
         }
@@ -471,18 +504,34 @@ export function createGameServer(
               diagnosticWindowAt = receivedAt;
               clientReports = 0;
             }
-            if (clientReports++ < 5)
-              log(
-                diagnostic.event === 'browser-lifecycle' ? 'info' : 'warn',
-                `client.${diagnostic.event}`,
-                {
-                  ...diagnostic,
-                  source: 'client',
-                  connectionId,
-                  playerId,
-                  roomId: state.roomId,
-                },
-              );
+            if (options.onDiagnostic && clientReports++ < 5) {
+              const fields = {
+                ...diagnostic,
+                source: 'client',
+                connectionId,
+                playerId,
+                roomId: state.roomId,
+              };
+              const report = (
+                authorityMovement?: Awaited<
+                  ReturnType<GameServerSession['getPlayerMovementDiagnostic']>
+                >,
+              ) =>
+                log(
+                  diagnostic.event === 'browser-lifecycle' ? 'info' : 'warn',
+                  `client.${diagnostic.event}`,
+                  authorityMovement ? { ...fields, authorityMovement } : fields,
+                );
+              if (
+                diagnostic.event === 'presentation-error' ||
+                diagnostic.event === 'movement-stalled'
+              )
+                void Promise.resolve(session.getPlayerMovementDiagnostic(playerId)).then(
+                  report,
+                  () => report(),
+                );
+              else report();
+            }
             return;
           }
           closeSocket(socket, 1008, 'invalid-command', 'Invalid command');
@@ -610,50 +659,63 @@ export function createGameServer(
       });
   }, 100);
   networkTimer.unref();
+  let refreshingPerformance = false;
   const performanceTimer =
     options.onPerformance || options.onDiagnostic
       ? setInterval(() => {
-          const report = session.getPerformanceReport(true);
-          options.onPerformance?.(report);
-          const processReport = processPerformance?.read();
-          const connections = [...channels.values()].slice(0, 16).map((channel) => {
-            const state = socketDetails.get(channel.socket)!;
-            return {
-              connectionId: state.connectionId,
-              playerId: state.playerId,
-              roomId: state.roomId,
-              bufferedBytes: channel.socket.bufferedAmount,
-              maximumBufferedBytes: state.maximumBufferedBytes,
-              pendingMessages: channel.pending.length,
-              rttMs: state.rttMs,
-              commands: state.commands,
-              rejectedCommands: state.rejected,
-              commandErrors: state.errors,
-              maximumCommandMs: state.maximumCommandMs,
-              maximumAckMs: state.maximumAckMs,
-              sinceLastPongMs: performance.now() - state.lastPongAt,
-            };
-          });
-          log(
-            (processReport?.eventLoopMaxMs ?? 0) > 250 || report.maximumUpdateMs > 100
-              ? 'warn'
-              : 'info',
-            'performance.sample',
-            {
-              ...report,
-              ...processReport,
-              sockets: sockets.clients.size,
-              attachedSockets: channels.size,
-              pendingAttachments,
-              skippedNetworkTicks,
-              maximumPublicationMs,
-              sinceLastNetworkCycleMs: performance.now() - lastPublicationAt,
-              connections,
-              connectionsTruncated: channels.size > connections.length,
-            },
-          );
-          skippedNetworkTicks = 0;
-          maximumPublicationMs = 0;
+          if (refreshingPerformance) return;
+          refreshingPerformance = true;
+          void Promise.resolve(
+            session.refreshPerformance?.(true) ?? session.getPerformanceReport(true),
+          )
+            .then((report) => {
+              options.onPerformance?.(report);
+              const processReport = processPerformance?.read();
+              const connections = [...channels.values()].slice(0, 16).map((channel) => {
+                const state = socketDetails.get(channel.socket)!;
+                return {
+                  connectionId: state.connectionId,
+                  playerId: state.playerId,
+                  roomId: state.roomId,
+                  bufferedBytes: channel.socket.bufferedAmount,
+                  maximumBufferedBytes: state.maximumBufferedBytes,
+                  pendingMessages: channel.pending.length,
+                  rttMs: state.rttMs,
+                  commands: state.commands,
+                  rejectedCommands: state.rejected,
+                  commandErrors: state.errors,
+                  maximumCommandMs: state.maximumCommandMs,
+                  maximumAckMs: state.maximumAckMs,
+                  sinceLastPongMs: performance.now() - state.lastPongAt,
+                };
+              });
+              log(
+                (processReport?.eventLoopMaxMs ?? 0) > 250 || report.maximumUpdateMs > 100
+                  ? 'warn'
+                  : 'info',
+                'performance.sample',
+                {
+                  ...report,
+                  ...processReport,
+                  sockets: sockets.clients.size,
+                  attachedSockets: channels.size,
+                  pendingAttachments,
+                  skippedNetworkTicks,
+                  maximumPublicationMs,
+                  maximumImmediateEventMs,
+                  sinceLastNetworkCycleMs: performance.now() - lastPublicationAt,
+                  connections,
+                  connectionsTruncated: channels.size > connections.length,
+                },
+              );
+              skippedNetworkTicks = 0;
+              maximumPublicationMs = 0;
+              maximumImmediateEventMs = 0;
+            })
+            .catch((error: unknown) => log('warn', 'performance.sample-failed', { error }))
+            .finally(() => {
+              refreshingPerformance = false;
+            });
         }, 10000)
       : undefined;
   performanceTimer?.unref();
@@ -688,8 +750,16 @@ export function createGameServer(
     });
     socket.on('close', () => alive.delete(socket));
   });
+  const heartbeatIntervalMs = 15000;
+  let lastHeartbeatAt = performance.now();
   const heartbeat = setInterval(() => {
+    const now = performance.now();
+    const gapMs = now - lastHeartbeatAt;
+    lastHeartbeatAt = now;
+    if (gapMs >= 2 * heartbeatIntervalMs)
+      log('warn', 'server.heartbeat-gap', { gapMs, sockets: sockets.clients.size });
     for (const socket of sockets.clients) {
+      if (socket.readyState !== WebSocket.OPEN) continue;
       const state = socketDetails.get(socket)!;
       if (!alive.delete(socket)) {
         state.closeCause = 'heartbeat-timeout';
@@ -708,12 +778,15 @@ export function createGameServer(
         socket.ping();
       }
     }
-  }, 15000);
+  }, heartbeatIntervalMs);
   heartbeat.unref();
 
   return {
     http,
     getPerformance: () => session.getPerformanceReport(),
+    samplePerformance: async () =>
+      session.refreshPerformance?.(false) ?? session.getPerformanceReport(),
+    getMaximumImmediateEventMs: () => maximumImmediateEventMs,
     async listen(port = 8787, host = '127.0.0.1'): Promise<number> {
       await new Promise<void>((resolve, reject) => {
         http.once('error', reject);
@@ -752,6 +825,7 @@ export function createGameServer(
         socket.terminate();
       }
       await new Promise<void>((resolve) => sockets.close(() => resolve()));
+      await session.flush();
       await new Promise<void>((resolve, reject) =>
         http.close((error) => (error ? reject(error) : resolve())),
       );

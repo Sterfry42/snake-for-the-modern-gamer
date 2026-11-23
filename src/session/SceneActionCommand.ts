@@ -154,7 +154,12 @@ export type SceneActionCommand = { playerId: PlayerId } & (
   | { type: 'progressionAction'; action: 'cast'; spellId: string }
   | { type: 'progressionAction'; action: 'bind'; abilityId: string }
   | { type: 'progressionAction'; action: 'usePrimary' }
-  | { type: 'combatAction'; action: 'fire' | 'bomb'; direction: Vector2Like }
+  | {
+      type: 'combatAction';
+      action: 'fire' | 'bomb';
+      direction: Vector2Like;
+      presentationId?: number;
+    }
   | { type: 'maneuverAction'; action: 'equip'; id: string }
   | { type: 'maneuverAction'; action: 'activate'; direction?: Vector2Like }
   | { type: 'maneuverAction'; action: 'digest' }

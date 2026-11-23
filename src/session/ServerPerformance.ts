@@ -32,6 +32,12 @@ export class ServerPerformance {
   private updateMs = 0;
   private updateMaxMs = 0;
   private updates = 0;
+  private updateOverruns = 0;
+  private clampedUpdates = 0;
+  private readonly clocks = new Map<
+    string,
+    { updates: number; totalMs: number; maxMs: number; dropped: number }
+  >();
   private builds = 0;
   private movementPackets = 0;
   private movementBytes = 0;
@@ -52,6 +58,9 @@ export class ServerPerformance {
     this.serializeMs += durationMs;
     this.serializeMaxMs = Math.max(this.serializeMaxMs, durationMs);
   }
+  movementEncoding(durationMs: number): void {
+    this.movementSerializeMs += durationMs;
+  }
   movement(bytes: number, durationMs: number): void {
     this.movementPackets++;
     this.movementBytes += bytes;
@@ -66,6 +75,25 @@ export class ServerPerformance {
     this.updateMs += durationMs;
     this.updateMaxMs = Math.max(this.updateMaxMs, durationMs);
     this.updates++;
+    if (durationMs > 20) this.updateOverruns++;
+  }
+  simulationClocks(
+    diagnostics: import('../systems/simulationScheduler.js').SchedulerDiagnostics,
+    clockMs: Record<string, number>,
+  ): void {
+    if (diagnostics.wasDeltaClamped) this.clampedUpdates++;
+    for (const { id, droppedStepsLastUpdate } of diagnostics.clocks) {
+      const duration = clockMs[id];
+      if (duration === undefined && !droppedStepsLastUpdate) continue;
+      const sample = this.clocks.get(id) ?? { updates: 0, totalMs: 0, maxMs: 0, dropped: 0 };
+      if (duration !== undefined) {
+        sample.updates++;
+        sample.totalMs += duration;
+        sample.maxMs = Math.max(sample.maxMs, duration);
+      }
+      sample.dropped += droppedStepsLastUpdate;
+      this.clocks.set(id, sample);
+    }
   }
   read(gauges: ServerPerformanceGauges, reset = false) {
     const seconds = Math.max(0.001, (performance.now() - this.since) / 1000);
@@ -89,6 +117,19 @@ export class ServerPerformance {
       maximumActorTickMs: this.actorMaxMs,
       averageUpdateMs: this.updateMs / Math.max(1, this.updates),
       maximumUpdateMs: this.updateMaxMs,
+      updatesOverBudget: this.updateOverruns,
+      clampedUpdates: this.clampedUpdates,
+      clockTimings: Object.fromEntries(
+        [...this.clocks].map(([id, sample]) => [
+          id,
+          {
+            updates: sample.updates,
+            averageMs: sample.totalMs / Math.max(1, sample.updates),
+            maximumMs: sample.maxMs,
+            droppedSteps: sample.dropped,
+          },
+        ]),
+      ),
     };
     if (reset) {
       this.since = performance.now();
@@ -106,7 +147,8 @@ export class ServerPerformance {
       this.actorTicks = 0;
       this.updateMs = 0;
       this.updateMaxMs = 0;
-      this.updates = 0;
+      this.updates = this.updateOverruns = this.clampedUpdates = 0;
+      this.clocks.clear();
     }
     return report;
   }

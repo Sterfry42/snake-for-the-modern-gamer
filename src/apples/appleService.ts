@@ -41,6 +41,7 @@ export interface AppleConsumptionResult {
   changed: boolean;
   snapshot: AppleSnapshot | null;
   typeId?: string;
+  consumedSpawnId?: number;
 }
 
 interface AppleSpawnOption extends Vector2Like {
@@ -279,6 +280,7 @@ export class AppleService {
       changed: true,
       snapshot: null,
       typeId: apple.typeId,
+      consumedSpawnId: apple.spawnId,
     };
   }
 
@@ -288,7 +290,6 @@ export class AppleService {
 
   clearAll(): void {
     this.apples.clear();
-    this.nextAppleId = 0;
   }
 
   private appleWorldPosition(apple: AppleInstance): Vector2Like {
@@ -682,7 +683,8 @@ export class AppleService {
   }
 
   private trackApple(apple: AppleInstance): void {
-    this.apples.set(`apple:${this.nextAppleId++}`, apple);
+    apple.spawnId ??= ++this.nextAppleId;
+    this.apples.set(`apple:${apple.spawnId}`, apple);
   }
 
   private untrackApple(apple: AppleInstance): void {

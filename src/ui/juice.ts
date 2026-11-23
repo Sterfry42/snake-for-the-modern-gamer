@@ -2471,6 +2471,10 @@ export class JuiceManager {
     }
   }
 
+  attackWindup(x: number, y: number, dx: number, dy: number): void {
+    this.flashLine(x + dx * 5, y + dy * 5, x + dx * 16, y + dy * 16, 0xffe7ad, 2, 75);
+  }
+
   playerShot(worldX: number, worldY: number, dx: number, dy: number) {
     this.playTone({
       frequency: 520,

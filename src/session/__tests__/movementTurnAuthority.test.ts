@@ -31,6 +31,29 @@ describe('client-preferred movement steps', () => {
     );
     expect(session.getSnapshot(bob).players[bob].movementRevision).toBe(0);
   });
+  it('keeps the movement clock running after the primary player disconnects', async () => {
+    const { session, game, id } = await movementTurnFixture();
+    session.configureHosting();
+    const bob = session.registerConnection('bob', 'Bob');
+    await session.advance(100);
+    await session.detachConnection('alice');
+    expect(game.getPlayer(id)?.alive).toBe(false);
+    await session.advance(120);
+    expect(session.getSnapshot(bob).players[bob].movementPhaseAtMs).toBe(220);
+    expect(session.getMovementClockTime()).toBe(220);
+  });
+
+  it('does not invent a timestamp when input is queued without a live prediction clock', async () => {
+    const { predictor, initial } = await movementTurnFixture();
+    predictor.cancel();
+    predictor.seedFrom(initial, 1000, false);
+    expect(predictor.direction({ x: 0, y: 1 }, 1001, 1)).toBe(false);
+    expect(predictor.turnIntent).toBeUndefined();
+    predictor.seedFrom(initial, 1002, true);
+    expect(predictor.direction({ x: 0, y: 1 }, 1003, 2)).toBe(true);
+    expect(predictor.turnIntent?.estimatedServerTimeMs).toBe(1);
+  });
+
   it('keeps phase and timestamp atomic when the same phase value repeats across a fast-lane step', async () => {
     const { session, initial, id } = await movementTurnFixture(100);
     const encoder = new SnapshotDeltaEncoder(),

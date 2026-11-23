@@ -14,6 +14,16 @@ export type GameEvent =
       playerId: PlayerId;
       outcome: import('./GameplayOutcome.js').GameplayOutcome;
     }
+  | {
+      type: 'apple.bite';
+      playerId: PlayerId;
+      epoch: number;
+      revision: number;
+      spawnId: number;
+      committedAt: number;
+      roomId: string;
+      position: import('../core/math.js').Vector2Like;
+    }
   | { type: 'player.revived'; playerId: PlayerId; reason: string }
   | {
       type: 'sound.play';

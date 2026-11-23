@@ -9,6 +9,7 @@ import { createBaseActor } from '../../src/actors/actorFactory.js';
 import { parseServerMessage } from '../../src/session/gameProtocol.js';
 import type { GameSnapshot } from '../../src/session/GameSnapshot.js';
 import { serverCredentialKey } from '../../src/session/connectionSettings.js';
+import { TOUCH_CONTROLS_STORAGE_KEY } from '../../src/input/touchDetection.js';
 
 function observe(page: Page) {
   const state: { snapshot?: GameSnapshot; seenHeads: Set<string> } = { seenHeads: new Set() };
@@ -72,10 +73,17 @@ test('two browsers move independent snakes, render NPCs, talk, and view separate
   const hostToken = 'multiplayer-smoke-browser-host';
   const server = createGameServer(session, { hostToken });
   const port = await server.listen(0);
-  await page.addInitScript(({ key, token }) => localStorage.setItem(key, token), {
-    key: `${serverCredentialKey(`ws://127.0.0.1:${port}/game`)}:host`,
-    token: hostToken,
-  });
+  await page.addInitScript(
+    ({ key, token, touchControlsKey }) => {
+      localStorage.setItem(key, token);
+      localStorage.setItem(touchControlsKey, 'off');
+    },
+    {
+      key: `${serverCredentialKey(`ws://127.0.0.1:${port}/game`)}:host`,
+      token: hostToken,
+      touchControlsKey: TOUCH_CONTROLS_STORAGE_KEY,
+    },
+  );
   const bobPage = await context.browser()!.newPage({ baseURL: test.info().project.use.baseURL });
   const alice = observe(page);
   const bob = observe(bobPage);
@@ -122,22 +130,25 @@ test('two browsers move independent snakes, render NPCs, talk, and view separate
     session.stop();
     await expect.poll(() => alice.snapshot?.players['player-1'].direction.y).toBe(-1);
     await expect.poll(() => bob.snapshot?.players[bobId].direction.y).toBe(1);
-    // The subsequent NPC interaction uses its own fixed, nearby placement.
-    game.runForPlayer('player-1', () =>
-      game.placeSnakeBodyAtLocal(room.id, { x: head.x, y: head.y - 1 }, { x: 0, y: -1 }),
-    );
+    // The actor clock may move Ada while the snakes are steering.
+    const adaPosition = game.getActorSystem().registry.get(ada.id)?.presence?.position;
+    if (!adaPosition) throw new Error('Ada has no position');
+    const besideAda = { x: adaPosition.x - 1, y: adaPosition.y };
+    game.runForPlayer('player-1', () => {
+      game.placeSnakeBodyAtLocal(room.id, besideAda, { x: 0, y: -1 });
+      game.setFlag('ui.e2e.interactionReady', true);
+    });
+    expect(game.canInteractWithActor(ada.id)).toBe(true);
     session.refreshSnapshot();
+    await expect.poll(() => alice.snapshot?.players['player-1'].body[0]).toEqual(besideAda);
     await expect
-      .poll(() => alice.snapshot?.players['player-1'].body[0])
-      .toEqual({ x: head.x, y: head.y - 1 });
-    expect(alice.snapshot!.viewport.rooms[room.id].npcs?.some((actor) => actor.id === ada.id)).toBe(
-      true,
-    );
+      .poll(() => page.evaluate(() => window.snakeE2E!.getFlag('ui.e2e.interactionReady')))
+      .toBe(true);
     const canvas = await page.locator('canvas').boundingBox();
     if (!canvas) throw new Error('Missing canvas');
     await page.mouse.click(
-      canvas.x + (((head.x + 0.5) * defaultGameConfig.grid.cell) / 768) * canvas.width,
-      canvas.y + (((head.y + 1.5) * defaultGameConfig.grid.cell - 2) / 576) * canvas.height,
+      canvas.x + (((adaPosition.x + 0.5) * defaultGameConfig.grid.cell) / 768) * canvas.width,
+      canvas.y + (((adaPosition.y + 0.5) * defaultGameConfig.grid.cell - 2) / 576) * canvas.height,
     );
     await expect
       .poll(() => page.evaluate(() => window.snakeE2E!.getPresentation().quest.visible))
@@ -208,6 +219,182 @@ test('two browsers move independent snakes, render NPCs, talk, and view separate
   } finally {
     session.stop();
     await bobPage.close();
+    await page.close();
+    await server.close();
+  }
+});
+
+test('hosted movement recovers after room entry, a pause, death, tab restore, and reconnect', async ({
+  page,
+}) => {
+  const game = new SnakeGame(
+    { ...defaultGameConfig, rng: { seed: 'multiplayer-recovery-browser' } },
+    new QuestRegistry(),
+  );
+  game.reset();
+  const room = game.getCurrentRoom();
+  room.layout = room.layout.map((row) => '.'.repeat(row.length));
+  room.portals = [];
+  const house = game.getWorld().getRoom('0,-1,0');
+  house.layout = house.layout.map((row, y) =>
+    y === 10 ? '.'.repeat(8) + 'WWWW' + '.'.repeat(row.length - 12) : '.'.repeat(row.length),
+  );
+  house.portals = [];
+  game.bosses.clearAll();
+  const session = new AuthoritativeGameSession({ game, manageBasicFeatures: true });
+  const faults: string[] = [];
+  const server = createGameServer(session, {
+    onDiagnostic: (record) => {
+      if (record.event === 'client.presentation-error') faults.push(JSON.stringify(record.fields));
+    },
+  });
+  const port = await server.listen(0);
+  const client = observe(page);
+  const id = game.getLocalPlayerId();
+  const revision = () => client.snapshot?.players[id]?.movementRevision ?? -1;
+  const mode = () => page.evaluate(() => window.snakeE2E?.getLifecycle().mode);
+  const advance = async () => {
+    const before = revision();
+    await session.advance(120);
+    await session.advance(120);
+    await expect.poll(revision).toBeGreaterThan(before);
+    await expect
+      .poll(() => client.snapshot?.players[id].body)
+      .toEqual(session.getSnapshot(id).players[id].body);
+  };
+  page.on('pageerror', (error) => faults.push(error.message));
+  try {
+    await page.goto(
+      `?server=${encodeURIComponent(`ws://127.0.0.1:${port}/game`)}&playerName=Alice`,
+    );
+    await expect.poll(mode).toBe('action');
+    await advance();
+
+    game.placeSnakeBodyAtLocal(room.id, { x: 8, y: 0 }, { x: 0, y: -1 });
+    session.actionStep(false);
+    await expect.poll(() => client.snapshot?.viewport.centerRoomId).toBe(house.id);
+    game.placeSnakeBodyAtLocal(house.id, { x: 8, y: 10 }, { x: 1, y: 0 });
+    game.setFlag('timeSinceEat', 40);
+    session.refreshSnapshot();
+    await expect.poll(() => client.snapshot?.players[id].roomId).toBe(house.id);
+    await expect.poll(mode).toBe('manual-room');
+    const inside = revision();
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(revision).toBeGreaterThan(inside);
+    expect(game.getFlag('timeSinceEat')).toBe(0);
+
+    game.placeSnakeBodyAtLocal(room.id, { x: 10, y: 10 }, { x: 1, y: 0 });
+    session.refreshSnapshot();
+    await expect.poll(mode).toBe('action');
+    await page.keyboard.press('Space');
+    await expect.poll(() => client.snapshot?.ui.playerInteraction).toBe('paused');
+    const held = revision();
+    await session.advance(240);
+    expect(session.getSnapshot(id).players[id].movementRevision).toBe(held);
+    await page.keyboard.press('Space');
+    await expect.poll(() => client.snapshot?.ui.playerInteraction).toBe('playing');
+    await advance();
+
+    const blocker = session.registerConnection('recovery-blocker', 'Blocker');
+    game.placeSnakeBodyAtLocal(room.id, { x: 10, y: 10 }, { x: 1, y: 0 });
+    game.runForPlayer(blocker, () =>
+      game.placeSnakeBodyAtLocal(room.id, { x: 11, y: 10 }, { x: 0, y: 1 }),
+    );
+    await session.executeCommand({ type: 'playerInteraction', playerId: blocker, mode: 'paused' });
+    game.setFlag('skills.extraLifeCharges', 1);
+    session.actionStep(false);
+    await expect.poll(mode).toBe('death-cutscene');
+    const lifecycle = session.getSnapshot(id).lifecycle;
+    if (lifecycle?.kind !== 'death') throw new Error('Expected a death encounter');
+    await session.detachConnection('recovery-blocker');
+    expect(
+      await session.executeCommand({
+        type: 'deathEncounterAction',
+        playerId: id,
+        encounterId: lifecycle.encounter.id,
+        revision: lifecycle.encounter.revision,
+        choice: 'return',
+      }),
+    ).toMatchObject({ ok: true });
+    await expect.poll(mode).toBe('action');
+    await expect.poll(() => client.snapshot?.ui.playerInteraction).toBe('playing');
+    await advance();
+
+    const before = Object.keys(client.snapshot?.connections ?? {});
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }));
+    });
+    await expect.poll(() => session.getPerformanceReport().suspendedPlayers).toBe(1);
+    await page.evaluate(() => {
+      Reflect.deleteProperty(document, 'visibilityState');
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+    });
+    await expect.poll(() => Object.keys(client.snapshot?.connections ?? {})).not.toEqual(before);
+    await expect.poll(() => client.snapshot?.localPlayerId).toBe(id);
+    await expect.poll(mode).toBe('action');
+    await advance();
+    expect(faults).toEqual([]);
+  } finally {
+    await page.close();
+    await server.close();
+  }
+});
+
+test('shows one local apple bite before the authoritative step commits', async ({ page }) => {
+  const game = new SnakeGame(
+    {
+      ...defaultGameConfig,
+      rng: { seed: 'headless-apple-hooks' },
+      apples: {
+        ...defaultGameConfig.apples,
+        types: defaultGameConfig.apples.types.filter(({ id }) => id === 'normal'),
+      },
+    },
+    new QuestRegistry(),
+  );
+  game.reset();
+  game.bosses.clearAll();
+  const room = game.getCurrentRoom();
+  room.layout = room.layout.map((row) => '.'.repeat(row.length));
+  room.portals = [];
+  const apple = game.getApple(room.id);
+  if (!apple) throw new Error('Expected a stationary apple');
+  const direction = apple.position.x >= 4 ? { x: 1, y: 0 } : { x: -1, y: 0 };
+  game.placeSnakeBodyAtLocal(
+    room.id,
+    { x: apple.position.x - direction.x, y: apple.position.y },
+    direction,
+  );
+  const session = new AuthoritativeGameSession({ game, manageBasicFeatures: true });
+  const server = createGameServer(session);
+  const port = await server.listen(0);
+  const client = observe(page);
+  const bites = () =>
+    page.evaluate(
+      () => window.snakeE2E!.getJuiceTrace().filter((entry) => entry.name === 'appleChomp').length,
+    );
+  try {
+    await page.goto(
+      `?server=${encodeURIComponent(`ws://127.0.0.1:${port}/game`)}&playerName=Alice`,
+    );
+    await expect
+      .poll(() => page.evaluate(() => window.snakeE2E?.getLifecycle().mode))
+      .toBe('action');
+    const id = client.snapshot!.localPlayerId;
+    const score = game.getScore();
+    await expect.poll(bites).toBe(1);
+    expect(session.getSnapshot(id).players[id].movementRevision).toBe(0);
+    expect(game.getScore()).toBe(score);
+    session.actionStep(false);
+    await expect.poll(() => client.snapshot?.players[id].score).toBeGreaterThan(score);
+    await expect
+      .poll(() => client.snapshot?.viewport.rooms[room.id]?.apples?.spawnId)
+      .not.toBe(apple.spawnId);
+    expect(await bites()).toBe(1);
+  } finally {
     await page.close();
     await server.close();
   }

@@ -1,6 +1,7 @@
+import type { PlayerInteraction } from './SceneActionCommand.js';
 import { isRecord } from '../core/saveNormalize.js';
 
-/** Fixed, bounded operational data only; never executable gameplay or free-form client text. */
+/** Fixed, bounded operational data only; client claims are untrusted and text is explicitly bounded. */
 export interface ClientDiagnostic {
   type: 'clientDiagnostic';
   event:
@@ -8,7 +9,8 @@ export interface ClientDiagnostic {
     | 'connection-lost'
     | 'browser-lifecycle'
     | 'presentation-error'
-    | 'protocol-error';
+    | 'protocol-error'
+    | 'movement-stalled';
   presentationKind?: 'snapshot' | 'movement' | 'event' | 'status' | 'disconnect';
   browserState?: 'hidden' | 'visible' | 'pagehide' | 'pageshow';
   closeWasClean?: boolean;
@@ -18,6 +20,17 @@ export interface ClientDiagnostic {
   snapshotAgeMs: number;
   pendingCommands: number;
   closeCode?: number;
+  errorMessage?: string;
+  errorStack?: string;
+  gameplayEvent?: string;
+  snapshotTick?: number;
+  snapshotEpoch?: number;
+  snapshotRoomId?: string;
+  snapshotRoomRevision?: number;
+  movementRevision?: number;
+  desiredInteraction?: PlayerInteraction;
+  lastInputDirection?: 'up' | 'down' | 'left' | 'right';
+  lastInputAgeMs?: number;
 }
 
 export function parseClientDiagnostic(raw: string): ClientDiagnostic | null {
@@ -32,6 +45,7 @@ export function parseClientDiagnostic(raw: string): ClientDiagnostic | null {
         'browser-lifecycle',
         'presentation-error',
         'protocol-error',
+        'movement-stalled',
       ].includes(String(value.event)) ||
       (value.presentationKind !== undefined &&
         !['snapshot', 'movement', 'event', 'status', 'disconnect'].includes(
@@ -72,15 +86,17 @@ export function parseClientDiagnostic(raw: string): ClientDiagnostic | null {
           ? value.presentationKind
           : undefined,
       event:
-        value.event === 'protocol-error'
-          ? 'protocol-error'
-          : value.event === 'presentation-error'
-            ? 'presentation-error'
-            : value.event === 'browser-lifecycle'
-              ? 'browser-lifecycle'
-              : value.event === 'connection-lost'
-                ? 'connection-lost'
-                : 'command-timeout',
+        value.event === 'movement-stalled'
+          ? 'movement-stalled'
+          : value.event === 'protocol-error'
+            ? 'protocol-error'
+            : value.event === 'presentation-error'
+              ? 'presentation-error'
+              : value.event === 'browser-lifecycle'
+                ? 'browser-lifecycle'
+                : value.event === 'connection-lost'
+                  ? 'connection-lost'
+                  : 'command-timeout',
       browserState:
         value.browserState === 'hidden' ||
         value.browserState === 'visible' ||
@@ -95,8 +111,76 @@ export function parseClientDiagnostic(raw: string): ClientDiagnostic | null {
       requestId: typeof value.requestId === 'number' ? value.requestId : undefined,
       commandType: typeof value.commandType === 'string' ? value.commandType : undefined,
       closeCode: typeof value.closeCode === 'number' ? value.closeCode : undefined,
+      ...(value.event === 'presentation-error' || value.event === 'movement-stalled'
+        ? {
+            errorMessage:
+              value.event === 'presentation-error'
+                ? diagnosticText(value.errorMessage, 300)
+                : undefined,
+            errorStack:
+              value.event === 'presentation-error'
+                ? diagnosticText(value.errorStack, 1500)
+                : undefined,
+            gameplayEvent:
+              typeof value.gameplayEvent === 'string' &&
+              /^[a-z.]+$/i.test(value.gameplayEvent) &&
+              value.gameplayEvent.length <= 48
+                ? value.gameplayEvent
+                : undefined,
+            snapshotTick: finiteTime(value.snapshotTick),
+            snapshotEpoch: finiteTime(value.snapshotEpoch),
+            snapshotRoomId:
+              typeof value.snapshotRoomId === 'string' &&
+              /^[a-z0-9,:_-]{1,128}$/i.test(value.snapshotRoomId)
+                ? value.snapshotRoomId
+                : undefined,
+            snapshotRoomRevision: finiteTime(value.snapshotRoomRevision),
+            movementRevision: finiteTime(value.movementRevision),
+            desiredInteraction:
+              value.desiredInteraction === 'playing' ||
+              value.desiredInteraction === 'manual' ||
+              value.desiredInteraction === 'paused' ||
+              value.desiredInteraction === 'inventory' ||
+              value.desiredInteraction === 'special' ||
+              value.desiredInteraction === 'shop' ||
+              value.desiredInteraction === 'dialogue'
+                ? value.desiredInteraction
+                : undefined,
+            lastInputDirection:
+              value.lastInputDirection === 'up' ||
+              value.lastInputDirection === 'down' ||
+              value.lastInputDirection === 'left' ||
+              value.lastInputDirection === 'right'
+                ? value.lastInputDirection
+                : undefined,
+            lastInputAgeMs: finiteTime(value.lastInputAgeMs),
+          }
+        : {}),
     };
   } catch {
     return null;
   }
+}
+
+function finiteTime(value: unknown): number | undefined {
+  return typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    value <= Number.MAX_SAFE_INTEGER
+    ? value
+    : undefined;
+}
+
+export function diagnosticText(value: unknown, limit: number): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  return value
+    .replace(/(?:https?|wss?):\/\/[^\s)]+/gi, (url) => {
+      const path = url.replace(/^(\w+:\/\/)[^/]+/i, '$1[host]');
+      return path.replace(/[?#].*$/, '');
+    })
+    .replace(
+      /((?:resume(?:Token)?|hostToken|token|password|authorization|cookie|secret)\s*[=:]\s*)(?:Bearer\s+)?[^&\s"'<>]+/gi,
+      '$1[redacted]',
+    )
+    .slice(0, limit);
 }

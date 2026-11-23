@@ -282,10 +282,21 @@ describe('authoritative presentation and multiplayer combat', () => {
       await session.executeCommand({
         type: 'combatAction',
         action: 'fire',
+        presentationId: 37,
         playerId: alice,
         direction: { x: 1, y: 0 },
       }),
     ).toMatchObject({ ok: true });
+    expect(
+      events.flatMap((event) =>
+        event.type === 'gameplay.outcome' && event.playerId === alice ? event.outcome.feedback : [],
+      ),
+    ).toContainEqual(
+      expect.objectContaining({
+        key: 'ui.playerShot',
+        value: expect.objectContaining({ presentationId: 37 }),
+      }),
+    );
     for (let step = 0; step < 3; step++) session.bulletClockStep();
     await session.executeCommand({ type: 'playerInteraction', mode: 'paused', playerId: bob });
     expect(game.runForPlayer(bob, () => game.getFlag<number>('player.health'))).toBe(before - 1);

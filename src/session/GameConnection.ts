@@ -13,6 +13,8 @@ export interface GameConnection {
   onStatus?(handler: (status: 'connected' | 'reconnecting' | 'closed') => void): () => void;
   onDisconnect?(handler: (reason: string) => void): () => void;
   getMovementPresentation?(): import('./ClientMovementPredictor.js').PredictedSnake | null;
+  getMovementPresentationRevision?(): number;
+  recordMovementFrame?(direction: import('../core/math.js').Vector2Like): void;
   getMovementDiagnostics?(): ReturnType<
     import('./ClientMovementPredictor.js').ClientMovementPredictor['getDiagnostics']
   >;

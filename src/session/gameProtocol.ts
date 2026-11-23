@@ -318,7 +318,12 @@ export function isClientCommand(value: unknown): value is ClientCommand {
         : value.action === 'cast' && validIdentifier(value.spellId);
     case 'combatAction':
       return (
-        (value.action === 'fire' || value.action === 'bomb') && isCardinalDirection(value.direction)
+        (value.action === 'fire' || value.action === 'bomb') &&
+        isCardinalDirection(value.direction) &&
+        (value.presentationId === undefined ||
+          (typeof value.presentationId === 'number' &&
+            Number.isSafeInteger(value.presentationId) &&
+            value.presentationId > 0))
       );
     case 'maneuverAction':
       return value.action === 'equip'
