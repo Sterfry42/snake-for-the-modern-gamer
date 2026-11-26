@@ -24663,7 +24663,7 @@ export class SnakeGame implements QuestRuntime {
     return false;
   }
 
-  private getSnakeHeadLocal(): Vector2Like | null {
+  getSnakeHeadLocal(): Vector2Like | null {
     const head = this.snake.bodySegments[0];
     if (!head) {
       return null;

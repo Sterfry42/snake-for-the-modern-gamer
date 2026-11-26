@@ -8,6 +8,11 @@ export type GameEvent =
       playerId: PlayerId;
       outcome: import('./AuthoritativeArchaeology.js').ArchaeologyOutcome;
     }
+  | {
+      type: 'achievement.unlocked';
+      playerId: PlayerId;
+      unlocks: import('../achievements/achievementTypes.js').AchievementUnlockResult[];
+    }
   | { type: 'boss.outcome'; playerId: PlayerId; event: import('../systems/boss.js').BossEvent }
   | {
       type: 'gameplay.outcome';

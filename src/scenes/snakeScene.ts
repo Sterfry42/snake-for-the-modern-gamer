@@ -1,3 +1,8 @@
+import {
+  drainAchievementEvents,
+  HOSTED_ACHIEVEMENTS_FLAG,
+} from '../session/AuthoritativeAchievements.js';
+import { isManualMovementArea } from '../world/manualMovementPolicy.js';
 import type {
   DatingSequencePage,
   DatingBranchResult,
@@ -233,7 +238,6 @@ import {
 } from '../vehicles/carPhysics.js';
 import type { AnimalCompanionView } from '../animals/companions.js';
 import { isSnakeSceneRuntimeReady } from './snakeSceneStartup.js';
-import { getTownTurnBasedBounds } from './snakeSceneTurnBasedSupport.js';
 import type { InventorySystem } from '../inventory/inventory.js';
 import type { BulletTrainStation } from '../world/bulletTrainTypes.js';
 import { runBulletTrainRide } from '../world/bulletTrainScene.js';
@@ -413,7 +417,10 @@ import {
   achievementLocationKey,
   getApAchievementDefinitions,
 } from '../achievements/achievementApMapping.js';
-import { BrowserAchievementStorage } from '../achievements/achievementStorage.js';
+import {
+  BrowserAchievementStorage,
+  MemoryAchievementStorage,
+} from '../achievements/achievementStorage.js';
 import type {
   AchievementEvent,
   AchievementSnapshot,
@@ -601,8 +608,6 @@ const RACCOON_STASH_POPUP_ASSET =
 const RACCOON_SAD_POPUP_ASSET =
   'assets/raccoon_pics/pngtree-racoon-with-sad-face-png-image_13342713.png';
 const RACCOON_WEIGHT_THRESHOLD_ASSET = 'assets/raccoon_pics/Gf6Vx1MWIAAkUrs.jpg';
-
-type LocalRect = { left: number; top: number; width: number; height: number };
 
 type DatingSequence = {
   profile: RelationshipCandidateProfile;
@@ -1572,6 +1577,11 @@ export default class SnakeScene extends Phaser.Scene {
   private archipelagoBackButton: Phaser.GameObjects.Container | null = null;
   private readonly archipelagoLogLines: string[] = [];
   private readonly archipelagoTrapQueue: ArchipelagoTrapId[] = [];
+  private readonly hostedAchievementManager = new AchievementManager(
+    ACHIEVEMENT_DEFINITIONS,
+    new MemoryAchievementStorage(),
+  );
+  private hostedAchievementProjection = '';
   private readonly achievementManager = new AchievementManager(
     ACHIEVEMENT_DEFINITIONS,
     new BrowserAchievementStorage(),
@@ -2318,6 +2328,14 @@ export default class SnakeScene extends Phaser.Scene {
         }
         this.drivingCar = this.snakeGame.getFlag<DrivingCarState>('vehicle.active') ?? null;
         this.currentSnapshot = snapshot;
+        const achievements = this.snakeGame.getFlag<AchievementState>(HOSTED_ACHIEVEMENTS_FLAG);
+        const projection = achievements ? JSON.stringify(achievements) : '';
+        if (projection !== this.hostedAchievementProjection) {
+          this.hostedAchievementProjection = projection;
+          if (achievements) this.hostedAchievementManager.restoreState(achievements);
+          else this.hostedAchievementManager.resetForNewRun();
+          this.skillTree.getOverlay().refreshAchievements();
+        }
         this.syncRemoteArchaeology(snapshot.archaeology ?? null);
         this.updateBossEncounter();
         this.maybePresentRandomEncounter();
@@ -2388,6 +2406,13 @@ export default class SnakeScene extends Phaser.Scene {
           )
             this.playAppleBite(event.position, event.roomId);
           this.isDirty = true;
+          return;
+        }
+        if (
+          event.type === 'achievement.unlocked' &&
+          event.playerId === this.snakeGame.getLocalPlayerId()
+        ) {
+          this.presentAchievementUnlocks(event.unlocks);
           return;
         }
         if (event.type === 'gameplay.outcome') {
@@ -4197,6 +4222,7 @@ export default class SnakeScene extends Phaser.Scene {
     const observedEffects = new Set([
       'movementTick',
       'appleChomp',
+      'perkPurchased',
       'roomTransition',
       'wandererApproach',
       'archaeologySwap',
@@ -7073,53 +7099,18 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   getAchievementManager(): AchievementManager {
-    return this.achievementManager;
+    return this.sceneClient ? this.hostedAchievementManager : this.achievementManager;
   }
 
   recordAchievementEvent(event: AchievementEvent): void {
+    if (this.sceneClient) return;
     this.handleAchievementUnlocks(
       this.achievementManager.recordEvent(event, this.createAchievementSnapshot()),
     );
   }
 
   private evaluateAchievements(): void {
-    const enemyDefeated = this.getFlag<{
-      enemyId: string;
-      method: 'eaten' | 'gun' | 'car' | 'other';
-    }>('achievement.enemyDefeated');
-    if (enemyDefeated) {
-      this.recordAchievementEvent({ type: 'enemy:defeated', ...enemyDefeated });
-      this.setFlag('achievement.enemyDefeated', undefined);
-    }
-    const vehicleEnemyRunOver = this.getFlag<{ enemyId: string }>(
-      'achievement.vehicleEnemyRunOver',
-    );
-    if (vehicleEnemyRunOver) {
-      this.recordAchievementEvent({ type: 'vehicle:enemyRunOver', ...vehicleEnemyRunOver });
-      this.setFlag('achievement.vehicleEnemyRunOver', undefined);
-    }
-    const gunKill = this.getFlag<{ targetId: string }>('achievement.gunKill');
-    if (gunKill) {
-      this.recordAchievementEvent({ type: 'combat:gunKill', targetId: gunKill.targetId });
-      this.setFlag('achievement.gunKill', undefined);
-    }
-    const wallSmite = this.getFlag<{ roomId: string }>('achievement.jadeKatanaWallSmite');
-    if (wallSmite) {
-      this.recordAchievementEvent({ type: 'combat:jadeKatanaWallSmite', roomId: wallSmite.roomId });
-      this.setFlag('achievement.jadeKatanaWallSmite', undefined);
-    }
-    const caveClear = this.getFlag<{ caveId: string; templateId: string }>(
-      'achievement.caveAppleRushCleared',
-    );
-    if (caveClear) {
-      this.recordAchievementEvent({ type: 'cave:appleRushCleared', ...caveClear });
-      this.setFlag('achievement.caveAppleRushCleared', undefined);
-    }
-    const companion = this.getFlag<{ companionKind: string }>('achievement.companionAcquired');
-    if (companion) {
-      this.recordAchievementEvent({ type: 'companion:acquired', ...companion });
-      this.setFlag('achievement.companionAcquired', undefined);
-    }
+    for (const event of drainAchievementEvents(this.snakeGame)) this.recordAchievementEvent(event);
     const achievementNowMs = Number(this.getFlag<number>('timeMs') ?? 0);
     const achievementDeltaMs = Math.max(0, achievementNowMs - this.achievementLastEvaluationMs);
     this.achievementLastEvaluationMs = achievementNowMs;
@@ -7294,8 +7285,13 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private handleAchievementUnlocks(unlocks: readonly AchievementUnlockResult[]): void {
+    if (this.sceneClient) return;
+    for (const unlock of unlocks) this.addScoreDirect(unlock.scoreReward);
+    this.presentAchievementUnlocks(unlocks);
+  }
+
+  private presentAchievementUnlocks(unlocks: readonly AchievementUnlockResult[]): void {
     for (const unlock of unlocks) {
-      this.addScoreDirect(unlock.scoreReward);
       this.skillTree?.getOverlay().showAchievementUnlock(unlock);
       this.emitNotificationShown({
         kind: 'achievement',
@@ -15524,17 +15520,8 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private isTurnBasedFreeZone(): boolean {
-    const local = this.getHeadLocalInCurrentRoom();
-    if (!local) {
-      return false;
-    }
-    const room = this.snakeGame.getCurrentRoom();
-    const tile = room.layout[local.y]?.[local.x];
-    if (!tile || tile === '#') {
-      return false;
-    }
-    const bounds = this.getTurnBasedZoneBounds(room);
-    return bounds.some((bound) => this.isLocalInsideRect(local, bound));
+    const head = this.snakeGame.getSnakeBody()[0];
+    return Boolean(head && isManualMovementArea(this.snakeGame.getCurrentRoom(), head, this.grid));
   }
 
   private getHeadLocalInCurrentRoom(): { x: number; y: number } | null {
@@ -15550,128 +15537,6 @@ export default class SnakeScene extends Phaser.Scene {
       return null;
     }
     return local;
-  }
-
-  private getTurnBasedZoneBounds(room: ReturnType<SnakeGame['getCurrentRoom']>): LocalRect[] {
-    if (room.village) {
-      return [room.village.safeArea];
-    }
-    if (room.goblinCamp) {
-      return [room.goblinCamp.safeArea];
-    }
-    if (room.snakeMcDonalds) {
-      return [room.snakeMcDonalds.bounds];
-    }
-    if (room.town) {
-      return [getTownTurnBasedBounds(this.grid)];
-    }
-    if (room.molemanDigSite) {
-      return [room.molemanDigSite.bounds];
-    }
-    if (room.garage) {
-      return [room.garage.bounds];
-    }
-    if (
-      room.allNiteDiner ||
-      room.fireworkStand ||
-      room.roadsideMonument ||
-      room.jackalopeLodge ||
-      room.gridironYard
-    ) {
-      const bounds = this.getTileBounds(room, 'AELMNPRWFG');
-      return bounds ? [bounds] : [];
-    }
-    if (room.questGiver) {
-      const bounds = this.getTileBounds(room, 'WETG');
-      return bounds ? [bounds] : [];
-    }
-    // Snake Cane's gets turn-based movement like houses
-    if (room.snakeCanes) {
-      const bounds = this.getTileBounds(room, 'WETVK');
-      return bounds ? [bounds] : [];
-    }
-    // Bullet train stations get turn-based movement like houses
-    if (room.bulletTrainStation) {
-      const bounds = this.getBulletTrainStationBounds(room);
-      return bounds ? [bounds] : [];
-    }
-    if (!this.isInHouse()) {
-      return [];
-    }
-    const bounds = this.getTileBounds(room, 'WETCKBPLDRZ');
-    return bounds ? [bounds] : [];
-  }
-
-  /** Get the turn-based zone bounds for a bullet train station. */
-  private getBulletTrainStationBounds(
-    room: ReturnType<SnakeGame['getCurrentRoom']>,
-  ): LocalRect | null {
-    const station = room.bulletTrainStation;
-    if (!station) return null;
-
-    const { entranceX, entranceY, decorations } = station;
-
-    // Start with the entrance tile
-    let left = entranceX;
-    let top = entranceY;
-    let right = entranceX;
-    let bottom = entranceY;
-
-    // Expand bounds to include all decorations
-    for (const deco of decorations) {
-      const dx = deco.x;
-      const dy = deco.y;
-      left = Math.min(left, dx);
-      top = Math.min(top, dy);
-      right = Math.max(right, dx);
-      bottom = Math.max(bottom, dy);
-    }
-
-    // Also include the platform tiles that are drawn around the entrance
-    // but not covered by decorations (the platform extends to entranceX±4, entranceY±1)
-    left = Math.min(left, entranceX - 4);
-    top = Math.min(top, entranceY - 2);
-    right = Math.max(right, entranceX + 4);
-    bottom = Math.max(bottom, entranceY + 2);
-
-    if (left > right || top > bottom) {
-      return null;
-    }
-    return { left, top, width: right - left + 1, height: bottom - top + 1 };
-  }
-
-  private getTileBounds(
-    room: ReturnType<SnakeGame['getCurrentRoom']>,
-    tileSet: string,
-  ): LocalRect | null {
-    let left = Number.POSITIVE_INFINITY;
-    let top = Number.POSITIVE_INFINITY;
-    let right = Number.NEGATIVE_INFINITY;
-    let bottom = Number.NEGATIVE_INFINITY;
-    for (let y = 0; y < room.layout.length; y += 1) {
-      const row = room.layout[y] ?? '';
-      for (let x = 0; x < row.length; x += 1) {
-        if (tileSet.includes(row[x] ?? '')) {
-          left = Math.min(left, x);
-          top = Math.min(top, y);
-          right = Math.max(right, x);
-          bottom = Math.max(bottom, y);
-        }
-      }
-    }
-    if (!Number.isFinite(left) || !Number.isFinite(top)) {
-      return null;
-    }
-    return { left, top, width: right - left + 1, height: bottom - top + 1 };
-  }
-
-  private isLocalInsideRect(local: { x: number; y: number }, rect: LocalRect): boolean {
-    return (
-      local.x >= rect.left &&
-      local.x < rect.left + rect.width &&
-      local.y >= rect.top &&
-      local.y < rect.top + rect.height
-    );
   }
 
   private consumeManualResumePause(): void {

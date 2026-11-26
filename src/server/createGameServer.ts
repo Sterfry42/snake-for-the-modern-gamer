@@ -13,7 +13,7 @@ import {
   type ServerMessage,
 } from '../session/gameProtocol.js';
 import { SnapshotDeltaEncoder } from '../session/SnapshotDelta.js';
-import { MOVEMENT_GRACE_MS, parseMovementHello } from '../session/MovementResume.js';
+import { CONNECTION_RECOVERY_MS, parseMovementHello } from '../session/MovementResume.js';
 import type { ServerPerformanceReport } from '../session/ServerPerformance.js';
 import { defaultAllowedOrigins, isAllowedGameOrigin } from './originPolicy.js';
 
@@ -62,6 +62,9 @@ export function createGameServer(session: GameServerSession, options: GameServer
       maximumCommandMs: number;
       maximumAckMs: number;
       lastCommandWarningAt: number;
+      lastMovementAttempt?: { type: string; requestId: number; at: number };
+      lastMovementCommand?: { type: string; accepted: boolean; requestId: number };
+      lastMovementRejection?: { reason: string; requestId: number };
     }
   >();
   let diagnosticFailed = false;
@@ -100,7 +103,7 @@ export function createGameServer(session: GameServerSession, options: GameServer
     socket.close(code, reason);
   };
   const active = new Map<string, { socket: WebSocket; connectionId: string }>();
-  const suspensionTimers = new Set<ReturnType<typeof setTimeout>>();
+  const suspensionTimers = new Map<string, ReturnType<typeof setTimeout>>();
   let closing = false;
   let initialCharacterClaimed =
     session.hasClaimedPrimaryCharacter() ||
@@ -402,7 +405,9 @@ export function createGameServer(session: GameServerSession, options: GameServer
       socket.once('close', (code) => {
         channels.delete(connectionId);
         eventSubscription();
-        if (active.get(playerId)?.connectionId === connectionId) active.delete(playerId);
+        const current = active.get(playerId);
+        if (current && current.connectionId !== connectionId) return;
+        active.delete(playerId);
         if (closing || code === 1000) {
           settleConnection(
             session.detachConnection(
@@ -412,11 +417,12 @@ export function createGameServer(session: GameServerSession, options: GameServer
           );
         } else {
           settleConnection(session.suspendConnection(connectionId));
+          clearTimeout(suspensionTimers.get(playerId));
           const timer = setTimeout(() => {
-            suspensionTimers.delete(timer);
-            settleConnection(session.detachConnection(connectionId, 'grace-expired'));
-          }, MOVEMENT_GRACE_MS);
-          suspensionTimers.add(timer);
+            suspensionTimers.delete(playerId);
+            settleConnection(session.detachConnection(connectionId, 'recovery-expired'));
+          }, CONNECTION_RECOVERY_MS);
+          suspensionTimers.set(playerId, timer);
           timer.unref();
         }
       });
@@ -430,6 +436,8 @@ export function createGameServer(session: GameServerSession, options: GameServer
         },
         hello.replay,
       );
+      clearTimeout(suspensionTimers.get(playerId));
+      suspensionTimers.delete(playerId);
       if (socket.readyState !== WebSocket.OPEN) {
         eventSubscription();
         await session.detachConnection(connectionId);
@@ -511,17 +519,51 @@ export function createGameServer(session: GameServerSession, options: GameServer
                 connectionId,
                 playerId,
                 roomId: state.roomId,
+                lastMovementAttempt: state.lastMovementAttempt && {
+                  type: state.lastMovementAttempt.type,
+                  requestId: state.lastMovementAttempt.requestId,
+                  ageMs: Math.max(0, receivedAt - state.lastMovementAttempt.at),
+                },
+                lastMovementCommand: state.lastMovementCommand,
+                lastMovementRejection: state.lastMovementRejection,
               };
               const report = (
                 authorityMovement?: Awaited<
                   ReturnType<GameServerSession['getPlayerMovementDiagnostic']>
                 >,
-              ) =>
+              ) => {
+                let disposition: string | undefined;
+                if (diagnostic.event === 'movement-stalled' && authorityMovement) {
+                  const recent =
+                    fields.lastMovementAttempt && fields.lastMovementAttempt.ageMs < 5000;
+                  if (
+                    authorityMovement.controlMode === 'manual' &&
+                    diagnostic.desiredInteraction === 'playing'
+                  )
+                    disposition = 'manual-mode-mismatch';
+                  else if (authorityMovement.controlMode === 'held') disposition = 'expected-hold';
+                  else if (
+                    recent &&
+                    fields.lastMovementAttempt?.requestId ===
+                      fields.lastMovementRejection?.requestId
+                  )
+                    disposition = 'movement-rejected';
+                  else if (
+                    authorityMovement.controlMode === 'manual' &&
+                    recent &&
+                    fields.lastMovementAttempt?.type === 'setDirection'
+                  )
+                    disposition = 'manual-step-missing';
+                  else disposition = authorityMovement.held ? 'expected-hold' : 'automatic-stall';
+                }
                 log(
-                  diagnostic.event === 'browser-lifecycle' ? 'info' : 'warn',
+                  diagnostic.event === 'browser-lifecycle' || disposition === 'expected-hold'
+                    ? 'info'
+                    : 'warn',
                   `client.${diagnostic.event}`,
-                  authorityMovement ? { ...fields, authorityMovement } : fields,
+                  { ...fields, authorityMovement, disposition },
                 );
+              };
               if (
                 diagnostic.event === 'presentation-error' ||
                 diagnostic.event === 'movement-stalled'
@@ -539,6 +581,12 @@ export function createGameServer(session: GameServerSession, options: GameServer
         }
         state.commands++;
         const command = { type: message.command.type, receivedAt, requestId: message.id };
+        const movementCommand =
+          command.type === 'manualStep' ||
+          command.type === 'setDirection' ||
+          command.type === 'forceDirection';
+        if (movementCommand)
+          state.lastMovementAttempt = { type: command.type, at: receivedAt, requestId: message.id };
         // A wire payload cannot impersonate another runtime player.
         void session
           .executeCommand({ ...message.command, playerId })
@@ -549,6 +597,18 @@ export function createGameServer(session: GameServerSession, options: GameServer
                 performance.now() - receivedAt,
               );
               if (!result.ok) state.rejected++;
+              if (movementCommand) {
+                state.lastMovementCommand = {
+                  type: command.type,
+                  accepted: result.ok,
+                  requestId: command.requestId,
+                };
+                if (!result.ok)
+                  state.lastMovementRejection = {
+                    reason: result.reason ?? 'action-unavailable',
+                    requestId: command.requestId,
+                  };
+              }
               if (
                 !result.ok &&
                 result.reason !== 'shot-unavailable' &&
@@ -807,7 +867,7 @@ export function createGameServer(session: GameServerSession, options: GameServer
     async close(): Promise<void> {
       closing = true;
       log('info', 'server.stopping', { sockets: sockets.clients.size });
-      for (const timer of suspensionTimers) clearTimeout(timer);
+      for (const timer of suspensionTimers.values()) clearTimeout(timer);
       suspensionTimers.clear();
       clearInterval(heartbeat);
       clearInterval(networkTimer);

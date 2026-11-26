@@ -85,3 +85,7 @@ Protocol 5 reports movement packet/byte/serialization totals and snapshot build 
 `movement.interaction` records changes to the scene-requested movement hold, including the source and movement revision. `client.movement-stalled` is emitted once per unchanged visible movement period after five seconds or three movement intervals, whichever is longer. Compare the scene's desired interaction with the server's hold reason and last applied turn revision. Valid pause and manual movement states can produce this report.
 
 `movement.turn.estimatedInputAgeMs` is the difference between two values on the session movement timeline. Use the socket RTT for network latency. `server.heartbeat-gap` records delayed heartbeat scheduling separately from individual socket timeouts. A host suspension and an event-loop stall can both produce this signal. Reconnect replay telemetry includes `cappedPredictionSteps` when a bounded connected lead is clipped to the server clock.
+
+Movement stall reports include the authority control mode, room-local tile and glyph, latest movement request and its outcome, and last rejection on that socket. Expected manual and lifecycle holds are logged at info level. A scene in `playing` while the authority requires manual input reports `manual-mode-mismatch`.
+
+Run `npx tsx scripts/soak-two-active-players.ts 300000` for a controlled, two-WebSocket traversal soak. Its seeded arena keeps environmental deaths out of the workload, interrupts one wire for six seconds, and checks the peer's progress and the resumed player's movement revision.

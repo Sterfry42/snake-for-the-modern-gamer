@@ -368,8 +368,15 @@ test('shows one local apple bite before the authoritative step commits', async (
     { x: apple.position.x - direction.x, y: apple.position.y },
     direction,
   );
+  game.setScore(499);
   const session = new AuthoritativeGameSession({ game, manageBasicFeatures: true });
-  const server = createGameServer(session);
+  const presentationErrors: string[] = [];
+  const server = createGameServer(session, {
+    onDiagnostic: (entry) => {
+      if (entry.event === 'client.presentation-error')
+        presentationErrors.push(String(entry.fields?.errorMessage));
+    },
+  });
   const port = await server.listen(0);
   const client = observe(page);
   const bites = () =>
@@ -389,11 +396,32 @@ test('shows one local apple bite before the authoritative step commits', async (
     expect(session.getSnapshot(id).players[id].movementRevision).toBe(0);
     expect(game.getScore()).toBe(score);
     session.actionStep(false);
-    await expect.poll(() => client.snapshot?.players[id].score).toBeGreaterThan(score);
+    await expect.poll(() => client.snapshot?.players[id].score).toBeGreaterThanOrEqual(530);
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          Boolean(
+            (
+              window.snakeE2E?.getFlag('achievements.hosted') as
+                | { completed?: Record<string, unknown> }
+                | undefined
+            )?.completed?.['stats.score500'],
+          ),
+        ),
+      )
+      .toBe(true);
     await expect
       .poll(() => client.snapshot?.viewport.rooms[room.id]?.apples?.spawnId)
       .not.toBe(apple.spawnId);
     expect(await bites()).toBe(1);
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          window.snakeE2E?.getJuiceTrace().some(({ name }) => name === 'perkPurchased'),
+        ),
+      )
+      .toBe(true);
+    expect(presentationErrors).toEqual([]);
   } finally {
     await page.close();
     await server.close();
