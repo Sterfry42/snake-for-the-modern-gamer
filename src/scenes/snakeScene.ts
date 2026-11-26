@@ -3953,18 +3953,23 @@ export default class SnakeScene extends Phaser.Scene {
       const moveType = (event as { moveType?: string }).moveType;
       if (moveType === 'pumpkin-dash') {
         this.juice.turkeyAttackCharge(worldX, worldY);
+        this.juice.gobble(worldX, worldY);
         this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_attack_dash')!, '#ff8c42');
       } else if (moveType === 'stuffing-spiral') {
         this.juice.turkeyAttackCharge(worldX, worldY);
+        this.juice.gobble(worldX, worldY);
         this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_attack_spiral')!, '#ffd166');
       } else if (moveType === 'gravy-round') {
         this.juice.turkeyAttackCharge(worldX, worldY);
+        this.juice.gobble(worldX, worldY);
         this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_attack_charge')!, '#ff6b6b');
       } else {
         this.juice.turkeyAttackCharge(worldX, worldY);
+        this.juice.gobble(worldX, worldY);
       }
     } else if (event.kind === 'freak-turkey-attacking') {
       this.juice.turkeyAttackCharge(worldX, worldY);
+      this.juice.gobble(worldX, worldY);
       this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_intro')!, '#ff8c42');
     }
   }
@@ -13669,6 +13674,8 @@ export default class SnakeScene extends Phaser.Scene {
           }
         }
 
+        const isTurkey = boss.kind === 'freak-turkey';
+        const cellSize = this.grid.cell;
         for (let index = 0; index < boss.body.length; index += 1) {
           const segment = boss.body[index];
           const [roomX, roomY] = this.parseRoomCoordinates(room.id);
@@ -13682,9 +13689,21 @@ export default class SnakeScene extends Phaser.Scene {
               (boss.headCenter
                 ? segment.x === boss.headCenter.x && segment.y === boss.headCenter.y
                 : index === 1);
+            const wobble =
+              isTurkey && boss.turkeyPhase === 'attacking'
+                ? 1 + 0.13 * Math.sin(timeMs / 150 + index * 0.9)
+                : 1;
+            const size = cellSize * wobble;
+            const grow = (cellSize - size) / 2;
             this.graphics
               .fillStyle(isFreakYouHead ? 0xff7a8f : bossColor, isFreakYouHead ? 0.98 : bossAlpha)
-              .fillRect(x, y, this.grid.cell, this.grid.cell);
+              .fillRect(x + grow, y + grow, size, size);
+            if (isTurkey && index === 0) {
+              // Signature gold ring around the turkey head
+              this.graphics
+                .lineStyle(2, 0xffd166, 0.85)
+                .strokeRect(x - 1, y - 1, cellSize + 2, cellSize + 2);
+            }
             if (isFreakYouHeadCenter) {
               const noseSize = Math.max(3, this.grid.cell * 0.28);
               const noseX =

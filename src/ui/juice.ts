@@ -1993,6 +1993,42 @@ export class JuiceManager {
     });
   }
 
+  /** Freak Turkey gobble: feather scatter + throat bonk */
+  gobble(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 215,
+      frequencyEnd: 118,
+      duration: 0.11,
+      type: 'triangle',
+      volume: 0.13,
+    });
+    this.playTone({
+      frequency: 82,
+      frequencyEnd: 64,
+      duration: 0.16,
+      type: 'square',
+      volume: 0.08,
+    });
+    this.kickCamera(0.012, 110);
+    const specs: BatchParticleSpec[] = [];
+    for (let i = 0; i < 12; i++) {
+      const angle = (Math.PI * 2 * i) / 12 + (this.rng() - 0.5) * 0.6;
+      const dist = Phaser.Math.Between(6, 34);
+      specs.push({
+        x: worldX,
+        y: worldY - 2,
+        radius: Phaser.Math.Between(2, 4),
+        color: Phaser.Utils.Array.GetRandom([0xfff3d8, 0xffd166, 0xffb347, 0xfff8ee]),
+        alpha: 1,
+        dx: Math.cos(angle) * dist,
+        dy: Math.sin(angle) * dist - 16,
+        scaleEnd: 0,
+        durationMs: Phaser.Math.Between(300, 470),
+      });
+    }
+    this.spawnBatchedParticles(specs, 22, false);
+  }
+
   /** Freak Turkey defeat: massive pumpkin boom + golden calm */
   turkeyDefeated(worldX: number, worldY: number) {
     this.playTone({
