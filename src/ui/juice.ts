@@ -1865,6 +1865,31 @@ export class JuiceManager {
     });
   }
 
+  /** Jason Statham cinematic sting: low swell + metallic strike */
+  jasonStathamSting() {
+    this.playTone({
+      frequency: 96,
+      frequencyEnd: 58,
+      duration: 0.85,
+      type: 'sawtooth',
+      volume: 0.07,
+    });
+    this.playTone({
+      frequency: 182,
+      frequencyEnd: 92,
+      duration: 0.55,
+      type: 'triangle',
+      volume: 0.08,
+    });
+    this.playTone({
+      frequency: 44,
+      frequencyEnd: 36,
+      duration: 0.9,
+      type: 'sine',
+      volume: 0.22,
+    });
+  }
+
   /** Jason Statham defeat: massive explosion + calm */
   stathamDefeated(worldX: number, worldY: number) {
     // Big boom then sudden silence

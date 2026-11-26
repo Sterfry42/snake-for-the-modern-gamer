@@ -1306,6 +1306,11 @@ export default class SnakeScene extends Phaser.Scene {
   private activeBossId: string | null = null;
   private lastBossHealth: Map<string, number> = new Map();
   private jasonDefeatTimer: Phaser.Time.TimerEvent | null = null;
+  private jasonIntroOverlay: {
+    top: Phaser.GameObjects.Rectangle;
+    bottom: Phaser.GameObjects.Rectangle;
+    banner: Phaser.GameObjects.Text;
+  } | null = null;
   private powerupMusicActive = false;
   private houseMusicActive = false;
   private townMusicActive = false;
@@ -12146,6 +12151,87 @@ export default class SnakeScene extends Phaser.Scene {
     this.nextBabyCryAtMs = this.time.now + 3600;
   }
 
+  private clearJasonStathamIntro(): void {
+    if (this.jasonIntroOverlay) {
+      this.jasonIntroOverlay.top.destroy();
+      this.jasonIntroOverlay.bottom.destroy();
+      this.jasonIntroOverlay.banner.destroy();
+      this.jasonIntroOverlay = null;
+    }
+  }
+
+  /** Cinematic letterbox + movie-title banner when Jason enters the room. */
+  private playJasonStathamIntro(): void {
+    this.clearJasonStathamIntro();
+    const width = this.scale.width;
+    const height = this.scale.height;
+    const barHeight = Math.max(30, Math.round(height * 0.075));
+
+    const top = this.add
+      .rectangle(width / 2, 0, width, barHeight, 0x000000, 0.96)
+      .setOrigin(0.5, 0)
+      .setDepth(41)
+      .setScale(1, 0);
+    const bottom = this.add
+      .rectangle(width / 2, height, width, barHeight, 0x000000, 0.96)
+      .setOrigin(0.5, 1)
+      .setDepth(41)
+      .setScale(1, 0);
+    const banner = this.add
+      .text(width / 2, height / 2 - Math.round(height * 0.05), 'JASON STATHAM', {
+        fontFamily: 'monospace',
+        fontSize: '34px',
+        fontStyle: 'bold',
+        color: '#ff5533',
+        stroke: '#000000',
+        strokeThickness: 7,
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setDepth(42)
+      .setAlpha(0)
+      .setScale(1.45);
+
+    const overlay = { top, bottom, banner };
+    this.jasonIntroOverlay = overlay;
+
+    const inState = { p: 0 };
+    this.tweens.add({
+      targets: inState,
+      p: 1,
+      duration: 240,
+      ease: 'Cubic.easeOut',
+      onUpdate: () => {
+        top.setScale(1, inState.p);
+        bottom.setScale(1, inState.p);
+        banner.setAlpha(inState.p).setScale(1.45 - 0.45 * inState.p);
+      },
+      onComplete: () => {
+        const outState = { p: 0 };
+        this.tweens.add({
+          targets: outState,
+          p: 1,
+          delay: 1000,
+          duration: 300,
+          ease: 'Cubic.easeIn',
+          onUpdate: () => {
+            const out = 1 - outState.p;
+            top.setScale(1, out);
+            bottom.setScale(1, out);
+            banner.setAlpha(out).setScale(1 + 0.4 * outState.p);
+          },
+          onComplete: () => {
+            if (this.jasonIntroOverlay === overlay) {
+              this.clearJasonStathamIntro();
+            }
+          },
+        });
+      },
+    });
+    this.juice.jasonStathamSting();
+    this.cameras.main.shake(260, 0.012);
+  }
+
   private updateBossEncounter(): void {
     const bosses = this.snakeGame.getBosses(this.currentRoomId);
     const boss = bosses[0];
@@ -12187,6 +12273,10 @@ export default class SnakeScene extends Phaser.Scene {
       if (this.activeBossId !== boss.id) {
         this.juice.startBossMusic(boss.kind ?? 'default');
         this.activeBossId = boss.id;
+        if (boss.kind === 'jason-statham') {
+          // Cinematic movie-title intro when Jason enters the room
+          this.playJasonStathamIntro();
+        }
         if (boss.kind === 'freak-turkey') {
           // Thanksgiving spawn fanfare the moment the turkey enters the room
           const headSeg = boss.body[0];
