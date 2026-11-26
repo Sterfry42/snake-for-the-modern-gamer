@@ -2092,6 +2092,11 @@ export class JuiceManager {
     this.kickCamera(0.012, 110);
   }
 
+  /** Lightweight feather puff — visual only, no tone (dizzy aura) */
+  featherPuff(worldX: number, worldY: number, count = 3) {
+    this.spawnFeathers(worldX, worldY, count);
+  }
+
   /** Freak Turkey defeat: massive pumpkin boom + golden calm */
   turkeyDefeated(worldX: number, worldY: number) {
     this.playTone({

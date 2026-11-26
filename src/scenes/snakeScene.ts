@@ -1307,6 +1307,7 @@ export default class SnakeScene extends Phaser.Scene {
   private lastBossHealth: Map<string, number> = new Map();
   private jasonDefeatTimer: Phaser.Time.TimerEvent | null = null;
   private jasonTrail: { x: number; y: number }[] = [];
+  private turkeyAuraAtMs = 0;
   private jasonIntroOverlay: {
     top: Phaser.GameObjects.Rectangle;
     bottom: Phaser.GameObjects.Rectangle;
@@ -13656,6 +13657,18 @@ export default class SnakeScene extends Phaser.Scene {
           bossAlpha = 0.8;
         }
 
+        if (boss.kind === 'freak-turkey' && boss.turkeyPhase === 'vulnerable') {
+          // Dizzy aura: feathers drift off the stuffed turkey
+          const headSeg = boss.body[0];
+          if (headSeg && timeMs - this.turkeyAuraAtMs > 480) {
+            const { x: auraX, y: auraY } = this.snakeRenderer.getWorldPosition(headSeg, room.id);
+            this.juice.featherPuff(auraX + this.grid.cell / 2, auraY + this.grid.cell / 2, 3);
+            this.turkeyAuraAtMs = timeMs;
+          }
+        } else if (boss.kind === 'freak-turkey') {
+          this.turkeyAuraAtMs = 0;
+        }
+
         if (boss.kind === 'jason-statham') {
           const head = boss.body[0];
           if (boss.jasonPhase === 'attacking' && head) {
@@ -13710,14 +13723,18 @@ export default class SnakeScene extends Phaser.Scene {
                 : 1;
             const size = cellSize * wobble;
             const grow = (cellSize - size) / 2;
+            const bobY =
+              isTurkey && boss.turkeyPhase === 'attacking'
+                ? Math.sin(timeMs / 130 + 0.6) * 3
+                : 0;
             this.graphics
               .fillStyle(isFreakYouHead ? 0xff7a8f : bossColor, isFreakYouHead ? 0.98 : bossAlpha)
-              .fillRect(x + grow, y + grow, size, size);
+              .fillRect(x + grow, y + grow + bobY, size, size);
             if (isTurkey && index === 0) {
               // Signature gold ring around the turkey head
               this.graphics
                 .lineStyle(2, 0xffd166, 0.85)
-                .strokeRect(x - 1, y - 1, cellSize + 2, cellSize + 2);
+                .strokeRect(x - 1, y - 1 + bobY, cellSize + 2, cellSize + 2);
             }
             if (isFreakYouHeadCenter) {
               const noseSize = Math.max(3, this.grid.cell * 0.28);
