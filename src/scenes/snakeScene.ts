@@ -12227,6 +12227,97 @@ export default class SnakeScene extends Phaser.Scene {
     this.cameras.main.shake(260, 0.012);
   }
 
+  private phaseBossStyle(
+    boss: Boss | DuelBossDisplay,
+    timeMs: number,
+  ): { color: number; alpha: number } | null {
+    if (boss.kind === 'jason-statham') {
+      const jasonPhase = boss.jasonPhase ?? 'calm';
+      if (jasonPhase === 'vulnerable') {
+        const pulse = Math.sin(timeMs / 200) * 0.3 + 0.7;
+        return { color: 0xff2d2d, alpha: Math.max(0.5, pulse) };
+      }
+      if (jasonPhase === 'attacking') return { color: 0xcc0000, alpha: 0.95 };
+      if (jasonPhase === 'calm') {
+        const breath = Math.sin(timeMs / 700) * 0.12 + 0.5;
+        return { color: 0x881111, alpha: Math.max(0.3, breath) };
+      }
+      return { color: 0x333333, alpha: 0.3 };
+    }
+    if (boss.kind === 'freak-turkey') {
+      const turkeyPhase = boss.turkeyPhase ?? 'calm';
+      if (turkeyPhase === 'vulnerable') {
+        const pulse = Math.sin(timeMs / 180) * 0.35 + 0.65;
+        return { color: 0xffa726, alpha: Math.max(0.55, pulse) };
+      }
+      if (turkeyPhase === 'attacking') return { color: 0xff7b24, alpha: 0.95 };
+      if (turkeyPhase === 'calm') return { color: 0x6b3f1d, alpha: 0.6 };
+      return { color: 0x3a2e20, alpha: 0.3 };
+    }
+    return null;
+  }
+
+  private drawJasonAttackFx(boss: Boss, roomId: string): void {
+    const head = boss.body[0];
+    if (boss.jasonPhase === 'attacking' && head) {
+      const { x: headX, y: headY } = this.snakeRenderer.getWorldPosition(head, roomId);
+      this.jasonTrail.unshift({ x: headX, y: headY });
+      if (this.jasonTrail.length > 7) this.jasonTrail.pop();
+    } else {
+      this.jasonTrail.length = 0;
+    }
+    for (let i = 1; i < this.jasonTrail.length; i += 1) {
+      const pos = this.jasonTrail[i];
+      const alpha = Math.max(0.05, 0.24 * (1 - i / this.jasonTrail.length));
+      this.graphics
+        .fillStyle(0x4a0d0d, alpha)
+        .fillRect(pos.x, pos.y, this.grid.cell, this.grid.cell);
+    }
+    if (boss.jasonPhase === 'attacking') {
+      // Film double-exposure: a ghosted ink frame of the whole body
+      const [roomX, roomY] = this.parseRoomCoordinates(roomId);
+      const cell = this.grid.cell;
+      for (const ghost of boss.body) {
+        const localX = ghost.x - roomX * this.grid.cols;
+        const localY = ghost.y - roomY * this.grid.rows;
+        if (localX >= 0 && localX < this.grid.cols && localY >= 0 && localY < this.grid.rows) {
+          const { x: ghostX, y: ghostY } = this.snakeRenderer.getWorldPosition(ghost, roomId);
+          this.graphics.fillStyle(0x0d0a0a, 0.4).fillRect(ghostX + 3, ghostY + 3, cell, cell);
+        }
+      }
+    }
+  }
+
+  private drawTurkeyDizzyAura(boss: Boss, roomId: string, timeMs: number): void {
+    if (boss.turkeyPhase === 'vulnerable') {
+      const headSeg = boss.body[0];
+      if (headSeg && timeMs - this.turkeyAuraAtMs > 480) {
+        const { x: auraX, y: auraY } = this.snakeRenderer.getWorldPosition(headSeg, roomId);
+        this.juice.featherPuff(auraX + this.grid.cell / 2, auraY + this.grid.cell / 2, 3);
+        this.turkeyAuraAtMs = timeMs;
+      }
+    } else {
+      this.turkeyAuraAtMs = 0;
+    }
+  }
+
+  private phaseBossSegmentMetrics(
+    boss: Boss | DuelBossDisplay,
+    timeMs: number,
+    index: number,
+  ): { size: number; grow: number; bobY: number } {
+    if (boss.kind !== 'freak-turkey' || boss.turkeyPhase !== 'attacking') {
+      return { size: this.grid.cell, grow: 0, bobY: 0 };
+    }
+    const wobble = 1 + 0.13 * Math.sin(timeMs / 150 + index * 0.9);
+    const size = this.grid.cell * wobble;
+    return {
+      size,
+      grow: (this.grid.cell - size) / 2,
+      bobY: Math.sin(timeMs / 130 + 0.6) * 3,
+    };
+  }
+
   private phaseBossHudPhaseText(boss: Boss | DuelBossDisplay): string | undefined {
     if (boss.kind !== 'jason-statham' && boss.kind !== 'freak-turkey') return undefined;
     const isTurkey = boss.kind === 'freak-turkey';
@@ -13638,53 +13729,22 @@ export default class SnakeScene extends Phaser.Scene {
       const timeMs = this.time.now;
       if (!bosses.some((boss) => boss.kind === 'jason-statham')) {
         this.jasonTrail.length = 0;
+        this.turkeyAuraAtMs = 0;
       }
       for (const boss of bosses) {
         let bossColor: number;
         let bossAlpha: number;
 
-        if (boss.kind === 'angel') {
+        const phaseStyle = this.phaseBossStyle(boss, timeMs);
+        if (phaseStyle) {
+          bossColor = phaseStyle.color;
+          bossAlpha = phaseStyle.alpha;
+        } else if (boss.kind === 'angel') {
           bossColor = 0xfff2a8;
           bossAlpha = 0.92;
         } else if (boss.kind === 'freak-you') {
           bossColor = 0xff2d55;
           bossAlpha = 0.9;
-        } else if (boss.kind === 'jason-statham') {
-          // Jason: red, with pulsing glow during vulnerability
-          if (boss.jasonPhase === 'vulnerable') {
-            // Pulsing red glow
-            const pulse = Math.sin(timeMs / 200) * 0.3 + 0.7;
-            bossColor = 0xff2d2d;
-            bossAlpha = Math.max(0.5, pulse);
-          } else if (boss.jasonPhase === 'attacking') {
-            bossColor = 0xcc0000;
-            bossAlpha = 0.95;
-          } else if (boss.jasonPhase === 'calm') {
-            // Idle breathing: the villain slowly waxes and wanes
-            const breath = Math.sin(timeMs / 700) * 0.12 + 0.5;
-            bossColor = 0x881111;
-            bossAlpha = Math.max(0.3, breath);
-          } else {
-            bossColor = 0x333333;
-            bossAlpha = 0.3;
-          }
-        } else if (boss.kind === 'freak-turkey') {
-          // Freak Turkey: pumpkin orange, pulsing gold while stuffed and tired
-          if (boss.turkeyPhase === 'vulnerable') {
-            // Pulsing gold glow
-            const pulse = Math.sin(timeMs / 180) * 0.35 + 0.65;
-            bossColor = 0xffa726;
-            bossAlpha = Math.max(0.55, pulse);
-          } else if (boss.turkeyPhase === 'attacking') {
-            bossColor = 0xff7b24;
-            bossAlpha = 0.95;
-          } else if (boss.turkeyPhase === 'calm') {
-            bossColor = 0x6b3f1d;
-            bossAlpha = 0.6;
-          } else {
-            bossColor = 0x3a2e20;
-            bossAlpha = 0.3;
-          }
         } else if (boss.kind === 'freaker-dennis' && boss.rainbowPalette) {
           const palette = defaultGameConfig.freakerDennis?.rainbowPalette;
           if (palette && palette.enabled) {
@@ -13703,55 +13763,11 @@ export default class SnakeScene extends Phaser.Scene {
           bossAlpha = 0.8;
         }
 
-        if (boss.kind === 'freak-turkey' && boss.turkeyPhase === 'vulnerable') {
-          // Dizzy aura: feathers drift off the stuffed turkey
-          const headSeg = boss.body[0];
-          if (headSeg && timeMs - this.turkeyAuraAtMs > 480) {
-            const { x: auraX, y: auraY } = this.snakeRenderer.getWorldPosition(headSeg, room.id);
-            this.juice.featherPuff(auraX + this.grid.cell / 2, auraY + this.grid.cell / 2, 3);
-            this.turkeyAuraAtMs = timeMs;
-          }
-        } else if (boss.kind === 'freak-turkey') {
-          this.turkeyAuraAtMs = 0;
+        if (boss.kind === 'freak-turkey') {
+          this.drawTurkeyDizzyAura(boss, room.id, timeMs);
         }
-
         if (boss.kind === 'jason-statham') {
-          const head = boss.body[0];
-          if (boss.jasonPhase === 'attacking' && head) {
-            const { x: headX, y: headY } = this.snakeRenderer.getWorldPosition(head, room.id);
-            this.jasonTrail.unshift({ x: headX, y: headY });
-            if (this.jasonTrail.length > 7) this.jasonTrail.pop();
-          } else {
-            this.jasonTrail.length = 0;
-          }
-          for (let i = 1; i < this.jasonTrail.length; i += 1) {
-            const pos = this.jasonTrail[i];
-            const alpha = Math.max(0.05, 0.24 * (1 - i / this.jasonTrail.length));
-            this.graphics
-              .fillStyle(0x4a0d0d, alpha)
-              .fillRect(pos.x, pos.y, this.grid.cell, this.grid.cell);
-          }
-          if (boss.jasonPhase === 'attacking') {
-            // Film double-exposure: a ghosted ink frame of the whole body
-            const [roomX, roomY] = this.parseRoomCoordinates(room.id);
-            const cell = this.grid.cell;
-            for (const ghost of boss.body) {
-              const localX = ghost.x - roomX * this.grid.cols;
-              const localY = ghost.y - roomY * this.grid.rows;
-              if (
-                localX >= 0 &&
-                localX < this.grid.cols &&
-                localY >= 0 &&
-                localY < this.grid.rows
-              ) {
-                const { x: ghostX, y: ghostY } = this.snakeRenderer.getWorldPosition(
-                  ghost,
-                  room.id,
-                );
-                this.graphics.fillStyle(0x0d0a0a, 0.4).fillRect(ghostX + 3, ghostY + 3, cell, cell);
-              }
-            }
-          }
+          this.drawJasonAttackFx(boss, room.id);
         }
 
         const isTurkey = boss.kind === 'freak-turkey';
@@ -13769,14 +13785,7 @@ export default class SnakeScene extends Phaser.Scene {
               (boss.headCenter
                 ? segment.x === boss.headCenter.x && segment.y === boss.headCenter.y
                 : index === 1);
-            const wobble =
-              isTurkey && boss.turkeyPhase === 'attacking'
-                ? 1 + 0.13 * Math.sin(timeMs / 150 + index * 0.9)
-                : 1;
-            const size = cellSize * wobble;
-            const grow = (cellSize - size) / 2;
-            const bobY =
-              isTurkey && boss.turkeyPhase === 'attacking' ? Math.sin(timeMs / 130 + 0.6) * 3 : 0;
+            const { size, grow, bobY } = this.phaseBossSegmentMetrics(boss, timeMs, index);
             this.graphics
               .fillStyle(isFreakYouHead ? 0xff7a8f : bossColor, isFreakYouHead ? 0.98 : bossAlpha)
               .fillRect(x + grow, y + grow + bobY, size, size);
