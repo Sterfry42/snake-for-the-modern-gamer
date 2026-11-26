@@ -35,6 +35,14 @@ export function applyMovementUpdate(snapshot: GameSnapshot, update: MovementUpda
   if (snapshot.replication?.epoch !== update.epoch || !snapshot.players[update.player.id])
     return snapshot;
   const previous = snapshot.players[update.player.id];
+  // The local body and the room's dynamic selectors have to switch together.
+  // A crossing arrives on the fast lane before the matching viewport projection.
+  if (
+    update.player.id === snapshot.localPlayerId &&
+    (update.player.roomId !== snapshot.viewport.centerRoomId ||
+      !snapshot.viewport.rooms[update.player.roomId])
+  )
+    return snapshot;
   if ((previous.movementRevision ?? 0) > (update.player.movementRevision ?? 0)) return snapshot;
   const player: MovementPlayer = { ...update.player };
   if (!previous.isLocal) {

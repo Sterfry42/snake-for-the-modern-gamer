@@ -137,7 +137,7 @@ export type SceneActionCommand = { playerId: PlayerId } & (
   | { type: 'vehicleAction'; action: 'exit' }
   | { type: 'vehicleAction'; action: 'input'; throttle: -1 | 0 | 1; steering: -1 | 0 | 1 }
   | { type: 'debugAction'; action: 'cycleWeather' }
-  | { type: 'manualStep' }
+  | { type: 'manualStep'; direction?: Vector2Like }
   | { type: 'manualReturn' }
   | { type: 'minigameAction'; action: 'start'; kind: 'fishing' | 'baseball' }
   | { type: 'minigameAction'; action: 'pull'; direction: -1 | 0 | 1 }

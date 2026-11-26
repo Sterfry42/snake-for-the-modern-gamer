@@ -23,5 +23,9 @@ export interface GameConnection {
   ): import('./ClientMovementPredictor.js').PredictedSnake | null;
   hasPeerMovementPresentation?(): boolean;
   isPredictionExhausted?(): boolean;
+  recordAuthorityFrame?(): void;
+  getMultiplayerProfile?(): ReturnType<
+    import('./MultiplayerProfiler.js').MultiplayerProfiler['read']
+  >;
   disconnect(): void;
 }

@@ -15,7 +15,7 @@ import { isSolidTile } from '../../../../world/tiles.js';
 import type { RoomSnapshot } from '../../../../world/types.js';
 
 describe('Town life commerce hardening stories', () => {
-  it('TOWN-HARDEN-034 - player layer exits dematerialize actors without moving them outside', async () => {
+  it('TOWN-HARDEN-034 - player layer exits retain the actors and their interior positions', async () => {
     const scenario = createHeadlessScenario({ seed: 'town-harden-034-layer-exit-presence' });
 
     await assertLayerExitPreservesInteriorActors(scenario, { templateId: 'tavern' }, [
@@ -635,6 +635,7 @@ async function assertLayerExitPreservesInteriorActors(
       expect(current.presence?.materialized).toBe(true);
     }
 
+    const beforeExit = new Map(actorIds.map((id) => [id, scenario.actor(id).presence]));
     exitCurrentLayerThroughDoor(scenario);
     expect(scenario.currentRoom().id).toBe(room.id);
     expect(scenario.game.getActorsInCurrentRoom().map((actor) => actor.id)).not.toEqual(
@@ -643,14 +644,14 @@ async function assertLayerExitPreservesInteriorActors(
     for (const actorId of actorIds) {
       const actor = scenario.actor(actorId);
       expect(actor.currentRoomId).toBe(interiorRoomId);
-      expect(actor.presence).toBeUndefined();
+      expect(actor.presence).toEqual(beforeExit.get(actorId));
     }
 
     await scenario.advanceActorTicks(8);
     for (const actorId of actorIds) {
       const actor = scenario.actor(actorId);
       expect(actor.currentRoomId).toBe(interiorRoomId);
-      expect(actor.presence).toBeUndefined();
+      expect(actor.presence?.roomId).toBe(interiorRoomId);
     }
 
     walkSnakeIntoDoor(scenario, room, entrance);

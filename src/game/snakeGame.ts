@@ -18,7 +18,7 @@ import {
 /**
  * Snake Game Core
  */
-import { findSafePlayerSpawn } from '../players/safePlayerSpawn.js';
+import { findSafePlayerSpawn, SpawnAreaUnavailable } from '../players/safePlayerSpawn.js';
 import { FarmingState } from '../farming/farmingState.js';
 import { processFarmDawn } from '../farming/farmingIncidents.js';
 import { applyFarmContact, farmCreatureTarget } from '../farming/farmingCreatures.js';
@@ -426,7 +426,7 @@ import {
   type CharacterMode,
 } from '../player/raccoonMode.js';
 import type { ClientCommand } from '../session/ClientCommand.js';
-import type { GameSnapshot } from '../session/GameSnapshot.js';
+import { isViewportNpc, type GameSnapshot } from '../session/GameSnapshot.js';
 import {
   getArtifactDefinition,
   toArtifactView,
@@ -2243,17 +2243,7 @@ export class SnakeGame implements QuestRuntime {
             footballs: this.getFootballs(roomId),
             bombs: this.getBombs(roomId),
             animals: this.getAnimals(roomId),
-            npcs: this.actors
-              .getActorsInRoom(roomId)
-              .filter(
-                (actor) =>
-                  actor.presence?.materialized &&
-                  actor.health?.state !== 'dead' &&
-                  actor.hostility !== 'dead' &&
-                  !actor.flags.dead &&
-                  !actor.flags.eaten &&
-                  !['enemy', 'animal', 'boss', 'follower', 'summon'].includes(actor.kind),
-              ),
+            npcs: this.actors.getActorsInRoom(roomId).filter(isViewportNpc),
           },
         },
       },
@@ -2342,9 +2332,11 @@ export class SnakeGame implements QuestRuntime {
     if (this.runtimeMode !== 'client-replica')
       throw new Error('An authority cannot hydrate movement');
     if (!this.replicaSnapshot) return;
-    this.replicaSnapshot = applyMovementUpdate(this.replicaSnapshot, update);
-    const player = update.player;
-    if (player.id !== this.localPlayerId || !this.world.peekCachedRoom(player.roomId)) return;
+    const merged = applyMovementUpdate(this.replicaSnapshot, update);
+    if (merged === this.replicaSnapshot) return;
+    this.replicaSnapshot = merged;
+    if (update.player.id !== merged.localPlayerId) return;
+    const player = merged.players[merged.localPlayerId];
     this.snake.restoreBodySnapshot({
       body: player.body,
       roomId: player.roomId,
@@ -2910,6 +2902,7 @@ export class SnakeGame implements QuestRuntime {
     if (paused) {
       return this.createNoopActionStepResult(appleBeforeStep, roomsChanged);
     }
+    this.setFlag('traversal.ladderReturnRoomId', undefined);
     if (this.constructionPlacement) {
       return this.createNoopActionStepResult(appleBeforeStep, roomsChanged);
     }
@@ -3135,7 +3128,7 @@ export class SnakeGame implements QuestRuntime {
       const phasePowerupActive = Boolean(
         this.powerupState?.kind === 'phase' && this.powerupState.remaining > 0,
       );
-      const consumption = this.apples.handleConsumption(
+      let consumption = this.apples.handleConsumption(
         this.snake.currentRoomId,
         this.snake.directionVector,
         phasePowerupActive,
@@ -3143,16 +3136,12 @@ export class SnakeGame implements QuestRuntime {
       );
       if (consumption.fatal) {
         if (this.isImmortal()) {
-          const normalConsumption = this.apples.handleConsumption(
+          consumption = this.apples.handleConsumption(
             this.snake.currentRoomId,
             this.snake.directionVector,
             true,
             this.worldToLocal(this.snake.currentRoomId, currentHead),
           );
-          appleRewards = normalConsumption.rewards;
-          appleWorldPosition = normalConsumption.worldPosition ?? null;
-          appleStateChanged = true;
-          appleTypeId = normalConsumption.typeId;
         } else if (
           this.tryFortitudePhoenix(
             { status: 'dead', reason: 'shielded' },
@@ -4489,92 +4478,175 @@ export class SnakeGame implements QuestRuntime {
     const local = this.worldToLocal(room.id, head);
     const tile = room.layout[local.y]?.[local.x];
     if (room.layer && tile === LAYER_EXIT_TILE && previousRoom === room.id) {
-      this.exitCurrentLayer(roomsChanged);
+      this.exitCurrentLayer(roomsChanged, 'movement');
       return;
     }
     const entrance = room.layerEntrances?.find(
-      (entry) => !entry.locked && entry.x === local.x && entry.y === local.y,
+      (entry) => entry.x === local.x && entry.y === local.y,
     );
-    if (!entrance || previousRoom !== room.id) {
+    if (!entrance || previousRoom !== room.id) return;
+    const access = this.resolveTownDoorAccess(entrance);
+    if (access.access !== 'open' || entrance.locked) {
+      this.recordLayerTraversal(
+        'enter',
+        'movement',
+        'rejected',
+        entrance.layerId,
+        entrance.id,
+        access.access,
+      );
+      this.setFlag('ui.questInteraction', {
+        message: access.closureReason
+          ? `${access.displayName} is closed: ${access.closureReason}.`
+          : `${access.displayName} is closed.`,
+      });
       return;
     }
-    if (entrance.kind === 'townInterior') {
-      const access = this.resolveTownDoorAccess(entrance);
-      if (access.access !== 'open') {
-        this.setFlag('ui.questInteraction', {
-          message: access.closureReason
-            ? `${access.displayName} is closed: ${access.closureReason}.`
-            : `${access.displayName} is closed.`,
-        });
-        return;
-      }
-    }
-    this.enterLayer(entrance, roomsChanged);
+    this.enterLayer(entrance, roomsChanged, 'movement');
   }
 
-  private enterLayer(entrance: LayerEntrance, roomsChanged: Set<string>): void {
-    if (entrance.locked) {
-      this.setFlag('ui.questInteraction', { message: 'The entrance is locked.' });
-      return;
-    }
-    const ensured = this.world.ensureLayerInstance(entrance);
-    const instance = this.world.setLayerInstanceState(ensured.id, 'active') ?? ensured;
+  private enterLayer(
+    entrance: LayerEntrance,
+    roomsChanged: Set<string>,
+    source: 'movement' | 'interaction',
+  ): { ok: boolean; message: string } {
+    this.recordLayerTraversal('enter', source, 'attempt', entrance.layerId, entrance.id);
+    const instance = this.world.ensureLayerInstance(entrance);
     const layerRoom = this.world.getRoom(instance.id);
-    this.snake.teleportTo(instance.id, instance.spawn, { x: 0, y: -1 });
+    const direction = { x: 0, y: -1 };
+    const occupants = this.layerPeerOccupancy(instance.id);
+    const { spawn, exit } = layerRoom.layer ?? instance;
+    const blockers = this.collectActorOccupancy(instance.id);
+    let position = spawn;
+    if (occupants.length > 0 || blockers.some((tile) => tile.x === spawn.x && tile.y === spawn.y)) {
+      try {
+        position = findSafePlayerSpawn({
+          room: layerRoom,
+          preferredBody: [spawn],
+          preferredDirection: direction,
+          blocked: [exit, ...blockers],
+          players: occupants,
+          forwardClearance: 1,
+        }).body[0];
+      } catch (error) {
+        if (!(error instanceof SpawnAreaUnavailable)) throw error;
+        const message = 'The entrance is crowded. Wait for someone to move.';
+        this.recordLayerTraversal('enter', source, 'rejected', instance.id, entrance.id, 'crowded');
+        this.setFlag('ui.questInteraction', { message });
+        return { ok: false, message };
+      }
+    }
+    if (entrance.crimeOnEntry) this.applyCurrentTownCrime('theft', true, 1);
+    this.snake.teleportTo(instance.id, position, direction);
     this.visitedRooms.add(instance.id);
     const runtime: LayerRuntimeState = {
       layerId: instance.id,
-      parentRoomId: instance.parentRoomId,
-      entranceId: instance.entranceId,
-      returnPosition: instance.returnPosition,
+      parentRoomId: entrance.parentRoomId,
+      entranceId: entrance.id,
+      returnPosition: { ...entrance.returnPosition },
       templateId: instance.templateId,
       roomStack: [instance.id],
     };
     this.setFlag('layers.active', runtime);
     this.setFlag('traversal.manualResumePending', true);
-    this.setFlag('ui.questInteraction', {
-      message:
-        instance.kind === 'townInterior' && instance.templateId === 'thievesGuild'
-          ? 'You slip down into the Thieves Guild.'
-          : `You enter ${instance.displayName ?? 'the building'}.`,
-    });
-    if (layerRoom.town) {
-      this.applyTownRuntimeToRoom(layerRoom);
-      this.maybeMarkTownHostility(layerRoom);
-    }
-    this.ensureActorsFromRoomContent(layerRoom, true);
-    this.materializeActorsForRoom(layerRoom);
-    roomsChanged.add(instance.parentRoomId);
-    roomsChanged.add(instance.id);
+    this.setFlag('traversal.exitDirectionLockTicks', undefined);
+    const message =
+      instance.templateId === 'thievesGuild'
+        ? 'You slip down into the Thieves Guild.'
+        : `You enter ${instance.displayName ?? entrance.label ?? 'the building'}.`;
+    this.setFlag('ui.questInteraction', { message });
+    roomsChanged.add(runtime.parentRoomId);
+    roomsChanged.add(runtime.layerId);
+    if (source === 'interaction')
+      this.handlePlayerRoomTransition(runtime.parentRoomId, runtime.layerId, {
+        mode: 'snake',
+        direction,
+      });
+    this.recordLayerTraversal('enter', source, 'completed', instance.id, entrance.id);
+    return { ok: true, message };
   }
 
-  private exitCurrentLayer(roomsChanged: Set<string>): void {
+  private exitCurrentLayer(
+    roomsChanged: Set<string>,
+    source: 'movement' | 'interaction',
+  ): { ok: boolean; reason?: string } {
+    const roomId = this.snake.currentRoomId;
     const runtime = this.getFlag<LayerRuntimeState>('layers.active');
-    if (!runtime) {
-      return;
+    this.recordLayerTraversal('exit', source, 'attempt', roomId, runtime?.entranceId);
+    const reject = (reason: string) => {
+      this.recordLayerTraversal('exit', source, 'rejected', roomId, runtime?.entranceId, reason);
+      this.setFlag('ui.questInteraction', { message: reason });
+      return { ok: false, reason };
+    };
+    if (!runtime || runtime.layerId !== roomId)
+      return reject('The interior entrance is no longer registered for this player.');
+    if (
+      this.layerPeerOccupancy(runtime.parentRoomId).some((body) =>
+        body.some(
+          (tile) => tile.x === runtime.returnPosition.x && tile.y === runtime.returnPosition.y,
+        ),
+      )
+    ) {
+      this.setFlag('traversal.manualResumePending', true);
+      return reject('Someone is blocking the exit outside.');
     }
-    this.snake.teleportTo(runtime.parentRoomId, runtime.returnPosition, { x: 0, y: 1 });
-    this.dematerializeActorsFromLayer(runtime.layerId, runtime.parentRoomId);
-    this.world.setLayerInstanceState(runtime.layerId, 'completed');
+    const direction = { x: 0, y: 1 };
+    this.snake.teleportTo(runtime.parentRoomId, runtime.returnPosition, direction);
     this.setFlag('layers.active', undefined);
     this.setFlag('traversal.manualResumePending', true);
+    this.setFlag('traversal.exitDirectionLockTicks', undefined);
     this.setFlag('ui.questInteraction', { message: 'You step back outside.' });
     roomsChanged.add(runtime.layerId);
     roomsChanged.add(runtime.parentRoomId);
+    if (source === 'interaction')
+      this.handlePlayerRoomTransition(roomId, runtime.parentRoomId, { mode: 'snake', direction });
+    this.recordLayerTraversal('exit', source, 'completed', roomId, runtime.entranceId);
+    return { ok: true };
   }
 
-  private dematerializeActorsFromLayer(layerId: string, parentRoomId: string): void {
-    void parentRoomId;
-    for (const actor of this.actors.registry.getAll()) {
-      if (actor.currentRoomId !== layerId && actor.presence?.roomId !== layerId) {
-        continue;
-      }
-      this.actors.registry.update(actor.id, (current) => ({
-        ...current,
-        currentRoomId: layerId,
-        presence: undefined,
-      }));
-    }
+  private layerPeerOccupancy(roomId: string): Vector2Like[][] {
+    return this.getPlayers()
+      .filter(
+        (player) =>
+          player.id !== this.localPlayerId &&
+          isPlayerInWorld(player) &&
+          player.snake.currentRoomId === roomId,
+      )
+      .map((player) => player.snake.bodySegments.map((tile) => this.worldToLocal(roomId, tile)));
+  }
+
+  private traversalDiagnostic?: (fields: Record<string, unknown>) => void;
+
+  setTraversalDiagnostic(sink: (fields: Record<string, unknown>) => void): void {
+    this.traversalDiagnostic = sink;
+  }
+
+  private recordLayerTraversal(
+    action: 'enter' | 'exit',
+    source: 'movement' | 'interaction',
+    stage: 'attempt' | 'completed' | 'rejected',
+    layerId: string,
+    entranceId?: string,
+    reason?: string,
+  ): void {
+    const fields = {
+      action,
+      source,
+      stage,
+      layerId,
+      entranceId,
+      reason,
+      roomId: this.snake.currentRoomId,
+      playerId: this.localPlayerId,
+    };
+    this.traversalDiagnostic?.(fields);
+    getDebugBus()?.emit({
+      type: 'room.layer_traversal',
+      category: 'room',
+      verbosity: 'normal',
+      roomId: fields.roomId,
+      data: fields,
+    });
   }
 
   private prepareSavedLayerRoomForLoad(): void {
@@ -4589,8 +4661,7 @@ export class SnakeGame implements QuestRuntime {
       ) ??
       this.world.getLayerEntrance(runtime.entranceId) ??
       this.createSavedLayerEntrance(runtime);
-    const ensured = this.world.ensureLayerInstance(entrance);
-    this.world.setLayerInstanceState(ensured.id, 'active');
+    this.world.ensureLayerInstance(entrance);
   }
 
   private createSavedLayerEntrance(runtime: LayerRuntimeState): LayerEntrance {
@@ -6027,14 +6098,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   getCurrentRoom(): RoomSnapshot {
-    if (this.replicaSnapshot?.clientState) {
-      const room = this.replicaSnapshot.clientState.worldRooms.find(
-        (room) => room.id === this.snake.currentRoomId,
-      );
-      if (!room) throw new Error('Room is absent from authoritative snapshot');
-      return room;
-    }
-    return this.world.getRoom(this.snake.currentRoomId);
+    return this.getRoom(this.snake.currentRoomId);
   }
 
   getGeneratedRoomCount(): number {
@@ -6148,6 +6212,12 @@ export class SnakeGame implements QuestRuntime {
     const [, , newDepth = 0] = this.parseRoomCoordinates(newRoomId);
     if (previousDepth !== newDepth) {
       this.setFlag('traversal.manualResumePending', true);
+      if (
+        context.mode === 'snake' &&
+        this.world.getRoom(previousRoomId).portals.some((portal) => portal.destRoomId === newRoomId)
+      ) {
+        this.setFlag('traversal.ladderReturnRoomId', newRoomId);
+      }
     }
     if (!this.visitedRooms.has(newRoomId)) {
       this.visitedRooms.add(newRoomId);
@@ -6539,20 +6609,15 @@ export class SnakeGame implements QuestRuntime {
           : `${access.displayName} is closed.`,
       };
     }
-    const effectiveEntrance =
-      entrance.doorKind === 'homeDoorClosed' ? { ...entrance, locked: false } : entrance;
-    if (entrance.crimeOnEntry) {
-      this.applyCurrentTownCrime('theft', true, 1);
-    }
-    const roomsChanged = new Set<string>();
-    this.enterLayer(effectiveEntrance, roomsChanged);
-    return {
-      ok: true,
-      message:
-        entrance.crimeOnEntry && entrance.doorKind === 'homeDoorClosed'
-          ? `You force open ${entrance.displayName ?? 'the residence'}. That is a crime, fuhgeddaboudit.`
-          : `You enter ${entrance.displayName ?? entrance.label ?? 'the building'}.`,
-    };
+    if (entrance.locked && entrance.doorKind !== 'homeDoorClosed')
+      return { ok: false, message: 'The entrance is locked.' };
+    const result = this.enterLayer(entrance, new Set(), 'interaction');
+    if (result.ok && entrance.crimeOnEntry && entrance.doorKind === 'homeDoorClosed')
+      return {
+        ok: true,
+        message: `You force open ${entrance.displayName ?? 'the residence'}. That is a crime, fuhgeddaboudit.`,
+      };
+    return result;
   }
 
   updateCurrentTown(town: TownStructure): TownStructure | null {
@@ -14331,7 +14396,8 @@ export class SnakeGame implements QuestRuntime {
     })) {
       carve(cell.x, cell.y);
     }
-    room.layout = layout.map((row) => row.join(''));
+    const nextLayout = layout.map((row) => row.join(''));
+    if (nextLayout.some((row, index) => row !== room.layout[index])) room.layout = nextLayout;
   }
 
   private addGuildGratePortal(room: RoomSnapshot): void {
@@ -14345,14 +14411,13 @@ export class SnakeGame implements QuestRuntime {
     }
     const centerX = Math.floor(this.config.grid.cols / 2);
     const centerY = Math.floor(this.config.grid.rows / 2);
-    const layout = room.layout.map((row) => row.split(''));
     const grate = { x: Math.max(1, centerX - 5), y: centerY };
-    if (layout[grate.y]?.[grate.x]) {
-      layout[grate.y][grate.x] = LAYER_ENTRANCE_TILE;
-    }
-    room.layout = layout.map((row) => row.join(''));
+    const row = room.layout[grate.y];
+    if (row?.[grate.x] && row[grate.x] !== LAYER_ENTRANCE_TILE)
+      room.layout[grate.y] = row.slice(0, grate.x) + LAYER_ENTRANCE_TILE + row.slice(grate.x + 1);
     const destRoomId = this.getTownGuildInteriorRoomId(town.id);
-    room.portals = room.portals.filter((portal) => portal.x !== grate.x || portal.y !== grate.y);
+    const portals = room.portals.filter((portal) => portal.x !== grate.x || portal.y !== grate.y);
+    if (portals.length !== room.portals.length) room.portals = portals;
     const entrance: LayerEntrance = {
       id: `town:${town.id}:guild-grate`,
       layerId: destRoomId,
@@ -14366,6 +14431,8 @@ export class SnakeGame implements QuestRuntime {
       returnPosition: { ...grate },
       tile: LAYER_ENTRANCE_TILE,
     };
+    const existing = room.layerEntrances?.find((entry) => entry.id === entrance.id);
+    if (existing?.layerId === destRoomId && existing.discovered && !existing.locked) return;
     room.layerEntrances = [
       ...(room.layerEntrances ?? []).filter((entry) => entry.id !== entrance.id),
       entrance,
@@ -25809,22 +25876,38 @@ export class SnakeGame implements QuestRuntime {
     });
   }
 
-  returnFromManualResumePause(): boolean {
-    if (!this.getFlag<boolean>('traversal.manualResumePending')) {
-      return false;
-    }
+  canReturnFromManualResumePause(): boolean {
+    if (!this.getFlag<boolean>('traversal.manualResumePending')) return false;
+    const room = this.getCurrentRoom();
+    return Boolean(
+      room.layer || room.cave || this.getFlag<string>('traversal.ladderReturnRoomId') === room.id,
+    );
+  }
+
+  returnFromManualResumePause(): { ok: boolean; reason?: string } {
+    if (!this.canReturnFromManualResumePause())
+      return { ok: false, reason: 'There is no entrance to return through right now.' };
+    const roomId = this.snake.currentRoomId;
+    if (this.getCurrentRoom().layer) return this.exitCurrentLayer(new Set(), 'interaction');
     const caveRuntime = this.getFlag<CaveRuntimeState>('caves.active');
-    if (caveRuntime && this.snake.currentRoomId === caveRuntime.caveId) {
+    if (caveRuntime && roomId === caveRuntime.caveId) {
       this.cavesRuntime.exit(new Set([caveRuntime.caveId, caveRuntime.parentRoomId]), 'manual');
-      return true;
+      return { ok: true };
     }
-    if (!this.getFlag('internal.previousSnapshot')) {
-      return false;
-    }
+    const previousRoomId = this.getFlag<{ roomId: string }>('internal.previousSnapshot')?.roomId;
+    const previous = previousRoomId && parseCoordinateRoomId(previousRoomId);
+    const current = parseCoordinateRoomId(roomId);
+    if (!previous || !current || previous.z === current.z)
+      return { ok: false, reason: 'There is no entrance to return through right now.' };
     this.snake.restorePreviousSnapshot();
+    this.handlePlayerRoomTransition(roomId, this.snake.currentRoomId, {
+      mode: 'snake',
+      direction: this.snake.directionVector,
+    });
     this.setFlag('traversal.manualResumePending', true);
+    this.setFlag('traversal.ladderReturnRoomId', undefined);
     this.setFlag('ui.questInteraction', { message: 'You step back through the ladder.' });
-    return true;
+    return { ok: true };
   }
 
   private consumeEquippedPhoenixItem(): void {

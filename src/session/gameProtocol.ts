@@ -7,12 +7,18 @@ import { SPECIAL_STAT_IDS } from '../stats/specialTypes.js';
 import { EQUIPMENT_SLOTS } from '../inventory/item.js';
 import { isMovementUpdate } from './MovementUpdate.js';
 
-export const GAME_PROTOCOL_VERSION = 6;
+export const GAME_PROTOCOL_VERSION = 7;
+
+export interface CommandSnapshotContext {
+  roomId: string;
+  movementRevision?: number;
+}
 
 export interface CommandMessage {
   type: 'command';
   id: number;
   command: ClientCommand;
+  context?: CommandSnapshotContext;
 }
 
 export type ServerMessage =
@@ -29,7 +35,7 @@ export type ServerMessage =
   | { type: 'snapshot'; snapshot: GameSnapshot }
   | { type: 'movement'; update: import('./MovementUpdate.js').MovementUpdate }
   | { type: 'delta'; delta: import('./SnapshotDelta.js').SnapshotDelta }
-  | { type: 'event'; event: GameEvent }
+  | { type: 'event'; event: GameEvent; sequence?: number }
   | { type: 'result'; id: number; result: CommandResult };
 
 /** Network clients can submit intentions, never method names or arbitrary flags. */
@@ -292,6 +298,7 @@ export function isClientCommand(value: unknown): value is ClientCommand {
     case 'debugAction':
       return value.action === 'cycleWeather';
     case 'manualStep':
+      return value.direction === undefined || isCardinalDirection(value.direction);
     case 'manualReturn':
       return true;
     case 'companionAction':
@@ -436,20 +443,40 @@ function isCardinalDirection(value: unknown): boolean {
 
 export function parseCommandMessage(raw: string): CommandMessage | null {
   try {
-    const value: unknown = JSON.parse(raw);
-    if (
-      !isRecord(value) ||
-      value.type !== 'command' ||
-      typeof value.id !== 'number' ||
-      !Number.isSafeInteger(value.id) ||
-      value.id < 1 ||
-      !isClientCommand(value.command)
-    )
-      return null;
-    return { type: 'command', id: value.id, command: value.command };
+    return readCommandMessage(JSON.parse(raw));
   } catch {
     return null;
   }
+}
+
+export function readCommandMessage(value: unknown): CommandMessage | null {
+  if (
+    !isRecord(value) ||
+    value.type !== 'command' ||
+    typeof value.id !== 'number' ||
+    !Number.isSafeInteger(value.id) ||
+    value.id < 1 ||
+    !isClientCommand(value.command)
+  )
+    return null;
+  const context = value.context;
+  if (context === undefined) return { type: 'command', id: value.id, command: value.command };
+  if (!isRecord(context) || typeof context.roomId !== 'string' || context.roomId.length > 256)
+    return null;
+  const movementRevision = context.movementRevision;
+  if (
+    movementRevision !== undefined &&
+    (typeof movementRevision !== 'number' ||
+      !Number.isSafeInteger(movementRevision) ||
+      movementRevision < 0)
+  )
+    return null;
+  return {
+    type: 'command',
+    id: value.id,
+    command: value.command,
+    context: { roomId: context.roomId, movementRevision },
+  };
 }
 
 /** The server is trusted; validate envelope shape before dispatching its payload. */

@@ -1,5 +1,10 @@
 import type { PlayerId } from '../players/playerTypes.js';
 
+export interface GameEventTiming {
+  generatedAt: number;
+  correlationId?: string;
+}
+
 export type GameEvent =
   | { type: 'party.presence'; name: string; status: 'joined' | 'left' | 'reconnected' }
   | { type: 'party.activity'; name: string; status: 'died' | 'returned' }
@@ -20,12 +25,21 @@ export type GameEvent =
       outcome: import('./GameplayOutcome.js').GameplayOutcome;
     }
   | {
+      type: 'gameplay.presentation';
+      playerId: PlayerId;
+      roomId: string;
+      feedback: import('./GameplayOutcome.js').GameplayFeedback[];
+    }
+  | {
       type: 'apple.bite';
       playerId: PlayerId;
       epoch: number;
       revision: number;
       spawnId: number;
       committedAt: number;
+      typeId?: string;
+      streak?: number;
+      violenceLevel?: number;
       roomId: string;
       position: import('../core/math.js').Vector2Like;
     }
@@ -69,3 +83,14 @@ export type GameEvent =
       toRoomId: string;
       head?: import('../core/math.js').Vector2Like;
     };
+
+/** These cues use only committed data carried in the event. Menus, pickups and
+ * outcome bundles follow the projection that their handlers can read. */
+export function isImmediateGameEvent(event: GameEvent): boolean {
+  return (
+    event.type === 'apple.bite' ||
+    event.type === 'sound.play' ||
+    event.type === 'screen.shake' ||
+    event.type === 'gameplay.presentation'
+  );
+}

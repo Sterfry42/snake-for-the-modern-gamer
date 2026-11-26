@@ -32,6 +32,16 @@ export interface WorldWorkReport {
   completed: number;
   failed: number;
   maximumRoundTripMs: number;
+  workMs?: number;
+  threadCpuMs?: number;
+  transfers?: {
+    sent: Record<string, number>;
+    received: Record<string, number>;
+    samples: Record<
+      string,
+      { count: number; window: number; p50: number; p95: number; p99: number; max: number }
+    >;
+  };
 }
 
 export interface WorldWork {

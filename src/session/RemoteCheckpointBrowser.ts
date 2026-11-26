@@ -1,8 +1,9 @@
 import type { SaveLoadBackend } from '../ui/saveLoadMenu.js';
+import type { HostedCheckpointSummary } from './GameSnapshot.js';
 import type { SceneGameClient } from './SceneGameClient.js';
 
 /** Supplies the normal save browser with durable server records; loading remains a command. */
-export class RemoteCheckpointBrowser implements SaveLoadBackend {
+export class RemoteCheckpointBrowser implements SaveLoadBackend<HostedCheckpointSummary> {
   constructor(private readonly client: SceneGameClient) {}
   async listSessions() {
     const persistence = this.client.getSnapshot().persistence;
@@ -14,7 +15,7 @@ export class RemoteCheckpointBrowser implements SaveLoadBackend {
             createdAt: data.timestamp,
             lastSavedAt: data.timestamp,
             saveCount: 1,
-            seed: data.worldGeneration?.seed,
+            seed: data.seed,
           },
         ]
       : [];

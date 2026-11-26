@@ -79,7 +79,11 @@ import type {
 import type { HighlightClip } from '../systems/highlightReel.js';
 import type { BulletInstance, EnemyInstance } from '../systems/enemies.js';
 import type { GameConnection } from '../session/GameConnection.js';
-import type { ClientRoomSnapshot, GameSnapshot } from '../session/GameSnapshot.js';
+import type {
+  ClientRoomSnapshot,
+  GameSnapshot,
+  HostedCheckpointSummary,
+} from '../session/GameSnapshot.js';
 import type { LocalAuthoritativeRuntime } from '../session/GameRuntime.js';
 import { LocalGameConnection } from '../session/LocalGameConnection.js';
 import { LocalGameSession } from '../session/LocalGameSession.js';
@@ -1603,7 +1607,7 @@ export default class SnakeScene extends Phaser.Scene {
   private deathLinkMode: DeathLinkMode = 'off';
   private handlingIncomingDeathLink = false;
   private titleCreditsMode = false;
-  private saveLoadMenu: SaveLoadMenu | null = null;
+  private saveLoadMenu: SaveLoadMenu | SaveLoadMenu<HostedCheckpointSummary> | null = null;
   /**
    * The unique session ID for the active game run. Mints a new ID on
    * "New Game"; re-adopts the session of the save when loading.
@@ -1834,6 +1838,7 @@ export default class SnakeScene extends Phaser.Scene {
         lives: this.getDebugLivesState(),
         lifecycle: this.getLifecycleDiagnostics(),
         movementAuthority: this.gameConnection?.getMovementDiagnostics?.() ?? null,
+        multiplayerProfile: this.gameConnection?.getMultiplayerProfile?.(),
         game: this.snakeGame && !this.titleVisible ? this.snakeGame.getDebugSnapshot() : null,
       }),
     });
@@ -2158,14 +2163,18 @@ export default class SnakeScene extends Phaser.Scene {
         outcome.delta.lengthAfter,
         outcome.delta.head,
       );
+    this.presentGameplayFeedback(outcome.feedback);
+  }
+
+  private presentGameplayFeedback(events: GameplayOutcome['feedback']): void {
     try {
-      for (const feedback of outcome.feedback) {
+      for (const feedback of events) {
         this.presentationFeedback = new Map([[feedback.key, feedback.value]]);
         this.presentStepNotifications();
         this.presentPowerupFeedback();
         this.handlePredationFeedback();
       }
-      if (outcome.feedback.length === 0) {
+      if (events.length === 0) {
         this.presentationFeedback = new Map();
         this.presentStepNotifications();
       }
@@ -2368,12 +2377,9 @@ export default class SnakeScene extends Phaser.Scene {
       this.unsubscribeMovement =
         connection.onMovement?.((update) => {
           if (!this.currentSnapshot) return;
-          if (
-            update.player.id === this.currentSnapshot.localPlayerId &&
-            !this.snakeGame.peekCachedRoom(update.player.roomId)
-          )
-            return;
-          this.currentSnapshot = applyMovementUpdate(this.currentSnapshot, update);
+          const merged = applyMovementUpdate(this.currentSnapshot, update);
+          if (merged === this.currentSnapshot) return;
+          this.currentSnapshot = merged;
           this.readReplica?.hydrateMovement(update);
           this.isDirty = true;
         }) ?? null;
@@ -2400,11 +2406,15 @@ export default class SnakeScene extends Phaser.Scene {
         if (event.type === 'apple.bite') {
           if (event.epoch !== this.currentSnapshot?.replication?.epoch) return;
           this.appleBites.useEpoch(event.epoch);
-          if (
-            event.roomId === this.currentRoomId &&
-            this.appleBites.confirm(event.spawnId, event.revision)
-          )
-            this.playAppleBite(event.position, event.roomId);
+          if (event.roomId === this.currentRoomId) {
+            const playBite = this.appleBites.confirm(event.spawnId, event.revision);
+            const position = this.appleEffectPosition(event.position, event.roomId);
+            if (playBite) this.playAppleBite(position, event.typeId, event.violenceLevel);
+            if (event.streak !== undefined && this.appleBites.claimOutcome(event.spawnId)) {
+              this.showSpecialAppleEffectNotification(event.typeId);
+              this.juice.appleStreak(position.x, position.y, event.streak, event.typeId);
+            }
+          }
           this.isDirty = true;
           return;
         }
@@ -2417,6 +2427,14 @@ export default class SnakeScene extends Phaser.Scene {
         }
         if (event.type === 'gameplay.outcome') {
           this.presentAuthoritativeOutcome(event.outcome);
+          return;
+        }
+        if (event.type === 'gameplay.presentation') {
+          if (
+            event.playerId === this.sceneClient?.getLocalPlayerId() &&
+            event.roomId === this.currentRoomId
+          )
+            this.presentGameplayFeedback(event.feedback);
           return;
         }
         if ('playerId' in event && event.playerId !== this.sceneClient?.getLocalPlayerId()) return;
@@ -2849,8 +2867,7 @@ export default class SnakeScene extends Phaser.Scene {
           return;
         }
         if (controlDirection) {
-          this.setDir(controlDirection.x, controlDirection.y);
-          this.takeManualTurn();
+          this.takeManualTurn(controlDirection);
           return;
         }
       }
@@ -2878,9 +2895,7 @@ export default class SnakeScene extends Phaser.Scene {
           return;
         }
         if (controlDirection) {
-          this.setManualResumeDir(controlDirection.x, controlDirection.y);
-          this.consumeManualResumePause();
-          this.takeManualTurn();
+          this.takeManualTurn(controlDirection);
           return;
         }
       }
@@ -3617,12 +3632,10 @@ export default class SnakeScene extends Phaser.Scene {
           this.moveFarmTool(direction);
           return;
         }
-        this.setDir(direction.x, direction.y);
-        if (this.isManualHouseMovementActive()) {
-          this.consumeManualResumePause();
-          this.takeManualTurn();
-        } else if (this.minecraftMode && !this.deathCutscene) {
-          this.takeManualTurn();
+        if (this.isManualHouseMovementActive() || (this.minecraftMode && !this.deathCutscene)) {
+          this.takeManualTurn(direction);
+        } else {
+          this.setDir(direction.x, direction.y);
         }
       },
       onTogglePause: () => {
@@ -4366,10 +4379,18 @@ export default class SnakeScene extends Phaser.Scene {
     });
   }
 
-  private playAppleBite(position: Vector2Like, roomId: string): void {
-    const world = this.tileToWorldInRoom(position, roomId);
-    this.juice.appleChomp(world.x, world.y, 0, 'normal');
+  private appleEffectPosition(position: Vector2Like, roomId: string): Vector2Like {
+    const [roomX, roomY] = this.parseRoomCoordinates(roomId);
+    return {
+      x: position.x - roomX * this.grid.cols * this.grid.cell,
+      y: position.y - roomY * this.grid.rows * this.grid.cell,
+    };
+  }
+
+  private playAppleBite(position: Vector2Like, typeId = 'normal', violenceLevel = 0): void {
+    this.juice.appleChomp(position.x, position.y, violenceLevel, typeId);
     this.playControllerFeedback('reward');
+    if (typeId === 'treat') this.playTreatDance(position);
   }
 
   private presentActionOutcome(result: ActionOutcome): void {
@@ -4377,46 +4398,34 @@ export default class SnakeScene extends Phaser.Scene {
     this.currentApple = result.apple.current ?? null;
 
     if (result.apple.eaten) {
-      const playBite =
-        !this.sceneClient ||
-        result.apple.typeId !== 'normal' ||
-        result.apple.consumedSpawnId === undefined ||
-        result.movementRevision === undefined ||
-        this.appleBites.confirm(result.apple.consumedSpawnId, result.movementRevision);
-      if (playBite) this.playControllerFeedback('reward');
+      const { consumedSpawnId, typeId, worldPosition } = result.apple;
+      let playBite = true;
+      let showOutcome = true;
+      if (
+        this.sceneClient &&
+        consumedSpawnId !== undefined &&
+        result.movementRevision !== undefined
+      ) {
+        playBite = this.appleBites.confirm(consumedSpawnId, result.movementRevision);
+        showOutcome = this.appleBites.claimOutcome(consumedSpawnId);
+      }
       this.recordAchievementEvent({
         type: 'apple:eaten',
-        appleTypeId: result.apple.typeId ?? 'normal',
+        appleTypeId: typeId ?? 'normal',
       });
-      this.showSpecialAppleEffectNotification(result.apple.typeId);
-      if (result.apple.typeId === 'treat' && result.apple.worldPosition) {
-        this.playTreatDance(result.apple.worldPosition);
-      }
-      if (result.apple.worldPosition) {
+      if (showOutcome) this.showSpecialAppleEffectNotification(typeId);
+      if (worldPosition) {
+        const position = this.appleEffectPosition(worldPosition, result.roomId);
         const violenceLevel = Number(this.getFlag<number>('killstreak.appleJuiceLevel') ?? 0);
-        if (playBite)
-          this.juice.appleChomp(
-            result.apple.worldPosition.x,
-            result.apple.worldPosition.y,
-            violenceLevel,
-            result.apple.typeId,
-          );
-        const streak = Number(this.getFlag<number>('appleStreak') ?? 0);
-        this.juice.appleStreak(
-          result.apple.worldPosition.x,
-          result.apple.worldPosition.y,
-          streak,
-          result.apple.typeId,
-        );
-        this.showRaccoonForageFeedbackAt(
-          result.apple.worldPosition.x,
-          result.apple.worldPosition.y,
-        );
-        if (
-          this.snakeGame.getCurrentRoom().biomeId === 'liberty-badlands' &&
-          this.snakeGame.getCurrentRoom().archetypeId === 'gridiron-yard'
-        ) {
-          this.juice.gridironCrowdRoar(result.apple.worldPosition.x, result.apple.worldPosition.y);
+        if (playBite) this.playAppleBite(position, typeId, violenceLevel);
+        if (showOutcome) {
+          const streak = Number(this.getFlag<number>('appleStreak') ?? 0);
+          this.juice.appleStreak(position.x, position.y, streak, typeId);
+        }
+        this.showRaccoonForageFeedbackAt(position.x, position.y);
+        const room = this.snakeGame.getCurrentRoom();
+        if (room.biomeId === 'liberty-badlands' && room.archetypeId === 'gridiron-yard') {
+          this.juice.gridironCrowdRoar(position.x, position.y);
         }
         this.setFlag('killstreak.appleJuiceLevel', undefined);
       }
@@ -8039,15 +8048,23 @@ export default class SnakeScene extends Phaser.Scene {
     return this.pendingFlags[key] as T | undefined;
   }
 
-  private takeManualTurn(): void {
+  private takeManualTurn(direction: Vector2Like): void {
     if (this.sceneClient) {
-      void this.submitRemote({ type: 'manualStep', playerId: this.snakeGame.getLocalPlayerId() });
+      this.syncRemoteMovementHold();
+      void this.submitRemote({
+        type: 'manualStep',
+        playerId: this.snakeGame.getLocalPlayerId(),
+        direction,
+      });
       return;
     }
-    if (this.paused) {
-      return;
+    if (this.isManualHouseMovementActive()) {
+      this.setManualResumeDir(direction.x, direction.y);
+      this.consumeManualResumePause();
+    } else {
+      this.setDir(direction.x, direction.y);
     }
-    this.runActionStep();
+    if (!this.paused) this.runActionStep();
   }
 
   hasFollowers(): boolean {
@@ -8929,7 +8946,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private loadGameFromTitle(): void {
     this.saveLoadMenu?.hide();
-    this.saveLoadMenu = new SaveLoadMenu(this);
+    this.saveLoadMenu = new SaveLoadMenu(this, saveManagerV2);
     this.saveLoadMenu.setControllerMode(this.inputModeManager.getMode() === 'controller');
     this.saveLoadMenu.setDepth(9999);
     this.saveLoadMenu.show(
@@ -8982,7 +8999,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     this.saveLoadMenu?.hide();
-    this.saveLoadMenu = new SaveLoadMenu(this);
+    this.saveLoadMenu = new SaveLoadMenu(this, saveManagerV2);
     this.saveLoadMenu.setControllerMode(this.inputModeManager.getMode() === 'controller');
     this.saveLoadMenu.setDepth(9999);
     this.paused = true;
@@ -11596,6 +11613,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.dlss5PresentationProcessor.reset();
     }
     this.updateDlss5Reconstruction(dlss5TopDownRetainedActive);
+    this.gameConnection?.recordAuthorityFrame?.();
   }
 
   private isDlss5PresentationEnabled(): boolean {
@@ -12020,13 +12038,10 @@ export default class SnakeScene extends Phaser.Scene {
       return this.moveFarmTool(direction);
     }
     this.emitInputActionDebug('move', 'controller', `${direction.x},${direction.y}`);
-    this.setDir(direction.x, direction.y);
-    if (this.isManualHouseMovementActive()) {
-      this.setManualResumeDir(direction.x, direction.y);
-      this.consumeManualResumePause();
-      this.takeManualTurn();
-    } else if (this.minecraftMode && !this.deathCutscene) {
-      this.takeManualTurn();
+    if (this.isManualHouseMovementActive() || (this.minecraftMode && !this.deathCutscene)) {
+      this.takeManualTurn(direction);
+    } else {
+      this.setDir(direction.x, direction.y);
     }
     return true;
   }
@@ -13116,25 +13131,36 @@ export default class SnakeScene extends Phaser.Scene {
         room.id === authoritativePlayer?.roomId &&
         room.id === currentApple.roomId;
       const [roomX, roomY] = this.parseRoomCoordinates(room.id);
-      if (eligible && head && predictedRevision > revision) {
-        if (
-          this.appleBites.predict(
-            currentApple,
-            {
-              x: head.x - roomX * this.grid.cols,
-              y: head.y - roomY * this.grid.rows,
-            },
-            predictedRevision,
-            now,
-          )
-        )
-          this.playAppleBite(head, room.id);
-      }
       const actualHead = authoritativePlayer?.body[0];
       const authoritativeAtApple =
         actualHead?.x === currentApple.position.x + roomX * this.grid.cols &&
         actualHead?.y === currentApple.position.y + roomY * this.grid.rows;
-      if (this.appleBites.hidden(currentApple, revision, now, eligible, authoritativeAtApple)) {
+      let hideApple = this.appleBites.hidden(
+        currentApple,
+        revision,
+        now,
+        eligible,
+        authoritativeAtApple,
+      );
+      if (!hideApple && eligible && head && predictedMovement && predictedRevision > revision) {
+        const tile = {
+          x: head.x - roomX * this.grid.cols,
+          y: head.y - roomY * this.grid.rows,
+        };
+        if (
+          this.appleBites.predict(
+            currentApple,
+            tile,
+            predictedRevision,
+            now,
+            predictedMovement.direction,
+          )
+        ) {
+          this.playAppleBite(this.tileToWorldLocalInRoom(tile), currentApple.typeId);
+          hideApple = true;
+        }
+      }
+      if (hideApple) {
         hiddenAppleTile = currentApple.position;
         currentApple = null;
       }
@@ -15333,6 +15359,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private async tryInteractHouseGarden(): Promise<boolean> {
+    if (!this.isInHouse()) return false;
     const result = await this.gameConnection.send({
       type: 'worldInteraction',
       action: 'garden',
@@ -15547,8 +15574,8 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private returnFromManualResumePause(): boolean {
-    if (!this.sceneClient) return this.snakeGame.returnFromManualResumePause();
-    if (!this.getFlag<boolean>('traversal.manualResumePending')) return false;
+    if (!this.sceneClient) return this.snakeGame.returnFromManualResumePause().ok;
+    if (!this.snakeGame.canReturnFromManualResumePause()) return false;
     void this.submitRemote({ type: 'manualReturn', playerId: this.snakeGame.getLocalPlayerId() });
     return true;
   }

@@ -12,14 +12,17 @@ import { MultiRoomStructureResolver } from '../src/world/generation/townStructur
 const threads = Number(process.argv[2] ?? 3);
 const durationMs = Number(process.argv[3] ?? 6000);
 const scenario = process.argv[4] ?? 'arena';
+const combinedManual = process.argv.includes('--combined-manual');
+const populations = (process.argv[5] ?? '1,2,4,8,16').split(',').map(Number);
 if (
   ![1, 2, 3].includes(threads) ||
+  populations.some((players) => !Number.isInteger(players) || players < 1 || players > 32) ||
   !Number.isFinite(durationMs) ||
   durationMs < 1000 ||
   !['arena', 'town', 'explore'].includes(scenario)
 )
   throw new Error(
-    'Usage: benchmark-multiplayer-load.ts [1|2|3 threads] [duration ms] [arena|town|explore]',
+    'Usage: benchmark-multiplayer-load.ts [1|2|3 threads] [duration ms] [arena|town|explore] [comma-separated player counts]',
   );
 
 function workloadConfig() {
@@ -77,10 +80,10 @@ const quantiles = (values: number[]) => {
   values.sort((a, b) => a - b);
   const q = (p: number) =>
     Number((values[Math.max(0, Math.ceil(values.length * p) - 1)] ?? 0).toFixed(2));
-  return { samples: values.length, p95: q(0.95), p99: q(0.99) };
+  return { samples: values.length, p50: q(0.5), p95: q(0.95), p99: q(0.99), max: q(1) };
 };
 
-for (const players of [2, 5, 10, 20]) {
+for (const players of populations) {
   const failures: Error[] = [];
   const failure = (error: Error) => failures.push(error);
   const options = { requireCharacterCreation: false, config };
@@ -123,8 +126,12 @@ for (const players of [2, 5, 10, 20]) {
           const playerId = client.playerId!;
           const direction =
             scenario === 'explore' ? directions[0] : directions[(round + i) % directions.length];
-          await client.send({ type: 'setDirection', playerId, direction });
-          if (scenario === 'town') await client.send({ type: 'manualStep', playerId });
+          if (scenario === 'town' && combinedManual) {
+            await client.send({ type: 'manualStep', playerId, direction });
+          } else {
+            await client.send({ type: 'setDirection', playerId, direction });
+            if (scenario === 'town') await client.send({ type: 'manualStep', playerId });
+          }
           publishedAcknowledgments.push(performance.now() - sent);
         }),
       );
@@ -132,10 +139,15 @@ for (const players of [2, 5, 10, 20]) {
       await wait(125);
     }
     const serverSample = await server.samplePerformance();
+    const workerTransfers = threaded?.getWorkerTransfers();
+    const authorityStats =
+      'authorityThread' in serverSample ? serverSample.authorityThread : undefined;
+    const profile = server.getMultiplayerProfile();
     console.info(
       JSON.stringify({
         threads,
         scenario,
+        combinedManual,
         players,
         origin: config.world.originRoomId,
         activeActors: serverSample.activeActors,
@@ -144,6 +156,19 @@ for (const players of [2, 5, 10, 20]) {
         playersWithMovement: [...revisions.values()].filter((revision) => revision > 0).length,
         playersStillAlive: serverSample.players.filter((player) => player.alive).length,
         clientCommandCompletionMs: quantiles(publishedAcknowledgments),
+        snapshotBuilds: serverSample.snapshotBuilds,
+        publishedSnapshots: serverSample.snapshotPayloads,
+        averageSnapshotPayloadBytes: serverSample.averagePayloadBytes,
+        maximumSnapshotPayloadBytes: serverSample.maximumPayloadBytes,
+        movementPackets: serverSample.movementPackets,
+        movementBytes: serverSample.movementBytes,
+        approximateSnapshotAndMovementBytesPerSecondPerPlayer:
+          (serverSample.averagePayloadBytes * serverSample.snapshotPayloads +
+            serverSample.movementBytes) /
+          (((performance.now() - started) / 1000) * players),
+        authorityThread: authorityStats,
+        workerTransfers,
+        networkMetrics: profile.metrics,
         maximumQueueWaitMs: serverSample.maximumQueueWaitMs,
         maximumUpdateMs: serverSample.maximumUpdateMs,
         maximumAppleCommitToSendMs: server.getMaximumImmediateEventMs(),

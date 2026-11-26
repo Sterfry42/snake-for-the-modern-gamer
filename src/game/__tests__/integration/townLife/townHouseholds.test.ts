@@ -7,7 +7,7 @@ import { adjacentWalkableTile } from '../../../../test/headless/scenarioFixtures
 import type { RoomSnapshot } from '../../../../world/types.js';
 
 describe('Town life household integration hardening', () => {
-  it('TOWN-HARDEN-035 - player residential exits dematerialize actors without moving them outside', async () => {
+  it('TOWN-HARDEN-035 - player residential exits retain the actors and their interior positions', async () => {
     const scenario = createHeadlessScenario({ seed: 'town-harden-035-residential-exit-presence' });
     scenario.setDayPhase('night');
     const residence = findResidentialInteriorWithActor(scenario);
@@ -26,6 +26,7 @@ describe('Town life household integration hardening', () => {
         expect(actor.presence?.materialized).toBe(true);
       }
 
+      const beforeExit = new Map(actorIds.map((id) => [id, scenario.actor(id).presence]));
       exitCurrentLayerThroughDoor(scenario);
       expect(scenario.currentRoom().id).toBe(room.id);
       expect(scenario.game.getActorsInCurrentRoom().map((actor) => actor.id)).not.toEqual(
@@ -34,14 +35,14 @@ describe('Town life household integration hardening', () => {
       for (const actorId of actorIds) {
         const actor = scenario.actor(actorId);
         expect(actor.currentRoomId).toBe(interiorRoomId);
-        expect(actor.presence).toBeUndefined();
+        expect(actor.presence).toEqual(beforeExit.get(actorId));
       }
 
       await scenario.advanceActorTicks(8);
       for (const actorId of actorIds) {
         const actor = scenario.actor(actorId);
         expect(actor.currentRoomId).toBe(interiorRoomId);
-        expect(actor.presence).toBeUndefined();
+        expect(actor.presence?.roomId).toBe(interiorRoomId);
       }
 
       scenario.enterRoom(room.id, adjacentWalkableTile(room, entrance));

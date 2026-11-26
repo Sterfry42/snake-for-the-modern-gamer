@@ -20,6 +20,7 @@ export function isManualMovementArea(
   };
   const tile = room.layout[local.y]?.[local.x];
   if (!tile || tile === '#') return false;
+  if (room.layer?.kind === 'townInterior') return true;
   const bounds =
     room.village?.safeArea ??
     room.goblinCamp?.safeArea ??
