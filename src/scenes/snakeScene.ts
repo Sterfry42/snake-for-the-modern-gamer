@@ -13672,6 +13672,21 @@ export default class SnakeScene extends Phaser.Scene {
               .fillStyle(0x4a0d0d, alpha)
               .fillRect(pos.x, pos.y, this.grid.cell, this.grid.cell);
           }
+          if (boss.jasonPhase === 'attacking') {
+            // Film double-exposure: a ghosted ink frame of the whole body
+            const [roomX, roomY] = this.parseRoomCoordinates(room.id);
+            const cell = this.grid.cell;
+            for (const ghost of boss.body) {
+              const localX = ghost.x - roomX * this.grid.cols;
+              const localY = ghost.y - roomY * this.grid.rows;
+              if (localX >= 0 && localX < this.grid.cols && localY >= 0 && localY < this.grid.rows) {
+                const { x: ghostX, y: ghostY } = this.snakeRenderer.getWorldPosition(ghost, room.id);
+                this.graphics
+                  .fillStyle(0x0d0a0a, 0.4)
+                  .fillRect(ghostX + 3, ghostY + 3, cell, cell);
+              }
+            }
+          }
         }
 
         const isTurkey = boss.kind === 'freak-turkey';
