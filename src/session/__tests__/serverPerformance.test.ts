@@ -100,6 +100,102 @@ describe('bounded server replication and simulation', () => {
     expect(replica.game.getFlag('performance.previousWorld')).toBeUndefined();
   });
 
+  it('patches a visible room without repeating decorations, geometry or inventory', async () => {
+    const { game, session, room } = setup();
+    session.configureHosting();
+    const id = session.registerConnection('wire', 'Alice');
+    const initial = copyGameSnapshot(await session.getConnectionSnapshot(id));
+    const encoder = new SnapshotDeltaEncoder();
+    const assembler = new SnapshotDeltaAssembler();
+    encoder.encode(initial, true);
+    assembler.reset(initial);
+
+    room.apple = { x: 8, y: 9 };
+    game.grantInventoryItem('healing-potion', 2);
+    const delta = wireDelta(encoder, await session.getConnectionSnapshot(id));
+    expect(delta.clientState.worldRooms).toEqual([]);
+    expect(delta.roomPatches?.[room.id]).toEqual({ set: { apple: { x: 8, y: 9 } }, removed: [] });
+    expect(delta.viewport.rooms[room.id].portals).toBeUndefined();
+    expect(delta.state.ui?.inventory).toBeUndefined();
+    const received = assembler.apply(delta);
+    expect(received.viewport.rooms[room.id].layout).toEqual(initial.viewport.rooms[room.id].layout);
+    expect(received.viewport.rooms[room.id].room.apple).toEqual({ x: 8, y: 9 });
+    expect(received.ui.inventory).toEqual(received.clientState?.inventory);
+    expect(received.ui.inventory?.['healing-potion']).toBe(2);
+
+    room.apple = undefined;
+    const removed = wireDelta(encoder, await session.getConnectionSnapshot(id));
+    expect(removed.roomPatches?.[room.id]?.removed).toContain('apple');
+    expect(assembler.apply(removed).viewport.rooms[room.id].room.apple).toBeUndefined();
+    expect(assembler.apply(delta).viewport.rooms[room.id].room.apple).toBeUndefined();
+  });
+
+  it('uses the same actor record for the selector and NPC view after a movement patch', async () => {
+    const { game, session, room } = setup();
+    const actor = createBaseActor({
+      id: 'actor-patch',
+      displayName: 'Walker',
+      kind: 'civilian',
+      role: 'resident',
+      species: 'human',
+      thickness: 'thin',
+      currentRoomId: room.id,
+    });
+    actor.presence = { roomId: room.id, position: { x: 5, y: 5 }, materialized: true };
+    const registry = game.getActorSystem().registry;
+    registry.upsert(actor);
+    session.configureHosting();
+    const id = session.registerConnection('wire', 'Alice');
+    const initial = copyGameSnapshot(await session.getConnectionSnapshot(id));
+    const encoder = new SnapshotDeltaEncoder();
+    const assembler = new SnapshotDeltaAssembler();
+    encoder.encode(initial, true);
+    assembler.reset(initial);
+
+    const presence = { roomId: room.id, position: { x: 6, y: 5 }, materialized: true };
+    registry.setPresence(actor.id, presence);
+    const delta = wireDelta(encoder, await session.getConnectionSnapshot(id));
+    expect(delta.clientState.actors).toBeUndefined();
+    expect(delta.viewport.rooms[room.id].npcs).toBeUndefined();
+    expect(delta.actors?.patches[actor.id]?.set).toEqual({ presence });
+    const received = assembler.apply(delta);
+    const selected = received.clientState?.actors.find(({ id }) => id === actor.id);
+    const projected = received.viewport.rooms[room.id].npcs?.find(({ id }) => id === actor.id);
+    expect(projected).toBe(selected);
+    expect(projected?.presence).toEqual(presence);
+  });
+
+  it('publishes a private hold once and skips the overlapping room and timer projections', async () => {
+    const { game, session } = setup();
+    session.configureHosting();
+    const alice = session.registerConnection('a', 'Alice');
+    session.registerConnection('b', 'Bob');
+    const welcome = await session.openNetworkPublication('a');
+    await session.openNetworkPublication('b');
+    await session.publishNetworkDeltas(() => {});
+    const builds = vi.spyOn(game, 'getSceneClientState');
+    const command = { type: 'playerInteraction', playerId: alice, mode: 'paused' } as const;
+
+    const reply = await session.executeNetworkCommand('a', command);
+    expect(reply.result).toEqual({ ok: true });
+    const message = parseServerMessage(reply.publication!.encoded!.text);
+    expect(message.type).toBe('delta');
+    if (message.type !== 'delta') throw new Error('Expected state delta');
+    const assembler = new SnapshotDeltaAssembler();
+    assembler.reset(welcome);
+    expect(assembler.apply(message.delta).ui.playerInteraction).toBe('paused');
+
+    expect(await session.publishConnectionState('a')).toBeUndefined();
+    const publish = vi.fn();
+    await session.publishNetworkDeltas(publish);
+    expect(await session.executeNetworkCommand('a', command)).toMatchObject({
+      result: { ok: true },
+      publication: undefined,
+    });
+    expect(publish).not.toHaveBeenCalled();
+    expect(builds).toHaveBeenCalledTimes(1);
+  });
+
   it('coalesces multiple clocks/commands to a 10 Hz wire tick and keeps payloads independent of exploration history', async () => {
     const { game, session } = setup();
     for (let index = 20; index < 100; index++) game.getRoom(`${index},20,0`);
@@ -150,6 +246,40 @@ describe('bounded server replication and simulation', () => {
     expect(report.maximumPayloadBytes).toBeLessThan(legacyBytes / 4);
     expect(report.snapshotBuildMs).toBeGreaterThan(0);
     expect(report.averageActorTickMs).toBeGreaterThan(0);
+  });
+
+  it('patches town runtime fields without retransmitting its layout, residents or buildings', async () => {
+    const { room, session } = setup();
+    const town = createPhysicalHumanTown({
+      townId: 'patch-town',
+      biomeId: 'verdigris-basin',
+      seed: 815,
+      districtRoomIds: { [room.id]: 'square' },
+      entranceRoomId: room.id,
+      exitRoomIds: [],
+    });
+    town.townTags = [];
+    room.town = town;
+    session.configureHosting();
+    const playerId = session.registerConnection('town-patch', 'Reader');
+    const encoder = new SnapshotDeltaEncoder();
+    const assembler = new SnapshotDeltaAssembler();
+    const initial = copyGameSnapshot(await session.getConnectionSnapshot(playerId));
+    encoder.encode(initial, true);
+    assembler.reset(initial);
+
+    room.town.reputation += 1;
+    const latest = await session.getConnectionSnapshot(playerId);
+    const delta = wireDelta(encoder, latest);
+    expect(delta.clientState.town).toBeUndefined();
+    expect(delta.townPatch).toEqual({ set: { reputation: town.reputation }, removed: [] });
+    expect(delta.roomPatches?.[room.id].set.town).toBeUndefined();
+    expect(delta.roomPatches?.[room.id].town).toEqual(delta.townPatch);
+    const patched = assembler.apply(delta);
+    expect(patched.clientState?.town).toEqual(latest.clientState?.town);
+    expect(patched.viewport.rooms[room.id].room.town).toEqual(
+      latest.viewport.rooms[room.id].room.town,
+    );
   });
 
   it('does not mutate tracked town room geometry from read-only town projections', async () => {

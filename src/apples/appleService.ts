@@ -15,6 +15,7 @@ import type {
   AppleConsumptionContext,
 } from './types.js';
 import { AppleRegistry } from './appleRegistry.js';
+import { parseCoordinateRoomId } from '../world/roomAddress.js';
 import { getDebugBus } from '../debug/debugRuntime.js';
 
 export interface WeatherAppleContext {
@@ -293,15 +294,9 @@ export class AppleService {
   }
 
   private appleWorldPosition(apple: AppleInstance): Vector2Like {
-    if (apple.roomId.startsWith('cave:')) {
-      return {
-        x: (apple.position.x + 0.5) * this.grid.cell,
-        y: (apple.position.y + 0.5) * this.grid.cell,
-      };
-    }
-    const [roomX, roomY] = apple.roomId.split(',').map(Number);
-    const worldX = (roomX * this.grid.cols + apple.position.x + 0.5) * this.grid.cell;
-    const worldY = (roomY * this.grid.rows + apple.position.y + 0.5) * this.grid.cell;
+    const room = parseCoordinateRoomId(apple.roomId);
+    const worldX = ((room?.x ?? 0) * this.grid.cols + apple.position.x + 0.5) * this.grid.cell;
+    const worldY = ((room?.y ?? 0) * this.grid.rows + apple.position.y + 0.5) * this.grid.cell;
     return { x: worldX, y: worldY };
   }
 

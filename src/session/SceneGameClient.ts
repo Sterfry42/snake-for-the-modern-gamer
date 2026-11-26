@@ -21,12 +21,6 @@ export class SceneGameClient {
       this.snapshot = snapshot;
     });
     const stopMovement = connection.onMovement?.((update) => {
-      if (
-        this.snapshot &&
-        update.player.id === this.snapshot.localPlayerId &&
-        !this.snapshot.viewport.rooms[update.player.roomId]
-      )
-        return;
       if (this.snapshot) this.snapshot = applyMovementUpdate(this.snapshot, update);
     });
     const stopSnapshot = this.unsubscribe;

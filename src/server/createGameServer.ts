@@ -9,10 +9,24 @@ import { WebSocketServer, WebSocket } from 'ws';
 import type { GameServerSession } from './GameServerSession.js';
 import {
   GAME_PROTOCOL_VERSION,
-  parseCommandMessage,
+  readCommandMessage,
   type ServerMessage,
 } from '../session/gameProtocol.js';
-import { SnapshotDeltaEncoder } from '../session/SnapshotDelta.js';
+import type { NetworkPublication } from '../session/NetworkPublication.js';
+import {
+  isImmediateGameEvent,
+  type GameEvent,
+  type GameEventTiming,
+} from '../session/GameEvent.js';
+import {
+  markMultiplayer,
+  MultiplayerProfiler,
+  multiplayerCommandType,
+  multiplayerNow,
+  multiplayerProfilingEnabled,
+  multiplayerThresholds,
+  type MultiplayerCommandTrace,
+} from '../session/MultiplayerProfiler.js';
 import { CONNECTION_RECOVERY_MS, parseMovementHello } from '../session/MovementResume.js';
 import type { ServerPerformanceReport } from '../session/ServerPerformance.js';
 import { defaultAllowedOrigins, isAllowedGameOrigin } from './originPolicy.js';
@@ -20,6 +34,7 @@ import { defaultAllowedOrigins, isAllowedGameOrigin } from './originPolicy.js';
 export interface GameServerOptions {
   hostToken?: string;
   onDiagnostic?: DiagnosticSink;
+  profileMultiplayer?: boolean;
   onPerformance?: (report: ServerPerformanceReport) => void;
   /**
    * Browser origins allowed to open game sockets. Defaults to the built-in
@@ -31,17 +46,16 @@ export interface GameServerOptions {
 /** Transport only. The session owns player allocation and gameplay. */
 export function createGameServer(session: GameServerSession, options: GameServerOptions = {}) {
   session.configureHosting();
-  const channels = new Map<
-    string,
-    {
-      socket: WebSocket;
-      encoder: SnapshotDeltaEncoder;
-      pending: Array<{
-        message: ServerMessage;
-        command?: { type: string; receivedAt: number; requestId: number };
-      }>;
-    }
-  >();
+  const profiler = new MultiplayerProfiler(
+    options.profileMultiplayer ?? multiplayerProfilingEnabled(),
+  );
+  type Channel = {
+    socket: WebSocket;
+    pending: Array<{ event: GameEvent; sequence: number; trace?: MultiplayerCommandTrace }>;
+    transition?: Promise<void>;
+    recordedMovement?: { epoch?: number; revision: number; at: number };
+  };
+  const channels = new Map<string, Channel>();
   const socketDetails = new WeakMap<
     WebSocket,
     {
@@ -55,6 +69,8 @@ export function createGameServer(session: GameServerSession, options: GameServer
       rttMs?: number;
       closeCause?: string;
       sentBytes: number;
+      lastRequestId: number;
+      lastSlowAckAt: number;
       maximumBufferedBytes: number;
       commands: number;
       rejected: number;
@@ -87,6 +103,8 @@ export function createGameServer(session: GameServerSession, options: GameServer
   let pendingAttachments = 0;
   let skippedNetworkTicks = 0;
   let maximumPublicationMs = 0;
+  let lastSlowPublicationAt = -Infinity;
+  let lastSlowEncodingAt = -Infinity;
   let maximumImmediateEventMs = 0;
   let lastPublicationAt = performance.now();
   const closeSocket = (socket: WebSocket, code: number, cause: string, reason: string) => {
@@ -137,22 +155,21 @@ export function createGameServer(session: GameServerSession, options: GameServer
     const text = JSON.stringify(message);
     return { text, bytes: Buffer.byteLength(text) };
   };
-  const publish = (
+  const publishPayload = (
     socket: WebSocket,
-    message: ServerMessage,
-    prepared?: ReturnType<typeof serialize>,
+    type: ServerMessage['type'],
+    { text, bytes }: ReturnType<typeof serialize>,
+    serializeMs: number,
   ) => {
     if (socket.readyState !== WebSocket.OPEN) return;
     if (socket.bufferedAmount > 4 * 1024 * 1024) {
       closeSocket(socket, 1013, 'outbound-backpressure', 'Client is too slow');
       return;
     }
-    const startedAt = performance.now();
-    const { text, bytes } = prepared ?? serialize(message);
-    const serializeMs = prepared ? 0 : performance.now() - startedAt;
-    if (message.type === 'welcome' || message.type === 'delta')
-      session.performance.payload(bytes, serializeMs);
-    else if (message.type === 'movement') session.performance.movement(bytes, serializeMs);
+    profiler.record('wire/' + type + '/bytes', bytes);
+    profiler.record('wire/' + type + '/serialization', serializeMs);
+    if (type === 'welcome' || type === 'delta') session.performance.payload(bytes, serializeMs);
+    else if (type === 'movement') session.performance.movement(bytes, serializeMs);
     const details = socketDetails.get(socket);
     if (details) {
       details.sentBytes += bytes;
@@ -167,6 +184,108 @@ export function createGameServer(session: GameServerSession, options: GameServer
       });
     });
   };
+  const publish = (
+    socket: WebSocket,
+    message: ServerMessage,
+    prepared?: ReturnType<typeof serialize>,
+  ) => {
+    if (socket.readyState !== WebSocket.OPEN) return;
+    const startedAt = performance.now();
+    const payload = prepared ?? serialize(message);
+    publishPayload(socket, message.type, payload, prepared ? 0 : performance.now() - startedAt);
+  };
+  const eventTrace = (
+    connectionId: string,
+    event: GameEvent,
+    sequence: number,
+    timing?: GameEventTiming,
+  ) => {
+    const trace = profiler.begin(connectionId + ':event:' + sequence, 'event/' + event.type);
+    if (trace) {
+      trace.times['event-generated'] = timing?.generatedAt;
+      trace.parentId = timing?.correlationId;
+      markMultiplayer(trace, 'network-received');
+    }
+    return trace;
+  };
+  const publishEvent = (
+    socket: WebSocket,
+    event: GameEvent,
+    sequence: number,
+    trace?: MultiplayerCommandTrace,
+  ) => {
+    markMultiplayer(trace, 'network-send');
+    publish(socket, { type: 'event', event, sequence });
+    profiler.finish(trace);
+  };
+  const recordMovement = (
+    channel: Channel,
+    connectionId: string,
+    playerId: string,
+    revision?: number,
+    epoch?: number,
+  ) => {
+    if (revision === undefined) return;
+    const at = performance.now();
+    const previous = channel.recordedMovement;
+    if (
+      previous &&
+      previous.epoch === epoch &&
+      (revision < previous.revision || (revision === previous.revision && at - previous.at < 1000))
+    )
+      return;
+    channel.recordedMovement = { epoch, revision, at };
+    session.recordPublishedMovementRevision(connectionId, playerId, revision);
+  };
+  const deliverPublication = (publication: NetworkPublication) => {
+    const { connectionId, playerId, roomId, encoded } = publication;
+    const channel = channels.get(connectionId);
+    if (!channel || channel.socket.readyState !== WebSocket.OPEN) return;
+    const details = socketDetails.get(channel.socket)!;
+    if (details.roomId !== roomId)
+      log('info', 'room.transition-published', {
+        connectionId,
+        playerId,
+        fromRoomId: details.roomId,
+        roomId,
+        movementRevision: publication.movementRevision,
+      });
+    details.roomId = roomId;
+    if (encoded) {
+      profiler.record('publication/delta-encode', encoded.encodeMs);
+      if (encoded.categoryBytes)
+        for (const [category, bytes] of Object.entries(encoded.categoryBytes))
+          profiler.record('publication/bytes/' + category, bytes);
+      if (
+        encoded.encodeMs >= multiplayerThresholds.encoding &&
+        performance.now() - lastSlowEncodingAt >= 1000
+      ) {
+        lastSlowEncodingAt = performance.now();
+        log('info', 'network.delta-encode-slow', { playerId, roomId, encodeMs: encoded.encodeMs });
+      }
+      publishPayload(
+        channel.socket,
+        'delta',
+        { text: encoded.text, bytes: Buffer.byteLength(encoded.text) },
+        encoded.serializationMs,
+      );
+      recordMovement(
+        channel,
+        connectionId,
+        playerId,
+        publication.movementRevision,
+        publication.epoch,
+      );
+    }
+    // Only events already generated by the authority when it took this
+    // projection may run against it. Later events wait for their own projection.
+    const next = channel.pending.findIndex(({ sequence }) => sequence > publication.eventSequence);
+    for (const { event, sequence, trace } of channel.pending.splice(
+      0,
+      next === -1 ? channel.pending.length : next,
+    ))
+      publishEvent(channel.socket, event, sequence, trace);
+  };
   const movementSubscription = session.onMovement((update) => {
     const publicPlayer = { ...update.player };
     delete publicPlayer.movementGrid;
@@ -180,61 +299,60 @@ export function createGameServer(session: GameServerSession, options: GameServer
     let publicPayload: ReturnType<typeof serialize> | undefined;
     for (const [id, channel] of channels) {
       if (channel.socket.readyState !== WebSocket.OPEN) continue;
-      if (socketDetails.get(channel.socket)?.playerId === update.player.id)
-        session.recordPublishedMovement(id, update);
-      if (socketDetails.get(channel.socket)?.playerId === update.player.id) {
+      const details = socketDetails.get(channel.socket)!;
+      if (details.playerId === update.player.id) {
+        recordMovement(channel, id, update.player.id, update.player.movementRevision, update.epoch);
         publish(channel.socket, { type: 'movement', update });
+        if (details.roomId !== update.player.roomId && !channel.transition) {
+          channel.transition = session
+            .publishConnectionState(id)
+            .then((publication) => {
+              if (publication) deliverPublication(publication);
+            })
+            .catch((error: unknown) =>
+              log('error', 'network.room-transition-failed', { connectionId: id, error }),
+            )
+            .finally(() => {
+              channel.transition = undefined;
+            });
+        }
       } else {
         // Charge serialization to the first send, then reuse the bytes for peers.
-        if (publicPayload) publish(channel.socket, publicMessage, publicPayload);
-        else {
+        if (!publicPayload) {
           const startedAt = performance.now();
           publicPayload = serialize(publicMessage);
           session.performance.movementEncoding(performance.now() - startedAt);
-          publish(channel.socket, publicMessage, publicPayload);
         }
-      }
-      const details = socketDetails.get(channel.socket)!;
-      if (details.playerId === update.player.id && details.roomId !== update.player.roomId) {
-        details.roomId = update.player.roomId;
-        void session
-          .getConnectionSnapshot(update.player.id)
-          .then((snapshot) => {
-            publish(channel.socket, {
-              type: 'delta',
-              delta: channel.encoder.encode(snapshot, true),
-            });
-            flushEvents(channel);
-          })
-          .catch((error: unknown) =>
-            log('error', 'network.room-transition-failed', { connectionId: id, error }),
-          );
+        publish(channel.socket, publicMessage, publicPayload);
       }
     }
   });
-  const flushEvents = (channel: {
-    socket: WebSocket;
-    pending: Array<{ message: ServerMessage }>;
-  }) => {
-    for (const entry of channel.pending.splice(0)) publish(channel.socket, entry.message);
-  };
   const acknowledge = (
     socket: WebSocket,
     command: { receivedAt: number; requestId: number; type: string },
     result: import('../session/ClientCommand.js').CommandResult,
+    trace?: MultiplayerCommandTrace,
   ) => {
     const state = socketDetails.get(socket)!;
     const ackMs = performance.now() - command.receivedAt;
     state.maximumAckMs = Math.max(state.maximumAckMs, ackMs);
-    if (ackMs > 500)
-      log('warn', 'command.slow-ack', {
+    if (
+      ackMs >= multiplayerThresholds.acknowledgment &&
+      performance.now() - state.lastSlowAckAt >= 1000
+    ) {
+      state.lastSlowAckAt = performance.now();
+      log('info', 'command.slow-ack', {
         connectionId: state.connectionId,
         playerId: state.playerId,
         commandType: command.type,
         requestId: command.requestId,
+        correlationId: state.connectionId + ':' + command.requestId,
         ackMs,
       });
+    }
+    markMultiplayer(trace, 'network-send');
     publish(socket, { type: 'result', id: command.requestId, result });
+    profiler.finish(trace);
   };
   sockets.on('connection', (socket, request) => {
     const connectionId = randomUUID();
@@ -245,6 +363,8 @@ export function createGameServer(session: GameServerSession, options: GameServer
       lastReceivedAt: openedAt,
       lastPongAt: openedAt,
       sentBytes: 0,
+      lastRequestId: 0,
+      lastSlowAckAt: -Infinity,
       maximumBufferedBytes: 0,
       commands: 0,
       rejected: 0,
@@ -379,23 +499,28 @@ export function createGameServer(session: GameServerSession, options: GameServer
       }
       socketDetails.get(socket)!.playerId = playerId;
       active.set(playerId, { socket, connectionId });
-      const channel = {
-        socket,
-        encoder: new SnapshotDeltaEncoder(),
-        pending: new Array<{
-          message: ServerMessage;
-          command?: { type: string; receivedAt: number; requestId: number };
-        }>(),
-      };
-      const eventSubscription = session.onEvent((event) => {
+      const channel: Channel = { socket, pending: [] };
+      const eventSubscription = session.onEvent((event, sequence, timing) => {
         if ('playerId' in event && event.playerId !== playerId) return;
-        if (event.type === 'apple.bite' && channels.has(connectionId)) {
-          maximumImmediateEventMs = Math.max(
-            maximumImmediateEventMs,
-            performance.timeOrigin + performance.now() - event.committedAt,
+        const trace = eventTrace(connectionId, event, sequence, timing);
+        if (isImmediateGameEvent(event)) {
+          if (!channels.has(connectionId)) return;
+          if (event.type === 'apple.bite') {
+            const elapsed = multiplayerNow() - event.committedAt;
+            maximumImmediateEventMs = Math.max(maximumImmediateEventMs, elapsed);
+            profiler.record('event/apple.bite/commit-to-send', elapsed);
+          }
+          publishEvent(socket, event, sequence, trace);
+        } else if (channel.pending.length >= 256) {
+          closeSocket(
+            socket,
+            1013,
+            'outbound-event-backpressure',
+            'Client event queue is too large',
           );
-          publish(socket, { type: 'event', event });
-        } else channel.pending.push({ message: { type: 'event', event } });
+        } else {
+          channel.pending.push({ event, sequence, trace });
+        }
       });
       const settleConnection = (work: Promise<void>) => {
         void work.catch((error: unknown) =>
@@ -445,7 +570,7 @@ export function createGameServer(session: GameServerSession, options: GameServer
       }
       if (endpoint.searchParams.get('turnSteps') === '1')
         await session.enableMovementGrace(playerId);
-      const snapshot = await session.getConnectionSnapshot(playerId);
+      const snapshot = await session.openNetworkPublication(connectionId);
       if (socket.readyState !== WebSocket.OPEN) return;
       socketDetails.get(socket)!.roomId = snapshot.viewport.centerRoomId;
       log('info', 'connection.ready', {
@@ -458,9 +583,14 @@ export function createGameServer(session: GameServerSession, options: GameServer
         attachMs: performance.now() - openedAt,
         admin,
       });
-      channel.encoder.encode(snapshot, true);
       channels.set(connectionId, channel);
-      session.recordPublishedMovement(connectionId, snapshot);
+      recordMovement(
+        channel,
+        connectionId,
+        playerId,
+        snapshot.players[playerId]?.movementRevision,
+        snapshot.replication?.epoch,
+      );
       publish(socket, {
         type: 'welcome',
         diagnostics: Boolean(options.onDiagnostic),
@@ -504,7 +634,7 @@ export function createGameServer(session: GameServerSession, options: GameServer
           }
           return;
         }
-        const message = binary ? null : parseCommandMessage(raw);
+        const message = readCommandMessage(clock);
         if (!message) {
           const diagnostic = binary ? null : parseClientDiagnostic(raw);
           if (diagnostic) {
@@ -579,8 +709,15 @@ export function createGameServer(session: GameServerSession, options: GameServer
           closeSocket(socket, 1008, 'invalid-command', 'Invalid command');
           return;
         }
+        if (message.id <= state.lastRequestId) return;
+        state.lastRequestId = message.id;
         state.commands++;
-        const command = { type: message.command.type, receivedAt, requestId: message.id };
+        const input = message.command;
+        const command = { type: input.type, receivedAt, requestId: message.id };
+        const correlationId = connectionId + ':' + message.id;
+        const category = multiplayerCommandType(input);
+        const trace = profiler.begin(correlationId, category);
+        if (trace) trace.times['network-received'] = performance.timeOrigin + receivedAt;
         const movementCommand =
           command.type === 'manualStep' ||
           command.type === 'setDirection' ||
@@ -588,10 +725,12 @@ export function createGameServer(session: GameServerSession, options: GameServer
         if (movementCommand)
           state.lastMovementAttempt = { type: command.type, at: receivedAt, requestId: message.id };
         // A wire payload cannot impersonate another runtime player.
+        markMultiplayer(trace, 'network-dispatch');
         void session
-          .executeCommand({ ...message.command, playerId })
+          .executeNetworkCommand(connectionId, { ...input, playerId }, trace)
           .then(
-            async (result) => {
+            ({ result, publication, trace: completed, rejection }) => {
+              markMultiplayer(completed, 'network-response');
               state.maximumCommandMs = Math.max(
                 state.maximumCommandMs,
                 performance.now() - receivedAt,
@@ -620,21 +759,19 @@ export function createGameServer(session: GameServerSession, options: GameServer
                   connectionId,
                   playerId,
                   commandType: command.type,
+                  category,
+                  correlationId,
                   requestId: command.requestId,
+                  actorId: 'actorId' in input ? input.actorId : undefined,
+                  menuId: 'menuId' in input ? input.menuId : undefined,
+                  expectedMode: input.type === 'playerInteraction' ? input.mode : undefined,
+                  clientContext: message.context,
+                  authority: rejection,
                   reason: result.reason ?? result.message ?? 'action-unavailable',
                 });
               }
-              // Steering already published its bounded movement/queue state on the
-              // authority queue. Domain commands publish their changed UI before ack.
-              if (!['setDirection', 'forceDirection'].includes(command.type)) {
-                const current = await session.getConnectionSnapshot(playerId);
-                publish(socket, {
-                  type: 'delta',
-                  delta: channel.encoder.encode(current, true, true),
-                });
-                flushEvents(channel);
-              }
-              acknowledge(socket, command, result);
+              if (publication) deliverPublication(publication);
+              acknowledge(socket, command, result, completed);
             },
             (error: unknown) => {
               state.errors++;
@@ -646,7 +783,7 @@ export function createGameServer(session: GameServerSession, options: GameServer
                 error,
               });
               console.error('[game-server] Command failed', error);
-              acknowledge(socket, command, { ok: false, reason: 'command-failed' });
+              acknowledge(socket, command, { ok: false, reason: 'command-failed' }, trace);
             },
           )
           .catch((error: unknown) => {
@@ -668,36 +805,16 @@ export function createGameServer(session: GameServerSession, options: GameServer
 
   let publishing = false;
   const networkTimer = setInterval(() => {
+    if (!channels.size) return;
     if (publishing) {
       skippedNetworkTicks++;
       return;
     }
     const startedAt = performance.now();
-    const cpuStartedAt = process.cpuUsage();
+    const cpuStartedAt = process.threadCpuUsage?.();
     publishing = true;
     void session
-      .publishNetworkState((playerId, snapshot) => {
-        const connection = active.get(playerId);
-        const channel = connection && channels.get(connection.connectionId);
-        if (channel) {
-          if (channel.socket.readyState === WebSocket.OPEN)
-            session.recordPublishedMovement(connection!.connectionId, snapshot);
-          socketDetails.get(channel.socket)!.roomId = snapshot.viewport.centerRoomId;
-          const encodeStartedAt = performance.now();
-          const delta = channel.encoder.encode(snapshot, true);
-          const encodeMs = performance.now() - encodeStartedAt;
-          if (encodeMs >= 50)
-            log('warn', 'network.delta-encode-slow', {
-              playerId,
-              roomId: snapshot.viewport.centerRoomId,
-              encodeMs,
-            });
-          publish(channel.socket, { type: 'delta', delta });
-        }
-      })
-      .then(() => {
-        for (const channel of channels.values()) flushEvents(channel);
-      })
+      .publishNetworkDeltas(deliverPublication)
       .catch((error: unknown) => {
         log('error', 'network.publication-failed', { error });
         console.error('[game-server] Publication failed', error);
@@ -705,13 +822,16 @@ export function createGameServer(session: GameServerSession, options: GameServer
       .finally(() => {
         const durationMs = performance.now() - startedAt;
         maximumPublicationMs = Math.max(maximumPublicationMs, durationMs);
-        if (durationMs >= 250) {
-          const cpu = process.cpuUsage(cpuStartedAt);
-          const cpuMs = (cpu.user + cpu.system) / 1000;
-          log('warn', 'network.publication-cpu-breakdown', {
+        profiler.record('publication/round-trip', durationMs);
+        if (
+          durationMs >= multiplayerThresholds.publication &&
+          performance.now() - lastSlowPublicationAt >= 1000
+        ) {
+          lastSlowPublicationAt = performance.now();
+          const cpu = cpuStartedAt && process.threadCpuUsage?.(cpuStartedAt);
+          log('info', 'network.publication-cpu-breakdown', {
             durationMs,
-            cpuMs,
-            wallMinusCpuMs: Math.max(0, durationMs - cpuMs),
+            coordinatorCpuMs: cpu && (cpu.user + cpu.system) / 1000,
           });
         }
         lastPublicationAt = performance.now();
@@ -731,6 +851,15 @@ export function createGameServer(session: GameServerSession, options: GameServer
             .then((report) => {
               options.onPerformance?.(report);
               const processReport = processPerformance?.read();
+              if (profiler.enabled) {
+                const { metrics, traces } = profiler.read();
+                const entries = Object.entries(metrics);
+                for (let offset = 0; offset < entries.length; offset += 24)
+                  log('info', 'multiplayer.profile', {
+                    metrics: Object.fromEntries(entries.slice(offset, offset + 24)),
+                  });
+                for (const trace of traces) log('info', 'multiplayer.trace', { ...trace });
+              }
               const connections = [...channels.values()].slice(0, 16).map((channel) => {
                 const state = socketDetails.get(channel.socket)!;
                 return {
@@ -846,6 +975,7 @@ export function createGameServer(session: GameServerSession, options: GameServer
     getPerformance: () => session.getPerformanceReport(),
     samplePerformance: async () =>
       session.refreshPerformance?.(false) ?? session.getPerformanceReport(),
+    getMultiplayerProfile: () => profiler.read(),
     getMaximumImmediateEventMs: () => maximumImmediateEventMs,
     async listen(port = 8787, host = '127.0.0.1'): Promise<number> {
       await new Promise<void>((resolve, reject) => {

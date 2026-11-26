@@ -116,8 +116,10 @@ export function executeSceneGameplayAction(
               : `Cannot deploy Alchemy Station: ${placed.reason}.`,
           };
         }
-        case 'town-door':
-          return game.enterNearbyTownBuildingDoor();
+        case 'town-door': {
+          const result = game.enterNearbyTownBuildingDoor();
+          return result.ok ? result : { ...result, reason: result.message };
+        }
         case 'town-grate':
           return game.investigateCurrentTownGuildGrate();
         case 'open-gate':
@@ -175,7 +177,7 @@ export function executeSceneGameplayAction(
       };
     }
     case 'manualReturn':
-      return { ok: game.returnFromManualResumePause() };
+      return game.returnFromManualResumePause();
     case 'companionAction': {
       const result =
         command.action === 'feed'

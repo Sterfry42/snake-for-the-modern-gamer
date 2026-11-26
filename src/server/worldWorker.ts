@@ -2,11 +2,14 @@
 import { findActorGridPath } from '../actors/actorNavigation.js';
 import { createRng } from '../core/rng.js';
 import { RoomGenerator } from '../world/roomGenerator.js';
+import type { WorldReply } from './WorldWorkerClient.js';
 import type { WorldJob, WorldResult } from '../world/WorldWork.js';
 
 if (!parentPort) throw new Error('World jobs require a worker port');
 const port = parentPort;
 port.on('message', ({ id, job }: { id: number; job: WorldJob }) => {
+  const startedAt = performance.now();
+  const startedCpu = process.threadCpuUsage?.();
   let result: WorldResult | null = null;
   try {
     if (job.kind === 'path') {
@@ -27,6 +30,13 @@ port.on('message', ({ id, job }: { id: number; job: WorldJob }) => {
   } catch {
     result = null;
   } finally {
-    port.postMessage({ id, result });
+    const cpu = startedCpu && process.threadCpuUsage?.(startedCpu);
+    const reply: WorldReply = {
+      id,
+      result,
+      workMs: performance.now() - startedAt,
+      threadCpuMs: cpu ? (cpu.user + cpu.system) / 1000 : 0,
+    };
+    port.postMessage(reply);
   }
 });

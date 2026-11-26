@@ -484,20 +484,19 @@ export class WorldService {
       return;
     }
     for (const instance of instances) {
-      this.layerInstances.set(instance.id, cloneLayerInstance(instance));
+      // Old checkpoints recorded one occupant's active/completed state for the entire building.
+      const room = this.rooms.peek(instance.id);
+      const exit = room?.layer?.exit ?? townInteriorDoorTiles(instance.templateId, this.grid).exit;
+      const spawn = { x: exit.x, y: exit.y - 1 };
+      const state = instance.state === 'locked' ? 'locked' : 'available';
+      const restored = cloneLayerInstance({ ...instance, exit, spawn, state });
+      this.layerInstances.set(instance.id, restored);
+      if (room?.layer) {
+        if (room.layer.state !== state) room.layer.state = state;
+        if (room.layer.spawn.x !== spawn.x || room.layer.spawn.y !== spawn.y)
+          room.layer.spawn = { ...spawn };
+      }
     }
-  }
-
-  setLayerInstanceState(layerId: string, state: LayerInstance['state']): LayerInstance | undefined {
-    const existing = this.layerInstances.get(layerId);
-    if (!existing) {
-      return undefined;
-    }
-    const next = { ...existing, state };
-    this.layerInstances.set(layerId, next);
-    this.unregisterRoomIndexes(layerId);
-    this.rooms.delete(layerId);
-    return cloneLayerInstance(next);
   }
 
   ensureLayerInstance(entrance: LayerEntrance): LayerInstance {
@@ -572,7 +571,7 @@ export class WorldService {
   }
 
   private createLayerInstance(entrance: LayerEntrance): LayerInstance {
-    const centerX = Math.floor(this.grid.cols / 2);
+    const { spawn, exit } = townInteriorDoorTiles(entrance.templateId, this.grid);
     return {
       id: entrance.layerId,
       kind: entrance.kind,
@@ -581,8 +580,8 @@ export class WorldService {
       templateId: entrance.templateId,
       seed: `${this.worldSeed}:${entrance.id}`,
       state: 'available',
-      spawn: { x: centerX, y: this.grid.rows - 4 },
-      exit: { x: centerX, y: this.grid.rows - 3 },
+      spawn,
+      exit,
       returnPosition: { ...entrance.returnPosition },
       displayName: entrance.displayName,
       doorLabel: entrance.doorLabel,
@@ -667,10 +666,7 @@ export class WorldService {
       setTile(bounds.left, y, '#');
       setTile(bounds.left + bounds.width - 1, y, '#');
     }
-    const exit = {
-      x: Math.min(bounds.left + bounds.width - 3, Math.max(bounds.left + 2, instance.exit.x)),
-      y: bounds.top + bounds.height - 1,
-    };
+    const { exit } = instance;
     setTile(exit.x, exit.y, LAYER_EXIT_TILE);
     setTile(exit.x - 1, exit.y, 'W');
     setTile(exit.x + 1, exit.y, 'W');
@@ -716,7 +712,7 @@ export class WorldService {
       id: instance.id,
       layout: rows,
       portals: [],
-      layer: { ...cloneLayerInstance(instance), exit },
+      layer: cloneLayerInstance(instance),
       biomeId: town?.biomeId ?? 'verdigris-basin',
       biomeTitle: palette.title,
       backgroundColor: palette.backgroundColor,
@@ -1600,6 +1596,13 @@ function townInteriorPalette(
         wallOutlineColor: 0xc9b28a,
       };
   }
+}
+
+function townInteriorDoorTiles(templateId: LayerTemplateId, grid: GridConfig) {
+  const { left, top, width, height } = townInteriorBounds(templateId, grid.cols, grid.rows);
+  const x = Math.min(left + width - 3, Math.max(left + 2, Math.floor(grid.cols / 2)));
+  const y = top + height - 1;
+  return { spawn: { x, y: y - 1 }, exit: { x, y } };
 }
 
 function townInteriorBounds(

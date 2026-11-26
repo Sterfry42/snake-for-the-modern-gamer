@@ -1,12 +1,19 @@
 import type { AppleSnapshot } from '../apples/types.js';
+import { isRecord } from '../core/saveNormalize.js';
 import type { Vector2Like } from '../core/math.js';
 
 /** Presentation-only. Epoch, spawn and step identify one bite across both delivery paths. */
 export class AppleBitePresentation {
   private epoch?: number;
   private readonly played = new Set<string>();
-  private pending?: { spawnId: number; revision: number; until: number };
-  private readonly confirmed = new Set<number>();
+  private pending?: {
+    spawnId: number;
+    revision: number;
+    until: number;
+    roomId: string;
+    position: Vector2Like;
+  };
+  private readonly confirmed = new Map<number, boolean>();
 
   reset(epoch?: number): void {
     this.epoch = epoch;
@@ -20,18 +27,45 @@ export class AppleBitePresentation {
   }
 
   confirm(spawnId: number, revision: number): boolean {
-    this.confirmed.add(spawnId);
+    if (this.confirmed.has(spawnId)) return false;
+    this.confirmed.set(spawnId, false);
     if (this.confirmed.size > 64) {
-      const oldest = this.confirmed.values().next().value;
+      const oldest = this.confirmed.keys().next().value;
       if (oldest !== undefined) this.confirmed.delete(oldest);
     }
-    if (this.pending?.spawnId === spawnId) this.pending = undefined;
-    return this.playOnce(spawnId, revision);
+    const predicted = this.pending?.spawnId === spawnId;
+    if (predicted) this.pending = undefined;
+    return !predicted && this.playOnce(spawnId, revision);
   }
 
-  predict(apple: AppleSnapshot, tile: Vector2Like, revision: number, now: number): boolean {
+  claimOutcome(spawnId: number): boolean {
+    if (this.confirmed.get(spawnId) !== false) return false;
+    this.confirmed.set(spawnId, true);
+    return true;
+  }
+
+  predict(
+    apple: AppleSnapshot,
+    tile: Vector2Like,
+    revision: number,
+    now: number,
+    approach?: Vector2Like,
+  ): boolean {
+    const shields = apple.metadata?.protectedDirs;
+    const shielded = apple.typeId === 'shielded' || shields !== undefined;
+    const guarded =
+      shielded &&
+      (!approach ||
+        !Array.isArray(shields) ||
+        shields.some(
+          (entry: unknown) =>
+            !isRecord(entry) ||
+            typeof entry.x !== 'number' ||
+            typeof entry.y !== 'number' ||
+            (entry.x === approach.x && entry.y === approach.y),
+        ));
     if (
-      apple.typeId !== 'normal' ||
+      guarded ||
       apple.spawnId === undefined ||
       apple.position.x !== tile.x ||
       apple.position.y !== tile.y ||
@@ -40,7 +74,13 @@ export class AppleBitePresentation {
       !this.playOnce(apple.spawnId, revision)
     )
       return false;
-    this.pending = { spawnId: apple.spawnId, revision, until: now + 400 };
+    this.pending = {
+      spawnId: apple.spawnId,
+      revision,
+      until: now + 400,
+      roomId: apple.roomId,
+      position: { ...apple.position },
+    };
     return true;
   }
 
@@ -57,7 +97,10 @@ export class AppleBitePresentation {
         this.pending.until <= now ||
         this.pending.revision < revision ||
         (this.pending.revision === revision && !authoritativeAtApple) ||
-        this.pending.spawnId !== apple.spawnId)
+        this.pending.spawnId !== apple.spawnId ||
+        this.pending.roomId !== apple.roomId ||
+        this.pending.position.x !== apple.position.x ||
+        this.pending.position.y !== apple.position.y)
     )
       this.pending = undefined;
     return (

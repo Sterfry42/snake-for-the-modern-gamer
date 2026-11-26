@@ -343,87 +343,254 @@ test('hosted movement recovers after room entry, a pause, death, tab restore, an
   }
 });
 
-test('shows one local apple bite before the authoritative step commits', async ({ page }) => {
+test('first-time town traversal stays coherent across manual, paused and dialogue reconnects', async ({
+  page,
+}) => {
   const game = new SnakeGame(
-    {
-      ...defaultGameConfig,
-      rng: { seed: 'headless-apple-hooks' },
-      apples: {
-        ...defaultGameConfig.apples,
-        types: defaultGameConfig.apples.types.filter(({ id }) => id === 'normal'),
-      },
-    },
+    { ...defaultGameConfig, rng: { seed: 'town-harden-001-mapper-movement-door' } },
     new QuestRegistry(),
   );
   game.reset();
-  game.bosses.clearAll();
-  const room = game.getCurrentRoom();
+  let fixture;
+  search: for (let y = -8; y <= 8; y++) {
+    for (let x = -8; x <= 8; x++) {
+      const room = game.getRoom(`${x},${y},0`);
+      const door = room.layerEntrances?.find((entry) => entry.templateId === 'mapper');
+      if (room.town && door) {
+        fixture = { room, door };
+        break search;
+      }
+    }
+  }
+  if (!fixture) throw new Error('Expected a generated mapper doorway');
+  const { room, door } = fixture;
+  const entrance = {
+    ...door,
+    doorKind: 'shopDoorOpen' as const,
+    x: 11,
+    y: 14,
+    returnPosition: { x: 10, y: 14 },
+  };
   room.layout = room.layout.map((row) => '.'.repeat(row.length));
   room.portals = [];
-  const apple = game.getApple(room.id);
-  if (!apple) throw new Error('Expected a stationary apple');
-  const direction = apple.position.x >= 4 ? { x: 1, y: 0 } : { x: -1, y: 0 };
-  game.placeSnakeBodyAtLocal(
-    room.id,
-    { x: apple.position.x - direction.x, y: apple.position.y },
-    direction,
-  );
-  game.setScore(499);
+  room.layerEntrances = [entrance];
+  game.bosses.clearAll();
+  game.placeSnakeBodyAtLocal(room.id, entrance.returnPosition, { x: 1, y: 0 });
+  expect(game.peekCachedRoom(entrance.layerId)).toBeUndefined();
+
   const session = new AuthoritativeGameSession({ game, manageBasicFeatures: true });
-  const presentationErrors: string[] = [];
+  const faults: string[] = [];
   const server = createGameServer(session, {
-    onDiagnostic: (entry) => {
-      if (entry.event === 'client.presentation-error')
-        presentationErrors.push(String(entry.fields?.errorMessage));
+    onDiagnostic: (record) => {
+      if (record.event === 'client.presentation-error')
+        faults.push(String(record.fields?.errorMessage));
     },
   });
   const port = await server.listen(0);
+  await page.addInitScript((key) => localStorage.setItem(key, 'off'), TOUCH_CONTROLS_STORAGE_KEY);
   const client = observe(page);
-  const bites = () =>
-    page.evaluate(
-      () => window.snakeE2E!.getJuiceTrace().filter((entry) => entry.name === 'appleChomp').length,
+  const id = game.getLocalPlayerId();
+  const mode = () => page.evaluate(() => window.snakeE2E?.getLifecycle().mode);
+  const hold = () => client.snapshot?.ui.playerInteraction;
+  const roomAndViewport = () => [
+    client.snapshot?.players[id]?.roomId,
+    client.snapshot?.viewport.centerRoomId,
+  ];
+  const reconnect = async (heldMode: 'manual' | 'paused' | 'dialogue') => {
+    const connections = Object.keys(client.snapshot?.connections ?? {});
+    const revision = client.snapshot?.players[id]?.movementRevision;
+    await page.evaluate(() =>
+      window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true })),
     );
+    await expect.poll(() => session.getPerformanceReport().suspendedPlayers).toBe(1);
+    await page.evaluate(() =>
+      window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })),
+    );
+    await expect
+      .poll(() => Object.keys(client.snapshot?.connections ?? {}))
+      .not.toEqual(connections);
+    await expect.poll(() => client.snapshot?.localPlayerId).toBe(id);
+    await expect.poll(hold).toBe(heldMode);
+    await expect.poll(mode).toBe(heldMode === 'manual' ? 'manual-room' : heldMode);
+    expect(await page.evaluate(() => window.snakeE2E?.getPresentation().movement)).toBeNull();
+    await session.advance(240);
+    expect(session.getSnapshot(id).players[id].movementRevision).toBe(revision);
+  };
+  page.on('pageerror', (error) => faults.push(error.message));
+
   try {
     await page.goto(
       `?server=${encodeURIComponent(`ws://127.0.0.1:${port}/game`)}&playerName=Alice`,
     );
+    await expect.poll(mode).toBe('manual-room');
+    await expect.poll(hold).toBe('manual');
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(roomAndViewport).toEqual([entrance.layerId, entrance.layerId]);
+    const interior = game.getCurrentRoom();
+    const layer = interior.layer;
+    if (!layer) throw new Error('Expected an authoritative interior on first entry');
+    await reconnect('manual');
+    await page.keyboard.press('ArrowDown');
+    await expect.poll(roomAndViewport).toEqual([room.id, room.id]);
     await expect
-      .poll(() => page.evaluate(() => window.snakeE2E?.getLifecycle().mode))
-      .toBe('action');
-    const id = client.snapshot!.localPlayerId;
-    const score = game.getScore();
-    await expect.poll(bites).toBe(1);
-    expect(session.getSnapshot(id).players[id].movementRevision).toBe(0);
-    expect(game.getScore()).toBe(score);
-    session.actionStep(false);
-    await expect.poll(() => client.snapshot?.players[id].score).toBeGreaterThanOrEqual(530);
+      .poll(() => page.evaluate(() => window.snakeE2E?.getFlag('layers.active')))
+      .toBeUndefined();
+
+    await page.keyboard.press('e');
+    await expect.poll(roomAndViewport).toEqual([entrance.layerId, entrance.layerId]);
+    await page.keyboard.press('Space');
+    await expect.poll(hold).toBe('paused');
+    await reconnect('paused');
+    await page.keyboard.press('Space');
+    await expect.poll(hold).toBe('manual');
+    await page.keyboard.press('e');
+    await expect.poll(roomAndViewport).toEqual([room.id, room.id]);
+
+    await page.keyboard.press('e');
+    await expect.poll(roomAndViewport).toEqual([entrance.layerId, entrance.layerId]);
+    const actor = createBaseActor({
+      id: 'interior-reconnect-greeter',
+      displayName: 'Indigo',
+      kind: 'civilian',
+      role: 'resident',
+      species: 'human',
+      thickness: 'medium',
+      currentRoomId: interior.id,
+    });
+    actor.presence = {
+      roomId: interior.id,
+      position: { x: layer.spawn.x, y: layer.spawn.y - 1 },
+      materialized: true,
+      stationary: true,
+    };
+    game.getActorSystem().registry.upsert(actor);
+    expect(game.canInteractWithActor(actor.id)).toBe(true);
+    game.setFlag('ui.e2e.interiorActorReady', true);
+    session.refreshSnapshot();
     await expect
       .poll(() =>
-        page.evaluate(() =>
-          Boolean(
-            (
-              window.snakeE2E?.getFlag('achievements.hosted') as
-                | { completed?: Record<string, unknown> }
-                | undefined
-            )?.completed?.['stats.score500'],
-          ),
-        ),
+        client.snapshot?.viewport.rooms[interior.id]?.npcs?.some(({ id }) => id === actor.id),
       )
       .toBe(true);
     await expect
-      .poll(() => client.snapshot?.viewport.rooms[room.id]?.apples?.spawnId)
-      .not.toBe(apple.spawnId);
-    expect(await bites()).toBe(1);
-    await expect
-      .poll(() =>
-        page.evaluate(() =>
-          window.snakeE2E?.getJuiceTrace().some(({ name }) => name === 'perkPurchased'),
-        ),
-      )
+      .poll(() => page.evaluate(() => window.snakeE2E?.getFlag('ui.e2e.interiorActorReady')))
       .toBe(true);
-    expect(presentationErrors).toEqual([]);
+    const canvas = await page.locator('canvas').boundingBox();
+    if (!canvas) throw new Error('Missing canvas');
+    const { x, y } = actor.presence.position;
+    const { cell, cols, rows } = defaultGameConfig.grid;
+    await page.mouse.click(
+      canvas.x + ((x + 0.5) / cols) * canvas.width,
+      canvas.y + ((y + 0.5 - 2 / cell) / rows) * canvas.height,
+    );
+    await expect.poll(hold).toBe('dialogue');
+    await reconnect('dialogue');
+    expect(await page.evaluate(() => window.snakeE2E?.getPresentation().quest.title)).toBe(
+      'Indigo',
+    );
+    expect(faults).toEqual([]);
   } finally {
     await page.close();
     await server.close();
   }
 });
+
+for (const typeId of ['normal', 'gold'] as const) {
+  test(`shows one local ${typeId} apple bite before the authoritative step commits`, async ({
+    page,
+  }) => {
+    const game = new SnakeGame(
+      {
+        ...defaultGameConfig,
+        rng: { seed: 'headless-apple-hooks' },
+        apples: {
+          ...defaultGameConfig.apples,
+          types: defaultGameConfig.apples.types
+            .filter(({ id }) => id === typeId)
+            .map((type) => ({ ...type, spawn: { base: 1 } })),
+        },
+      },
+      new QuestRegistry(),
+    );
+    game.reset();
+    game.bosses.clearAll();
+    const room = game.getCurrentRoom();
+    room.layout = room.layout.map((row) => '.'.repeat(row.length));
+    room.portals = [];
+    const apple = game.getApple(room.id);
+    if (!apple) throw new Error('Expected a stationary apple');
+    const direction = apple.position.x >= 4 ? { x: 1, y: 0 } : { x: -1, y: 0 };
+    game.placeSnakeBodyAtLocal(
+      room.id,
+      { x: apple.position.x - direction.x, y: apple.position.y },
+      direction,
+    );
+    game.setScore(499);
+    const session = new AuthoritativeGameSession({ game, manageBasicFeatures: true });
+    const presentationErrors: string[] = [];
+    const server = createGameServer(session, {
+      onDiagnostic: (entry) => {
+        if (entry.event === 'client.presentation-error')
+          presentationErrors.push(String(entry.fields?.errorMessage));
+      },
+    });
+    const port = await server.listen(0);
+    const client = observe(page);
+    const bites = () =>
+      page.evaluate(
+        () =>
+          window.snakeE2E!.getJuiceTrace().filter((entry) => entry.name === 'appleChomp').length,
+      );
+    try {
+      await page.goto(
+        `?server=${encodeURIComponent(`ws://127.0.0.1:${port}/game`)}&playerName=Alice`,
+      );
+      await expect
+        .poll(() => page.evaluate(() => window.snakeE2E?.getLifecycle().mode))
+        .toBe('action');
+      const id = client.snapshot!.localPlayerId;
+      const score = game.getScore();
+      await expect.poll(bites).toBe(1);
+      const chomp = await page.evaluate(() =>
+        window.snakeE2E!.getJuiceTrace().find(({ name }) => name === 'appleChomp'),
+      );
+      const cell = defaultGameConfig.grid.cell;
+      expect(chomp?.args.slice(0, 2)).toEqual([
+        (apple.position.x + 0.5) * cell,
+        (apple.position.y + 0.5) * cell,
+      ]);
+      expect(session.getSnapshot(id).players[id].movementRevision).toBe(0);
+      expect(game.getScore()).toBe(score);
+      session.actionStep(false);
+      await expect.poll(() => client.snapshot?.players[id].score).toBeGreaterThanOrEqual(530);
+      await expect
+        .poll(() =>
+          page.evaluate(() =>
+            Boolean(
+              (
+                window.snakeE2E?.getFlag('achievements.hosted') as
+                  | { completed?: Record<string, unknown> }
+                  | undefined
+              )?.completed?.['stats.score500'],
+            ),
+          ),
+        )
+        .toBe(true);
+      await expect
+        .poll(() => client.snapshot?.viewport.rooms[room.id]?.apples?.spawnId)
+        .not.toBe(apple.spawnId);
+      expect(await bites()).toBe(1);
+      await expect
+        .poll(() =>
+          page.evaluate(() =>
+            window.snakeE2E?.getJuiceTrace().some(({ name }) => name === 'perkPurchased'),
+          ),
+        )
+        .toBe(true);
+      expect(presentationErrors).toEqual([]);
+    } finally {
+      await page.close();
+      await server.close();
+    }
+  });
+}

@@ -1,4 +1,5 @@
-﻿import type { AuthoritativeGameSession as Session } from '../session/AuthoritativeGameSession.js';
+﻿import type { ProcessPerformance } from './ProcessPerformance.js';
+import type { AuthoritativeGameSession as Session } from '../session/AuthoritativeGameSession.js';
 
 export type GameServerSession = Pick<
   Session,
@@ -8,14 +9,15 @@ export type GameServerSession = Pick<
   | 'onEvent'
   | 'getSnapshot'
   | 'hasClaimedPrimaryCharacter'
-  | 'recordPublishedMovement'
   | 'suspendConnection'
   | 'detachConnection'
   | 'attachConnection'
   | 'enableMovementGrace'
-  | 'getConnectionSnapshot'
-  | 'executeCommand'
-  | 'publishNetworkState'
+  | 'openNetworkPublication'
+  | 'publishConnectionState'
+  | 'executeNetworkCommand'
+  | 'publishNetworkDeltas'
+  | 'recordPublishedMovementRevision'
   | 'getPerformanceReport'
   | 'performance'
   | 'autosave'
@@ -33,5 +35,9 @@ export type GameServerSession = Pick<
   ):
     | ReturnType<Session['getPlayerMovementDiagnostic']>
     | Promise<ReturnType<Session['getPlayerMovementDiagnostic']>>;
-  refreshPerformance?(reset: boolean): Promise<ReturnType<Session['getPerformanceReport']>>;
+  refreshPerformance?(reset: boolean): Promise<
+    ReturnType<Session['getPerformanceReport']> & {
+      authorityThread?: ReturnType<ProcessPerformance['read']>;
+    }
+  >;
 };

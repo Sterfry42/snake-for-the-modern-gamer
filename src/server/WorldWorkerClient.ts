@@ -1,5 +1,13 @@
+import { WorkerTransferPerformance } from './WorkerTransferPerformance.js';
 import { Worker } from 'node:worker_threads';
 import type { WorldResult, WorldWork } from '../world/WorldWork.js';
+
+export interface WorldReply {
+  id: number;
+  result: WorldResult | null;
+  workMs: number;
+  threadCpuMs: number;
+}
 
 export class WorldWorkerClient implements WorldWork {
   private readonly worker = new Worker(new URL('./workerBootstrap.mjs', import.meta.url), {
@@ -9,6 +17,9 @@ export class WorldWorkerClient implements WorldWork {
     number,
     { at: number; done: (result: WorldResult | null) => void }
   >();
+  private readonly transfers = new WorkerTransferPerformance();
+  private totalWorkMs = 0;
+  private totalThreadCpuMs = 0;
   private submittedPaths = 0;
   private submittedRooms = 0;
   private completed = 0;
@@ -18,7 +29,11 @@ export class WorldWorkerClient implements WorldWork {
   private closed = false;
 
   constructor(onError: (error: Error) => void) {
-    this.worker.on('message', ({ id, result }: { id: number; result: WorldResult | null }) => {
+    this.worker.on('message', (message: WorldReply) => {
+      const { id, result, workMs, threadCpuMs } = message;
+      this.transfers.receive(result?.kind ?? 'failed', message);
+      this.totalWorkMs += workMs;
+      this.totalThreadCpuMs += threadCpuMs;
       const pending = this.pending.get(id);
       if (!pending) return;
       this.pending.delete(id);
@@ -49,7 +64,8 @@ export class WorldWorkerClient implements WorldWork {
     const id = ++this.nextId;
     this.pending.set(id, { at: performance.now(), done });
     try {
-      this.worker.postMessage({ id, job });
+      const message = { id, job };
+      this.transfers.post(job.kind, message, () => this.worker.postMessage(message));
       if (job.kind === 'path') this.submittedPaths++;
       else this.submittedRooms++;
       return true;
@@ -67,9 +83,14 @@ export class WorldWorkerClient implements WorldWork {
       completed: this.completed,
       failed: this.failed,
       maximumRoundTripMs: this.maximumRoundTripMs,
+      workMs: this.totalWorkMs,
+      threadCpuMs: this.totalThreadCpuMs,
+      transfers: this.transfers.read(),
     };
     if (reset)
-      this.submittedPaths =
+      this.totalWorkMs =
+        this.totalThreadCpuMs =
+        this.submittedPaths =
         this.submittedRooms =
         this.completed =
         this.failed =

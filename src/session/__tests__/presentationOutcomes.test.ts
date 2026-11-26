@@ -273,6 +273,7 @@ describe('authoritative presentation and multiplayer combat', () => {
 
   it('damages a peer with owned gunfire, keeps the shooter safe, and emits private hit feedback', async () => {
     const { game, room, session, alice, bob, events } = setup();
+    session.configureHosting();
     game.setFlag('equipment.gunEnabled', true);
     game.runForPlayer(bob, () =>
       game.placeSnakeBodyAtLocal(room.id, { x: 9, y: 10 }, { x: 0, y: -1 }),
@@ -289,7 +290,7 @@ describe('authoritative presentation and multiplayer combat', () => {
     ).toMatchObject({ ok: true });
     expect(
       events.flatMap((event) =>
-        event.type === 'gameplay.outcome' && event.playerId === alice ? event.outcome.feedback : [],
+        event.type === 'gameplay.presentation' && event.playerId === alice ? event.feedback : [],
       ),
     ).toContainEqual(
       expect.objectContaining({
@@ -303,7 +304,7 @@ describe('authoritative presentation and multiplayer combat', () => {
     expect(game.getFlag('player.health') ?? 3).toBe(3);
     expect(
       events.flatMap((event) =>
-        event.type === 'gameplay.outcome' && event.playerId === bob ? event.outcome.feedback : [],
+        event.type === 'gameplay.presentation' && event.playerId === bob ? event.feedback : [],
       ),
     ).toContainEqual(expect.objectContaining({ key: 'ui.playerHit' }));
   });

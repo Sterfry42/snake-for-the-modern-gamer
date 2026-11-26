@@ -1,3 +1,4 @@
+import { WorkerTransferPerformance } from './WorkerTransferPerformance.js';
 import { Worker } from 'node:worker_threads';
 import type { GameServerSession } from './GameServerSession.js';
 import type {
@@ -7,9 +8,9 @@ import type {
   AuthorityRequest,
 } from './authorityWorkerMessages.js';
 import type { GameConfig } from '../config/gameConfig.js';
-import type { GameSnapshot } from '../session/GameSnapshot.js';
+import type { NetworkPublication } from '../session/NetworkPublication.js';
 import type { MovementUpdate } from '../session/MovementUpdate.js';
-import type { GameEvent } from '../session/GameEvent.js';
+import type { GameEvent, GameEventTiming } from '../session/GameEvent.js';
 import type { SessionDiagnostic } from '../session/SessionDiagnostic.js';
 import { ServerPerformance } from '../session/ServerPerformance.js';
 import { SpawnAreaUnavailable } from '../players/safePlayerSpawn.js';
@@ -18,9 +19,12 @@ type Reply = Extract<AuthorityNotice, { type: 'result' | 'failed' }>;
 
 export class WorkerGameSession implements GameServerSession {
   private readonly movement = new Set<(value: MovementUpdate) => void>();
-  private readonly events = new Set<(value: GameEvent) => void>();
+  private readonly events = new Set<
+    (value: GameEvent, sequence: number, timing?: GameEventTiming) => void
+  >();
   private readonly diagnostics = new Set<(value: SessionDiagnostic) => void>();
   private readonly pending = new Map<number, (message: Reply) => void>();
+  private readonly transfers = new WorkerTransferPerformance();
   readonly performance = new ServerPerformance();
   private readonly worker: Worker;
   private readonly ready: Promise<AuthorityInitial>;
@@ -54,6 +58,7 @@ export class WorkerGameSession implements GameServerSession {
       this.worker.on('error', failed);
       this.worker.on('exit', (code) => failed(new Error(`Authority worker exited (${code})`)));
       this.worker.on('message', (message: AuthorityNotice) => {
+        if (!('id' in message)) this.transfers.receive(message.type, message);
         switch (message.type) {
           case 'ready':
             this.latest = message.value;
@@ -63,7 +68,8 @@ export class WorkerGameSession implements GameServerSession {
             for (const handler of this.movement) handler(message.value);
             break;
           case 'event':
-            for (const handler of this.events) handler(message.value);
+            for (const handler of this.events)
+              handler(message.value, message.sequence, message.timing);
             break;
           case 'diagnostic':
             for (const handler of this.diagnostics) handler(message.value);
@@ -101,6 +107,7 @@ export class WorkerGameSession implements GameServerSession {
     return new Promise((resolve, reject) => {
       const id = ++this.nextId;
       this.pending.set(id, (message) => {
+        this.transfers.receive(method, message);
         if (message.type === 'failed')
           reject(
             message.name === 'SpawnAreaUnavailable'
@@ -111,7 +118,8 @@ export class WorkerGameSession implements GameServerSession {
         else resolve(message.value as Awaited<ReturnType<AuthorityMethods[K]>>);
       });
       try {
-        this.worker.postMessage({ id, method, args } satisfies AuthorityRequest);
+        const message = { id, method, args } satisfies AuthorityRequest;
+        this.transfers.post(method, message, () => this.worker.postMessage(message));
       } catch (error) {
         this.pending.delete(id);
         reject(error);
@@ -131,11 +139,16 @@ export class WorkerGameSession implements GameServerSession {
   getPerformanceReport() {
     return this.latest.performance;
   }
+  getWorkerTransfers() {
+    return this.transfers.read();
+  }
+
   async refreshPerformance(reset: boolean) {
     const authority = await this.call('getPerformanceReport', reset);
     const transport = this.performance.read(authority, reset);
     const report = {
       ...authority,
+      workerTransfers: this.getWorkerTransfers(),
       snapshotPayloads: transport.snapshotPayloads,
       averagePayloadBytes: transport.averagePayloadBytes,
       maximumPayloadBytes: transport.maximumPayloadBytes,
@@ -154,7 +167,7 @@ export class WorkerGameSession implements GameServerSession {
       this.movement.delete(handler);
     };
   }
-  onEvent(handler: (value: GameEvent) => void) {
+  onEvent(handler: (value: GameEvent, sequence: number, timing?: GameEventTiming) => void) {
     this.events.add(handler);
     return () => {
       this.events.delete(handler);
@@ -166,19 +179,32 @@ export class WorkerGameSession implements GameServerSession {
       this.diagnostics.delete(handler);
     };
   }
-  recordPublishedMovement(connectionId: string, snapshot: GameSnapshot | MovementUpdate): void {
-    const player =
-      'player' in snapshot ? snapshot.player : snapshot.players[snapshot.localPlayerId];
-    if (player && !this.unavailable)
-      this.worker.postMessage({
-        id: 0,
-        method: 'recordPublishedMovementRevision',
-        args: [connectionId, player.id, player.movementRevision],
-      } satisfies AuthorityRequest);
+  recordPublishedMovementRevision(connectionId: string, playerId: string, revision?: number): void {
+    if (revision === undefined || this.unavailable) return;
+    const message = {
+      id: 0,
+      method: 'recordPublishedMovementRevision',
+      args: [connectionId, playerId, revision],
+    } satisfies AuthorityRequest;
+    this.transfers.post(message.method, message, () => this.worker.postMessage(message));
   }
-  async publishNetworkState(publish: (playerId: string, snapshot: GameSnapshot) => void) {
-    for (const [id, snapshot] of await this.call('networkState')) publish(id, snapshot);
+
+  openNetworkPublication(connectionId: string) {
+    return this.call('openNetworkPublication', connectionId);
   }
+
+  publishConnectionState(connectionId: string) {
+    return this.call('publishConnectionState', connectionId);
+  }
+
+  async publishNetworkDeltas(publish: (publication: NetworkPublication) => void) {
+    for (const publication of await this.call('networkDeltas')) publish(publication);
+  }
+
+  executeNetworkCommand(...args: Parameters<AuthorityMethods['executeNetworkCommand']>) {
+    return this.call('executeNetworkCommand', ...args);
+  }
+
   attachConnection(...args: Parameters<AuthorityMethods['attachConnection']>) {
     return this.call('attachConnection', ...args);
   }

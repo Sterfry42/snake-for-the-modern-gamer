@@ -27,9 +27,15 @@ describe('worker-backed server', () => {
       });
       await session.start();
       await vi.waitFor(() => expect(revision).toBeGreaterThan(0), { timeout: 3000 });
+      let interaction;
+      const unsubscribeSnapshot = client.onSnapshot((snapshot) => {
+        interaction = snapshot.ui.playerInteraction;
+      });
       expect(
         await client.send({ type: 'playerInteraction', playerId: id, mode: 'paused' }),
       ).toEqual({ ok: true });
+      expect(interaction).toBe('paused');
+      unsubscribeSnapshot();
       expect((await session.getConnectionSnapshot(id)).ui.playerInteraction).toBe('paused');
       expect((await session.refreshPerformance(false)).clockTimings.action.updates).toBeGreaterThan(
         0,
