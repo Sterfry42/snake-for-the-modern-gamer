@@ -1892,6 +1892,8 @@ export class JuiceManager {
 
   /** Jason Statham defeat: massive explosion + calm */
   stathamDefeated(worldX: number, worldY: number) {
+    // Cinematic zoom punch into the explosion, then silence
+    this.punchZoom(1.27, 620);
     // Big boom then sudden silence
     this.playTone({
       frequency: 100,
