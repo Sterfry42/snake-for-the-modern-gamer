@@ -3782,24 +3782,15 @@ export class SnakeGame implements QuestRuntime {
   }
 
   /** Defeat rewards are committed before presentation is notified, including headless play. */
-  private resolveJasonDefeat(bossId: string): number {
+  private resolvePhaseBossDefeat(bossId: string, kind: 'jason-statham' | 'freak-turkey'): number {
     const boss = this.bosses.getBoss(bossId);
-    if (!boss || boss.kind !== 'jason-statham' || boss.jasonPhase !== 'defeated') return 0;
-    const count = Math.max(0, Number(this.getFlag<number>('boss.jasonDefeatCount') ?? 0)) + 1;
+    if (!boss || boss.kind !== kind) return 0;
+    const phase = kind === 'freak-turkey' ? boss.turkeyPhase : boss.jasonPhase;
+    if (phase !== 'defeated') return 0;
+    const flag = kind === 'freak-turkey' ? 'boss.freakTurkeyDefeatCount' : 'boss.jasonDefeatCount';
+    const count = Math.max(0, Number(this.getFlag<number>(flag) ?? 0)) + 1;
     const score = Math.max(10, Math.floor(100 * Math.pow(0.6, count - 1)));
-    this.setFlag('boss.jasonDefeatCount', count);
-    this.bosses.deleteBoss(bossId);
-    this.addScore(score);
-    return score;
-  }
-
-  /** Defeat rewards are committed before presentation is notified, including headless play. */
-  private resolveFreakTurkeyDefeat(bossId: string): number {
-    const boss = this.bosses.getBoss(bossId);
-    if (!boss || boss.kind !== 'freak-turkey' || boss.turkeyPhase !== 'defeated') return 0;
-    const count = Math.max(0, Number(this.getFlag<number>('boss.freakTurkeyDefeatCount') ?? 0)) + 1;
-    const score = Math.max(10, Math.floor(100 * Math.pow(0.6, count - 1)));
-    this.setFlag('boss.freakTurkeyDefeatCount', count);
+    this.setFlag(flag, count);
     this.bosses.deleteBoss(bossId);
     this.addScore(score);
     return score;
@@ -4099,11 +4090,15 @@ export class SnakeGame implements QuestRuntime {
       getBossManager: () => this.bosses,
       skipSelfCollision: this.isRaccoonMode(),
       onJasonDamage: (bossId, defeated, scoreBonus) => {
-        const awardedScore = defeated ? this.resolveJasonDefeat(bossId) : scoreBonus;
+        const awardedScore = defeated
+          ? this.resolvePhaseBossDefeat(bossId, 'jason-statham')
+          : scoreBonus;
         this.jasonDamageCallback?.(bossId, defeated, awardedScore);
       },
       onFreakTurkeyDamage: (bossId, defeated, scoreBonus) => {
-        const awardedScore = defeated ? this.resolveFreakTurkeyDefeat(bossId) : scoreBonus;
+        const awardedScore = defeated
+          ? this.resolvePhaseBossDefeat(bossId, 'freak-turkey')
+          : scoreBonus;
         this.freakTurkeyDamageCallback?.(bossId, defeated, awardedScore);
       },
     };

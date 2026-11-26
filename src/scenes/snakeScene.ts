@@ -3963,11 +3963,16 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
-  private handleJasonDefeat(bossId: string, rawScore: number): void {
+  private handlePhaseBossDefeat(
+    kind: 'jason-statham' | 'freak-turkey',
+    bossId: string,
+    rawScore: number,
+  ): void {
+    const isTurkey = kind === 'freak-turkey';
     this.recordAchievementEvent({
       type: 'boss:defeated',
-      bossKind: 'jason-statham',
-      bossName: 'Jason Statham',
+      bossKind: kind,
+      bossName: isTurkey ? 'Freak Turkey' : 'Jason Statham',
     });
     if (this.archipelagoModeActive) {
       this.archipelagoCheckTracker.processBossDefeat(bossId);
@@ -3983,49 +3988,30 @@ export default class SnakeScene extends Phaser.Scene {
     // Juice
     const head = this.snakeGame.getSnakeBody()[0];
     const world = this.tileToWorld(head);
-    this.juice.stathamDefeated(world.x, world.y);
+    if (isTurkey) this.juice.turkeyDefeated(world.x, world.y);
+    else this.juice.stathamDefeated(world.x, world.y);
 
     // Show defeat announcements
-    this.showQuestHintPopup(i18n.getFeatureString('jason_statham_defeated')!, '#ffd166');
-    this.showQuestHintPopup(i18n.getFeatureString('jason_statham_victory')!, '#5dd6a2');
+    const prefix = isTurkey ? 'freak_turkey' : 'jason_statham';
+    this.showQuestHintPopup(i18n.getFeatureString(`${prefix}_defeated`)!, '#ffd166');
+    this.showQuestHintPopup(i18n.getFeatureString(`${prefix}_victory`)!, '#5dd6a2');
     this.showQuestHintPopup(
-      `${i18n.getFeatureString('jason_statham_score_bonus')}: +${rawScore}`,
+      `${i18n.getFeatureString(`${prefix}_score_bonus`)}: +${rawScore}`,
       '#5dd6a2',
     );
 
-    // Clean up defeat timer if set
-    this.jasonDefeatTimer?.remove(false);
+    // Clean up defeat timer if set (jason-only)
+    if (!isTurkey) {
+      this.jasonDefeatTimer?.remove(false);
+    }
+  }
+
+  private handleJasonDefeat(bossId: string, rawScore: number): void {
+    this.handlePhaseBossDefeat('jason-statham', bossId, rawScore);
   }
 
   private handleFreakTurkeyDefeat(bossId: string, rawScore: number): void {
-    this.recordAchievementEvent({
-      type: 'boss:defeated',
-      bossKind: 'freak-turkey',
-      bossName: 'Freak Turkey',
-    });
-    if (this.archipelagoModeActive) {
-      this.archipelagoCheckTracker.processBossDefeat(bossId);
-      this.saveArchipelagoRunState();
-    }
-
-    // Stop boss music
-    this.juice.stopBossMusic();
-
-    // Hide boss HUD
-    this.bossHud.hide();
-
-    // Juice
-    const head = this.snakeGame.getSnakeBody()[0];
-    const world = this.tileToWorld(head);
-    this.juice.turkeyDefeated(world.x, world.y);
-
-    // Show defeat announcements
-    this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_defeated')!, '#ffd166');
-    this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_victory')!, '#5dd6a2');
-    this.showQuestHintPopup(
-      `${i18n.getFeatureString('freak_turkey_score_bonus')}: +${rawScore}`,
-      '#5dd6a2',
-    );
+    this.handlePhaseBossDefeat('freak-turkey', bossId, rawScore);
   }
 
   private async runActorClockStep(stepMs: number): Promise<void> {

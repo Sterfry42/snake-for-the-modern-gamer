@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { buildBossMusic } from '../juice/bossMusic.js';
 import { createGainWithContext } from './bossMusicTestStubs.js';
 
-
 describe('Jason Statham boss music', () => {
   it('builds a cinematic recipe with a deep heartbeat sub oscillator', () => {
     const { gain, context } = createGainWithContext();

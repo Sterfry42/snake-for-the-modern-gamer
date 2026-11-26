@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { buildBossMusic } from '../juice/bossMusic.js';
 import { createGainWithContext } from './bossMusicTestStubs.js';
 
-
 describe('Freak Turkey boss music', () => {
   it('builds a Thanksgiving-themed WebAudio recipe with a gobble trill', () => {
     const { gain, context } = createGainWithContext();
