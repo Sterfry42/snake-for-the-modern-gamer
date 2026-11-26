@@ -114,7 +114,7 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   freak_turkey_spawn: 'Gl\u00fa gl\u00fa gl\u00fa!',
   freak_turkey_stuffed: 'Repleto y Cansado!',
   freak_turkey_stuffed_sub: 'Se comi\u00f3 bien. Atrapa tu respiraci\u00f3n. Tienes 15 segundos.',
-  freak_turkey_attack_charge: 'El Pavo Atornilla la Salsa!',
+  freak_turkey_attack_gravy: 'El Pavo Atornilla la Salsa!',
   freak_turkey_attack_spiral: 'Rotaci\u00f3n de Nueces de Pavo!',
   freak_turkey_attack_dash: 'Zarpazo de Calabaza!',
   freak_turkey_defeated: 'El p\u00e1jaro cae, pierna adelante.',

@@ -115,7 +115,7 @@ export const FEATURE_STRINGS_FR: FeatureStringsType = {
   freak_turkey_spawn: 'Glouton glouton !',
   freak_turkey_stuffed: 'Repu et Fatigué !',
   freak_turkey_stuffed_sub: 'Bien rassasié. Respirez. 15 secondes.',
-  freak_turkey_attack_charge: 'Le Dinde Tourmente la Sauce !',
+  freak_turkey_attack_gravy: 'Le Dinde Tourmente la Sauce !',
   freak_turkey_attack_spiral: 'Rotation des Noix de Dinde !',
   freak_turkey_attack_dash: 'Dash de Citrouille !',
   freak_turkey_defeated: 'L’oiseau tombe, jambe en avant.',

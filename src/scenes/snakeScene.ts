@@ -1265,7 +1265,7 @@ const PHASE_BOSS_ATTACK_ANNOUNCEMENTS: Record<
   'freak-turkey': {
     'pumpkin-dash': { key: 'freak_turkey_attack_dash', color: '#ff8c42', gobble: 'dash' },
     'stuffing-spiral': { key: 'freak_turkey_attack_spiral', color: '#ffd166', gobble: 'spiral' },
-    'gravy-round': { key: 'freak_turkey_attack_charge', color: '#ff6b6b', gobble: 'gravy' },
+    'gravy-round': { key: 'freak_turkey_attack_gravy', color: '#ff6b6b', gobble: 'gravy' },
   },
 };
 

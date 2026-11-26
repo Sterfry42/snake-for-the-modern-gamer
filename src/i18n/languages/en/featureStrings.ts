@@ -111,7 +111,7 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   freak_turkey_spawn: 'Gobble Gobble!',
   freak_turkey_stuffed: 'Stuffed & Tired!',
   freak_turkey_stuffed_sub: 'Feasted well. Catch your breath. You have 15 seconds.',
-  freak_turkey_attack_charge: 'Turkey Balls the Gravy!',
+  freak_turkey_attack_gravy: 'Turkey Balls the Gravy!',
   freak_turkey_attack_spiral: 'Turkey Nut Rotation!',
   freak_turkey_attack_dash: 'Pumpkin Dash!',
   freak_turkey_defeated: 'The bird goes down, drumstick-first.',

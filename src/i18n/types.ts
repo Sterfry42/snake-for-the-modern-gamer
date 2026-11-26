@@ -158,7 +158,7 @@ export interface FeatureStrings {
   freak_turkey_spawn?: string;
   freak_turkey_stuffed?: string;
   freak_turkey_stuffed_sub?: string;
-  freak_turkey_attack_charge?: string;
+  freak_turkey_attack_gravy?: string;
   freak_turkey_attack_spiral?: string;
   freak_turkey_attack_dash?: string;
   freak_turkey_defeated?: string;
