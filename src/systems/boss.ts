@@ -367,6 +367,17 @@ export class BossManager {
     return valid.length > 0 ? valid[Math.floor(rng() * valid.length)] : null;
   }
 
+  /**
+   * True when the snake head is in the same grid room as `roomId`
+   * (x/y grid space; phase bosses are confined to their room).
+   */
+  private isSnakeInRoom(roomId: string, snakeHead: Vector2Like): boolean {
+    const [roomX, roomY] = roomId.split(',').map(Number);
+    const headRoomX = Math.floor(snakeHead.x / this.grid.cols);
+    const headRoomY = Math.floor(snakeHead.y / this.grid.rows);
+    return headRoomX === roomX && headRoomY === roomY;
+  }
+
   private movePhaseBoss(boss: Boss, deps: BossStepDependencies): void {
     const isTurkey = boss.kind === 'freak-turkey';
     const moveIdPrefix = isTurkey ? 'turkey-move' : 'jason-move';
@@ -504,6 +515,21 @@ export class BossManager {
     };
 
     const phase = getPhase();
+
+    // Frozen while the player is not in the boss's room: no chase, no
+    // phase transitions, no announcements — only the defeated grace
+    // timer keeps running so defeated bosses still age out.
+    const frozenHead = deps.getSnakeBody()[0];
+    const snakeInRoom = frozenHead !== undefined && this.isSnakeInRoom(boss.roomId, frozenHead);
+    if (!snakeInRoom) {
+      if (phase === 'defeated') {
+        setTimer('defeatedTimer', getTimer('defeatedTimer') + (deps.stepMs ?? 1));
+        if (getTimer('defeatedTimer') > 2000) {
+          this.bosses.delete(boss.id);
+        }
+      }
+      return;
+    }
 
     if (phase === 'defeated') {
       // Remove boss after a grace period so defeat FX can play

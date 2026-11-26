@@ -49,6 +49,43 @@ describe('Jason Statham Boss', () => {
     expect(boss?.jasonPhase).toBe('calm');
   });
 
+  it('freezes phase behavior when the player is not in the boss room', () => {
+    const bossManager = new BossManager(grid, () => 0.5);
+    bossManager.spawnJasonStatham('0,0,0');
+    const boss = bossManager.getBossesInRoom('0,0,0')[0]!;
+    boss.body = [{ x: 8, y: 6 }];
+    boss.jasonPhase = 'attacking';
+    boss.jasonAttackingTimer = 10000;
+    boss.jasonAttackCooldown = 10000;
+    boss.jasonAttackStartOffset = 0;
+    boss.jasonMoveIndex = 0;
+
+    const events: Array<{ kind: string }> = [];
+    const deps = {
+      getRoom: (roomId: string) =>
+        ({
+          id: roomId,
+          layout: Array.from({ length: 12 }, () => Array(16).fill('.')),
+          portals: [],
+        }) as unknown as RoomSnapshot,
+      // Head is in a different room (x=50 -> room 3,0,0)
+      getSnakeBody: () => [{ x: 50, y: 0 }],
+      onEvent: (event: { kind: string }) => {
+        events.push(event);
+      },
+      stepMs: 100,
+    };
+
+    for (let i = 0; i < 30; i++) {
+      bossManager.step(deps);
+    }
+
+    expect(events).toEqual([]);
+    expect(boss.jasonPhase).toBe('attacking');
+    expect(boss.jasonAttackingTimer).toBe(10000);
+    expect(boss.body[0]).toEqual({ x: 8, y: 6 });
+  });
+
   it('should transition to attacking when snake is nearby', () => {
     const bossManager = new BossManager(grid, () => 0.5);
     bossManager.spawnJasonStatham('0,0,0');

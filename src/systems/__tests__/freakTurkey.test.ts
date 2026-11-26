@@ -178,6 +178,136 @@ describe('Freak Turkey Boss', () => {
     expect(bossManager.hasBoss(boss!.id)).toBe(false);
   });
 
+  it('freezes phase behavior when the player is not in the boss room', () => {
+    const bossManager = new BossManager(grid, () => 0.5);
+    bossManager.spawnFreakTurkey('0,0,0');
+    const boss = bossManager.getBossesInRoom('0,0,0')[0]!;
+    // Force an attacking boss in room 0,0,0 and move a scripted head out of the room
+    boss.body = [{ x: 8, y: 6 }];
+    boss.turkeyPhase = 'attacking';
+    boss.turkeyAttackingTimer = 10000;
+    boss.turkeyAttackCooldown = 10000;
+    boss.turkeyAttackStartOffset = 0;
+    boss.turkeyMoveIndex = 0;
+
+    const events: Array<{ kind: string }> = [];
+    const deps = {
+      getRoom: (roomId: string) =>
+        ({
+          id: roomId,
+          layout: Array.from({ length: 12 }, () => Array(16).fill('.')),
+          portals: [],
+        }) as unknown as RoomSnapshot,
+      // Head is in a different room (x=50 -> room 3,0,0)
+      getSnakeBody: () => [{ x: 50, y: 0 }],
+      onEvent: (event: { kind: string }) => {
+        events.push(event);
+      },
+      stepMs: 100,
+    };
+
+    for (let i = 0; i < 30; i++) {
+      bossManager.step(deps);
+    }
+
+    // No announcements fired, no movement, no timer advancement
+    expect(events).toEqual([]);
+    expect(boss.turkeyPhase).toBe('attacking');
+    expect(boss.turkeyAttackingTimer).toBe(10000);
+    expect(boss.turkeyAttackCooldown).toBe(10000);
+    expect(boss.body[0]).toEqual({ x: 8, y: 6 });
+  });
+
+  it('keeps the defeated grace timer running while the player is out of the room', () => {
+    const bossManager = new BossManager(grid, () => 0.5);
+    bossManager.spawnFreakTurkey('0,0,0');
+    const boss = bossManager.getBossesInRoom('0,0,0')[0]!;
+    boss.turkeyPhase = 'defeated';
+
+    const deps = {
+      getRoom: (roomId: string) =>
+        ({
+          id: roomId,
+          layout: Array.from({ length: 12 }, () => Array(16).fill('.')),
+          portals: [],
+        }) as unknown as RoomSnapshot,
+      getSnakeBody: () => [{ x: 50, y: 0 }],
+      stepMs: 500,
+    };
+
+    for (let i = 0; i < 5; i++) {
+      bossManager.step(deps);
+    }
+
+    // 5 steps x 500ms = 2500ms > 2000ms grace period: the boss ages out
+    expect(bossManager.hasBoss(boss.id)).toBe(false);
+  });
+
+  it('resumes stepping when the player re-enters the room', () => {
+    const bossManager = new BossManager(grid, () => 0.5);
+    bossManager.spawnFreakTurkey('0,0,0');
+    const boss = bossManager.getBossesInRoom('0,0,0')[0]!;
+    boss.body = [{ x: 8, y: 6 }];
+    boss.turkeyPhase = 'vulnerable';
+    boss.turkeyVulnerableTimer = 14990; // one step from the transition
+
+    const events: Array<{ kind: string }> = [];
+    let inRoom = false;
+    const deps = {
+      getRoom: (roomId: string) =>
+        ({
+          id: roomId,
+          layout: Array.from({ length: 12 }, () => Array(16).fill('.')),
+          portals: [],
+        }) as unknown as RoomSnapshot,
+      getSnakeBody: () => (inRoom ? [{ x: 10, y: 6 }] : [{ x: 50, y: 0 }]),
+      onEvent: (event: { kind: string }) => {
+        events.push(event);
+      },
+      stepMs: 50,
+    };
+
+    // Frozen: no transition despite being one step away
+    for (let i = 0; i < 5; i++) {
+      bossManager.step(deps);
+    }
+    expect(boss.turkeyPhase).toBe('vulnerable');
+    expect(events).toEqual([]);
+
+    // Player re-enters the room: the transition fires
+    inRoom = true;
+    bossManager.step(deps);
+    expect(boss.turkeyPhase).toBe('attacking');
+    expect(events.some((event) => event.kind === 'freak-turkey')).toBe(true);
+  });
+
+  it('still freezes phase bosses when no snake head is available', () => {
+    const bossManager = new BossManager(grid, () => 0.5);
+    bossManager.spawnFreakTurkey('0,0,0');
+    const boss = bossManager.getBossesInRoom('0,0,0')[0]!;
+    boss.body = [{ x: 8, y: 6 }];
+    boss.turkeyPhase = 'attacking';
+    boss.turkeyAttackingTimer = 10000;
+    boss.turkeyAttackCooldown = 10000;
+    boss.turkeyAttackStartOffset = 0;
+    boss.turkeyMoveIndex = 0;
+
+    const deps = {
+      getRoom: (roomId: string) =>
+        ({
+          id: roomId,
+          layout: Array.from({ length: 12 }, () => Array(16).fill('.')),
+          portals: [],
+        }) as unknown as RoomSnapshot,
+      getSnakeBody: () => [] as { x: number; y: number }[],
+      stepMs: 100,
+    };
+
+    bossManager.step(deps);
+    expect(boss.turkeyPhase).toBe('attacking');
+    expect(boss.turkeyAttackingTimer).toBe(10000);
+  });
+
   it('should return false for non-existent boss', () => {
     const bossManager = new BossManager(grid, () => 0.5);
     const result = bossManager.takeFreakTurkeyDamage('nonexistent', 25);
