@@ -1685,22 +1685,18 @@ export class SnakeGame implements QuestRuntime {
         this.world.getRoom(this.snake.currentRoomId),
       );
     }
-    if (
-      startingRoomSpawnPolicy.bosses === 'allow' &&
-      startingRoom.biomeId === 'sunken-ocean' &&
-      this._rng() < 0.1
-    ) {
-      // 10% chance to spawn Jason Statham in the Sunken Ocean on reset
-      this.bosses.spawnJasonStatham(this.snake.currentRoomId);
-    }
-    if (
-      startingRoomSpawnPolicy.bosses === 'allow' &&
-      startingRoom.biomeId === 'radioactive-orchard' &&
-      this._rng() < 0.1
-    ) {
-      // 10% chance to spawn Freak Turkey in the Radioactive Orchard on reset
-      this.bosses.spawnFreakTurkey(this.snake.currentRoomId);
-    }
+    this.maybeSpawnBiomePhaseBoss(
+      this.snake.currentRoomId,
+      startingRoom.biomeId,
+      startingRoomSpawnPolicy.bosses === 'allow',
+      'jason-statham',
+    );
+    this.maybeSpawnBiomePhaseBoss(
+      this.snake.currentRoomId,
+      startingRoom.biomeId,
+      startingRoomSpawnPolicy.bosses === 'allow',
+      'freak-turkey',
+    );
 
     this.resetPredation();
     if (startingRoomSpawnPolicy.apples === 'allow') {
@@ -3779,6 +3775,20 @@ export class SnakeGame implements QuestRuntime {
     callback: (bossId: string, defeated: boolean, scoreBonus: number) => void,
   ): void {
     this.freakTurkeyDamageCallback = callback;
+  }
+
+  /** 10% chance per new room roll to spawn a biome phase boss. */
+  private maybeSpawnBiomePhaseBoss(
+    roomId: string,
+    biomeId: string,
+    bossesAllowed: boolean,
+    kind: 'jason-statham' | 'freak-turkey',
+  ): void {
+    const biome = kind === 'jason-statham' ? 'sunken-ocean' : 'radioactive-orchard';
+    if (biomeId !== biome || !bossesAllowed) return;
+    if (this._rng() >= 0.1) return;
+    if (kind === 'jason-statham') this.bosses.spawnJasonStatham(roomId);
+    else this.bosses.spawnFreakTurkey(roomId);
   }
 
   /** Defeat rewards are committed before presentation is notified, including headless play. */
@@ -6184,21 +6194,18 @@ export class SnakeGame implements QuestRuntime {
       if (newRoomSpawnPolicy.bosses === 'allow' && this._rng() < 0.01) {
         this.bosses.spawnBoss(newRoomId, 'freaker-dennis', newRoom);
       }
-      if (
-        newRoomSpawnPolicy.bosses === 'allow' &&
-        newRoom.biomeId === 'sunken-ocean' &&
-        this._rng() < 0.1
-      ) {
-        this.bosses.spawnJasonStatham(newRoomId);
-      }
-      if (
-        newRoomSpawnPolicy.bosses === 'allow' &&
-        newRoom.biomeId === 'radioactive-orchard' &&
-        this._rng() < 0.1
-      ) {
-        // 10% chance to spawn Freak Turkey in the Radioactive Orchard on new room entry
-        this.bosses.spawnFreakTurkey(newRoomId);
-      }
+      this.maybeSpawnBiomePhaseBoss(
+        newRoomId,
+        newRoom.biomeId,
+        newRoomSpawnPolicy.bosses === 'allow',
+        'jason-statham',
+      );
+      this.maybeSpawnBiomePhaseBoss(
+        newRoomId,
+        newRoom.biomeId,
+        newRoomSpawnPolicy.bosses === 'allow',
+        'freak-turkey',
+      );
       if (newRoomSpawnPolicy.enemies === 'allow') {
         const atmosphere = this.getAtmosphereForRoom(newRoom);
         this.enemies.ensureEnemy(newRoomId, newRoom, [], atmosphere);
