@@ -2020,8 +2020,61 @@ export class JuiceManager {
     this.spawnBatchedParticles(specs, 22, false);
   }
 
-  /** Freak Turkey gobble: feather scatter + throat bonk */
-  gobble(worldX: number, worldY: number) {
+  /** Freak Turkey gobble: feather scatter + throat bonk, variant by attack */
+  gobble(worldX: number, worldY: number, variant: 'dash' | 'spiral' | 'gravy' = 'dash') {
+    this.spawnFeathers(worldX, worldY, variant === 'dash' ? 14 : 10);
+    if (variant === 'spiral') {
+      // Rattling kokka-kokka-kokka rhythm
+      this.playTone({
+        frequency: 330,
+        frequencyEnd: 240,
+        duration: 0.07,
+        type: 'triangle',
+        volume: 0.12,
+      });
+      globalThis.setTimeout(() => {
+        this.playTone({
+          frequency: 365,
+          frequencyEnd: 250,
+          duration: 0.07,
+          type: 'triangle',
+          volume: 0.11,
+        });
+      }, 70);
+      globalThis.setTimeout(() => {
+        this.playTone({
+          frequency: 405,
+          frequencyEnd: 270,
+          duration: 0.08,
+          type: 'triangle',
+          volume: 0.12,
+        });
+      }, 140);
+      this.kickCamera(0.014, 130);
+      return;
+    }
+    if (variant === 'gravy') {
+      // Low slurped descent, then a bubbly bubble-pop
+      this.playTone({
+        frequency: 170,
+        frequencyEnd: 62,
+        duration: 0.4,
+        type: 'sine',
+        volume: 0.14,
+      });
+      globalThis.setTimeout(() => {
+        this.playTone({
+          frequency: 120,
+          frequencyEnd: 78,
+          duration: 0.18,
+          type: 'triangle',
+          volume: 0.07,
+        });
+      }, 130);
+      this.kickCamera(0.01, 90);
+      return;
+    }
+    // dash: sharp double-bonk
     this.playTone({
       frequency: 215,
       frequencyEnd: 118,
@@ -2037,7 +2090,6 @@ export class JuiceManager {
       volume: 0.08,
     });
     this.kickCamera(0.012, 110);
-    this.spawnFeathers(worldX, worldY, 12);
   }
 
   /** Freak Turkey defeat: massive pumpkin boom + golden calm */

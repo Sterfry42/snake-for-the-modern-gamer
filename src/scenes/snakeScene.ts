@@ -3953,19 +3953,19 @@ export default class SnakeScene extends Phaser.Scene {
       const moveType = (event as { moveType?: string }).moveType;
       if (moveType === 'pumpkin-dash') {
         this.juice.turkeyAttackCharge(worldX, worldY);
-        this.juice.gobble(worldX, worldY);
+        this.juice.gobble(worldX, worldY, 'dash');
         this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_attack_dash')!, '#ff8c42');
       } else if (moveType === 'stuffing-spiral') {
         this.juice.turkeyAttackCharge(worldX, worldY);
-        this.juice.gobble(worldX, worldY);
+        this.juice.gobble(worldX, worldY, 'spiral');
         this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_attack_spiral')!, '#ffd166');
       } else if (moveType === 'gravy-round') {
         this.juice.turkeyAttackCharge(worldX, worldY);
-        this.juice.gobble(worldX, worldY);
+        this.juice.gobble(worldX, worldY, 'gravy');
         this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_attack_charge')!, '#ff6b6b');
       } else {
         this.juice.turkeyAttackCharge(worldX, worldY);
-        this.juice.gobble(worldX, worldY);
+        this.juice.gobble(worldX, worldY, 'dash');
       }
     } else if (event.kind === 'freak-turkey-attacking') {
       this.juice.turkeyAttackCharge(worldX, worldY);
