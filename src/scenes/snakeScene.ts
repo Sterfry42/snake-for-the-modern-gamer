@@ -13616,8 +13616,10 @@ export default class SnakeScene extends Phaser.Scene {
             bossColor = 0xcc0000;
             bossAlpha = 0.95;
           } else if (boss.jasonPhase === 'calm') {
+            // Idle breathing: the villain slowly waxes and wanes
+            const breath = Math.sin(timeMs / 700) * 0.12 + 0.5;
             bossColor = 0x881111;
-            bossAlpha = 0.5;
+            bossAlpha = Math.max(0.3, breath);
           } else {
             bossColor = 0x333333;
             bossAlpha = 0.3;
