@@ -1865,8 +1865,35 @@ export class JuiceManager {
     });
   }
 
+  /** Jason Statham cinematic sting: low swell + metallic strike */
+  jasonStathamSting() {
+    this.playTone({
+      frequency: 96,
+      frequencyEnd: 58,
+      duration: 0.85,
+      type: 'sawtooth',
+      volume: 0.07,
+    });
+    this.playTone({
+      frequency: 182,
+      frequencyEnd: 92,
+      duration: 0.55,
+      type: 'triangle',
+      volume: 0.08,
+    });
+    this.playTone({
+      frequency: 44,
+      frequencyEnd: 36,
+      duration: 0.9,
+      type: 'sine',
+      volume: 0.22,
+    });
+  }
+
   /** Jason Statham defeat: massive explosion + calm */
   stathamDefeated(worldX: number, worldY: number) {
+    // Cinematic zoom punch into the explosion, then silence
+    this.punchZoom(1.27, 620);
     // Big boom then sudden silence
     this.playTone({
       frequency: 100,
@@ -1897,6 +1924,211 @@ export class JuiceManager {
     }, 120);
     globalThis.setTimeout(() => {
       this.ringPulse(worldX, worldY, 0xc27dff, 8, 1, 280);
+    }, 240);
+  }
+
+  /** Freak Turkey spawn: pumpkin-orange burst + gourd sparkle */
+  turkeySpawn(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 320,
+      frequencyEnd: 520,
+      duration: 0.22,
+      type: 'triangle',
+      volume: 0.16,
+    });
+    this.playTone({
+      frequency: 640,
+      frequencyEnd: 980,
+      duration: 0.18,
+      type: 'sine',
+      volume: 0.1,
+    });
+    this.kickCamera(0.03, 260);
+    this.scene.cameras.main.flash(200, 255, 145, 30, true);
+    this.blastWave(worldX, worldY, [0xff7b24, 0xffa726, 0xffd166, 0x6b3f1d], 38);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff7b24, 0xffa726, 0xffd166, 0x6b3f1d, 0xfff3a8],
+      count: 28,
+      radius: 40,
+    });
+    this.ringPulse(worldX, worldY, 0xffa726, 16, 3, 340);
+    this.spawnFeathers(worldX, worldY, 14);
+  }
+
+  /** Freak Turkey vulnerability pulse */
+  turkeyVulnerable(worldX: number, worldY: number) {
+    // Stuffed, dizzy, vulnerable — pumpkins tumbling
+    this.playTone({
+      frequency: 200,
+      frequencyEnd: 380,
+      duration: 0.3,
+      type: 'triangle',
+      volume: 0.15,
+    });
+    this.kickCamera(0.02, 200);
+    this.scene.cameras.main.flash(180, 255, 166, 38, true);
+    this.ringPulse(worldX, worldY, 0xffa726, 22, 3, 300);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffa726, 0xff7b24, 0xfff3a8, 0x6b3f1d],
+      count: 22,
+      radius: 32,
+    });
+    this.blastWave(worldX, worldY, [0xffa726, 0xff7b24], 30);
+  }
+
+  /** Freak Turkey attack charge warning */
+  turkeyAttackCharge(worldX: number, worldY: number) {
+    // Gobbling rumble
+    this.playTone({
+      frequency: 110,
+      frequencyEnd: 70,
+      duration: 0.42,
+      type: 'sawtooth',
+      volume: 0.15,
+    });
+    this.kickCamera(0.022, 200);
+    this.scene.cameras.main.flash(110, 255, 123, 36, true);
+    this.ringPulse(worldX, worldY, 0xffa726, 14, 2, 240);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffa726, 0xff7b24, 0xffd166],
+      count: 16,
+      radius: 26,
+    });
+  }
+
+  /** Batched feather scatter — small cream/gold specks rising and drifting off. */
+  private spawnFeathers(worldX: number, worldY: number, count: number) {
+    if (count <= 0) {
+      return;
+    }
+    const specs: BatchParticleSpec[] = [];
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (this.rng() - 0.5) * 0.6;
+      const dist = Phaser.Math.Between(6, 34);
+      specs.push({
+        x: worldX,
+        y: worldY - 2,
+        radius: Phaser.Math.Between(2, 4),
+        color: Phaser.Utils.Array.GetRandom([0xfff3d8, 0xffd166, 0xffb347, 0xfff8ee]),
+        alpha: 1,
+        dx: Math.cos(angle) * dist,
+        dy: Math.sin(angle) * dist - 16,
+        scaleEnd: 0,
+        durationMs: Phaser.Math.Between(300, 470),
+      });
+    }
+    this.spawnBatchedParticles(specs, 22, false);
+  }
+
+  /** Freak Turkey gobble: feather scatter + throat bonk, variant by attack */
+  gobble(worldX: number, worldY: number, variant: 'dash' | 'spiral' | 'gravy' = 'dash') {
+    this.spawnFeathers(worldX, worldY, variant === 'dash' ? 14 : 10);
+    if (variant === 'spiral') {
+      // Rattling kokka-kokka-kokka rhythm
+      this.playTone({
+        frequency: 330,
+        frequencyEnd: 240,
+        duration: 0.07,
+        type: 'triangle',
+        volume: 0.12,
+      });
+      globalThis.setTimeout(() => {
+        this.playTone({
+          frequency: 365,
+          frequencyEnd: 250,
+          duration: 0.07,
+          type: 'triangle',
+          volume: 0.11,
+        });
+      }, 70);
+      globalThis.setTimeout(() => {
+        this.playTone({
+          frequency: 405,
+          frequencyEnd: 270,
+          duration: 0.08,
+          type: 'triangle',
+          volume: 0.12,
+        });
+      }, 140);
+      this.kickCamera(0.014, 130);
+      return;
+    }
+    if (variant === 'gravy') {
+      // Low slurped descent, then a bubbly bubble-pop
+      this.playTone({
+        frequency: 170,
+        frequencyEnd: 62,
+        duration: 0.4,
+        type: 'sine',
+        volume: 0.14,
+      });
+      globalThis.setTimeout(() => {
+        this.playTone({
+          frequency: 120,
+          frequencyEnd: 78,
+          duration: 0.18,
+          type: 'triangle',
+          volume: 0.07,
+        });
+      }, 130);
+      this.kickCamera(0.01, 90);
+      return;
+    }
+    // dash: sharp double-bonk
+    this.playTone({
+      frequency: 215,
+      frequencyEnd: 118,
+      duration: 0.11,
+      type: 'triangle',
+      volume: 0.13,
+    });
+    this.playTone({
+      frequency: 82,
+      frequencyEnd: 64,
+      duration: 0.16,
+      type: 'square',
+      volume: 0.08,
+    });
+    this.kickCamera(0.012, 110);
+  }
+
+  /** Lightweight feather puff — visual only, no tone (dizzy aura) */
+  featherPuff(worldX: number, worldY: number, count = 3) {
+    this.spawnFeathers(worldX, worldY, count);
+  }
+
+  /** Freak Turkey defeat: massive pumpkin boom + golden calm */
+  turkeyDefeated(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 90,
+      frequencyEnd: 28,
+      duration: 0.85,
+      type: 'sawtooth',
+      volume: 0.24,
+    });
+    this.playTone({
+      frequency: 260,
+      frequencyEnd: 70,
+      duration: 0.65,
+      type: 'square',
+      volume: 0.16,
+    });
+    this.kickCamera(0.055, 420);
+    this.scene.cameras.main.shake(360, 0.04);
+    this.scene.cameras.main.flash(280, 255, 220, 120, true);
+    this.blastWave(worldX, worldY, [0xff7b24, 0xffa726, 0xffd166, 0xfff3a8, 0xc27dff], 52);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff7b24, 0xffa726, 0xffd166, 0xfff3a8, 0xc27dff],
+      count: 44,
+      radius: 56,
+    });
+    this.ringPulse(worldX, worldY, 0xffa726, 20, 4, 420);
+    this.spawnFeathers(worldX, worldY, 22);
+    globalThis.setTimeout(() => {
+      this.ringPulse(worldX, worldY, 0xffd166, 14, 2, 340);
+    }, 120);
+    globalThis.setTimeout(() => {
+      this.ringPulse(worldX, worldY, 0xc27dff, 10, 1, 300);
     }, 240);
   }
 

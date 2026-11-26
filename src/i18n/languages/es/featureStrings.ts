@@ -108,6 +108,18 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   jason_statham_defeated: 'Simplemente... se detiene. Como una mala pel\u00edcula.',
   jason_statham_victory: 'Supongo que Beekeeper 2 no saldr\u00e1 despu\u00e9s de todo...',
   jason_statham_score_bonus: 'Bonificaci\u00f3n de Puntuaci\u00f3n de Jason Statham',
+  // Freak Turkey Boss
+  freak_turkey_name: 'Freak Turkey',
+  freak_turkey_intro: 'Gl\u00fa gl\u00fa gl\u00fa! El huerto entero te lo ha ganado.',
+  freak_turkey_spawn: 'Gl\u00fa gl\u00fa gl\u00fa!',
+  freak_turkey_stuffed: 'Repleto y Cansado!',
+  freak_turkey_stuffed_sub: 'Se comi\u00f3 bien. Atrapa tu respiraci\u00f3n. Tienes 15 segundos.',
+  freak_turkey_attack_gravy: 'El Pavo Atornilla la Salsa!',
+  freak_turkey_attack_spiral: 'Rotaci\u00f3n de Nueces de Pavo!',
+  freak_turkey_attack_dash: 'Zarpazo de Calabaza!',
+  freak_turkey_defeated: 'El p\u00e1jaro cae, pierna adelante.',
+  freak_turkey_victory: '\u00bfA la torta, pues!',
+  freak_turkey_score_bonus: 'Bonificaci\u00f3n de Puntuaci\u00f3n de Freak Turkey',
 
   // Save System
   saveButton: 'GUARDAR',
@@ -433,6 +445,7 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
 
   // Jason Statham Victory
   jasonStathamVictory: 'Supongo que Beekeeper 2 no saldr\u00e1 despu\u00e9s de todo...',
+  freakTurkeyVictory: '\u00bfA la torta, pues!',
 
   // Detail Panels
   detailQSlot: 'Ranura Q',

@@ -252,7 +252,7 @@ describe('Cheat registry', () => {
       'allstructures',
       'clearroom',
     ]);
-    const bossCodes = new Set(['freakdennis', 'freakerdennis', 'jasonstatham']);
+    const bossCodes = new Set(['freakdennis', 'freakerdennis', 'jasonstatham', 'freakturkey']);
 
     for (const cheat of CHEAT_DEFINITIONS) {
       const code = cheat.primaryCode.toLowerCase().trim();

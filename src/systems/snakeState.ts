@@ -41,6 +41,7 @@ export interface SnakeStepDependencies {
   getBossManager(): BossManager;
   skipSelfCollision?: boolean;
   onJasonDamage?: (bossId: string, defeated: boolean, scoreBonus: number) => void;
+  onFreakTurkeyDamage?: (bossId: string, defeated: boolean, scoreBonus: number) => void;
 }
 
 export interface SnakeBodySnapshot {
@@ -547,8 +548,10 @@ export class SnakeState {
       }
     }
 
-    const vulnerableJason = bossManager.getVulnerableJasonNearby(head, this.roomId);
-    const collidedBoss = vulnerableJason ?? bossManager.getBossAtPosition(head, this.roomId);
+    const vulnerablePhaseBoss =
+      bossManager.getVulnerablePhaseBossNearby(head, this.roomId, 'jason-statham') ??
+      bossManager.getVulnerablePhaseBossNearby(head, this.roomId, 'freak-turkey');
+    const collidedBoss = vulnerablePhaseBoss ?? bossManager.getBossAtPosition(head, this.roomId);
     if (collidedBoss && invulnTicks <= 0 && !cheatImmortal) {
       const smite = Number(this.flags['powerup.smiteTicks'] ?? 0);
       if (smite > 0) {
@@ -571,6 +574,16 @@ export class SnakeState {
         this.flags['internal.killedByBossKind'] = collidedBoss.kind;
         this.flags['internal.killedByBossName'] = collidedBoss.name;
         deps.onJasonDamage?.(collidedBoss.id, defeated, scoreBonus);
+      } else if (
+        collidedBoss.kind === 'freak-turkey' &&
+        collidedBoss.turkeyPhase === 'vulnerable'
+      ) {
+        // Freak Turkey is stuffed and tired, vulnerable: damage it instead of dying
+        const defeated = bossManager.takeFreakTurkeyDamage(collidedBoss.id, 12);
+        const scoreBonus = defeated ? collidedBoss.maxHealth * 10 : 0;
+        this.flags['internal.killedByBossKind'] = collidedBoss.kind;
+        this.flags['internal.killedByBossName'] = collidedBoss.name;
+        deps.onFreakTurkeyDamage?.(collidedBoss.id, defeated, scoreBonus);
       } else {
         this.flags['internal.killedByBossKind'] = collidedBoss.kind;
         this.flags['internal.killedByBossName'] = collidedBoss.name;
