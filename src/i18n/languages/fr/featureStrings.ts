@@ -109,6 +109,18 @@ export const FEATURE_STRINGS_FR: FeatureStringsType = {
   jason_statham_defeated: "Simplement... s'arrête. Comme un mauvais film.",
   jason_statham_victory: 'Je suppose que Beekeeper 2 ne sortira pas après tout...',
   jason_statham_score_bonus: 'Bonus de Score Jason Statham',
+  // Freak Turkey Boss
+  freak_turkey_name: 'Freak Turkey',
+  freak_turkey_intro: 'Glouton glouton ! Le verger entier l’a eu bien mérité.',
+  freak_turkey_spawn: 'Glouton glouton !',
+  freak_turkey_stuffed: 'Repu et Fatigué !',
+  freak_turkey_stuffed_sub: 'Bien rassasié. Respirez. 15 secondes.',
+  freak_turkey_attack_charge: 'Le Dinde Tourmente la Sauce !',
+  freak_turkey_attack_spiral: 'Rotation des Noix de Dinde !',
+  freak_turkey_attack_dash: 'Dash de Citrouille !',
+  freak_turkey_defeated: 'L’oiseau tombe, jambe en avant.',
+  freak_turkey_victory: 'On peut manger !',
+  freak_turkey_score_bonus: 'Bonus de Score Freak Turkey',
 
   // Save System
   saveButton: 'SAUVER',
@@ -434,6 +446,7 @@ export const FEATURE_STRINGS_FR: FeatureStringsType = {
 
   // Jason Statham Victory
   jasonStathamVictory: 'Je suppose que Beekeeper 2 ne sortira pas après tout...',
+  freakTurkeyVictory: 'On peut manger !',
 
   // Detail Panels
   detailQSlot: 'Emplacement Q',

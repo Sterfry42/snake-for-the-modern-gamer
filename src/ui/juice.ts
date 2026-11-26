@@ -1900,6 +1900,108 @@ export class JuiceManager {
     }, 240);
   }
 
+  /** Freak Turkey spawn: pumpkin-orange burst + gourd sparkle */
+  turkeySpawn(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 320,
+      frequencyEnd: 520,
+      duration: 0.22,
+      type: 'triangle',
+      volume: 0.16,
+    });
+    this.playTone({
+      frequency: 640,
+      frequencyEnd: 980,
+      duration: 0.18,
+      type: 'sine',
+      volume: 0.1,
+    });
+    this.kickCamera(0.03, 260);
+    this.scene.cameras.main.flash(200, 255, 145, 30, true);
+    this.blastWave(worldX, worldY, [0xff7b24, 0xffa726, 0xffd166, 0x6b3f1d], 38);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff7b24, 0xffa726, 0xffd166, 0x6b3f1d, 0xfff3a8],
+      count: 28,
+      radius: 40,
+    });
+    this.ringPulse(worldX, worldY, 0xffa726, 16, 3, 340);
+  }
+
+  /** Freak Turkey vulnerability pulse */
+  turkeyVulnerable(worldX: number, worldY: number) {
+    // Stuffed, dizzy, vulnerable — pumpkins tumbling
+    this.playTone({
+      frequency: 200,
+      frequencyEnd: 380,
+      duration: 0.3,
+      type: 'triangle',
+      volume: 0.15,
+    });
+    this.kickCamera(0.02, 200);
+    this.scene.cameras.main.flash(180, 255, 166, 38, true);
+    this.ringPulse(worldX, worldY, 0xffa726, 22, 3, 300);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffa726, 0xff7b24, 0xfff3a8, 0x6b3f1d],
+      count: 22,
+      radius: 32,
+    });
+    this.blastWave(worldX, worldY, [0xffa726, 0xff7b24], 30);
+  }
+
+  /** Freak Turkey attack charge warning */
+  turkeyAttackCharge(worldX: number, worldY: number) {
+    // Gobbling rumble
+    this.playTone({
+      frequency: 110,
+      frequencyEnd: 70,
+      duration: 0.42,
+      type: 'sawtooth',
+      volume: 0.15,
+    });
+    this.kickCamera(0.022, 200);
+    this.scene.cameras.main.flash(110, 255, 123, 36, true);
+    this.ringPulse(worldX, worldY, 0xffa726, 14, 2, 240);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffa726, 0xff7b24, 0xffd166],
+      count: 16,
+      radius: 26,
+    });
+  }
+
+  /** Freak Turkey defeat: massive pumpkin boom + golden calm */
+  turkeyDefeated(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 90,
+      frequencyEnd: 28,
+      duration: 0.85,
+      type: 'sawtooth',
+      volume: 0.24,
+    });
+    this.playTone({
+      frequency: 260,
+      frequencyEnd: 70,
+      duration: 0.65,
+      type: 'square',
+      volume: 0.16,
+    });
+    this.kickCamera(0.055, 420);
+    this.scene.cameras.main.shake(360, 0.04);
+    this.scene.cameras.main.flash(280, 255, 220, 120, true);
+    this.blastWave(worldX, worldY, [0xff7b24, 0xffa726, 0xffd166, 0xfff3a8, 0xc27dff], 52);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff7b24, 0xffa726, 0xffd166, 0xfff3a8, 0xc27dff],
+      count: 44,
+      radius: 56,
+    });
+    this.ringPulse(worldX, worldY, 0xffa726, 20, 4, 420);
+    globalThis.setTimeout(() => {
+      this.ringPulse(worldX, worldY, 0xffd166, 14, 2, 340);
+    }, 120);
+    globalThis.setTimeout(() => {
+      this.ringPulse(worldX, worldY, 0xc27dff, 10, 1, 300);
+    }, 240);
+  }
+
   startBossMusic(bossKind: string) {
     const existing = this.bossMusic;
     if (existing?.kind === bossKind) {

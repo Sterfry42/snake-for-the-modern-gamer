@@ -29,6 +29,7 @@ const room: RoomSnapshot = {
 const bossManager = {
   getPullFor: () => null,
   getVulnerableJasonNearby: () => null,
+  getVulnerablePhaseBossNearby: () => null,
   getBossAtPosition: () => null,
 } as unknown as BossManager;
 
@@ -74,6 +75,7 @@ describe('SnakeState disorientation', () => {
         ({
           getPullFor: () => null,
           getVulnerableJasonNearby: () => null,
+          getVulnerablePhaseBossNearby: () => null,
           getBossAtPosition: () => null,
         }) as unknown as BossManager,
     });
@@ -138,6 +140,7 @@ describe('SnakeState self-collision tail rule', () => {
       ({
         getPullFor: () => null,
         getVulnerableJasonNearby: () => null,
+        getVulnerablePhaseBossNearby: () => null,
         getBossAtPosition: () => null,
       }) as unknown as BossManager,
   });
@@ -216,6 +219,7 @@ describe('SnakeState portals', () => {
         ({
           getPullFor: () => null,
           getVulnerableJasonNearby: () => null,
+          getVulnerablePhaseBossNearby: () => null,
           getBossAtPosition: () => null,
         }) as unknown as BossManager,
     });
@@ -265,6 +269,7 @@ describe('SnakeState portals', () => {
         ({
           getPullFor: () => null,
           getVulnerableJasonNearby: () => null,
+          getVulnerablePhaseBossNearby: () => null,
           getBossAtPosition: () => null,
         }) as unknown as BossManager,
     });

@@ -152,6 +152,18 @@ export interface FeatureStrings {
   jason_statham_defeated?: string;
   jason_statham_victory?: string;
   jason_statham_score_bonus?: string;
+  // Freak Turkey Boss
+  freak_turkey_name?: string;
+  freak_turkey_intro?: string;
+  freak_turkey_spawn?: string;
+  freak_turkey_stuffed?: string;
+  freak_turkey_stuffed_sub?: string;
+  freak_turkey_attack_charge?: string;
+  freak_turkey_attack_spiral?: string;
+  freak_turkey_attack_dash?: string;
+  freak_turkey_defeated?: string;
+  freak_turkey_victory?: string;
+  freak_turkey_score_bonus?: string;
 
   // === SAVE SYSTEM ===
   saveButton: string;
@@ -473,6 +485,9 @@ export interface FeatureStrings {
 
   // === JASON STATHAM VICTORY ===
   jasonStathamVictory: string;
+
+  // === FREAK TURKEY VICTORY ===
+  freakTurkeyVictory: string;
 
   // === ARCHITECTURE / GROWTH TABS ===
   detailQSlot: string;

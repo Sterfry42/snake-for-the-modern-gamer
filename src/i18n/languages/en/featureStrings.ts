@@ -105,6 +105,18 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   jason_statham_defeated: 'He just... stops. Like a bad movie.',
   jason_statham_victory: "I guess Beekeeper 2 isn't coming out after all...",
   jason_statham_score_bonus: 'Jason Statham Score Bonus',
+  // Freak Turkey Boss
+  freak_turkey_name: 'Freak Turkey',
+  freak_turkey_intro: 'Gobble gobble! The whole orchard has had it coming.',
+  freak_turkey_spawn: 'Gobble Gobble!',
+  freak_turkey_stuffed: 'Stuffed & Tired!',
+  freak_turkey_stuffed_sub: 'Feasted well. Catch your breath. You have 15 seconds.',
+  freak_turkey_attack_charge: 'Turkey Balls the Gravy!',
+  freak_turkey_attack_spiral: 'Turkey Nut Rotation!',
+  freak_turkey_attack_dash: 'Pumpkin Dash!',
+  freak_turkey_defeated: 'The bird goes down, drumstick-first.',
+  freak_turkey_victory: 'Time for pie.',
+  freak_turkey_score_bonus: 'Freak Turkey Score Bonus',
 
   // Save System
   saveButton: 'SAVE',
@@ -429,6 +441,9 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
 
   // Jason Statham Victory
   jasonStathamVictory: "I guess Beekeeper 2 isn't coming out after all...",
+
+  // Freak Turkey Victory
+  freakTurkeyVictory: 'Time for pie.',
 
   // Detail Panels
   detailQSlot: 'Ability Slot',

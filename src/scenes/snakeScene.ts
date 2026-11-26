@@ -2212,6 +2212,12 @@ export default class SnakeScene extends Phaser.Scene {
         this.handleJasonDefeat(bossId, scoreBonus);
       }
     });
+    this.snakeGame.setFreakTurkeyDamageCallback((bossId, defeated, scoreBonus) => {
+      this.recordAchievementEvent({ type: 'boss:freakTurkeyVulnerableDamaged', bossId });
+      if (defeated) {
+        this.handleFreakTurkeyDefeat(bossId, scoreBonus);
+      }
+    });
     await this.featureManager.load(this, defaultGameConfig.features.enabled);
 
     // Wire up minecraft feature instance from the feature registry
@@ -3932,6 +3938,28 @@ export default class SnakeScene extends Phaser.Scene {
       this.showQuestHintPopup(i18n.getFeatureString('jason_statham_intro')!, '#ff6b6b');
     } else if (event.kind === 'jason-statham-defeated') {
       this.handleJasonDefeat(event.bossId, event.score);
+    } else if (event.kind === 'freak-turkey' && event.phase === 'vulnerable-entered') {
+      this.juice.turkeyVulnerable(worldX, worldY);
+      this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_stuffed')!, '#ffb347');
+      this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_stuffed_sub')!, '#ffd166');
+    } else if (event.kind === 'freak-turkey-move-started') {
+      // Thanksgiving attack warning + announcement
+      const moveType = (event as { moveType?: string }).moveType;
+      if (moveType === 'pumpkin-dash') {
+        this.juice.turkeyAttackCharge(worldX, worldY);
+        this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_attack_dash')!, '#ff8c42');
+      } else if (moveType === 'stuffing-spiral') {
+        this.juice.turkeyAttackCharge(worldX, worldY);
+        this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_attack_spiral')!, '#ffd166');
+      } else if (moveType === 'gravy-round') {
+        this.juice.turkeyAttackCharge(worldX, worldY);
+        this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_attack_charge')!, '#ff6b6b');
+      } else {
+        this.juice.turkeyAttackCharge(worldX, worldY);
+      }
+    } else if (event.kind === 'freak-turkey-attacking') {
+      this.juice.turkeyAttackCharge(worldX, worldY);
+      this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_intro')!, '#ff8c42');
     }
   }
 
@@ -3967,6 +3995,37 @@ export default class SnakeScene extends Phaser.Scene {
 
     // Clean up defeat timer if set
     this.jasonDefeatTimer?.remove(false);
+  }
+
+  private handleFreakTurkeyDefeat(bossId: string, rawScore: number): void {
+    this.recordAchievementEvent({
+      type: 'boss:defeated',
+      bossKind: 'freak-turkey',
+      bossName: 'Freak Turkey',
+    });
+    if (this.archipelagoModeActive) {
+      this.archipelagoCheckTracker.processBossDefeat(bossId);
+      this.saveArchipelagoRunState();
+    }
+
+    // Stop boss music
+    this.juice.stopBossMusic();
+
+    // Hide boss HUD
+    this.bossHud.hide();
+
+    // Juice
+    const head = this.snakeGame.getSnakeBody()[0];
+    const world = this.tileToWorld(head);
+    this.juice.turkeyDefeated(world.x, world.y);
+
+    // Show defeat announcements
+    this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_defeated')!, '#ffd166');
+    this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_victory')!, '#5dd6a2');
+    this.showQuestHintPopup(
+      `${i18n.getFeatureString('freak_turkey_score_bonus')}: +${rawScore}`,
+      '#5dd6a2',
+    );
   }
 
   private async runActorClockStep(stepMs: number): Promise<void> {
@@ -7574,6 +7633,17 @@ export default class SnakeScene extends Phaser.Scene {
       if (this.snakeGame && this.snakeGame.bosses && this.currentRoomId) {
         this.snakeGame.bosses.spawnJasonStatham(this.currentRoomId);
         return { ok: true, message: 'Spawned Jason Statham!', color: '#5dd6a2' };
+      }
+      return {
+        ok: false,
+        message: 'Cannot spawn boss - game not in valid state',
+        color: '#ff6b6b',
+      };
+    }
+    if (code === 'freakturkey' || code === 'turkey') {
+      if (this.snakeGame && this.snakeGame.bosses && this.currentRoomId) {
+        this.snakeGame.bosses.spawnFreakTurkey(this.currentRoomId);
+        return { ok: true, message: 'Spawned Freak Turkey!', color: '#5dd6a2' };
       }
       return {
         ok: false,
@@ -12090,6 +12160,14 @@ export default class SnakeScene extends Phaser.Scene {
           hudPhaseText = `VULNERABLE! ${remaining.toFixed(1)}s`;
         } else if (phase === 'defeated') hudPhaseText = 'DEFEATED';
       }
+      if (boss.kind === 'freak-turkey') {
+        const phase = boss.turkeyPhase ?? 'calm';
+        if (phase === 'attacking') hudPhaseText = 'GOBBLING!';
+        else if (phase === 'vulnerable') {
+          const remaining = Math.max(0, (15000 - (boss.turkeyVulnerableTimer ?? 0)) / 1000);
+          hudPhaseText = `STUFFED & TIRED! ${remaining.toFixed(1)}s`;
+        } else if (phase === 'defeated') hudPhaseText = 'DEFEATED';
+      }
       this.bossHud.show({
         name: boss.name ?? 'Nameless Horror',
         health: boss.health ?? 0,
@@ -12109,6 +12187,18 @@ export default class SnakeScene extends Phaser.Scene {
       if (this.activeBossId !== boss.id) {
         this.juice.startBossMusic(boss.kind ?? 'default');
         this.activeBossId = boss.id;
+        if (boss.kind === 'freak-turkey') {
+          // Thanksgiving spawn fanfare the moment the turkey enters the room
+          const headSeg = boss.body[0];
+          if (headSeg) {
+            const { x, y } = this.snakeRenderer.getWorldPosition(headSeg, this.currentRoomId);
+            this.juice.turkeySpawn(x + this.grid.cell / 2, y + this.grid.cell / 2);
+            this.showQuestHintPopup(
+              i18n.getFeatureString('freak_turkey_spawn') ?? 'Gobble Gobble!',
+              '#ffb347',
+            );
+          }
+        }
       }
       // Danger vignette based on boss presence
       this.juice.setDangerLevel(0.22);
@@ -13430,6 +13520,23 @@ export default class SnakeScene extends Phaser.Scene {
             bossAlpha = 0.5;
           } else {
             bossColor = 0x333333;
+            bossAlpha = 0.3;
+          }
+        } else if (boss.kind === 'freak-turkey') {
+          // Freak Turkey: pumpkin orange, pulsing gold while stuffed and tired
+          if (boss.turkeyPhase === 'vulnerable') {
+            // Pulsing gold glow
+            const pulse = Math.sin(timeMs / 180) * 0.35 + 0.65;
+            bossColor = 0xffa726;
+            bossAlpha = Math.max(0.55, pulse);
+          } else if (boss.turkeyPhase === 'attacking') {
+            bossColor = 0xff7b24;
+            bossAlpha = 0.95;
+          } else if (boss.turkeyPhase === 'calm') {
+            bossColor = 0x6b3f1d;
+            bossAlpha = 0.6;
+          } else {
+            bossColor = 0x3a2e20;
             bossAlpha = 0.3;
           }
         } else if (boss.kind === 'freaker-dennis' && boss.rainbowPalette) {

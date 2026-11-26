@@ -11,6 +11,101 @@ type BossMusicDefinition = {
 };
 
 const BOSS_MUSIC_REGISTRY: Record<string, BossMusicDefinition> = {
+  'freak-turkey': {
+    build(now: number, gain: GainNode): BossMusicResult {
+      const sources: OscillatorNode[] = [];
+      const cleanup: AudioNode[] = [];
+
+      // Warm bassline: golden hour in D
+      const bass = gain.context.createGain();
+      bass.gain.value = 0.5;
+      const bassOsc = gain.context.createOscillator();
+      bassOsc.type = 'triangle';
+      bassOsc.frequency.value = 73.4; // D2
+      bassOsc.connect(bass);
+      bass.connect(gain);
+      sources.push(bassOsc);
+      cleanup.push(bass);
+
+      // Warm sub: deep pumpkin drum
+      const sub = gain.context.createGain();
+      sub.gain.value = 0.34;
+      const subOsc = gain.context.createOscillator();
+      subOsc.type = 'sine';
+      subOsc.frequency.value = 36.7; // D1
+      subOsc.connect(sub);
+      sub.connect(gain);
+      sources.push(subOsc);
+      cleanup.push(sub);
+
+      // Bouncy mid pair: gentle golden shimmer
+      const mid = gain.context.createGain();
+      mid.gain.value = 0.16;
+      const midOsc1 = gain.context.createOscillator();
+      midOsc1.type = 'triangle';
+      midOsc1.frequency.value = 146.8; // D3
+      midOsc1.connect(mid);
+      const midOsc2 = gain.context.createOscillator();
+      midOsc2.type = 'sine';
+      midOsc2.frequency.value = 146.8 * 1.5; // F#4-ish warmth
+      midOsc2.connect(mid);
+      mid.connect(gain);
+      sources.push(midOsc1, midOsc2);
+      cleanup.push(mid);
+
+      // Lead: the gobble — rapid trill over the "turkey"
+      const lead = gain.context.createGain();
+      lead.gain.value = 0.13;
+      const leadOsc = gain.context.createOscillator();
+      leadOsc.type = 'triangle';
+      leadOsc.frequency.value = 293.7; // D4
+      leadOsc.connect(lead);
+      lead.connect(gain);
+      sources.push(leadOsc);
+      cleanup.push(lead);
+
+      // Gobble trill LFO: rapid warble that reads as "gobble-gobble"
+      const gobbleLfo = gain.context.createOscillator();
+      gobbleLfo.type = 'sawtooth';
+      gobbleLfo.frequency.value = 6.5;
+      const gobbleGain = gain.context.createGain();
+      gobbleGain.gain.value = 46;
+      gobbleLfo.connect(gobbleGain);
+      gobbleGain.connect(leadOsc.frequency);
+      sources.push(gobbleLfo);
+      cleanup.push(gobbleGain);
+
+      // Bouncy rhythm LFO: heat pulses with the  gobble
+      const rhythmLfo = gain.context.createOscillator();
+      rhythmLfo.type = 'sine';
+      rhythmLfo.frequency.value = 3.1;
+      const rhythmGain = gain.context.createGain();
+      rhythmGain.gain.value = 0.11;
+      rhythmLfo.connect(rhythmGain);
+      rhythmGain.connect(mid.gain);
+      sources.push(rhythmLfo);
+      cleanup.push(rhythmGain);
+
+      // Bass swell LFO: the bass breathes
+      const bassLfo = gain.context.createOscillator();
+      bassLfo.type = 'sine';
+      bassLfo.frequency.value = 1.7;
+      const bassLfoGain = gain.context.createGain();
+      bassLfoGain.gain.value = 3.4;
+      bassLfo.connect(bassLfoGain);
+      bassLfoGain.connect(bassOsc.frequency);
+      sources.push(bassLfo);
+      cleanup.push(bassLfoGain);
+
+      return {
+        sources,
+        cleanup,
+        onBuild: (g: GainNode) => {
+          g.gain.setValueAtTime(0.32, now + 0.6);
+        },
+      };
+    },
+  },
   'jason-statham': {
     build(now: number, gain: GainNode): BossMusicResult {
       const sources: OscillatorNode[] = [];

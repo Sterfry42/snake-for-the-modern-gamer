@@ -399,6 +399,8 @@ function bossFirstPersonSize(boss: Boss, isHead: boolean): { width: number; heig
       return { width: 2.45, height: 4.2 };
     case 'jason-statham':
       return { width: 2.35, height: 3.8 };
+    case 'freak-turkey':
+      return { width: 2.4, height: 3.9 };
     case 'freaker-dennis':
       return { width: 2.25, height: 3.7 };
     default:
@@ -424,6 +426,20 @@ function bossPresentationColor(boss: Boss, index: number, isHead: boolean): numb
         return 0x333333;
       default:
         return 0xaa1111;
+    }
+  }
+  if (boss.kind === 'freak-turkey') {
+    switch (boss.turkeyPhase) {
+      case 'vulnerable':
+        return 0xffa726;
+      case 'attacking':
+        return 0xff7b24;
+      case 'calm':
+        return 0x6b3f1d;
+      case 'defeated':
+        return 0x3a2e20;
+      default:
+        return 0xff8c42;
     }
   }
   return boss.kind === 'revenant' ? 0x7f39b8 : 0xff00ff;

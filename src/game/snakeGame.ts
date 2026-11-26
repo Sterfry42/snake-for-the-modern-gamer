@@ -1306,6 +1306,11 @@ export class SnakeGame implements QuestRuntime {
     return this.worldGenerationIdentity.seed;
   }
   private jasonDamageCallback?: (bossId: string, defeated: boolean, scoreBonus: number) => void;
+  private freakTurkeyDamageCallback?: (
+    bossId: string,
+    defeated: boolean,
+    scoreBonus: number,
+  ) => void;
   private enemies: EnemyManager;
   private animals: AnimalManager;
   private questController: QuestController;
@@ -1687,6 +1692,14 @@ export class SnakeGame implements QuestRuntime {
     ) {
       // 10% chance to spawn Jason Statham in the Sunken Ocean on reset
       this.bosses.spawnJasonStatham(this.snake.currentRoomId);
+    }
+    if (
+      startingRoomSpawnPolicy.bosses === 'allow' &&
+      startingRoom.biomeId === 'radioactive-orchard' &&
+      this._rng() < 0.1
+    ) {
+      // 10% chance to spawn Freak Turkey in the Radioactive Orchard on reset
+      this.bosses.spawnFreakTurkey(this.snake.currentRoomId);
     }
 
     this.resetPredation();
@@ -3762,6 +3775,12 @@ export class SnakeGame implements QuestRuntime {
     this.jasonDamageCallback = callback;
   }
 
+  setFreakTurkeyDamageCallback(
+    callback: (bossId: string, defeated: boolean, scoreBonus: number) => void,
+  ): void {
+    this.freakTurkeyDamageCallback = callback;
+  }
+
   /** Defeat rewards are committed before presentation is notified, including headless play. */
   private resolveJasonDefeat(bossId: string): number {
     const boss = this.bosses.getBoss(bossId);
@@ -3769,6 +3788,18 @@ export class SnakeGame implements QuestRuntime {
     const count = Math.max(0, Number(this.getFlag<number>('boss.jasonDefeatCount') ?? 0)) + 1;
     const score = Math.max(10, Math.floor(100 * Math.pow(0.6, count - 1)));
     this.setFlag('boss.jasonDefeatCount', count);
+    this.bosses.deleteBoss(bossId);
+    this.addScore(score);
+    return score;
+  }
+
+  /** Defeat rewards are committed before presentation is notified, including headless play. */
+  private resolveFreakTurkeyDefeat(bossId: string): number {
+    const boss = this.bosses.getBoss(bossId);
+    if (!boss || boss.kind !== 'freak-turkey' || boss.turkeyPhase !== 'defeated') return 0;
+    const count = Math.max(0, Number(this.getFlag<number>('boss.freakTurkeyDefeatCount') ?? 0)) + 1;
+    const score = Math.max(10, Math.floor(100 * Math.pow(0.6, count - 1)));
+    this.setFlag('boss.freakTurkeyDefeatCount', count);
     this.bosses.deleteBoss(bossId);
     this.addScore(score);
     return score;
@@ -4070,6 +4101,10 @@ export class SnakeGame implements QuestRuntime {
       onJasonDamage: (bossId, defeated, scoreBonus) => {
         const awardedScore = defeated ? this.resolveJasonDefeat(bossId) : scoreBonus;
         this.jasonDamageCallback?.(bossId, defeated, awardedScore);
+      },
+      onFreakTurkeyDamage: (bossId, defeated, scoreBonus) => {
+        const awardedScore = defeated ? this.resolveFreakTurkeyDefeat(bossId) : scoreBonus;
+        this.freakTurkeyDamageCallback?.(bossId, defeated, awardedScore);
       },
     };
 
@@ -6160,6 +6195,14 @@ export class SnakeGame implements QuestRuntime {
         this._rng() < 0.1
       ) {
         this.bosses.spawnJasonStatham(newRoomId);
+      }
+      if (
+        newRoomSpawnPolicy.bosses === 'allow' &&
+        newRoom.biomeId === 'radioactive-orchard' &&
+        this._rng() < 0.1
+      ) {
+        // 10% chance to spawn Freak Turkey in the Radioactive Orchard on new room entry
+        this.bosses.spawnFreakTurkey(newRoomId);
       }
       if (newRoomSpawnPolicy.enemies === 'allow') {
         const atmosphere = this.getAtmosphereForRoom(newRoom);
@@ -22368,6 +22411,7 @@ export class SnakeGame implements QuestRuntime {
     for (const key of [
       'cards.collection',
       'boss.jasonDefeatCount',
+      'boss.freakTurkeyDefeatCount',
       'vehicle.active',
       'vehicle.driving',
       'factions.alignment',
