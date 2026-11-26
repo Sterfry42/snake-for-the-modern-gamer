@@ -72,6 +72,24 @@ export interface BossStepDependencies {
   stepMs?: number;
 }
 
+type PhaseBossPhase = 'calm' | 'attacking' | 'vulnerable' | 'defeated';
+type PhaseBossTimerField =
+  | 'moveIndex'
+  | 'attackingTimer'
+  | 'attackStartOffset'
+  | 'vulnerableTimer'
+  | 'defeatedTimer'
+  | 'attackCooldown';
+
+interface PhaseBossAccessors {
+  isTurkey: boolean;
+  moveIdPrefix: string;
+  phase(): PhaseBossPhase;
+  setPhase(phase: PhaseBossPhase): void;
+  timer(field: PhaseBossTimerField): number;
+  setTimer(field: PhaseBossTimerField, value: number): void;
+}
+
 export class BossManager {
   private bosses = new Map<string, Boss>();
   private readonly grid: GridConfig;
@@ -180,22 +198,26 @@ export class BossManager {
     return selected ? { x: selected.x, y: selected.y } : preferred;
   }
 
-  public spawnJasonStatham(roomId: string): void {
+  private spawnPhaseBoss(roomId: string, kind: 'jason-statham' | 'freak-turkey'): void {
     if (!roomId || typeof roomId !== 'string' || !roomId.includes(',')) {
-      console.warn('[spawnJasonStatham] Invalid roomId provided:', roomId);
+      console.warn('[spawnPhaseBoss] Invalid roomId provided:', roomId);
       return;
     }
     const [roomX, roomY] = roomId.split(',').map(Number);
     const roomOffsetX = roomX * this.grid.cols;
     const roomOffsetY = roomY * this.grid.rows;
 
-    const id = `boss-jason-${this.bossIdCounter++}`;
-    const name = 'Jason Statham';
+    const config =
+      kind === 'freak-turkey'
+        ? { idPrefix: 'boss-turkey', name: 'Freak Turkey', health: 120 }
+        : { idPrefix: 'boss-jason', name: 'Jason Statham', health: 100 };
+
+    const id = `${config.idPrefix}-${this.bossIdCounter++}`;
 
     const centerX = roomOffsetX + this.grid.cols / 2;
     const centerY = roomOffsetY + this.grid.rows / 2;
     const body: Vector2Like[] = [];
-    // Jason body: 3x3 square formation (wider, more imposing)
+    // Phase boss body: 3x3 square formation (wider, more imposing)
     body.push({ x: centerX, y: centerY });
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
@@ -206,84 +228,62 @@ export class BossManager {
 
     const boss: Boss = {
       id,
-      name,
-      kind: 'jason-statham',
+      name: config.name,
+      kind,
       body,
-      health: 100,
-      maxHealth: 100,
+      health: config.health,
+      maxHealth: config.health,
       roomId,
       direction: { x: 1, y: 0 },
-      jasonPhase: 'calm',
-      jasonMoveIndex: 0,
-      jasonVulnerableTimer: 0,
-      jasonDefeatedTimer: 0,
-      jasonAttackCooldown: 0,
     };
+    if (kind === 'freak-turkey') {
+      boss.turkeyPhase = 'calm';
+      boss.turkeyMoveIndex = 0;
+      boss.turkeyVulnerableTimer = 0;
+      boss.turkeyDefeatedTimer = 0;
+      boss.turkeyAttackCooldown = 0;
+    } else {
+      boss.jasonPhase = 'calm';
+      boss.jasonMoveIndex = 0;
+      boss.jasonVulnerableTimer = 0;
+      boss.jasonDefeatedTimer = 0;
+      boss.jasonAttackCooldown = 0;
+    }
     this.bosses.set(id, boss);
+  }
+
+  public spawnJasonStatham(roomId: string): void {
+    this.spawnPhaseBoss(roomId, 'jason-statham');
   }
 
   public spawnFreakTurkey(roomId: string): void {
-    if (!roomId || typeof roomId !== 'string' || !roomId.includes(',')) {
-      console.warn('[spawnFreakTurkey] Invalid roomId provided:', roomId);
-      return;
+    this.spawnPhaseBoss(roomId, 'freak-turkey');
+  }
+
+  private takePhaseBossDamage(
+    bossId: string,
+    kind: 'jason-statham' | 'freak-turkey',
+    damage: number,
+  ): boolean {
+    const boss = this.bosses.get(bossId);
+    if (!boss || boss.kind !== kind) return false;
+    const phase = kind === 'freak-turkey' ? boss.turkeyPhase : boss.jasonPhase;
+    if (phase !== 'vulnerable') return false;
+    boss.health = Math.max(0, boss.health - damage);
+    if (boss.health <= 0) {
+      if (kind === 'freak-turkey') boss.turkeyPhase = 'defeated';
+      else boss.jasonPhase = 'defeated';
+      return true; // defeated
     }
-    const [roomX, roomY] = roomId.split(',').map(Number);
-    const roomOffsetX = roomX * this.grid.cols;
-    const roomOffsetY = roomY * this.grid.rows;
-
-    const id = `boss-turkey-${this.bossIdCounter++}`;
-    const name = 'Freak Turkey';
-
-    const centerX = roomOffsetX + this.grid.cols / 2;
-    const centerY = roomOffsetY + this.grid.rows / 2;
-    const body: Vector2Like[] = [];
-    // Freak Turkey body: 3x3 formation with a pumpkin-orange haze (wider, more imposing)
-    body.push({ x: centerX, y: centerY });
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        if (dx === 0 && dy === 0) continue;
-        body.push({ x: centerX + dx, y: centerY + dy });
-      }
-    }
-
-    const boss: Boss = {
-      id,
-      name,
-      kind: 'freak-turkey',
-      body,
-      health: 120,
-      maxHealth: 120,
-      roomId,
-      direction: { x: 1, y: 0 },
-      turkeyPhase: 'calm',
-      turkeyMoveIndex: 0,
-      turkeyVulnerableTimer: 0,
-      turkeyDefeatedTimer: 0,
-      turkeyAttackCooldown: 0,
-    };
-    this.bosses.set(id, boss);
+    return false; // not defeated
   }
 
   public takeFreakTurkeyDamage(bossId: string, damage: number): boolean {
-    const boss = this.bosses.get(bossId);
-    if (!boss || boss.kind !== 'freak-turkey' || boss.turkeyPhase !== 'vulnerable') return false;
-    boss.health = Math.max(0, boss.health - damage);
-    if (boss.health <= 0) {
-      boss.turkeyPhase = 'defeated';
-      return true; // defeated
-    }
-    return false; // not defeated
+    return this.takePhaseBossDamage(bossId, 'freak-turkey', damage);
   }
 
   public takeJasonDamage(bossId: string, damage: number): boolean {
-    const boss = this.bosses.get(bossId);
-    if (!boss || boss.kind !== 'jason-statham' || boss.jasonPhase !== 'vulnerable') return false;
-    boss.health = Math.max(0, boss.health - damage);
-    if (boss.health <= 0) {
-      boss.jasonPhase = 'defeated';
-      return true; // defeated
-    }
-    return false; // not defeated
+    return this.takePhaseBossDamage(bossId, 'jason-statham', damage);
   }
 
   /**
@@ -367,6 +367,104 @@ export class BossManager {
     return valid.length > 0 ? valid[Math.floor(rng() * valid.length)] : null;
   }
 
+  /** Kind-agnostic accessors over the jason/turkey phase state. */
+  private phaseBossAccessors(boss: Boss): PhaseBossAccessors {
+    if (boss.kind === 'freak-turkey') {
+      return {
+        isTurkey: true,
+        moveIdPrefix: 'turkey-move',
+        phase: () => boss.turkeyPhase ?? 'calm',
+        setPhase: (phase) => {
+          boss.turkeyPhase = phase;
+        },
+        timer: (field) => {
+          switch (field) {
+            case 'moveIndex':
+              return boss.turkeyMoveIndex ?? 0;
+            case 'attackingTimer':
+              return boss.turkeyAttackingTimer ?? 0;
+            case 'attackStartOffset':
+              return boss.turkeyAttackStartOffset ?? 0;
+            case 'vulnerableTimer':
+              return boss.turkeyVulnerableTimer ?? 0;
+            case 'defeatedTimer':
+              return boss.turkeyDefeatedTimer ?? 0;
+            case 'attackCooldown':
+              return boss.turkeyAttackCooldown ?? 0;
+          }
+        },
+        setTimer: (field, value) => {
+          switch (field) {
+            case 'moveIndex':
+              boss.turkeyMoveIndex = value;
+              return;
+            case 'attackingTimer':
+              boss.turkeyAttackingTimer = value;
+              return;
+            case 'attackStartOffset':
+              boss.turkeyAttackStartOffset = value;
+              return;
+            case 'vulnerableTimer':
+              boss.turkeyVulnerableTimer = value;
+              return;
+            case 'defeatedTimer':
+              boss.turkeyDefeatedTimer = value;
+              return;
+            case 'attackCooldown':
+              boss.turkeyAttackCooldown = value;
+              return;
+          }
+        },
+      };
+    }
+    return {
+      isTurkey: false,
+      moveIdPrefix: 'jason-move',
+      phase: () => boss.jasonPhase ?? 'calm',
+      setPhase: (phase) => {
+        boss.jasonPhase = phase;
+      },
+      timer: (field) => {
+        switch (field) {
+          case 'moveIndex':
+            return boss.jasonMoveIndex ?? 0;
+          case 'attackingTimer':
+            return boss.jasonAttackingTimer ?? 0;
+          case 'attackStartOffset':
+            return boss.jasonAttackStartOffset ?? 0;
+          case 'vulnerableTimer':
+            return boss.jasonVulnerableTimer ?? 0;
+          case 'defeatedTimer':
+            return boss.jasonDefeatedTimer ?? 0;
+          case 'attackCooldown':
+            return boss.jasonAttackCooldown ?? 0;
+        }
+      },
+      setTimer: (field, value) => {
+        switch (field) {
+          case 'moveIndex':
+            boss.jasonMoveIndex = value;
+            return;
+          case 'attackingTimer':
+            boss.jasonAttackingTimer = value;
+            return;
+          case 'attackStartOffset':
+            boss.jasonAttackStartOffset = value;
+            return;
+          case 'vulnerableTimer':
+            boss.jasonVulnerableTimer = value;
+            return;
+          case 'defeatedTimer':
+            boss.jasonDefeatedTimer = value;
+            return;
+          case 'attackCooldown':
+            boss.jasonAttackCooldown = value;
+            return;
+        }
+      },
+    };
+  }
+
   /**
    * True when the snake head is in the same grid room as `roomId`
    * (x/y grid space; phase bosses are confined to their room).
@@ -379,177 +477,57 @@ export class BossManager {
   }
 
   private movePhaseBoss(boss: Boss, deps: BossStepDependencies): void {
-    const isTurkey = boss.kind === 'freak-turkey';
-    const moveIdPrefix = isTurkey ? 'turkey-move' : 'jason-move';
+    const access = this.phaseBossAccessors(boss);
 
     const emitPhaseTransition = (phase: 'vulnerable-entered' | 'vulnerable-exited'): void => {
-      if (isTurkey) deps.onEvent?.({ kind: 'freak-turkey', phase });
+      if (access.isTurkey) deps.onEvent?.({ kind: 'freak-turkey', phase });
       else deps.onEvent?.({ kind: 'jason-statham', phase });
     };
     const emitMoveStarted = (moveId: string, attackType: number): void => {
-      if (isTurkey) {
-        if (attackType === 0) {
-          deps.onEvent?.({
-            kind: 'freak-turkey-move-started',
-            moveId,
-            moveType: 'stuffing-spiral',
-          });
-        } else if (attackType === 1) {
-          deps.onEvent?.({ kind: 'freak-turkey-move-started', moveId, moveType: 'pumpkin-dash' });
-        } else {
-          deps.onEvent?.({ kind: 'freak-turkey-move-started', moveId, moveType: 'gravy-round' });
-        }
+      if (access.isTurkey) {
+        const moveType =
+          attackType === 0 ? 'stuffing-spiral' : attackType === 1 ? 'pumpkin-dash' : 'gravy-round';
+        deps.onEvent?.({ kind: 'freak-turkey-move-started', moveId, moveType });
         return;
       }
-      if (attackType === 0) {
-        deps.onEvent?.({ kind: 'jason-statham-move-started', moveId, moveType: 'spiral' });
-      } else if (attackType === 1) {
-        deps.onEvent?.({ kind: 'jason-statham-move-started', moveId, moveType: 'dash' });
-      } else {
-        deps.onEvent?.({ kind: 'jason-statham-move-started', moveId, moveType: 'charge' });
-      }
+      const moveType = attackType === 0 ? 'spiral' : attackType === 1 ? 'dash' : 'charge';
+      deps.onEvent?.({ kind: 'jason-statham-move-started', moveId, moveType });
     };
     const emitAttacking = (): void => {
-      if (isTurkey) deps.onEvent?.({ kind: 'freak-turkey-attacking' });
+      if (access.isTurkey) deps.onEvent?.({ kind: 'freak-turkey-attacking' });
       else deps.onEvent?.({ kind: 'jason-statham-attacking' });
     };
 
-    const getPhase = (): 'calm' | 'attacking' | 'vulnerable' | 'defeated' =>
-      isTurkey ? (boss.turkeyPhase ?? 'calm') : (boss.jasonPhase ?? 'calm');
-    const setPhase = (phase: 'calm' | 'attacking' | 'vulnerable' | 'defeated'): void => {
-      if (isTurkey) boss.turkeyPhase = phase;
-      else boss.jasonPhase = phase;
-    };
-    const getTimer = (
-      field:
-        | 'moveIndex'
-        | 'attackingTimer'
-        | 'attackStartOffset'
-        | 'vulnerableTimer'
-        | 'defeatedTimer'
-        | 'attackCooldown',
-    ): number => {
-      if (isTurkey) {
-        switch (field) {
-          case 'moveIndex':
-            return boss.turkeyMoveIndex ?? 0;
-          case 'attackingTimer':
-            return boss.turkeyAttackingTimer ?? 0;
-          case 'attackStartOffset':
-            return boss.turkeyAttackStartOffset ?? 0;
-          case 'vulnerableTimer':
-            return boss.turkeyVulnerableTimer ?? 0;
-          case 'defeatedTimer':
-            return boss.turkeyDefeatedTimer ?? 0;
-          case 'attackCooldown':
-            return boss.turkeyAttackCooldown ?? 0;
-        }
-      }
-      switch (field) {
-        case 'moveIndex':
-          return boss.jasonMoveIndex ?? 0;
-        case 'attackingTimer':
-          return boss.jasonAttackingTimer ?? 0;
-        case 'attackStartOffset':
-          return boss.jasonAttackStartOffset ?? 0;
-        case 'vulnerableTimer':
-          return boss.jasonVulnerableTimer ?? 0;
-        case 'defeatedTimer':
-          return boss.jasonDefeatedTimer ?? 0;
-        case 'attackCooldown':
-          return boss.jasonAttackCooldown ?? 0;
-      }
-    };
-    const setTimer = (
-      field:
-        | 'moveIndex'
-        | 'attackingTimer'
-        | 'attackStartOffset'
-        | 'vulnerableTimer'
-        | 'defeatedTimer'
-        | 'attackCooldown',
-      value: number,
-    ): void => {
-      if (isTurkey) {
-        switch (field) {
-          case 'moveIndex':
-            boss.turkeyMoveIndex = value;
-            return;
-          case 'attackingTimer':
-            boss.turkeyAttackingTimer = value;
-            return;
-          case 'attackStartOffset':
-            boss.turkeyAttackStartOffset = value;
-            return;
-          case 'vulnerableTimer':
-            boss.turkeyVulnerableTimer = value;
-            return;
-          case 'defeatedTimer':
-            boss.turkeyDefeatedTimer = value;
-            return;
-          case 'attackCooldown':
-            boss.turkeyAttackCooldown = value;
-            return;
-        }
-      }
-      switch (field) {
-        case 'moveIndex':
-          boss.jasonMoveIndex = value;
-          return;
-        case 'attackingTimer':
-          boss.jasonAttackingTimer = value;
-          return;
-        case 'attackStartOffset':
-          boss.jasonAttackStartOffset = value;
-          return;
-        case 'vulnerableTimer':
-          boss.jasonVulnerableTimer = value;
-          return;
-        case 'defeatedTimer':
-          boss.jasonDefeatedTimer = value;
-          return;
-        case 'attackCooldown':
-          boss.jasonAttackCooldown = value;
-          return;
-      }
-    };
-
-    const phase = getPhase();
-
-    // Frozen while the player is not in the boss's room: no chase, no
-    // phase transitions, no announcements — only the defeated grace
-    // timer keeps running so defeated bosses still age out.
-    const frozenHead = deps.getSnakeBody()[0];
-    const snakeInRoom = frozenHead !== undefined && this.isSnakeInRoom(boss.roomId, frozenHead);
-    if (!snakeInRoom) {
-      if (phase === 'defeated') {
-        setTimer('defeatedTimer', getTimer('defeatedTimer') + (deps.stepMs ?? 1));
-        if (getTimer('defeatedTimer') > 2000) {
-          this.bosses.delete(boss.id);
-        }
-      }
-      return;
-    }
+    const phase = access.phase();
 
     if (phase === 'defeated') {
-      // Remove boss after a grace period so defeat FX can play
-      setTimer('defeatedTimer', getTimer('defeatedTimer') + (deps.stepMs ?? 1));
-      if (getTimer('defeatedTimer') > 2000) {
+      // Remove boss after a grace period so defeat FX can play — even when
+      // the player is out of the room, so defeated bosses age out cleanly.
+      access.setTimer('defeatedTimer', access.timer('defeatedTimer') + (deps.stepMs ?? 1));
+      if (access.timer('defeatedTimer') > 2000) {
         this.bosses.delete(boss.id);
       }
       return;
     }
 
+    // Frozen while the player is not in the boss's room: no chase, no
+    // phase transitions, no announcements.
+    const frozenHead = deps.getSnakeBody()[0];
+    const snakeInRoom = frozenHead !== undefined && this.isSnakeInRoom(boss.roomId, frozenHead);
+    if (!snakeInRoom) {
+      return;
+    }
+
     if (phase === 'vulnerable') {
       // Count down vulnerability timer (accumulates ms)
-      setTimer('vulnerableTimer', getTimer('vulnerableTimer') + (deps.stepMs ?? 1));
-      if (getTimer('vulnerableTimer') >= 15000) {
-        setPhase('attacking');
-        setTimer('vulnerableTimer', 0);
-        setTimer('attackingTimer', 0);
-        setTimer('attackCooldown', 0);
-        setTimer('moveIndex', 0);
-        setTimer('attackStartOffset', Math.floor(this.rng() * 3));
+      access.setTimer('vulnerableTimer', access.timer('vulnerableTimer') + (deps.stepMs ?? 1));
+      if (access.timer('vulnerableTimer') >= 15000) {
+        access.setPhase('attacking');
+        access.setTimer('vulnerableTimer', 0);
+        access.setTimer('attackingTimer', 0);
+        access.setTimer('attackCooldown', 0);
+        access.setTimer('moveIndex', 0);
+        access.setTimer('attackStartOffset', Math.floor(this.rng() * 3));
         emitPhaseTransition('vulnerable-exited');
         return;
       }
@@ -583,53 +561,53 @@ export class BossManager {
 
     if (phase === 'attacking') {
       // Track total attack phase duration (20 seconds)
-      setTimer('attackingTimer', getTimer('attackingTimer') + (deps.stepMs ?? 1));
-      if (getTimer('attackingTimer') >= 20000) {
-        setPhase('vulnerable');
-        setTimer('vulnerableTimer', 0);
-        setTimer('attackingTimer', 0);
-        setTimer('attackCooldown', 0);
-        setTimer('moveIndex', 0);
+      access.setTimer('attackingTimer', access.timer('attackingTimer') + (deps.stepMs ?? 1));
+      if (access.timer('attackingTimer') >= 20000) {
+        access.setPhase('vulnerable');
+        access.setTimer('vulnerableTimer', 0);
+        access.setTimer('attackingTimer', 0);
+        access.setTimer('attackCooldown', 0);
+        access.setTimer('moveIndex', 0);
         emitPhaseTransition('vulnerable-entered');
         return;
       }
 
       // Check cooldown before next attack (10 seconds between attacks)
-      setTimer('attackCooldown', getTimer('attackCooldown') + (deps.stepMs ?? 1));
-      if (getTimer('attackCooldown') < 10000) {
+      access.setTimer('attackCooldown', access.timer('attackCooldown') + (deps.stepMs ?? 1));
+      if (access.timer('attackCooldown') < 10000) {
         // Slowly track the snake between attacks
         this.huntSnake(boss, deps);
         return;
       }
 
       // Determine which attack type to execute based on the cycle offset
-      const cyclePosition = Math.floor(getTimer('attackingTimer') / 10000);
-      const attackOffset = getTimer('attackStartOffset');
+      const cyclePosition = Math.floor(access.timer('attackingTimer') / 10000);
+      const attackOffset = access.timer('attackStartOffset');
       const attackType = (cyclePosition + attackOffset) % 3;
 
       // Execute the chosen attack
-      setTimer('moveIndex', getTimer('moveIndex') + 1);
+      access.setTimer('moveIndex', access.timer('moveIndex') + 1);
 
       switch (attackType) {
         case 0: {
-          const spiralId = `${moveIdPrefix}-${boss.id}-spiral`;
+          const spiralId = `${access.moveIdPrefix}-${boss.id}-spiral`;
           emitMoveStarted(spiralId, 0);
           this.spiralChase(boss, deps);
-          setTimer('attackCooldown', 0);
+          access.setTimer('attackCooldown', 0);
           break;
         }
         case 1: {
-          const dashId = `${moveIdPrefix}-${boss.id}-dash`;
+          const dashId = `${access.moveIdPrefix}-${boss.id}-dash`;
           emitMoveStarted(dashId, 1);
           this.dashMove(boss, deps);
-          setTimer('attackCooldown', 0);
+          access.setTimer('attackCooldown', 0);
           break;
         }
         case 2: {
-          const chargeId = `${moveIdPrefix}-${boss.id}-charge`;
+          const chargeId = `${access.moveIdPrefix}-${boss.id}-charge`;
           emitMoveStarted(chargeId, 2);
           this.chargeMove(boss, deps);
-          setTimer('attackCooldown', 0);
+          access.setTimer('attackCooldown', 0);
           break;
         }
       }
@@ -645,11 +623,11 @@ export class BossManager {
         Math.abs(snakeHead.x - bossHead.x) + Math.abs(snakeHead.y - bossHead.y);
       // Activate when the snake gets within 20 cells
       if (proximityDistance <= 20) {
-        setPhase('attacking');
-        setTimer('attackCooldown', 0);
-        setTimer('attackingTimer', 0);
-        setTimer('moveIndex', 0);
-        setTimer('attackStartOffset', Math.floor(this.rng() * 3));
+        access.setPhase('attacking');
+        access.setTimer('attackCooldown', 0);
+        access.setTimer('attackingTimer', 0);
+        access.setTimer('moveIndex', 0);
+        access.setTimer('attackStartOffset', Math.floor(this.rng() * 3));
         emitAttacking();
         return;
       }
