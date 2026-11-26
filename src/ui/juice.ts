@@ -1952,6 +1952,7 @@ export class JuiceManager {
       radius: 40,
     });
     this.ringPulse(worldX, worldY, 0xffa726, 16, 3, 340);
+    this.spawnFeathers(worldX, worldY, 14);
   }
 
   /** Freak Turkey vulnerability pulse */
@@ -1995,6 +1996,30 @@ export class JuiceManager {
     });
   }
 
+  /** Batched feather scatter — small cream/gold specks rising and drifting off. */
+  private spawnFeathers(worldX: number, worldY: number, count: number) {
+    if (count <= 0) {
+      return;
+    }
+    const specs: BatchParticleSpec[] = [];
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (this.rng() - 0.5) * 0.6;
+      const dist = Phaser.Math.Between(6, 34);
+      specs.push({
+        x: worldX,
+        y: worldY - 2,
+        radius: Phaser.Math.Between(2, 4),
+        color: Phaser.Utils.Array.GetRandom([0xfff3d8, 0xffd166, 0xffb347, 0xfff8ee]),
+        alpha: 1,
+        dx: Math.cos(angle) * dist,
+        dy: Math.sin(angle) * dist - 16,
+        scaleEnd: 0,
+        durationMs: Phaser.Math.Between(300, 470),
+      });
+    }
+    this.spawnBatchedParticles(specs, 22, false);
+  }
+
   /** Freak Turkey gobble: feather scatter + throat bonk */
   gobble(worldX: number, worldY: number) {
     this.playTone({
@@ -2012,23 +2037,7 @@ export class JuiceManager {
       volume: 0.08,
     });
     this.kickCamera(0.012, 110);
-    const specs: BatchParticleSpec[] = [];
-    for (let i = 0; i < 12; i++) {
-      const angle = (Math.PI * 2 * i) / 12 + (this.rng() - 0.5) * 0.6;
-      const dist = Phaser.Math.Between(6, 34);
-      specs.push({
-        x: worldX,
-        y: worldY - 2,
-        radius: Phaser.Math.Between(2, 4),
-        color: Phaser.Utils.Array.GetRandom([0xfff3d8, 0xffd166, 0xffb347, 0xfff8ee]),
-        alpha: 1,
-        dx: Math.cos(angle) * dist,
-        dy: Math.sin(angle) * dist - 16,
-        scaleEnd: 0,
-        durationMs: Phaser.Math.Between(300, 470),
-      });
-    }
-    this.spawnBatchedParticles(specs, 22, false);
+    this.spawnFeathers(worldX, worldY, 12);
   }
 
   /** Freak Turkey defeat: massive pumpkin boom + golden calm */
@@ -2057,6 +2066,7 @@ export class JuiceManager {
       radius: 56,
     });
     this.ringPulse(worldX, worldY, 0xffa726, 20, 4, 420);
+    this.spawnFeathers(worldX, worldY, 22);
     globalThis.setTimeout(() => {
       this.ringPulse(worldX, worldY, 0xffd166, 14, 2, 340);
     }, 120);
