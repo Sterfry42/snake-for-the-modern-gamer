@@ -134,7 +134,8 @@ import {
 import { MinimapRenderer } from '../ui/minimapRenderer.js';
 import { JuiceManager } from '../ui/juice.js';
 import { BossHud } from '../ui/bossHud.js';
-import type { BossEvent } from '../systems/boss.js';
+import type { Boss, BossEvent } from '../systems/boss.js';
+import type { DuelBossDisplay } from '../systems/enemies.js';
 import { SaveUI } from '../ui/saveUI.js';
 import { PauseUI } from '../ui/pauseUI.js';
 import { SaveLoadMenu } from '../ui/saveLoadMenu.js';
@@ -1245,6 +1246,28 @@ interface VillageResidentRetainedTarget {
   auraColor: string;
   murmurColor: number | null;
 }
+
+interface PhaseBossAttackAnnouncement {
+  key: string;
+  color: string;
+  gobble?: 'dash' | 'spiral' | 'gravy';
+}
+
+const PHASE_BOSS_ATTACK_ANNOUNCEMENTS: Record<
+  'jason-statham' | 'freak-turkey',
+  Record<string, PhaseBossAttackAnnouncement>
+> = {
+  'jason-statham': {
+    charge: { key: 'jason_statham_attack_charge', color: '#ff6b6b' },
+    spiral: { key: 'jason_statham_attack_spiral', color: '#ffd166' },
+    dash: { key: 'jason_statham_attack_dash', color: '#ff8c42' },
+  },
+  'freak-turkey': {
+    'pumpkin-dash': { key: 'freak_turkey_attack_dash', color: '#ff8c42', gobble: 'dash' },
+    'stuffing-spiral': { key: 'freak_turkey_attack_spiral', color: '#ffd166', gobble: 'spiral' },
+    'gravy-round': { key: 'freak_turkey_attack_charge', color: '#ff6b6b', gobble: 'gravy' },
+  },
+};
 
 export default class SnakeScene extends Phaser.Scene {
   graphics!: Phaser.GameObjects.Graphics;
@@ -3922,56 +3945,21 @@ export default class SnakeScene extends Phaser.Scene {
     const worldX = world.x;
     const worldY = world.y;
     if (event.kind === 'jason-statham' && event.phase === 'vulnerable-entered') {
-      this.juice.stathamVulnerable(worldX, worldY);
-      this.showQuestHintPopup(i18n.getFeatureString('jason_statham_tired')!, '#ff6b6b');
-      this.showQuestHintPopup(i18n.getFeatureString('jason_statham_tired_sub')!, '#ffd166');
+      this.announcePhaseBossVulnerable('jason-statham', worldX, worldY);
     } else if (event.kind === 'jason-statham-move-started') {
       // Play warning sound and announce attack type
-      const moveType = (event as { moveType?: string }).moveType;
-      if (moveType === 'charge') {
-        this.juice.stathamAttackCharge(worldX, worldY);
-        this.showQuestHintPopup(i18n.getFeatureString('jason_statham_attack_charge')!, '#ff6b6b');
-      } else if (moveType === 'spiral') {
-        this.juice.stathamAttackCharge(worldX, worldY);
-        this.showQuestHintPopup(i18n.getFeatureString('jason_statham_attack_spiral')!, '#ffd166');
-      } else if (moveType === 'dash') {
-        this.juice.stathamAttackCharge(worldX, worldY);
-        this.showQuestHintPopup(i18n.getFeatureString('jason_statham_attack_dash')!, '#ff8c42');
-      } else {
-        this.juice.stathamAttackCharge(worldX, worldY);
-      }
+      this.announcePhaseBossMove('jason-statham', event.moveType, worldX, worldY);
     } else if (event.kind === 'jason-statham-attacking') {
-      this.juice.stathamAttackCharge(worldX, worldY);
-      this.showQuestHintPopup(i18n.getFeatureString('jason_statham_intro')!, '#ff6b6b');
+      this.announcePhaseBossAttacking('jason-statham', worldX, worldY);
     } else if (event.kind === 'jason-statham-defeated') {
       this.handleJasonDefeat(event.bossId, event.score);
     } else if (event.kind === 'freak-turkey' && event.phase === 'vulnerable-entered') {
-      this.juice.turkeyVulnerable(worldX, worldY);
-      this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_stuffed')!, '#ffb347');
-      this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_stuffed_sub')!, '#ffd166');
+      this.announcePhaseBossVulnerable('freak-turkey', worldX, worldY);
     } else if (event.kind === 'freak-turkey-move-started') {
       // Thanksgiving attack warning + announcement
-      const moveType = (event as { moveType?: string }).moveType;
-      if (moveType === 'pumpkin-dash') {
-        this.juice.turkeyAttackCharge(worldX, worldY);
-        this.juice.gobble(worldX, worldY, 'dash');
-        this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_attack_dash')!, '#ff8c42');
-      } else if (moveType === 'stuffing-spiral') {
-        this.juice.turkeyAttackCharge(worldX, worldY);
-        this.juice.gobble(worldX, worldY, 'spiral');
-        this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_attack_spiral')!, '#ffd166');
-      } else if (moveType === 'gravy-round') {
-        this.juice.turkeyAttackCharge(worldX, worldY);
-        this.juice.gobble(worldX, worldY, 'gravy');
-        this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_attack_charge')!, '#ff6b6b');
-      } else {
-        this.juice.turkeyAttackCharge(worldX, worldY);
-        this.juice.gobble(worldX, worldY, 'dash');
-      }
+      this.announcePhaseBossMove('freak-turkey', event.moveType, worldX, worldY);
     } else if (event.kind === 'freak-turkey-attacking') {
-      this.juice.turkeyAttackCharge(worldX, worldY);
-      this.juice.gobble(worldX, worldY);
-      this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_intro')!, '#ff8c42');
+      this.announcePhaseBossAttacking('freak-turkey', worldX, worldY);
     }
   }
 
@@ -12239,28 +12227,99 @@ export default class SnakeScene extends Phaser.Scene {
     this.cameras.main.shake(260, 0.012);
   }
 
+  private phaseBossHudPhaseText(boss: Boss | DuelBossDisplay): string | undefined {
+    if (boss.kind !== 'jason-statham' && boss.kind !== 'freak-turkey') return undefined;
+    const isTurkey = boss.kind === 'freak-turkey';
+    const phase = (isTurkey ? boss.turkeyPhase : boss.jasonPhase) ?? 'calm';
+    if (phase === 'attacking') return isTurkey ? 'GOBBLING!' : 'ATTACKING!';
+    if (phase === 'vulnerable') {
+      const remaining = Math.max(
+        0,
+        (15000 - ((isTurkey ? boss.turkeyVulnerableTimer : boss.jasonVulnerableTimer) ?? 0)) / 1000,
+      );
+      return isTurkey
+        ? `STUFFED & TIRED! ${remaining.toFixed(1)}s`
+        : `VULNERABLE! ${remaining.toFixed(1)}s`;
+    }
+    if (phase === 'defeated') return 'DEFEATED';
+    return undefined;
+  }
+
+  private playPhaseBossEncounterFane(boss: Boss | DuelBossDisplay): void {
+    if (boss.kind === 'jason-statham') {
+      // Cinematic movie-title intro when Jason enters the room
+      this.playJasonStathamIntro();
+      return;
+    }
+    if (boss.kind === 'freak-turkey') {
+      // Thanksgiving spawn fanfare the moment the turkey enters the room
+      const headSeg = boss.body[0];
+      if (headSeg) {
+        const { x, y } = this.snakeRenderer.getWorldPosition(headSeg, this.currentRoomId);
+        this.juice.turkeySpawn(x + this.grid.cell / 2, y + this.grid.cell / 2);
+        this.showQuestHintPopup(
+          i18n.getFeatureString('freak_turkey_spawn') ?? 'Gobble Gobble!',
+          '#ffb347',
+        );
+      }
+    }
+  }
+
+  private announcePhaseBossMove(
+    kind: 'jason-statham' | 'freak-turkey',
+    moveType: string | undefined,
+    worldX: number,
+    worldY: number,
+  ): void {
+    const ui = moveType ? PHASE_BOSS_ATTACK_ANNOUNCEMENTS[kind][moveType] : undefined;
+    if (kind === 'jason-statham') {
+      this.juice.stathamAttackCharge(worldX, worldY);
+    } else {
+      this.juice.turkeyAttackCharge(worldX, worldY);
+      this.juice.gobble(worldX, worldY, ui?.gobble ?? 'dash');
+    }
+    if (ui) {
+      this.showQuestHintPopup(i18n.getFeatureString(ui.key)!, ui.color);
+    }
+  }
+
+  private announcePhaseBossAttacking(
+    kind: 'jason-statham' | 'freak-turkey',
+    worldX: number,
+    worldY: number,
+  ): void {
+    if (kind === 'jason-statham') {
+      this.juice.stathamAttackCharge(worldX, worldY);
+      this.showQuestHintPopup(i18n.getFeatureString('jason_statham_intro')!, '#ff6b6b');
+      return;
+    }
+    this.juice.turkeyAttackCharge(worldX, worldY);
+    this.juice.gobble(worldX, worldY);
+    this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_intro')!, '#ff8c42');
+  }
+
+  private announcePhaseBossVulnerable(
+    kind: 'jason-statham' | 'freak-turkey',
+    worldX: number,
+    worldY: number,
+  ): void {
+    if (kind === 'jason-statham') {
+      this.juice.stathamVulnerable(worldX, worldY);
+      this.showQuestHintPopup(i18n.getFeatureString('jason_statham_tired')!, '#ff6b6b');
+      this.showQuestHintPopup(i18n.getFeatureString('jason_statham_tired_sub')!, '#ffd166');
+      return;
+    }
+    this.juice.turkeyVulnerable(worldX, worldY);
+    this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_stuffed')!, '#ffb347');
+    this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_stuffed_sub')!, '#ffd166');
+  }
+
   private updateBossEncounter(): void {
     const bosses = this.snakeGame.getBosses(this.currentRoomId);
     const boss = bosses[0];
 
     if (boss) {
-      let hudPhaseText: string | undefined;
-      if (boss.kind === 'jason-statham') {
-        const phase = boss.jasonPhase ?? 'calm';
-        if (phase === 'attacking') hudPhaseText = 'ATTACKING!';
-        else if (phase === 'vulnerable') {
-          const remaining = Math.max(0, (15000 - (boss.jasonVulnerableTimer ?? 0)) / 1000);
-          hudPhaseText = `VULNERABLE! ${remaining.toFixed(1)}s`;
-        } else if (phase === 'defeated') hudPhaseText = 'DEFEATED';
-      }
-      if (boss.kind === 'freak-turkey') {
-        const phase = boss.turkeyPhase ?? 'calm';
-        if (phase === 'attacking') hudPhaseText = 'GOBBLING!';
-        else if (phase === 'vulnerable') {
-          const remaining = Math.max(0, (15000 - (boss.turkeyVulnerableTimer ?? 0)) / 1000);
-          hudPhaseText = `STUFFED & TIRED! ${remaining.toFixed(1)}s`;
-        } else if (phase === 'defeated') hudPhaseText = 'DEFEATED';
-      }
+      const hudPhaseText = this.phaseBossHudPhaseText(boss);
       this.bossHud.show({
         name: boss.name ?? 'Nameless Horror',
         health: boss.health ?? 0,
@@ -12280,22 +12339,7 @@ export default class SnakeScene extends Phaser.Scene {
       if (this.activeBossId !== boss.id) {
         this.juice.startBossMusic(boss.kind ?? 'default');
         this.activeBossId = boss.id;
-        if (boss.kind === 'jason-statham') {
-          // Cinematic movie-title intro when Jason enters the room
-          this.playJasonStathamIntro();
-        }
-        if (boss.kind === 'freak-turkey') {
-          // Thanksgiving spawn fanfare the moment the turkey enters the room
-          const headSeg = boss.body[0];
-          if (headSeg) {
-            const { x, y } = this.snakeRenderer.getWorldPosition(headSeg, this.currentRoomId);
-            this.juice.turkeySpawn(x + this.grid.cell / 2, y + this.grid.cell / 2);
-            this.showQuestHintPopup(
-              i18n.getFeatureString('freak_turkey_spawn') ?? 'Gobble Gobble!',
-              '#ffb347',
-            );
-          }
-        }
+        this.playPhaseBossEncounterFane(boss);
       }
       // Danger vignette based on boss presence
       this.juice.setDangerLevel(0.22);
