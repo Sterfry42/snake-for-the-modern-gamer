@@ -13694,11 +13694,17 @@ export default class SnakeScene extends Phaser.Scene {
             for (const ghost of boss.body) {
               const localX = ghost.x - roomX * this.grid.cols;
               const localY = ghost.y - roomY * this.grid.rows;
-              if (localX >= 0 && localX < this.grid.cols && localY >= 0 && localY < this.grid.rows) {
-                const { x: ghostX, y: ghostY } = this.snakeRenderer.getWorldPosition(ghost, room.id);
-                this.graphics
-                  .fillStyle(0x0d0a0a, 0.4)
-                  .fillRect(ghostX + 3, ghostY + 3, cell, cell);
+              if (
+                localX >= 0 &&
+                localX < this.grid.cols &&
+                localY >= 0 &&
+                localY < this.grid.rows
+              ) {
+                const { x: ghostX, y: ghostY } = this.snakeRenderer.getWorldPosition(
+                  ghost,
+                  room.id,
+                );
+                this.graphics.fillStyle(0x0d0a0a, 0.4).fillRect(ghostX + 3, ghostY + 3, cell, cell);
               }
             }
           }
@@ -13726,9 +13732,7 @@ export default class SnakeScene extends Phaser.Scene {
             const size = cellSize * wobble;
             const grow = (cellSize - size) / 2;
             const bobY =
-              isTurkey && boss.turkeyPhase === 'attacking'
-                ? Math.sin(timeMs / 130 + 0.6) * 3
-                : 0;
+              isTurkey && boss.turkeyPhase === 'attacking' ? Math.sin(timeMs / 130 + 0.6) * 3 : 0;
             this.graphics
               .fillStyle(isFreakYouHead ? 0xff7a8f : bossColor, isFreakYouHead ? 0.98 : bossAlpha)
               .fillRect(x + grow, y + grow + bobY, size, size);
