@@ -1,40 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { buildBossMusic } from '../juice/bossMusic.js';
+import { createGainWithContext } from './bossMusicTestStubs.js';
 
-function createAudioParam(): { value: number; setValueAtTime: ReturnType<typeof vi.fn> } {
-  return { value: 0, setValueAtTime: vi.fn() };
-}
-
-function createOscillatorNodeStub(context?: Record<string, unknown>) {
-  return {
-    type: 'sine',
-    frequency: createAudioParam(),
-    gain: createAudioParam(),
-    connect: vi.fn(),
-    disconnect: vi.fn(),
-    start: vi.fn(),
-    stop: vi.fn(),
-    context,
-  };
-}
-
-function createGainNodeStub(context: Record<string, unknown>) {
-  return {
-    gain: createAudioParam(),
-    connect: vi.fn(),
-    disconnect: vi.fn(),
-    context,
-  };
-}
-
-function createGainWithContext() {
-  const context = {
-    createOscillator: () => createOscillatorNodeStub(),
-    createGain: () => createGainNodeStub(context),
-  };
-  const gain = createGainNodeStub(context);
-  return { gain: gain as unknown as GainNode, context };
-}
 
 describe('Jason Statham boss music', () => {
   it('builds a cinematic recipe with a deep heartbeat sub oscillator', () => {
