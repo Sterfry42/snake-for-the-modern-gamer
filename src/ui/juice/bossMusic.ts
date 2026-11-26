@@ -185,6 +185,27 @@ const BOSS_MUSIC_REGISTRY: Record<string, BossMusicDefinition> = {
       sources.push(leadVibrato);
       cleanup.push(vibratoGain);
 
+      // Cinematic heartbeat: a deep sub oscillator throbbed by a rhythm LFO
+      const heartbeat = gain.context.createGain();
+      heartbeat.gain.value = 0.18;
+      const heartOsc = gain.context.createOscillator();
+      heartOsc.type = 'sine';
+      heartOsc.frequency.value = 48;
+      heartOsc.connect(heartbeat);
+      heartbeat.connect(gain);
+      sources.push(heartOsc);
+      cleanup.push(heartbeat);
+
+      const thumpLfo = gain.context.createOscillator();
+      thumpLfo.type = 'sine';
+      thumpLfo.frequency.value = 1.4;
+      const thumpGain = gain.context.createGain();
+      thumpGain.gain.value = 0.12;
+      thumpLfo.connect(thumpGain);
+      thumpGain.connect(heartbeat.gain);
+      sources.push(thumpLfo);
+      cleanup.push(thumpGain);
+
       return {
         sources,
         cleanup,
