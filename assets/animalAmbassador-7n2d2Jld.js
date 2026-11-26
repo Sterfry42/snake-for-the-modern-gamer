@@ -1,1 +1,0 @@
-import{Q as e}from"./quest-DCM-IEEX.js";import{n as s}from"./index-DIaVDSEu.js";class m extends e{constructor(){super("animal-ambassador","Animal Ambassador","Tame 5 different animal types")}isCompleted(a){return s(a.getFlag("animals.tamedTypes")).length>=5}onReward(a){a.addScore(100)}}const o=new m;export{o as default};
