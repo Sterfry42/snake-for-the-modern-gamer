@@ -1306,6 +1306,7 @@ export default class SnakeScene extends Phaser.Scene {
   private activeBossId: string | null = null;
   private lastBossHealth: Map<string, number> = new Map();
   private jasonDefeatTimer: Phaser.Time.TimerEvent | null = null;
+  private jasonTrail: { x: number; y: number }[] = [];
   private jasonIntroOverlay: {
     top: Phaser.GameObjects.Rectangle;
     bottom: Phaser.GameObjects.Rectangle;
@@ -13585,6 +13586,9 @@ export default class SnakeScene extends Phaser.Scene {
       this.drawFreakYouPortalFx(room.id);
       const bosses = this.snakeGame.getBosses(room.id);
       const timeMs = this.time.now;
+      if (!bosses.some((boss) => boss.kind === 'jason-statham')) {
+        this.jasonTrail.length = 0;
+      }
       for (const boss of bosses) {
         let bossColor: number;
         let bossAlpha: number;
@@ -13645,6 +13649,24 @@ export default class SnakeScene extends Phaser.Scene {
         } else {
           bossColor = 0xff00ff;
           bossAlpha = 0.8;
+        }
+
+        if (boss.kind === 'jason-statham') {
+          const head = boss.body[0];
+          if (boss.jasonPhase === 'attacking' && head) {
+            const { x: headX, y: headY } = this.snakeRenderer.getWorldPosition(head, room.id);
+            this.jasonTrail.unshift({ x: headX, y: headY });
+            if (this.jasonTrail.length > 7) this.jasonTrail.pop();
+          } else {
+            this.jasonTrail.length = 0;
+          }
+          for (let i = 1; i < this.jasonTrail.length; i += 1) {
+            const pos = this.jasonTrail[i];
+            const alpha = Math.max(0.05, 0.24 * (1 - i / this.jasonTrail.length));
+            this.graphics
+              .fillStyle(0x4a0d0d, alpha)
+              .fillRect(pos.x, pos.y, this.grid.cell, this.grid.cell);
+          }
         }
 
         for (let index = 0; index < boss.body.length; index += 1) {
