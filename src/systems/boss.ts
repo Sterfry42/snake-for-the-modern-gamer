@@ -959,21 +959,6 @@ export class BossManager {
     return null;
   }
 
-  public getVulnerableJasonNearby(position: Vector2Like, roomId: string): Boss | null {
-    const bossesInRoom = this.getBossesInRoom(roomId);
-    for (const boss of bossesInRoom) {
-      if (boss.kind !== 'jason-statham' || boss.jasonPhase !== 'vulnerable') continue;
-      // Check if the head overlaps any segment or is adjacent (including diagonals)
-      const nearbySegments = boss.body.filter(
-        (segment) => Math.abs(segment.x - position.x) <= 1 && Math.abs(segment.y - position.y) <= 1,
-      );
-      if (nearbySegments.length > 0) {
-        return boss;
-      }
-    }
-    return null;
-  }
-
   public killBossAtPosition(position: Vector2Like, roomId: string): boolean {
     // Remove the first boss that contains the position
     for (const [id, boss] of this.bosses) {

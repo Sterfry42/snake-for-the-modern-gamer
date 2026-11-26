@@ -549,7 +549,7 @@ export class SnakeState {
     }
 
     const vulnerablePhaseBoss =
-      bossManager.getVulnerableJasonNearby(head, this.roomId) ??
+      bossManager.getVulnerablePhaseBossNearby(head, this.roomId, 'jason-statham') ??
       bossManager.getVulnerablePhaseBossNearby(head, this.roomId, 'freak-turkey');
     const collidedBoss = vulnerablePhaseBoss ?? bossManager.getBossAtPosition(head, this.roomId);
     if (collidedBoss && invulnTicks <= 0 && !cheatImmortal) {
