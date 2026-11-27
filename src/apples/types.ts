@@ -7,6 +7,7 @@ import type { RandomGenerator } from '../core/rng.js';
 import type { RoomSnapshot } from '../world/types.js';
 
 export interface AppleSnapshot {
+  spawnId?: number;
   roomId: string;
   position: Vector2Like;
   typeId: string;
@@ -38,6 +39,7 @@ export interface AppleConsumptionContext {
 }
 
 export abstract class AppleInstance {
+  spawnId?: number;
   public constructor(
     public roomId: string,
     public position: Vector2Like,
@@ -75,6 +77,7 @@ export abstract class AppleInstance {
 
   getSnapshot(): AppleSnapshot {
     return {
+      spawnId: this.spawnId,
       roomId: this.roomId,
       position: { x: this.position.x, y: this.position.y },
       typeId: this.typeId,

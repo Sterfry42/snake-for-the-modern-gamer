@@ -1,7 +1,11 @@
 import type { GridConfig } from '../config/gameConfig.js';
-import type { Vector2Like } from '../core/math.js';
+import type { Rect, Vector2Like } from '../core/math.js';
 import type { RoomSnapshot } from './types.js';
 import { parseCoordinateRoomId } from './roomAddress.js';
+
+export function getTownTurnBasedBounds(grid: Pick<GridConfig, 'cols' | 'rows'>): Rect {
+  return { left: 0, top: 0, width: grid.cols, height: grid.rows };
+}
 
 /** Shared player movement policy. This never decides whether world clocks run. */
 export function isManualMovementArea(
@@ -16,11 +20,12 @@ export function isManualMovementArea(
   };
   const tile = room.layout[local.y]?.[local.x];
   if (!tile || tile === '#') return false;
+  if (room.layer?.kind === 'townInterior') return true;
   const bounds =
     room.village?.safeArea ??
     room.goblinCamp?.safeArea ??
     room.snakeMcDonalds?.bounds ??
-    (room.town ? { left: 0, top: 0, width: grid.cols, height: grid.rows } : undefined) ??
+    (room.town ? getTownTurnBasedBounds(grid) : undefined) ??
     room.molemanDigSite?.bounds ??
     room.garage?.bounds;
   if (bounds)
@@ -57,18 +62,10 @@ export function isManualMovementArea(
         ? 'WETG'
         : room.snakeCanes
           ? 'WETVK'
-          : 'WETCKBPLDRZ';
-  if (
-    !room.allNiteDiner &&
-    !room.fireworkStand &&
-    !room.roadsideMonument &&
-    !room.jackalopeLodge &&
-    !room.gridironYard &&
-    !room.questGiver &&
-    !room.snakeCanes &&
-    !tags.includes(tile)
-  )
-    return false;
+          : room.id === '0,-1,0'
+            ? 'WETCKBPLDRZ'
+            : '';
+  if (!tags) return false;
   const points = room.layout.flatMap((row, y) =>
     [...row].flatMap((value, x) => (tags.includes(value) ? [{ x, y }] : [])),
   );

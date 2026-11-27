@@ -273,6 +273,7 @@ describe('authoritative presentation and multiplayer combat', () => {
 
   it('damages a peer with owned gunfire, keeps the shooter safe, and emits private hit feedback', async () => {
     const { game, room, session, alice, bob, events } = setup();
+    session.configureHosting();
     game.setFlag('equipment.gunEnabled', true);
     game.runForPlayer(bob, () =>
       game.placeSnakeBodyAtLocal(room.id, { x: 9, y: 10 }, { x: 0, y: -1 }),
@@ -282,17 +283,28 @@ describe('authoritative presentation and multiplayer combat', () => {
       await session.executeCommand({
         type: 'combatAction',
         action: 'fire',
+        presentationId: 37,
         playerId: alice,
         direction: { x: 1, y: 0 },
       }),
     ).toMatchObject({ ok: true });
+    expect(
+      events.flatMap((event) =>
+        event.type === 'gameplay.presentation' && event.playerId === alice ? event.feedback : [],
+      ),
+    ).toContainEqual(
+      expect.objectContaining({
+        key: 'ui.playerShot',
+        value: expect.objectContaining({ presentationId: 37 }),
+      }),
+    );
     for (let step = 0; step < 3; step++) session.bulletClockStep();
     await session.executeCommand({ type: 'playerInteraction', mode: 'paused', playerId: bob });
     expect(game.runForPlayer(bob, () => game.getFlag<number>('player.health'))).toBe(before - 1);
     expect(game.getFlag('player.health') ?? 3).toBe(3);
     expect(
       events.flatMap((event) =>
-        event.type === 'gameplay.outcome' && event.playerId === bob ? event.outcome.feedback : [],
+        event.type === 'gameplay.presentation' && event.playerId === bob ? event.feedback : [],
       ),
     ).toContainEqual(expect.objectContaining({ key: 'ui.playerHit' }));
   });

@@ -1,3 +1,10 @@
+import {
+  drainAchievementEvents,
+  HOSTED_ACHIEVEMENTS_FLAG,
+} from '../session/AuthoritativeAchievements.js';
+import { isManualMovementArea } from '../world/manualMovementPolicy.js';
+import { openComputerTerminal } from '../computers/computerTerminal.js';
+import { PERSONAL_COMPUTER_ITEM_ID, type ComputerLocation } from '../computers/computerWorld.js';
 import type {
   DatingSequencePage,
   DatingBranchResult,
@@ -74,7 +81,11 @@ import type {
 import type { HighlightClip } from '../systems/highlightReel.js';
 import type { BulletInstance, EnemyInstance } from '../systems/enemies.js';
 import type { GameConnection } from '../session/GameConnection.js';
-import type { ClientRoomSnapshot, GameSnapshot } from '../session/GameSnapshot.js';
+import type {
+  ClientRoomSnapshot,
+  GameSnapshot,
+  HostedCheckpointSummary,
+} from '../session/GameSnapshot.js';
 import type { LocalAuthoritativeRuntime } from '../session/GameRuntime.js';
 import { LocalGameConnection } from '../session/LocalGameConnection.js';
 import { LocalGameSession } from '../session/LocalGameSession.js';
@@ -86,6 +97,7 @@ import { mixColor } from '../ui/colorUtils.js';
 import { PartyOverlay } from '../ui/partyOverlay.js';
 import { WebSocketGameConnection } from '../session/WebSocketGameConnection.js';
 import { PlayerHoldSynchronizer } from '../session/PlayerHoldSynchronizer.js';
+import { AppleBitePresentation } from '../session/AppleBitePresentation.js';
 import type { DeathEncounterView, DeathChoice } from '../players/playerLifecycle.js';
 import type { ClientCommand, CommandResult } from '../session/ClientCommand.js';
 import { ServerConnectionMenu } from '../ui/serverConnectionMenu.js';
@@ -233,7 +245,6 @@ import {
 } from '../vehicles/carPhysics.js';
 import type { AnimalCompanionView } from '../animals/companions.js';
 import { isSnakeSceneRuntimeReady } from './snakeSceneStartup.js';
-import { getTownTurnBasedBounds } from './snakeSceneTurnBasedSupport.js';
 import type { InventorySystem } from '../inventory/inventory.js';
 import type { BulletTrainStation } from '../world/bulletTrainTypes.js';
 import { runBulletTrainRide } from '../world/bulletTrainScene.js';
@@ -413,7 +424,10 @@ import {
   achievementLocationKey,
   getApAchievementDefinitions,
 } from '../achievements/achievementApMapping.js';
-import { BrowserAchievementStorage } from '../achievements/achievementStorage.js';
+import {
+  BrowserAchievementStorage,
+  MemoryAchievementStorage,
+} from '../achievements/achievementStorage.js';
 import type {
   AchievementEvent,
   AchievementSnapshot,
@@ -601,8 +615,6 @@ const RACCOON_STASH_POPUP_ASSET =
 const RACCOON_SAD_POPUP_ASSET =
   'assets/raccoon_pics/pngtree-racoon-with-sad-face-png-image_13342713.png';
 const RACCOON_WEIGHT_THRESHOLD_ASSET = 'assets/raccoon_pics/Gf6Vx1MWIAAkUrs.jpg';
-
-type LocalRect = { left: number; top: number; width: number; height: number };
 
 type DatingSequence = {
   profile: RelationshipCandidateProfile;
@@ -1287,6 +1299,7 @@ export default class SnakeScene extends Phaser.Scene {
   private unsubscribeSnapshot: (() => void) | null = null;
   private unsubscribeMovement: (() => void) | null = null;
   private unsubscribeEvents: (() => void) | null = null;
+  private closeComputerTerminal: (() => void) | null = null;
   private questHud!: QuestHud;
   private questPopup!: QuestPopup;
   private villageShopPopup!: ChoicePopup;
@@ -1601,6 +1614,11 @@ export default class SnakeScene extends Phaser.Scene {
   private archipelagoBackButton: Phaser.GameObjects.Container | null = null;
   private readonly archipelagoLogLines: string[] = [];
   private readonly archipelagoTrapQueue: ArchipelagoTrapId[] = [];
+  private readonly hostedAchievementManager = new AchievementManager(
+    ACHIEVEMENT_DEFINITIONS,
+    new MemoryAchievementStorage(),
+  );
+  private hostedAchievementProjection = '';
   private readonly achievementManager = new AchievementManager(
     ACHIEVEMENT_DEFINITIONS,
     new BrowserAchievementStorage(),
@@ -1622,7 +1640,7 @@ export default class SnakeScene extends Phaser.Scene {
   private deathLinkMode: DeathLinkMode = 'off';
   private handlingIncomingDeathLink = false;
   private titleCreditsMode = false;
-  private saveLoadMenu: SaveLoadMenu | null = null;
+  private saveLoadMenu: SaveLoadMenu | SaveLoadMenu<HostedCheckpointSummary> | null = null;
   /**
    * The unique session ID for the active game run. Mints a new ID on
    * "New Game"; re-adopts the session of the save when loading.
@@ -1853,6 +1871,7 @@ export default class SnakeScene extends Phaser.Scene {
         lives: this.getDebugLivesState(),
         lifecycle: this.getLifecycleDiagnostics(),
         movementAuthority: this.gameConnection?.getMovementDiagnostics?.() ?? null,
+        multiplayerProfile: this.gameConnection?.getMultiplayerProfile?.(),
         game: this.snakeGame && !this.titleVisible ? this.snakeGame.getDebugSnapshot() : null,
       }),
     });
@@ -2077,6 +2096,9 @@ export default class SnakeScene extends Phaser.Scene {
   private sceneClient: SceneGameClient | null = null;
   private readReplica: SceneReadReplica | null = null;
   private stopLocalAuthority: (() => void) | null = null;
+  private nextShotPresentationId = 0;
+  private readonly predictedShots = new Set<number>();
+  private readonly appleBites = new AppleBitePresentation();
   private readonly remoteHold = new PlayerHoldSynchronizer();
   private remoteConnectionStatus: 'connected' | 'reconnecting' | 'closed' = 'connected';
   private readonly presentationFlags = new Map<string, unknown>();
@@ -2174,14 +2196,18 @@ export default class SnakeScene extends Phaser.Scene {
         outcome.delta.lengthAfter,
         outcome.delta.head,
       );
+    this.presentGameplayFeedback(outcome.feedback);
+  }
+
+  private presentGameplayFeedback(events: GameplayOutcome['feedback']): void {
     try {
-      for (const feedback of outcome.feedback) {
+      for (const feedback of events) {
         this.presentationFeedback = new Map([[feedback.key, feedback.value]]);
         this.presentStepNotifications();
         this.presentPowerupFeedback();
         this.handlePredationFeedback();
       }
-      if (outcome.feedback.length === 0) {
+      if (events.length === 0) {
         this.presentationFeedback = new Map();
         this.presentStepNotifications();
       }
@@ -2332,6 +2358,10 @@ export default class SnakeScene extends Phaser.Scene {
         this.partyOverlay = new PartyOverlay(backend, () => this.leaveServer());
         connection.onStatus?.((status) => {
           this.remoteConnectionStatus = status;
+          if (status !== 'connected') {
+            this.appleBites.reset();
+            this.predictedShots.clear();
+          }
           this.partyOverlay?.setStatus(status);
         });
       }
@@ -2346,6 +2376,14 @@ export default class SnakeScene extends Phaser.Scene {
         }
         this.drivingCar = this.snakeGame.getFlag<DrivingCarState>('vehicle.active') ?? null;
         this.currentSnapshot = snapshot;
+        const achievements = this.snakeGame.getFlag<AchievementState>(HOSTED_ACHIEVEMENTS_FLAG);
+        const projection = achievements ? JSON.stringify(achievements) : '';
+        if (projection !== this.hostedAchievementProjection) {
+          this.hostedAchievementProjection = projection;
+          if (achievements) this.hostedAchievementManager.restoreState(achievements);
+          else this.hostedAchievementManager.resetForNewRun();
+          this.skillTree.getOverlay().refreshAchievements();
+        }
         this.syncRemoteArchaeology(snapshot.archaeology ?? null);
         this.updateBossEncounter();
         this.maybePresentRandomEncounter();
@@ -2378,12 +2416,9 @@ export default class SnakeScene extends Phaser.Scene {
       this.unsubscribeMovement =
         connection.onMovement?.((update) => {
           if (!this.currentSnapshot) return;
-          if (
-            update.player.id === this.currentSnapshot.localPlayerId &&
-            !this.snakeGame.peekCachedRoom(update.player.roomId)
-          )
-            return;
-          this.currentSnapshot = applyMovementUpdate(this.currentSnapshot, update);
+          const merged = applyMovementUpdate(this.currentSnapshot, update);
+          if (merged === this.currentSnapshot) return;
+          this.currentSnapshot = merged;
           this.readReplica?.hydrateMovement(update);
           this.isDirty = true;
         }) ?? null;
@@ -2407,8 +2442,38 @@ export default class SnakeScene extends Phaser.Scene {
           }
           return;
         }
+        if (event.type === 'apple.bite') {
+          if (event.epoch !== this.currentSnapshot?.replication?.epoch) return;
+          this.appleBites.useEpoch(event.epoch);
+          if (event.roomId === this.currentRoomId) {
+            const playBite = this.appleBites.confirm(event.spawnId, event.revision);
+            const position = this.appleEffectPosition(event.position, event.roomId);
+            if (playBite) this.playAppleBite(position, event.typeId, event.violenceLevel);
+            if (event.streak !== undefined && this.appleBites.claimOutcome(event.spawnId)) {
+              this.showSpecialAppleEffectNotification(event.typeId);
+              this.juice.appleStreak(position.x, position.y, event.streak, event.typeId);
+            }
+          }
+          this.isDirty = true;
+          return;
+        }
+        if (
+          event.type === 'achievement.unlocked' &&
+          event.playerId === this.snakeGame.getLocalPlayerId()
+        ) {
+          this.presentAchievementUnlocks(event.unlocks);
+          return;
+        }
         if (event.type === 'gameplay.outcome') {
           this.presentAuthoritativeOutcome(event.outcome);
+          return;
+        }
+        if (event.type === 'gameplay.presentation') {
+          if (
+            event.playerId === this.sceneClient?.getLocalPlayerId() &&
+            event.roomId === this.currentRoomId
+          )
+            this.presentGameplayFeedback(event.feedback);
           return;
         }
         if ('playerId' in event && event.playerId !== this.sceneClient?.getLocalPlayerId()) return;
@@ -2498,6 +2563,34 @@ export default class SnakeScene extends Phaser.Scene {
       this.currentSnapshot = snapshot;
     });
     this.unsubscribeEvents = this.gameConnection.onEvent((event) => {
+      if ('playerId' in event && event.playerId === this.snakeGame.getLocalPlayerId()) {
+        const value =
+          event.type === 'item.picked_up'
+            ? event.itemId
+            : event.type === 'quest.completed'
+              ? event.questId
+              : event.type === 'room.changed'
+                ? event.toRoomId
+                : undefined;
+        if (
+          value !== undefined &&
+          (event.type === 'item.picked_up' ||
+            event.type === 'quest.completed' ||
+            event.type === 'room.changed')
+        ) {
+          try {
+            const errors = this.snakeGame.dispatchHomeComputerEvent(event.type, value, (message) =>
+              this.showQuestHintPopup(message, '#9ad1ff'),
+            );
+            for (const error of errors) this.showQuestHintPopup(error, '#ff6b6b');
+          } catch (error) {
+            this.showQuestHintPopup(
+              error instanceof Error ? error.message : 'SnekOS hook failed.',
+              '#ff6b6b',
+            );
+          }
+        }
+      }
       if (event.type === 'room.changed' && event.playerId === this.snakeGame.getLocalPlayerId())
         this.presentRoomTransition(event.toRoomId, event.head);
       if (event.type === 'toast') {
@@ -2517,7 +2610,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private setupInputHandlers(): void {
     this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
-      if (this.serverConnectionMenu?.visible) return;
+      if (this.closeComputerTerminal || this.serverConnectionMenu?.visible) return;
       this.emitRawKeyboardDebug(event, 'down');
       this.inputModeManager.markKeyboardInput();
       const key = event.key.toLowerCase();
@@ -2841,8 +2934,7 @@ export default class SnakeScene extends Phaser.Scene {
           return;
         }
         if (controlDirection) {
-          this.setDir(controlDirection.x, controlDirection.y);
-          this.takeManualTurn();
+          this.takeManualTurn(controlDirection);
           return;
         }
       }
@@ -2870,9 +2962,7 @@ export default class SnakeScene extends Phaser.Scene {
           return;
         }
         if (controlDirection) {
-          this.setManualResumeDir(controlDirection.x, controlDirection.y);
-          this.consumeManualResumePause();
-          this.takeManualTurn();
+          this.takeManualTurn(controlDirection);
           return;
         }
       }
@@ -2974,6 +3064,7 @@ export default class SnakeScene extends Phaser.Scene {
     });
 
     this.input.keyboard?.on('keyup', (event: KeyboardEvent) => {
+      if (this.closeComputerTerminal) return;
       this.emitRawKeyboardDebug(event, 'up');
       if (this.drivingCar) {
         this.releaseCarInput(event.key.toLowerCase());
@@ -3067,11 +3158,35 @@ export default class SnakeScene extends Phaser.Scene {
         this.isDirty = true;
         return;
       }
+      const head = this.snakeGame.getSnakeBody()[0];
+      const powerup = this.snakeGame.getFlag<{ kind: string; remaining: number }>('powerup.active');
+      const gun =
+        Boolean(this.snakeGame.getFlag('equipment.gunEnabled')) ||
+        (powerup?.kind === 'gun' && powerup.remaining > 0);
+      const bomb = tool === 'bomb-slingshot';
+      const armed =
+        bomb || gun || Number(this.snakeGame.getFlag('equipment.libertyFootballCharges') ?? 0) > 0;
+      let presentationId: number | undefined;
+      if (head && armed && this.remoteConnectionStatus === 'connected') {
+        const world = this.tileToWorld(head);
+        if (gun && !bomb) {
+          presentationId = ++this.nextShotPresentationId;
+          this.predictedShots.add(presentationId);
+          if (this.predictedShots.size > 64) {
+            const oldest = this.predictedShots.values().next().value;
+            if (oldest !== undefined) this.predictedShots.delete(oldest);
+          }
+          this.juice.playerShot(world.x, world.y, direction.x, direction.y);
+        } else this.juice.attackWindup(world.x, world.y, direction.x, direction.y);
+      }
       void this.submitRemote({
         type: 'combatAction',
-        action: tool === 'bomb-slingshot' ? 'bomb' : 'fire',
+        action: bomb ? 'bomb' : 'fire',
         direction,
+        presentationId,
         playerId: this.snakeGame.getLocalPlayerId(),
+      }).then((result) => {
+        if (!result.ok && presentationId !== undefined) this.predictedShots.delete(presentationId);
       });
       return;
     }
@@ -3423,6 +3538,7 @@ export default class SnakeScene extends Phaser.Scene {
       footballs: readonly FootballInstance[];
       bombs: readonly BombInstance[];
       alchemyStation?: { roomId: string; x: number; y: number } | null;
+      computer?: ComputerLocation;
       atmosphere?: ResolvedAtmosphereView;
     },
   ): WorldRenderScene {
@@ -3439,6 +3555,7 @@ export default class SnakeScene extends Phaser.Scene {
           footballs: options.footballs,
           bombs: options.bombs,
           alchemyStation: options.alchemyStation,
+          computer: options.computer,
           runtimeNpcs: this.getFirstPersonRuntimeNpcs(roomSnapshot.id),
         },
       ],
@@ -3585,12 +3702,10 @@ export default class SnakeScene extends Phaser.Scene {
           this.moveFarmTool(direction);
           return;
         }
-        this.setDir(direction.x, direction.y);
-        if (this.isManualHouseMovementActive()) {
-          this.consumeManualResumePause();
-          this.takeManualTurn();
-        } else if (this.minecraftMode && !this.deathCutscene) {
-          this.takeManualTurn();
+        if (this.isManualHouseMovementActive() || (this.minecraftMode && !this.deathCutscene)) {
+          this.takeManualTurn(direction);
+        } else {
+          this.setDir(direction.x, direction.y);
         }
       },
       onTogglePause: () => {
@@ -3715,12 +3830,14 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private async performInteractAction(): Promise<void> {
+    if (this.closeComputerTerminal) return;
     if (this.tryPlaceAlchemyStation()) return;
     if (await this.interactFarmTarget()) return;
     if (this.snakeGame.getStructurePlacement()) {
       this.confirmStructurePlacement();
       return;
     }
+    if (this.tryInteractComputer()) return;
     if (this.tryEnterCar()) return;
     if (await this.tryInteractHouseGarden()) return;
     if (this.tryInteractQuestTarget()) return;
@@ -4100,6 +4217,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private initGame(startPaused = true, resetAchievements = false): void {
+    this.closeComputerTerminal?.();
     this.setBossStepIntervalMs(this.baseBossStepIntervalMs);
     this.setActorStepIntervalMs(this.baseActorStepIntervalMs);
     this.setBulletStepIntervalMs(this.baseBulletStepIntervalMs);
@@ -4199,6 +4317,7 @@ export default class SnakeScene extends Phaser.Scene {
     const observedEffects = new Set([
       'movementTick',
       'appleChomp',
+      'perkPurchased',
       'roomTransition',
       'wandererApproach',
       'archaeologySwap',
@@ -4342,44 +4461,53 @@ export default class SnakeScene extends Phaser.Scene {
     });
   }
 
+  private appleEffectPosition(position: Vector2Like, roomId: string): Vector2Like {
+    const [roomX, roomY] = this.parseRoomCoordinates(roomId);
+    return {
+      x: position.x - roomX * this.grid.cols * this.grid.cell,
+      y: position.y - roomY * this.grid.rows * this.grid.cell,
+    };
+  }
+
+  private playAppleBite(position: Vector2Like, typeId = 'normal', violenceLevel = 0): void {
+    this.juice.appleChomp(position.x, position.y, violenceLevel, typeId);
+    this.playControllerFeedback('reward');
+    if (typeId === 'treat') this.playTreatDance(position);
+  }
+
   private presentActionOutcome(result: ActionOutcome): void {
     this.updateBossEncounter();
     this.currentApple = result.apple.current ?? null;
 
     if (result.apple.eaten) {
-      this.playControllerFeedback('reward');
+      const { consumedSpawnId, typeId, worldPosition } = result.apple;
+      let playBite = true;
+      let showOutcome = true;
+      if (
+        this.sceneClient &&
+        consumedSpawnId !== undefined &&
+        result.movementRevision !== undefined
+      ) {
+        playBite = this.appleBites.confirm(consumedSpawnId, result.movementRevision);
+        showOutcome = this.appleBites.claimOutcome(consumedSpawnId);
+      }
       this.recordAchievementEvent({
         type: 'apple:eaten',
-        appleTypeId: result.apple.typeId ?? 'normal',
+        appleTypeId: typeId ?? 'normal',
       });
-      this.showSpecialAppleEffectNotification(result.apple.typeId);
-      if (result.apple.typeId === 'treat' && result.apple.worldPosition) {
-        this.playTreatDance(result.apple.worldPosition);
-      }
-      if (result.apple.worldPosition) {
+      if (showOutcome) this.showSpecialAppleEffectNotification(typeId);
+      if (worldPosition) {
+        const position = this.appleEffectPosition(worldPosition, result.roomId);
         const violenceLevel = Number(this.getFlag<number>('killstreak.appleJuiceLevel') ?? 0);
-        this.juice.appleChomp(
-          result.apple.worldPosition.x,
-          result.apple.worldPosition.y,
-          violenceLevel,
-          result.apple.typeId,
-        );
-        const streak = Number(this.getFlag<number>('appleStreak') ?? 0);
-        this.juice.appleStreak(
-          result.apple.worldPosition.x,
-          result.apple.worldPosition.y,
-          streak,
-          result.apple.typeId,
-        );
-        this.showRaccoonForageFeedbackAt(
-          result.apple.worldPosition.x,
-          result.apple.worldPosition.y,
-        );
-        if (
-          this.snakeGame.getCurrentRoom().biomeId === 'liberty-badlands' &&
-          this.snakeGame.getCurrentRoom().archetypeId === 'gridiron-yard'
-        ) {
-          this.juice.gridironCrowdRoar(result.apple.worldPosition.x, result.apple.worldPosition.y);
+        if (playBite) this.playAppleBite(position, typeId, violenceLevel);
+        if (showOutcome) {
+          const streak = Number(this.getFlag<number>('appleStreak') ?? 0);
+          this.juice.appleStreak(position.x, position.y, streak, typeId);
+        }
+        this.showRaccoonForageFeedbackAt(position.x, position.y);
+        const room = this.snakeGame.getCurrentRoom();
+        if (room.biomeId === 'liberty-badlands' && room.archetypeId === 'gridiron-yard') {
+          this.juice.gridironCrowdRoar(position.x, position.y);
         }
         this.setFlag('killstreak.appleJuiceLevel', undefined);
       }
@@ -4459,6 +4587,11 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private presentStepNotifications(): void {
+    if (this.getFlag('ui.houseRestPulse')) {
+      const cam = this.cameras.main;
+      this.juice.houseRestPulse(cam.midPoint.x, cam.midPoint.y + 10);
+      this.setFlag('ui.houseRestPulse', undefined);
+    }
     const consumedPhoenix = this.getFlag<{ itemId: string }>('equipment.itemPhoenixConsumed');
     if (consumedPhoenix) {
       const item = getItem(consumedPhoenix.itemId);
@@ -5065,7 +5198,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
 
-    if (this.isInHouse()) {
+    if (!this.sceneClient) {
       this.setFlag('timeSinceEat', 0);
       this.houseRestCounter++;
       if (this.houseRestCounter >= 60) {
@@ -6775,11 +6908,17 @@ export default class SnakeScene extends Phaser.Scene {
 
   setDir(x: number, y: number) {
     this.emitInputActionDebug('move', this.inputModeManager.getMode(), `${x},${y}`);
-    this.gameConnection.send({
+    const command = {
       type: 'setDirection',
       playerId: this.snakeGame.getLocalPlayerId(),
       direction: { x, y },
-    });
+    } satisfies ClientCommand;
+    if (this.sceneClient) {
+      this.syncRemoteMovementHold();
+      void this.sceneClient.send(command).catch((error: unknown) => {
+        this.showQuestHintPopup(error instanceof Error ? error.message : String(error), '#ff6b6b');
+      });
+    } else this.gameConnection.send(command);
   }
 
   private isDebugTwoSnakeRequested(): boolean {
@@ -6981,6 +7120,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private handleShutdown(): void {
+    this.closeComputerTerminal?.();
     this.partyOverlay?.destroy();
     this.partyOverlay = null;
     this.serverConnectionMenu?.destroy();
@@ -7051,53 +7191,18 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   getAchievementManager(): AchievementManager {
-    return this.achievementManager;
+    return this.sceneClient ? this.hostedAchievementManager : this.achievementManager;
   }
 
   recordAchievementEvent(event: AchievementEvent): void {
+    if (this.sceneClient) return;
     this.handleAchievementUnlocks(
       this.achievementManager.recordEvent(event, this.createAchievementSnapshot()),
     );
   }
 
   private evaluateAchievements(): void {
-    const enemyDefeated = this.getFlag<{
-      enemyId: string;
-      method: 'eaten' | 'gun' | 'car' | 'other';
-    }>('achievement.enemyDefeated');
-    if (enemyDefeated) {
-      this.recordAchievementEvent({ type: 'enemy:defeated', ...enemyDefeated });
-      this.setFlag('achievement.enemyDefeated', undefined);
-    }
-    const vehicleEnemyRunOver = this.getFlag<{ enemyId: string }>(
-      'achievement.vehicleEnemyRunOver',
-    );
-    if (vehicleEnemyRunOver) {
-      this.recordAchievementEvent({ type: 'vehicle:enemyRunOver', ...vehicleEnemyRunOver });
-      this.setFlag('achievement.vehicleEnemyRunOver', undefined);
-    }
-    const gunKill = this.getFlag<{ targetId: string }>('achievement.gunKill');
-    if (gunKill) {
-      this.recordAchievementEvent({ type: 'combat:gunKill', targetId: gunKill.targetId });
-      this.setFlag('achievement.gunKill', undefined);
-    }
-    const wallSmite = this.getFlag<{ roomId: string }>('achievement.jadeKatanaWallSmite');
-    if (wallSmite) {
-      this.recordAchievementEvent({ type: 'combat:jadeKatanaWallSmite', roomId: wallSmite.roomId });
-      this.setFlag('achievement.jadeKatanaWallSmite', undefined);
-    }
-    const caveClear = this.getFlag<{ caveId: string; templateId: string }>(
-      'achievement.caveAppleRushCleared',
-    );
-    if (caveClear) {
-      this.recordAchievementEvent({ type: 'cave:appleRushCleared', ...caveClear });
-      this.setFlag('achievement.caveAppleRushCleared', undefined);
-    }
-    const companion = this.getFlag<{ companionKind: string }>('achievement.companionAcquired');
-    if (companion) {
-      this.recordAchievementEvent({ type: 'companion:acquired', ...companion });
-      this.setFlag('achievement.companionAcquired', undefined);
-    }
+    for (const event of drainAchievementEvents(this.snakeGame)) this.recordAchievementEvent(event);
     const achievementNowMs = Number(this.getFlag<number>('timeMs') ?? 0);
     const achievementDeltaMs = Math.max(0, achievementNowMs - this.achievementLastEvaluationMs);
     this.achievementLastEvaluationMs = achievementNowMs;
@@ -7272,8 +7377,13 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private handleAchievementUnlocks(unlocks: readonly AchievementUnlockResult[]): void {
+    if (this.sceneClient) return;
+    for (const unlock of unlocks) this.addScoreDirect(unlock.scoreReward);
+    this.presentAchievementUnlocks(unlocks);
+  }
+
+  private presentAchievementUnlocks(unlocks: readonly AchievementUnlockResult[]): void {
     for (const unlock of unlocks) {
-      this.addScoreDirect(unlock.scoreReward);
       this.skillTree?.getOverlay().showAchievementUnlock(unlock);
       this.emitNotificationShown({
         kind: 'achievement',
@@ -8032,15 +8142,23 @@ export default class SnakeScene extends Phaser.Scene {
     return this.pendingFlags[key] as T | undefined;
   }
 
-  private takeManualTurn(): void {
+  private takeManualTurn(direction: Vector2Like): void {
     if (this.sceneClient) {
-      void this.submitRemote({ type: 'manualStep', playerId: this.snakeGame.getLocalPlayerId() });
+      this.syncRemoteMovementHold();
+      void this.submitRemote({
+        type: 'manualStep',
+        playerId: this.snakeGame.getLocalPlayerId(),
+        direction,
+      });
       return;
     }
-    if (this.paused) {
-      return;
+    if (this.isManualHouseMovementActive()) {
+      this.setManualResumeDir(direction.x, direction.y);
+      this.consumeManualResumePause();
+    } else {
+      this.setDir(direction.x, direction.y);
     }
-    this.runActionStep();
+    if (!this.paused) this.runActionStep();
   }
 
   hasFollowers(): boolean {
@@ -8922,7 +9040,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private loadGameFromTitle(): void {
     this.saveLoadMenu?.hide();
-    this.saveLoadMenu = new SaveLoadMenu(this);
+    this.saveLoadMenu = new SaveLoadMenu(this, saveManagerV2);
     this.saveLoadMenu.setControllerMode(this.inputModeManager.getMode() === 'controller');
     this.saveLoadMenu.setDepth(9999);
     this.saveLoadMenu.show(
@@ -8975,7 +9093,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     this.saveLoadMenu?.hide();
-    this.saveLoadMenu = new SaveLoadMenu(this);
+    this.saveLoadMenu = new SaveLoadMenu(this, saveManagerV2);
     this.saveLoadMenu.setControllerMode(this.inputModeManager.getMode() === 'controller');
     this.saveLoadMenu.setDepth(9999);
     this.paused = true;
@@ -9002,6 +9120,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   /** Apply a loaded save to the live game; returns false when the load fails. */
   private applyLoadedGame(sessionId: string, data: GameSaveData): boolean {
+    this.closeComputerTerminal?.();
     // Loading reuses the unique session this save belongs to.
     this.currentSessionId = sessionId;
     const success = this.snakeGame.loadFromSaveData(data);
@@ -10796,6 +10915,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private isModalPopupVisible(): boolean {
     return Boolean(
+      this.closeComputerTerminal ||
       this.questPopup?.isVisible() ||
       this.choicePopupVisible ||
       this.datingScenePopup?.isVisible() ||
@@ -11073,6 +11193,14 @@ export default class SnakeScene extends Phaser.Scene {
           color: result.color,
         };
       });
+    if (itemId === PERSONAL_COMPUTER_ITEM_ID) {
+      const result = this.snakeGame.placeHomeComputer();
+      if (result.ok) {
+        this.gameSession.refreshSnapshot();
+        this.isDirty = true;
+      }
+      return result;
+    }
     const result = this.snakeGame.useInventoryItem(itemId);
     if (result.ok && this.snakeGame.getFarmTool() === itemId) {
       this.showQuestHintPopup(result.message, '#5dd6a2');
@@ -11589,6 +11717,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.dlss5PresentationProcessor.reset();
     }
     this.updateDlss5Reconstruction(dlss5TopDownRetainedActive);
+    this.gameConnection?.recordAuthorityFrame?.();
   }
 
   private isDlss5PresentationEnabled(): boolean {
@@ -11751,6 +11880,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private pollControllerInput(): void {
     const snapshot = this.controllerInput.poll();
+    if (this.closeComputerTerminal) return;
     if (this.fishingActive) {
       this.fishingMinigame?.setControllerPullDirection(snapshot.move?.x ?? 0);
     }
@@ -12013,38 +12143,39 @@ export default class SnakeScene extends Phaser.Scene {
       return this.moveFarmTool(direction);
     }
     this.emitInputActionDebug('move', 'controller', `${direction.x},${direction.y}`);
-    this.setDir(direction.x, direction.y);
-    if (this.isManualHouseMovementActive()) {
-      this.setManualResumeDir(direction.x, direction.y);
-      this.consumeManualResumePause();
-      this.takeManualTurn();
-    } else if (this.minecraftMode && !this.deathCutscene) {
-      this.takeManualTurn();
+    if (this.isManualHouseMovementActive() || (this.minecraftMode && !this.deathCutscene)) {
+      this.takeManualTurn(direction);
+    } else {
+      this.setDir(direction.x, direction.y);
     }
     return true;
   }
 
+  private syncRemoteMovementHold(): void {
+    if (!this.sceneClient || this.remoteConnectionStatus !== 'connected') return;
+    const mode = this.getGameMode();
+    const hold =
+      mode === 'manual-room'
+        ? 'manual'
+        : mode === 'action' || mode === 'driving'
+          ? 'playing'
+          : mode === 'paused'
+            ? 'paused'
+            : 'dialogue';
+    if (
+      this.remoteHold.shouldSend(hold, this.sceneClient.getPlayerInteraction(), performance.now())
+    ) {
+      void this.submitRemote({
+        type: 'playerInteraction',
+        playerId: this.snakeGame.getLocalPlayerId(),
+        mode: hold,
+      });
+    }
+  }
+
   private updateSimulation(deltaMs: number): void {
     if (this.sceneClient) {
-      const mode = this.getGameMode();
-      const hold =
-        mode === 'manual-room'
-          ? 'manual'
-          : mode === 'action' || mode === 'driving'
-            ? 'playing'
-            : mode === 'paused'
-              ? 'paused'
-              : 'dialogue';
-      if (
-        this.remoteConnectionStatus === 'connected' &&
-        this.remoteHold.shouldSend(hold, this.sceneClient.getPlayerInteraction(), performance.now())
-      ) {
-        void this.submitRemote({
-          type: 'playerInteraction',
-          playerId: this.snakeGame.getLocalPlayerId(),
-          mode: hold,
-        });
-      }
+      this.syncRemoteMovementHold();
       this.atmosphereAudioManager.refresh();
       return;
     }
@@ -12828,12 +12959,16 @@ export default class SnakeScene extends Phaser.Scene {
       dx: number;
       dy: number;
       style?: 'bullet' | 'football';
+      presentationId?: number;
     }>('ui.playerShot');
     if (playerShot) {
       const world = this.tileToWorldInRoom({ x: playerShot.x, y: playerShot.y }, playerShot.roomId);
       if (playerShot.style === 'football') {
         this.juice.footballShot(world.x, world.y, playerShot.dx, playerShot.dy);
-      } else {
+      } else if (
+        playerShot.presentationId === undefined ||
+        !this.predictedShots.delete(playerShot.presentationId)
+      ) {
         this.juice.playerShot(world.x, world.y, playerShot.dx, playerShot.dy);
       }
       this.setFlag('ui.playerShot', undefined);
@@ -13339,7 +13474,54 @@ export default class SnakeScene extends Phaser.Scene {
     const room = roomSnapshot?.room ?? this.snakeGame.getCurrentRoom();
     const snakeBody = localPlayer?.body ?? Array.from(this.snakeGame.getSnakeBody());
     const renderedSnakeBody = this.drivingCar?.roomId === room.id ? [] : snakeBody;
-    const currentApple = roomSnapshot?.apples ?? this.currentApple;
+    let currentApple = roomSnapshot ? (roomSnapshot.apples ?? null) : this.currentApple;
+    let hiddenAppleTile: Vector2Like | undefined;
+    if (this.sceneClient && currentApple && !binocularsView) {
+      this.appleBites.useEpoch(snapshot.replication?.epoch);
+      const now = performance.now();
+      const revision = authoritativePlayer?.movementRevision ?? 0;
+      const predictedRevision = this.gameConnection.getMovementPresentationRevision?.() ?? revision;
+      const head = predictedMovement?.body[0];
+      const eligible =
+        this.remoteConnectionStatus === 'connected' &&
+        Boolean(authoritativePlayer?.alive && authoritativePlayer.movementPredictionAllowed) &&
+        room.id === authoritativePlayer?.roomId &&
+        room.id === currentApple.roomId;
+      const [roomX, roomY] = this.parseRoomCoordinates(room.id);
+      const actualHead = authoritativePlayer?.body[0];
+      const authoritativeAtApple =
+        actualHead?.x === currentApple.position.x + roomX * this.grid.cols &&
+        actualHead?.y === currentApple.position.y + roomY * this.grid.rows;
+      let hideApple = this.appleBites.hidden(
+        currentApple,
+        revision,
+        now,
+        eligible,
+        authoritativeAtApple,
+      );
+      if (!hideApple && eligible && head && predictedMovement && predictedRevision > revision) {
+        const tile = {
+          x: head.x - roomX * this.grid.cols,
+          y: head.y - roomY * this.grid.rows,
+        };
+        if (
+          this.appleBites.predict(
+            currentApple,
+            tile,
+            predictedRevision,
+            now,
+            predictedMovement.direction,
+          )
+        ) {
+          this.playAppleBite(this.tileToWorldLocalInRoom(tile), currentApple.typeId);
+          hideApple = true;
+        }
+      }
+      if (hideApple) {
+        hiddenAppleTile = currentApple.position;
+        currentApple = null;
+      }
+    }
     const placedAlchemyStation = this.snakeGame.getAlchemyState().placedStation;
     const baseSense = this.getFlag<number>('geometry.wallSenseRadius') ?? 0;
     const equipSense = this.getFlag<number>('equipment.wallSenseRadiusBonus') ?? 0;
@@ -13392,6 +13574,7 @@ export default class SnakeScene extends Phaser.Scene {
           y: placedAlchemyStation.position.y,
         }
       : null;
+    const computer = this.sceneClient ? undefined : this.snakeGame.getComputerInRoom(room.id);
     const dlss5PresentationEnabled = this.isDlss5PresentationEnabled();
     const firstPersonRendered = this.shouldRenderFirstPerson({
       localPlayer: Boolean(localPlayer),
@@ -13411,6 +13594,7 @@ export default class SnakeScene extends Phaser.Scene {
             footballs,
             bombs: visibleBombs,
             alchemyStation,
+            computer,
             atmosphere,
           })
         : null;
@@ -13453,6 +13637,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.firstPersonInputFacing = null;
       this.firstPersonRenderer.hide();
       this.snakeRenderer.render(room, renderedSnakeBody, room.id, currentApple, {
+        hiddenAppleTile,
         wallSenseRadius,
         snakeColor,
         poweredUp: Boolean(pActive),
@@ -13472,7 +13657,8 @@ export default class SnakeScene extends Phaser.Scene {
           .map((player) => ({
             id: player.id,
             name: player.name,
-            body: this.gameConnection.getPeerMovementPresentation?.(player.id)?.body ?? player.body,
+            body: player.body,
+            presentationBody: this.gameConnection.getPeerMovementPresentation?.(player.id)?.body,
             direction: player.direction,
             appearance: player.appearance,
             activeEmoticon: player.activeEmoticon,
@@ -13489,6 +13675,7 @@ export default class SnakeScene extends Phaser.Scene {
         bombs: visibleBombs,
         animals,
         alchemyStation,
+        computer,
         atmosphere,
         presentationScene:
           dlss5PresentationEnabled && displayPresentationScene
@@ -13501,6 +13688,7 @@ export default class SnakeScene extends Phaser.Scene {
         renderScale: binocularsView ? 1 / 3 : 1,
       });
     }
+    if (predictedMovement) this.gameConnection.recordMovementFrame?.(direction);
     this.drawStructurePlacementPreview(!binocularsView && !firstPersonRendered);
     if (!binocularsView && !firstPersonRendered) {
       this.drawCars(room.id);
@@ -15538,6 +15726,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private async tryInteractHouseGarden(): Promise<boolean> {
+    if (!this.isInHouse()) return false;
     const result = await this.gameConnection.send({
       type: 'worldInteraction',
       action: 'garden',
@@ -15712,20 +15901,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private isInPlayerHouseInterior(): boolean {
-    if (!this.isInHouse()) {
-      return false;
-    }
-    return this.isOnInteriorTile();
-  }
-
-  private isOnInteriorTile(): boolean {
-    const local = this.getHeadLocalInCurrentRoom();
-    if (!local) return false;
-    const room = this.snakeGame.getCurrentRoom();
-    const tile = room.layout[local.y]?.[local.x];
-    if (!tile) return false;
-    // Interior tiles (wood, rug, trim, and furniture) across any generated house.
-    return 'WETCKBPLDRZ'.includes(tile);
+    return this.snakeGame.isInPlayerHouseInterior();
   }
 
   private isManualHouseMovementActive(): boolean {
@@ -15738,17 +15914,8 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private isTurnBasedFreeZone(): boolean {
-    const local = this.getHeadLocalInCurrentRoom();
-    if (!local) {
-      return false;
-    }
-    const room = this.snakeGame.getCurrentRoom();
-    const tile = room.layout[local.y]?.[local.x];
-    if (!tile || tile === '#') {
-      return false;
-    }
-    const bounds = this.getTurnBasedZoneBounds(room);
-    return bounds.some((bound) => this.isLocalInsideRect(local, bound));
+    const head = this.snakeGame.getSnakeBody()[0];
+    return Boolean(head && isManualMovementArea(this.snakeGame.getCurrentRoom(), head, this.grid));
   }
 
   private getHeadLocalInCurrentRoom(): { x: number; y: number } | null {
@@ -15766,128 +15933,6 @@ export default class SnakeScene extends Phaser.Scene {
     return local;
   }
 
-  private getTurnBasedZoneBounds(room: ReturnType<SnakeGame['getCurrentRoom']>): LocalRect[] {
-    if (room.village) {
-      return [room.village.safeArea];
-    }
-    if (room.goblinCamp) {
-      return [room.goblinCamp.safeArea];
-    }
-    if (room.snakeMcDonalds) {
-      return [room.snakeMcDonalds.bounds];
-    }
-    if (room.town) {
-      return [getTownTurnBasedBounds(this.grid)];
-    }
-    if (room.molemanDigSite) {
-      return [room.molemanDigSite.bounds];
-    }
-    if (room.garage) {
-      return [room.garage.bounds];
-    }
-    if (
-      room.allNiteDiner ||
-      room.fireworkStand ||
-      room.roadsideMonument ||
-      room.jackalopeLodge ||
-      room.gridironYard
-    ) {
-      const bounds = this.getTileBounds(room, 'AELMNPRWFG');
-      return bounds ? [bounds] : [];
-    }
-    if (room.questGiver) {
-      const bounds = this.getTileBounds(room, 'WETG');
-      return bounds ? [bounds] : [];
-    }
-    // Snake Cane's gets turn-based movement like houses
-    if (room.snakeCanes) {
-      const bounds = this.getTileBounds(room, 'WETVK');
-      return bounds ? [bounds] : [];
-    }
-    // Bullet train stations get turn-based movement like houses
-    if (room.bulletTrainStation) {
-      const bounds = this.getBulletTrainStationBounds(room);
-      return bounds ? [bounds] : [];
-    }
-    if (!this.isInHouse()) {
-      return [];
-    }
-    const bounds = this.getTileBounds(room, 'WETCKBPLDRZ');
-    return bounds ? [bounds] : [];
-  }
-
-  /** Get the turn-based zone bounds for a bullet train station. */
-  private getBulletTrainStationBounds(
-    room: ReturnType<SnakeGame['getCurrentRoom']>,
-  ): LocalRect | null {
-    const station = room.bulletTrainStation;
-    if (!station) return null;
-
-    const { entranceX, entranceY, decorations } = station;
-
-    // Start with the entrance tile
-    let left = entranceX;
-    let top = entranceY;
-    let right = entranceX;
-    let bottom = entranceY;
-
-    // Expand bounds to include all decorations
-    for (const deco of decorations) {
-      const dx = deco.x;
-      const dy = deco.y;
-      left = Math.min(left, dx);
-      top = Math.min(top, dy);
-      right = Math.max(right, dx);
-      bottom = Math.max(bottom, dy);
-    }
-
-    // Also include the platform tiles that are drawn around the entrance
-    // but not covered by decorations (the platform extends to entranceX±4, entranceY±1)
-    left = Math.min(left, entranceX - 4);
-    top = Math.min(top, entranceY - 2);
-    right = Math.max(right, entranceX + 4);
-    bottom = Math.max(bottom, entranceY + 2);
-
-    if (left > right || top > bottom) {
-      return null;
-    }
-    return { left, top, width: right - left + 1, height: bottom - top + 1 };
-  }
-
-  private getTileBounds(
-    room: ReturnType<SnakeGame['getCurrentRoom']>,
-    tileSet: string,
-  ): LocalRect | null {
-    let left = Number.POSITIVE_INFINITY;
-    let top = Number.POSITIVE_INFINITY;
-    let right = Number.NEGATIVE_INFINITY;
-    let bottom = Number.NEGATIVE_INFINITY;
-    for (let y = 0; y < room.layout.length; y += 1) {
-      const row = room.layout[y] ?? '';
-      for (let x = 0; x < row.length; x += 1) {
-        if (tileSet.includes(row[x] ?? '')) {
-          left = Math.min(left, x);
-          top = Math.min(top, y);
-          right = Math.max(right, x);
-          bottom = Math.max(bottom, y);
-        }
-      }
-    }
-    if (!Number.isFinite(left) || !Number.isFinite(top)) {
-      return null;
-    }
-    return { left, top, width: right - left + 1, height: bottom - top + 1 };
-  }
-
-  private isLocalInsideRect(local: { x: number; y: number }, rect: LocalRect): boolean {
-    return (
-      local.x >= rect.left &&
-      local.x < rect.left + rect.width &&
-      local.y >= rect.top &&
-      local.y < rect.top + rect.height
-    );
-  }
-
   private consumeManualResumePause(): void {
     if (this.sceneClient) return;
     if (this.getFlag<boolean>('traversal.manualResumePending')) {
@@ -15896,8 +15941,8 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private returnFromManualResumePause(): boolean {
-    if (!this.sceneClient) return this.snakeGame.returnFromManualResumePause();
-    if (!this.getFlag<boolean>('traversal.manualResumePending')) return false;
+    if (!this.sceneClient) return this.snakeGame.returnFromManualResumePause().ok;
+    if (!this.snakeGame.canReturnFromManualResumePause()) return false;
     void this.submitRemote({ type: 'manualReturn', playerId: this.snakeGame.getLocalPlayerId() });
     return true;
   }
@@ -16615,9 +16660,12 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private getQuestGiverHint(): { text: string } | null {
-    if (this.isInHouse() || this.paused || this.offeredQuest) {
-      return null;
+    if (this.paused || this.offeredQuest) return null;
+    const computer = !this.sceneClient && this.snakeGame.getNearbyComputer();
+    if (computer) {
+      return { text: `Use ${computer.hostname} (${this.getInteractPromptText()})` };
     }
+    if (this.isInHouse()) return null;
     const questActorHint = this.snakeGame.getNearbyQuestActorHint();
     if (questActorHint) {
       return { text: questActorHint };
@@ -16890,6 +16938,48 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   /** The station is selected in inventory, then deployed through a validated world intent. */
+  private tryInteractComputer(): boolean {
+    if (this.sceneClient || this.paused || this.offeredQuest || this.choicePopupVisible) {
+      return false;
+    }
+    try {
+      const runtime = this.snakeGame.openNearbyComputer((message) =>
+        this.showQuestHintPopup(message, '#9ad1ff'),
+      );
+      if (!runtime) return false;
+      this.paused = true;
+      const keyboard = this.input.keyboard;
+      const keyboardWasEnabled = keyboard?.enabled ?? false;
+      if (keyboard) keyboard.enabled = false;
+      const resume = (): void => {
+        if (keyboard) keyboard.enabled = keyboardWasEnabled;
+        this.closeComputerTerminal = null;
+        this.paused = false;
+        this.isDirty = true;
+      };
+      try {
+        this.closeComputerTerminal = openComputerTerminal({
+          runtime,
+          onChange: () => {
+            if (this.snakeGame.persistNearbyComputer(runtime)) {
+              this.gameSession.refreshSnapshot();
+            }
+          },
+          onClose: resume,
+        });
+      } catch (error) {
+        resume();
+        throw error;
+      }
+    } catch (error) {
+      this.showQuestHintPopup(
+        error instanceof Error ? error.message : 'Could not start SnekOS.',
+        '#ff6b6b',
+      );
+    }
+    return true;
+  }
+
   private tryPlaceAlchemyStation(): boolean {
     if (!this.snakeGame.getFlag<boolean>('alchemy.placementArmed')) return false;
     if (this.paused || this.offeredQuest || this.choicePopupVisible) return true;
@@ -17321,6 +17411,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.saveLoadMenu) stack.push('save-load-menu');
     if (this.skillTree?.isOverlayVisible()) stack.push('skill-tree');
     if (this.pauseUI?.isVisible()) stack.push('pause-menu');
+    if (this.closeComputerTerminal) stack.push('computer-terminal');
     const panel = stack[stack.length - 1] ?? null;
     const pauseOwner = this.deathCutscene
       ? 'death-cutscene'

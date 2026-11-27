@@ -12,6 +12,23 @@ import type { GameInteractionView } from './GameInteraction.js';
 import type { SceneClientState } from './SceneClientState.js';
 import type { PlayerInteraction } from './SceneActionCommand.js';
 
+export interface HostedCheckpointSummary {
+  timestamp: number;
+  score: number;
+  seed?: string;
+}
+
+export function isViewportNpc(actor: Actor): boolean {
+  return Boolean(
+    actor.presence?.materialized &&
+    actor.health?.state !== 'dead' &&
+    actor.hostility !== 'dead' &&
+    !actor.flags.dead &&
+    !actor.flags.eaten &&
+    !['enemy', 'animal', 'boss', 'follower', 'summon'].includes(actor.kind),
+  );
+}
+
 export interface GameSnapshot {
   movementSequence?: number;
   replication?: { epoch: number; roomRevisions: Record<string, number> };
@@ -28,7 +45,7 @@ export interface GameSnapshot {
   minigame?: import('./MinigameSnapshot.js').MinigameSnapshot | null;
   /** Player-specific synchronous selectors for the normal scene's menus and HUD. */
   clientState?: SceneClientState;
-  persistence?: { slotId: string; checkpoint: import('../game/saveTypes.js').GameSaveData | null };
+  persistence?: { slotId: string; checkpoint: HostedCheckpointSummary | null };
   permissions?: { manageWorld: boolean };
   connections?: Record<string, ConnectionPresence>;
   presentation?: {

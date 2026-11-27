@@ -56,6 +56,11 @@ export class ClientMovementPredictor {
   private clockSamples: Array<{ rtt: number; offset: number }> = [];
   private clockSampleFloor = 0;
   private latestServerTick = 0;
+  directionIgnored = false;
+  private readonly frameInputs = new Map<
+    number,
+    { direction: Vector2Like; revision: number; at: number }
+  >();
   private lastIntent: { intendedRevision: number; estimatedServerTimeMs: number } | undefined;
   private diagnostics = {
     intervalMs: 0,
@@ -72,6 +77,9 @@ export class ClientMovementPredictor {
     correctionCount: 0,
     maximumCorrectionTiles: 0,
     lastInputRejection: '',
+    lastInputToFrameMs: 0,
+    maximumInputToFrameMs: 0,
+    inputToFrameSamples: 0,
   };
 
   synchronizeClock(sent: number, received: number, serverTime: number): void {
@@ -88,8 +96,40 @@ export class ClientMovementPredictor {
       this.accept(this.seed, this.epoch, this.latestServerTick, received, true);
   }
 
+  resetClock(now = performance.now()): void {
+    this.clockOffset = null;
+    this.clockSamples = [];
+    this.clockSampleFloor = now;
+    this.diagnostics.clockErrorMs = 0;
+    this.diagnostics.inputLatencyMs = 0;
+  }
+
+  get presentationRevision(): number {
+    return (this.seed?.movementRevision ?? 0) + this.steps;
+  }
+
   get turnIntent() {
     return this.lastIntent;
+  }
+  recordMovementFrame(direction: Vector2Like, now = performance.now()): void {
+    const revision = this.presentationRevision;
+    for (const [sequence, input] of this.frameInputs) {
+      if (input.revision > revision) continue;
+      this.frameInputs.delete(sequence);
+      if (
+        input.revision !== revision ||
+        input.direction.x !== direction.x ||
+        input.direction.y !== direction.y
+      )
+        continue;
+      const latency = Math.max(0, now - input.at);
+      this.diagnostics.lastInputToFrameMs = latency;
+      this.diagnostics.maximumInputToFrameMs = Math.max(
+        this.diagnostics.maximumInputToFrameMs,
+        latency,
+      );
+      this.diagnostics.inputToFrameSamples++;
+    }
   }
   getDiagnostics() {
     return { ...this.diagnostics };
@@ -145,24 +185,19 @@ export class ClientMovementPredictor {
       (now - this.clockOffset - tick > MAX_CONNECTED_MOVEMENT_LEAD_MS ||
         now - this.clockOffset - tick < -40)
     ) {
-      this.clockSamples = [];
-      this.clockOffset = null;
-      this.clockSampleFloor = now;
+      this.resetClock(now);
       continuous = false;
     }
     if (resetClock && !this.clockSamples.length) this.clockOffset = null;
     if (!this.seed?.movementPredictionAllowed || !player?.movementPredictionAllowed) {
-      this.clockSamples = [];
-      this.clockOffset = null;
-      this.clockSampleFloor = now;
+      this.resetClock(now);
       continuous = false;
     }
     if (this.epoch !== epoch) {
       this.history.clear();
       this.liveInputs = [];
-      this.clockSamples = [];
-      this.clockOffset = null;
-      this.clockSampleFloor = now;
+      this.frameInputs.clear();
+      this.resetClock(now);
     }
     const predicted = this.history.get(base);
     this.diagnostics.serverAppliedRevision = player?.movementAppliedTurnRevision ?? 0;
@@ -215,7 +250,7 @@ export class ClientMovementPredictor {
     this.steps = 0;
     this.stopped = false;
     this.blockedDirectionPrepared = false;
-    if (!this.connected || !player || !this.rooms.has(player.roomId)) return;
+    if (!this.connected || !player) return;
     if (!this.clockSamples.length)
       this.clockOffset = Math.max(
         now - tick - MAX_CONNECTED_MOVEMENT_LEAD_MS,
@@ -224,6 +259,7 @@ export class ClientMovementPredictor {
     // A received authority timestamp is a hard lower bound on server time,
     // including after a paused simulation resumes or advances in a test harness.
     this.clockOffset = Math.min(this.clockOffset ?? Infinity, now - tick);
+    if (!this.rooms.has(player.roomId)) return;
     const horizon = Math.min(
       MAX_CONNECTED_MOVEMENT_LEAD_MS,
       Math.max(0, now - (this.clockOffset ?? now - tick) - tick),
@@ -290,9 +326,8 @@ export class ClientMovementPredictor {
     this.queue = null;
     this.liveInputs = [];
     this.history.clear();
-    this.clockOffset = null;
-    this.clockSamples = [];
-    this.clockSampleFloor = this.lastAt;
+    this.frameInputs.clear();
+    this.resetClock(this.lastAt);
     this.lastPresentedAt = null;
   }
   begin(connectionId: string, now = performance.now()): void {
@@ -322,12 +357,14 @@ export class ClientMovementPredictor {
   }
   direction(direction: Vector2Like, now = performance.now(), sequence?: number): boolean {
     this.lastIntent = undefined;
+    this.directionIgnored = false;
     if (
       !Number.isInteger(direction.x) ||
       !Number.isInteger(direction.y) ||
       Math.abs(direction.x) + Math.abs(direction.y) !== 1 ||
       !this.queue ||
-      !this.seed?.movementPredictionAllowed
+      !this.seed?.movementPredictionAllowed ||
+      (sequence !== undefined && (!this.connected || this.clockOffset === null))
     )
       return false;
     this.advance(now);
@@ -368,6 +405,7 @@ export class ClientMovementPredictor {
       this.queue.nextDirection.x !== this.queue.direction.x ||
       this.queue.nextDirection.y !== this.queue.direction.y;
     const accepted = queueSnakeDirection(this.queue, direction);
+    this.directionIgnored = !accepted;
     if (accepted) {
       const input = {
         revision: inputRevision,
@@ -376,25 +414,38 @@ export class ClientMovementPredictor {
       };
       this.liveInputs.push(input);
       this.appliedInputs.add(input);
-      this.lastIntent = {
-        intendedRevision: input.revision + (buffered ? 2 : 1),
-        estimatedServerTimeMs: Math.max(0, now - (this.clockOffset ?? now)),
-      };
-      this.diagnostics.intendedRevision = this.lastIntent.intendedRevision;
+      if (this.clockOffset !== null) {
+        this.lastIntent = {
+          intendedRevision: input.revision + (buffered ? 2 : 1),
+          estimatedServerTimeMs: Math.max(0, now - this.clockOffset),
+        };
+        this.diagnostics.intendedRevision = this.lastIntent.intendedRevision;
+        if (sequence !== undefined) {
+          if (this.frameInputs.size >= MAX_RESUME_INPUTS) {
+            const oldest = this.frameInputs.keys().next().value;
+            if (oldest !== undefined) this.frameInputs.delete(oldest);
+          }
+          this.frameInputs.set(sequence, {
+            direction: { ...direction },
+            revision: this.lastIntent.intendedRevision,
+            at: now,
+          });
+        }
+      }
       this.diagnostics.lastInputRejection = '';
     }
     return accepted;
   }
   rejectDirection(sequence: number, reason = 'input-rejected'): void {
+    this.frameInputs.delete(sequence);
     this.liveInputs = this.liveInputs.filter((input) => input.sequence !== sequence);
     this.diagnostics.correctionReason = reason;
     this.diagnostics.lastInputRejection = reason;
   }
   discardReplayedInputs(): void {
-    if (this.startedAt !== null) {
-      this.liveInputs = [];
-      this.appliedInputs.clear();
-    }
+    this.frameInputs.clear();
+    this.liveInputs = [];
+    this.appliedInputs.clear();
   }
 
   advance(now = performance.now()): void {

@@ -129,6 +129,8 @@ describe('Liberty footballs', () => {
   it('anchors football FX flags to global tile coordinates in non-origin rooms', () => {
     const game = createGame();
     const { cols } = defaultGameConfig.grid;
+    const room = game.getRoom('1,0,0');
+    room.layout = room.layout.map((row) => '.'.repeat(row.length));
 
     game.spawnFootball('1,0,0', { x: 5, y: 5 }, { x: 1, y: 0 });
 
@@ -148,7 +150,6 @@ describe('Liberty footballs', () => {
     game.setFlag('ui.footballCatch', undefined);
 
     game.placeSnakeBodyAtLocal('1,0,0', { x: 10, y: 10 }, { x: 1, y: 0 });
-    const room = game.getRoom('1,0,0');
     const rows = room.layout.map((row) => row.split(''));
     rows[5]![7] = '#';
     room.layout = rows.map((row) => row.join(''));

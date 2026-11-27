@@ -43,5 +43,8 @@ describe('normal scene read replica boundary', () => {
     expect(replica.game.getScore()).toBe(99);
     expect(game.getInventory().getItemCount('boots-quick')).toBe(2);
     expect(game.getFlag('replica.test')).toEqual({ count: 7 });
+    const refreshed = session.getSnapshot();
+    replica.hydrate({ ...refreshed, clientState: { ...refreshed.clientState!, worldRooms: [] } });
+    expect(replica.game.getCurrentRoom()).toEqual(game.getCurrentRoom());
   });
 });

@@ -2,6 +2,7 @@ import { isRecord } from '../core/saveNormalize.js';
 import type { Vector2Like } from '../core/math.js';
 
 export const MOVEMENT_GRACE_MS = 3000;
+export const CONNECTION_RECOVERY_MS = 30000;
 export const MAX_PREDICTED_STEPS = 30;
 export const MAX_RESUME_INPUTS = 64;
 export const MAX_CONNECTED_MOVEMENT_LEAD_MS = 250;

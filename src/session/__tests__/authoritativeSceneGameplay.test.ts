@@ -126,6 +126,18 @@ describe('normal scene commands on the headless authority', () => {
       ok: true,
     });
     expect(session.getSnapshot().players[alice].body[0]).toEqual({ x: 6, y: 12 });
+    const up = session.executeCommand({
+      type: 'manualStep',
+      playerId: alice,
+      direction: { x: 0, y: -1 },
+    });
+    const left = session.executeCommand({
+      type: 'manualStep',
+      playerId: alice,
+      direction: { x: -1, y: 0 },
+    });
+    expect(await Promise.all([up, left])).toEqual([{ ok: true }, { ok: true }]);
+    expect(session.getSnapshot().players[alice].body[0]).toEqual({ x: 5, y: 11 });
     expect(await session.executeCommand({ type: 'manualStep', playerId: bob })).toMatchObject({
       ok: false,
     });

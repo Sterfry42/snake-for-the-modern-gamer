@@ -15,6 +15,7 @@ import type {
   AppleConsumptionContext,
 } from './types.js';
 import { AppleRegistry } from './appleRegistry.js';
+import { parseCoordinateRoomId } from '../world/roomAddress.js';
 import { getDebugBus } from '../debug/debugRuntime.js';
 
 export interface WeatherAppleContext {
@@ -41,6 +42,7 @@ export interface AppleConsumptionResult {
   changed: boolean;
   snapshot: AppleSnapshot | null;
   typeId?: string;
+  consumedSpawnId?: number;
 }
 
 interface AppleSpawnOption extends Vector2Like {
@@ -279,6 +281,7 @@ export class AppleService {
       changed: true,
       snapshot: null,
       typeId: apple.typeId,
+      consumedSpawnId: apple.spawnId,
     };
   }
 
@@ -288,19 +291,12 @@ export class AppleService {
 
   clearAll(): void {
     this.apples.clear();
-    this.nextAppleId = 0;
   }
 
   private appleWorldPosition(apple: AppleInstance): Vector2Like {
-    if (apple.roomId.startsWith('cave:')) {
-      return {
-        x: (apple.position.x + 0.5) * this.grid.cell,
-        y: (apple.position.y + 0.5) * this.grid.cell,
-      };
-    }
-    const [roomX, roomY] = apple.roomId.split(',').map(Number);
-    const worldX = (roomX * this.grid.cols + apple.position.x + 0.5) * this.grid.cell;
-    const worldY = (roomY * this.grid.rows + apple.position.y + 0.5) * this.grid.cell;
+    const room = parseCoordinateRoomId(apple.roomId);
+    const worldX = ((room?.x ?? 0) * this.grid.cols + apple.position.x + 0.5) * this.grid.cell;
+    const worldY = ((room?.y ?? 0) * this.grid.rows + apple.position.y + 0.5) * this.grid.cell;
     return { x: worldX, y: worldY };
   }
 
@@ -682,7 +678,8 @@ export class AppleService {
   }
 
   private trackApple(apple: AppleInstance): void {
-    this.apples.set(`apple:${this.nextAppleId++}`, apple);
+    apple.spawnId ??= ++this.nextAppleId;
+    this.apples.set(`apple:${apple.spawnId}`, apple);
   }
 
   private untrackApple(apple: AppleInstance): void {

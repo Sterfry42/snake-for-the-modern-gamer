@@ -6,20 +6,35 @@ import { createServer } from 'node:http';
 import { randomUUID, randomBytes, timingSafeEqual, createHash } from 'node:crypto';
 import { SpawnAreaUnavailable } from '../players/safePlayerSpawn.js';
 import { WebSocketServer, WebSocket } from 'ws';
-import { AuthoritativeGameSession } from '../session/AuthoritativeGameSession.js';
+import type { GameServerSession } from './GameServerSession.js';
 import {
   GAME_PROTOCOL_VERSION,
-  parseCommandMessage,
+  readCommandMessage,
   type ServerMessage,
 } from '../session/gameProtocol.js';
-import { SnapshotDeltaEncoder } from '../session/SnapshotDelta.js';
-import { MOVEMENT_GRACE_MS, parseMovementHello } from '../session/MovementResume.js';
+import type { NetworkPublication } from '../session/NetworkPublication.js';
+import {
+  isImmediateGameEvent,
+  type GameEvent,
+  type GameEventTiming,
+} from '../session/GameEvent.js';
+import {
+  markMultiplayer,
+  MultiplayerProfiler,
+  multiplayerCommandType,
+  multiplayerNow,
+  multiplayerProfilingEnabled,
+  multiplayerThresholds,
+  type MultiplayerCommandTrace,
+} from '../session/MultiplayerProfiler.js';
+import { CONNECTION_RECOVERY_MS, parseMovementHello } from '../session/MovementResume.js';
 import type { ServerPerformanceReport } from '../session/ServerPerformance.js';
 import { defaultAllowedOrigins, isAllowedGameOrigin } from './originPolicy.js';
 
 export interface GameServerOptions {
   hostToken?: string;
   onDiagnostic?: DiagnosticSink;
+  profileMultiplayer?: boolean;
   onPerformance?: (report: ServerPerformanceReport) => void;
   /**
    * Browser origins allowed to open game sockets. Defaults to the built-in
@@ -29,22 +44,18 @@ export interface GameServerOptions {
 }
 
 /** Transport only. The session owns player allocation and gameplay. */
-export function createGameServer(
-  session: AuthoritativeGameSession,
-  options: GameServerOptions = {},
-) {
+export function createGameServer(session: GameServerSession, options: GameServerOptions = {}) {
   session.configureHosting();
-  const channels = new Map<
-    string,
-    {
-      socket: WebSocket;
-      encoder: SnapshotDeltaEncoder;
-      pending: Array<{
-        message: ServerMessage;
-        command?: { type: string; receivedAt: number; requestId: number };
-      }>;
-    }
-  >();
+  const profiler = new MultiplayerProfiler(
+    options.profileMultiplayer ?? multiplayerProfilingEnabled(),
+  );
+  type Channel = {
+    socket: WebSocket;
+    pending: Array<{ event: GameEvent; sequence: number; trace?: MultiplayerCommandTrace }>;
+    transition?: Promise<void>;
+    recordedMovement?: { epoch?: number; revision: number; at: number };
+  };
+  const channels = new Map<string, Channel>();
   const socketDetails = new WeakMap<
     WebSocket,
     {
@@ -58,6 +69,8 @@ export function createGameServer(
       rttMs?: number;
       closeCause?: string;
       sentBytes: number;
+      lastRequestId: number;
+      lastSlowAckAt: number;
       maximumBufferedBytes: number;
       commands: number;
       rejected: number;
@@ -65,6 +78,9 @@ export function createGameServer(
       maximumCommandMs: number;
       maximumAckMs: number;
       lastCommandWarningAt: number;
+      lastMovementAttempt?: { type: string; requestId: number; at: number };
+      lastMovementCommand?: { type: string; accepted: boolean; requestId: number };
+      lastMovementRejection?: { reason: string; requestId: number };
     }
   >();
   let diagnosticFailed = false;
@@ -87,6 +103,9 @@ export function createGameServer(
   let pendingAttachments = 0;
   let skippedNetworkTicks = 0;
   let maximumPublicationMs = 0;
+  let lastSlowPublicationAt = -Infinity;
+  let lastSlowEncodingAt = -Infinity;
+  let maximumImmediateEventMs = 0;
   let lastPublicationAt = performance.now();
   const closeSocket = (socket: WebSocket, code: number, cause: string, reason: string) => {
     const details = socketDetails.get(socket);
@@ -102,7 +121,7 @@ export function createGameServer(
     socket.close(code, reason);
   };
   const active = new Map<string, { socket: WebSocket; connectionId: string }>();
-  const suspensionTimers = new Set<ReturnType<typeof setTimeout>>();
+  const suspensionTimers = new Map<string, ReturnType<typeof setTimeout>>();
   let closing = false;
   let initialCharacterClaimed =
     session.hasClaimedPrimaryCharacter() ||
@@ -132,25 +151,32 @@ export function createGameServer(
       sockets.emit('connection', ws, request);
     });
   });
-  const publish = (socket: WebSocket, message: ServerMessage) => {
+  const serialize = (message: ServerMessage) => {
+    const text = JSON.stringify(message);
+    return { text, bytes: Buffer.byteLength(text) };
+  };
+  const publishPayload = (
+    socket: WebSocket,
+    type: ServerMessage['type'],
+    { text, bytes }: ReturnType<typeof serialize>,
+    serializeMs: number,
+  ) => {
     if (socket.readyState !== WebSocket.OPEN) return;
     if (socket.bufferedAmount > 4 * 1024 * 1024) {
       closeSocket(socket, 1013, 'outbound-backpressure', 'Client is too slow');
       return;
     }
-    const startedAt = performance.now();
-    const serialized = JSON.stringify(message);
-    if (message.type === 'welcome' || message.type === 'delta')
-      session.performance.payload(Buffer.byteLength(serialized), performance.now() - startedAt);
-    else if (message.type === 'movement')
-      session.performance.movement(Buffer.byteLength(serialized), performance.now() - startedAt);
+    profiler.record('wire/' + type + '/bytes', bytes);
+    profiler.record('wire/' + type + '/serialization', serializeMs);
+    if (type === 'welcome' || type === 'delta') session.performance.payload(bytes, serializeMs);
+    else if (type === 'movement') session.performance.movement(bytes, serializeMs);
     const details = socketDetails.get(socket);
     if (details) {
-      details.sentBytes += Buffer.byteLength(serialized);
+      details.sentBytes += bytes;
       details.maximumBufferedBytes = Math.max(details.maximumBufferedBytes, socket.bufferedAmount);
     }
-    socket.send(serialized, (error) => {
-      if (!error) return;
+    socket.send(text, (error) => {
+      if (!error || (details?.closeCause && 'code' in error && error.code === 'ECANCELED')) return;
       log('error', 'socket.send-failed', {
         connectionId: details?.connectionId,
         playerId: details?.playerId,
@@ -158,63 +184,175 @@ export function createGameServer(
       });
     });
   };
+  const publish = (
+    socket: WebSocket,
+    message: ServerMessage,
+    prepared?: ReturnType<typeof serialize>,
+  ) => {
+    if (socket.readyState !== WebSocket.OPEN) return;
+    const startedAt = performance.now();
+    const payload = prepared ?? serialize(message);
+    publishPayload(socket, message.type, payload, prepared ? 0 : performance.now() - startedAt);
+  };
+  const eventTrace = (
+    connectionId: string,
+    event: GameEvent,
+    sequence: number,
+    timing?: GameEventTiming,
+  ) => {
+    const trace = profiler.begin(connectionId + ':event:' + sequence, 'event/' + event.type);
+    if (trace) {
+      trace.times['event-generated'] = timing?.generatedAt;
+      trace.parentId = timing?.correlationId;
+      markMultiplayer(trace, 'network-received');
+    }
+    return trace;
+  };
+  const publishEvent = (
+    socket: WebSocket,
+    event: GameEvent,
+    sequence: number,
+    trace?: MultiplayerCommandTrace,
+  ) => {
+    markMultiplayer(trace, 'network-send');
+    publish(socket, { type: 'event', event, sequence });
+    profiler.finish(trace);
+  };
+  const recordMovement = (
+    channel: Channel,
+    connectionId: string,
+    playerId: string,
+    revision?: number,
+    epoch?: number,
+  ) => {
+    if (revision === undefined) return;
+    const at = performance.now();
+    const previous = channel.recordedMovement;
+    if (
+      previous &&
+      previous.epoch === epoch &&
+      (revision < previous.revision || (revision === previous.revision && at - previous.at < 1000))
+    )
+      return;
+    channel.recordedMovement = { epoch, revision, at };
+    session.recordPublishedMovementRevision(connectionId, playerId, revision);
+  };
+  const deliverPublication = (publication: NetworkPublication) => {
+    const { connectionId, playerId, roomId, encoded } = publication;
+    const channel = channels.get(connectionId);
+    if (!channel || channel.socket.readyState !== WebSocket.OPEN) return;
+    const details = socketDetails.get(channel.socket)!;
+    if (details.roomId !== roomId)
+      log('info', 'room.transition-published', {
+        connectionId,
+        playerId,
+        fromRoomId: details.roomId,
+        roomId,
+        movementRevision: publication.movementRevision,
+      });
+    details.roomId = roomId;
+    if (encoded) {
+      profiler.record('publication/delta-encode', encoded.encodeMs);
+      if (encoded.categoryBytes)
+        for (const [category, bytes] of Object.entries(encoded.categoryBytes))
+          profiler.record('publication/bytes/' + category, bytes);
+      if (
+        encoded.encodeMs >= multiplayerThresholds.encoding &&
+        performance.now() - lastSlowEncodingAt >= 1000
+      ) {
+        lastSlowEncodingAt = performance.now();
+        log('info', 'network.delta-encode-slow', { playerId, roomId, encodeMs: encoded.encodeMs });
+      }
+      publishPayload(
+        channel.socket,
+        'delta',
+        { text: encoded.text, bytes: Buffer.byteLength(encoded.text) },
+        encoded.serializationMs,
+      );
+      recordMovement(
+        channel,
+        connectionId,
+        playerId,
+        publication.movementRevision,
+        publication.epoch,
+      );
+    }
+    // Only events already generated by the authority when it took this
+    // projection may run against it. Later events wait for their own projection.
+    const next = channel.pending.findIndex(({ sequence }) => sequence > publication.eventSequence);
+    for (const { event, sequence, trace } of channel.pending.splice(
+      0,
+      next === -1 ? channel.pending.length : next,
+    ))
+      publishEvent(channel.socket, event, sequence, trace);
+  };
   const movementSubscription = session.onMovement((update) => {
     const publicPlayer = { ...update.player };
     delete publicPlayer.movementGrid;
     delete publicPlayer.movementPredictionAllowed;
     delete publicPlayer.acknowledgedDirectionSequence;
     delete publicPlayer.directionQueue;
-    const publicUpdate = { ...update, player: publicPlayer };
+    const publicMessage: ServerMessage = {
+      type: 'movement',
+      update: { ...update, player: publicPlayer },
+    };
+    let publicPayload: ReturnType<typeof serialize> | undefined;
     for (const [id, channel] of channels) {
       if (channel.socket.readyState !== WebSocket.OPEN) continue;
-      if (socketDetails.get(channel.socket)?.playerId === update.player.id)
-        session.recordPublishedMovement(id, update);
-      publish(channel.socket, {
-        type: 'movement',
-        update:
-          socketDetails.get(channel.socket)?.playerId === update.player.id ? update : publicUpdate,
-      });
       const details = socketDetails.get(channel.socket)!;
-      if (details.playerId === update.player.id && details.roomId !== update.player.roomId) {
-        details.roomId = update.player.roomId;
-        void session
-          .getConnectionSnapshot(update.player.id)
-          .then((snapshot) => {
-            publish(channel.socket, {
-              type: 'delta',
-              delta: channel.encoder.encode(snapshot, true),
+      if (details.playerId === update.player.id) {
+        recordMovement(channel, id, update.player.id, update.player.movementRevision, update.epoch);
+        publish(channel.socket, { type: 'movement', update });
+        if (details.roomId !== update.player.roomId && !channel.transition) {
+          channel.transition = session
+            .publishConnectionState(id)
+            .then((publication) => {
+              if (publication) deliverPublication(publication);
+            })
+            .catch((error: unknown) =>
+              log('error', 'network.room-transition-failed', { connectionId: id, error }),
+            )
+            .finally(() => {
+              channel.transition = undefined;
             });
-            flushEvents(channel);
-          })
-          .catch((error: unknown) =>
-            log('error', 'network.room-transition-failed', { connectionId: id, error }),
-          );
+        }
+      } else {
+        // Charge serialization to the first send, then reuse the bytes for peers.
+        if (!publicPayload) {
+          const startedAt = performance.now();
+          publicPayload = serialize(publicMessage);
+          session.performance.movementEncoding(performance.now() - startedAt);
+        }
+        publish(channel.socket, publicMessage, publicPayload);
       }
     }
   });
-  const flushEvents = (channel: {
-    socket: WebSocket;
-    pending: Array<{ message: ServerMessage }>;
-  }) => {
-    for (const entry of channel.pending.splice(0)) publish(channel.socket, entry.message);
-  };
   const acknowledge = (
     socket: WebSocket,
     command: { receivedAt: number; requestId: number; type: string },
     result: import('../session/ClientCommand.js').CommandResult,
+    trace?: MultiplayerCommandTrace,
   ) => {
     const state = socketDetails.get(socket)!;
     const ackMs = performance.now() - command.receivedAt;
     state.maximumAckMs = Math.max(state.maximumAckMs, ackMs);
-    if (ackMs > 500)
-      log('warn', 'command.slow-ack', {
+    if (
+      ackMs >= multiplayerThresholds.acknowledgment &&
+      performance.now() - state.lastSlowAckAt >= 1000
+    ) {
+      state.lastSlowAckAt = performance.now();
+      log('info', 'command.slow-ack', {
         connectionId: state.connectionId,
         playerId: state.playerId,
         commandType: command.type,
         requestId: command.requestId,
+        correlationId: state.connectionId + ':' + command.requestId,
         ackMs,
       });
+    }
+    markMultiplayer(trace, 'network-send');
     publish(socket, { type: 'result', id: command.requestId, result });
+    profiler.finish(trace);
   };
   sockets.on('connection', (socket, request) => {
     const connectionId = randomUUID();
@@ -225,6 +363,8 @@ export function createGameServer(
       lastReceivedAt: openedAt,
       lastPongAt: openedAt,
       sentBytes: 0,
+      lastRequestId: 0,
+      lastSlowAckAt: -Infinity,
       maximumBufferedBytes: 0,
       commands: 0,
       rejected: 0,
@@ -335,7 +475,7 @@ export function createGameServer(
       }
       const digest = (token: string) => createHash('sha256').update(token).digest('hex');
       let playerId = requestedToken
-        ? session.resolveResumeDigest(digest(requestedToken))
+        ? await session.resolveResumeDigest(digest(requestedToken))
         : undefined;
       const knownIdentity = Boolean(playerId);
       const resumeToken = playerId ? requestedToken : randomBytes(32).toString('hex');
@@ -359,34 +499,55 @@ export function createGameServer(
       }
       socketDetails.get(socket)!.playerId = playerId;
       active.set(playerId, { socket, connectionId });
-      const channel = {
-        socket,
-        encoder: new SnapshotDeltaEncoder(),
-        pending: new Array<{
-          message: ServerMessage;
-          command?: { type: string; receivedAt: number; requestId: number };
-        }>(),
-      };
-      const eventSubscription = session.onEvent((event) => {
+      const channel: Channel = { socket, pending: [] };
+      const eventSubscription = session.onEvent((event, sequence, timing) => {
         if ('playerId' in event && event.playerId !== playerId) return;
-        channel.pending.push({ message: { type: 'event', event } });
+        const trace = eventTrace(connectionId, event, sequence, timing);
+        if (isImmediateGameEvent(event)) {
+          if (!channels.has(connectionId)) return;
+          if (event.type === 'apple.bite') {
+            const elapsed = multiplayerNow() - event.committedAt;
+            maximumImmediateEventMs = Math.max(maximumImmediateEventMs, elapsed);
+            profiler.record('event/apple.bite/commit-to-send', elapsed);
+          }
+          publishEvent(socket, event, sequence, trace);
+        } else if (channel.pending.length >= 256) {
+          closeSocket(
+            socket,
+            1013,
+            'outbound-event-backpressure',
+            'Client event queue is too large',
+          );
+        } else {
+          channel.pending.push({ event, sequence, trace });
+        }
       });
+      const settleConnection = (work: Promise<void>) => {
+        void work.catch((error: unknown) =>
+          log('warn', 'connection.cleanup-failed', { connectionId, error }),
+        );
+      };
       socket.once('close', (code) => {
         channels.delete(connectionId);
         eventSubscription();
-        if (active.get(playerId)?.connectionId === connectionId) active.delete(playerId);
+        const current = active.get(playerId);
+        if (current && current.connectionId !== connectionId) return;
+        active.delete(playerId);
         if (closing || code === 1000) {
-          void session.detachConnection(
-            connectionId,
-            closing ? 'server-shutdown' : 'intentional-leave',
+          settleConnection(
+            session.detachConnection(
+              connectionId,
+              closing ? 'server-shutdown' : 'intentional-leave',
+            ),
           );
         } else {
-          void session.suspendConnection(connectionId);
+          settleConnection(session.suspendConnection(connectionId));
+          clearTimeout(suspensionTimers.get(playerId));
           const timer = setTimeout(() => {
-            suspensionTimers.delete(timer);
-            void session.detachConnection(connectionId, 'grace-expired');
-          }, MOVEMENT_GRACE_MS);
-          suspensionTimers.add(timer);
+            suspensionTimers.delete(playerId);
+            settleConnection(session.detachConnection(connectionId, 'recovery-expired'));
+          }, CONNECTION_RECOVERY_MS);
+          suspensionTimers.set(playerId, timer);
           timer.unref();
         }
       });
@@ -400,6 +561,8 @@ export function createGameServer(
         },
         hello.replay,
       );
+      clearTimeout(suspensionTimers.get(playerId));
+      suspensionTimers.delete(playerId);
       if (socket.readyState !== WebSocket.OPEN) {
         eventSubscription();
         await session.detachConnection(connectionId);
@@ -407,7 +570,7 @@ export function createGameServer(
       }
       if (endpoint.searchParams.get('turnSteps') === '1')
         await session.enableMovementGrace(playerId);
-      const snapshot = await session.getConnectionSnapshot(playerId);
+      const snapshot = await session.openNetworkPublication(connectionId);
       if (socket.readyState !== WebSocket.OPEN) return;
       socketDetails.get(socket)!.roomId = snapshot.viewport.centerRoomId;
       log('info', 'connection.ready', {
@@ -420,9 +583,14 @@ export function createGameServer(
         attachMs: performance.now() - openedAt,
         admin,
       });
-      channel.encoder.encode(snapshot, true);
       channels.set(connectionId, channel);
-      session.recordPublishedMovement(connectionId, snapshot);
+      recordMovement(
+        channel,
+        connectionId,
+        playerId,
+        snapshot.players[playerId]?.movementRevision,
+        snapshot.replication?.epoch,
+      );
       publish(socket, {
         type: 'welcome',
         diagnostics: Boolean(options.onDiagnostic),
@@ -455,15 +623,18 @@ export function createGameServer(
         ) {
           if (receivedAt - lastClockProbeAt >= 250) {
             lastClockProbeAt = receivedAt;
-            publish(socket, {
-              type: 'movementClock',
-              clientTimeMs: clock.clientTimeMs,
-              serverTimeMs: session.getMovementClockTime(),
-            });
+            const clientTimeMs = clock.clientTimeMs;
+            void Promise.resolve(session.getMovementClockTime())
+              .then((serverTimeMs) => {
+                publish(socket, { type: 'movementClock', clientTimeMs, serverTimeMs });
+              })
+              .catch((error: unknown) =>
+                log('warn', 'network.clock-failed', { connectionId, error }),
+              );
           }
           return;
         }
-        const message = binary ? null : parseCommandMessage(raw);
+        const message = readCommandMessage(clock);
         if (!message) {
           const diagnostic = binary ? null : parseClientDiagnostic(raw);
           if (diagnostic) {
@@ -471,35 +642,112 @@ export function createGameServer(
               diagnosticWindowAt = receivedAt;
               clientReports = 0;
             }
-            if (clientReports++ < 5)
-              log(
-                diagnostic.event === 'browser-lifecycle' ? 'info' : 'warn',
-                `client.${diagnostic.event}`,
-                {
-                  ...diagnostic,
-                  source: 'client',
-                  connectionId,
-                  playerId,
-                  roomId: state.roomId,
+            if (options.onDiagnostic && clientReports++ < 5) {
+              const fields = {
+                ...diagnostic,
+                source: 'client',
+                connectionId,
+                playerId,
+                roomId: state.roomId,
+                lastMovementAttempt: state.lastMovementAttempt && {
+                  type: state.lastMovementAttempt.type,
+                  requestId: state.lastMovementAttempt.requestId,
+                  ageMs: Math.max(0, receivedAt - state.lastMovementAttempt.at),
                 },
-              );
+                lastMovementCommand: state.lastMovementCommand,
+                lastMovementRejection: state.lastMovementRejection,
+              };
+              const report = (
+                authorityMovement?: Awaited<
+                  ReturnType<GameServerSession['getPlayerMovementDiagnostic']>
+                >,
+              ) => {
+                let disposition: string | undefined;
+                if (diagnostic.event === 'movement-stalled' && authorityMovement) {
+                  const recent =
+                    fields.lastMovementAttempt && fields.lastMovementAttempt.ageMs < 5000;
+                  if (
+                    authorityMovement.controlMode === 'manual' &&
+                    diagnostic.desiredInteraction === 'playing'
+                  )
+                    disposition = 'manual-mode-mismatch';
+                  else if (authorityMovement.controlMode === 'held') disposition = 'expected-hold';
+                  else if (
+                    recent &&
+                    fields.lastMovementAttempt?.requestId ===
+                      fields.lastMovementRejection?.requestId
+                  )
+                    disposition = 'movement-rejected';
+                  else if (
+                    authorityMovement.controlMode === 'manual' &&
+                    recent &&
+                    fields.lastMovementAttempt?.type === 'setDirection'
+                  )
+                    disposition = 'manual-step-missing';
+                  else disposition = authorityMovement.held ? 'expected-hold' : 'automatic-stall';
+                }
+                log(
+                  diagnostic.event === 'browser-lifecycle' || disposition === 'expected-hold'
+                    ? 'info'
+                    : 'warn',
+                  `client.${diagnostic.event}`,
+                  { ...fields, authorityMovement, disposition },
+                );
+              };
+              if (
+                diagnostic.event === 'presentation-error' ||
+                diagnostic.event === 'movement-stalled'
+              )
+                void Promise.resolve(session.getPlayerMovementDiagnostic(playerId)).then(
+                  report,
+                  () => report(),
+                );
+              else report();
+            }
             return;
           }
           closeSocket(socket, 1008, 'invalid-command', 'Invalid command');
           return;
         }
+        if (message.id <= state.lastRequestId) return;
+        state.lastRequestId = message.id;
         state.commands++;
-        const command = { type: message.command.type, receivedAt, requestId: message.id };
+        const input = message.command;
+        const command = { type: input.type, receivedAt, requestId: message.id };
+        const correlationId = connectionId + ':' + message.id;
+        const category = multiplayerCommandType(input);
+        const trace = profiler.begin(correlationId, category);
+        if (trace) trace.times['network-received'] = performance.timeOrigin + receivedAt;
+        const movementCommand =
+          command.type === 'manualStep' ||
+          command.type === 'setDirection' ||
+          command.type === 'forceDirection';
+        if (movementCommand)
+          state.lastMovementAttempt = { type: command.type, at: receivedAt, requestId: message.id };
         // A wire payload cannot impersonate another runtime player.
+        markMultiplayer(trace, 'network-dispatch');
         void session
-          .executeCommand({ ...message.command, playerId })
+          .executeNetworkCommand(connectionId, { ...input, playerId }, trace)
           .then(
-            async (result) => {
+            ({ result, publication, trace: completed, rejection }) => {
+              markMultiplayer(completed, 'network-response');
               state.maximumCommandMs = Math.max(
                 state.maximumCommandMs,
                 performance.now() - receivedAt,
               );
               if (!result.ok) state.rejected++;
+              if (movementCommand) {
+                state.lastMovementCommand = {
+                  type: command.type,
+                  accepted: result.ok,
+                  requestId: command.requestId,
+                };
+                if (!result.ok)
+                  state.lastMovementRejection = {
+                    reason: result.reason ?? 'action-unavailable',
+                    requestId: command.requestId,
+                  };
+              }
               if (
                 !result.ok &&
                 result.reason !== 'shot-unavailable' &&
@@ -511,21 +759,19 @@ export function createGameServer(
                   connectionId,
                   playerId,
                   commandType: command.type,
+                  category,
+                  correlationId,
                   requestId: command.requestId,
+                  actorId: 'actorId' in input ? input.actorId : undefined,
+                  menuId: 'menuId' in input ? input.menuId : undefined,
+                  expectedMode: input.type === 'playerInteraction' ? input.mode : undefined,
+                  clientContext: message.context,
+                  authority: rejection,
                   reason: result.reason ?? result.message ?? 'action-unavailable',
                 });
               }
-              // Steering already published its bounded movement/queue state on the
-              // authority queue. Domain commands publish their changed UI before ack.
-              if (!['setDirection', 'forceDirection'].includes(command.type)) {
-                const current = await session.getConnectionSnapshot(playerId);
-                publish(socket, {
-                  type: 'delta',
-                  delta: channel.encoder.encode(current, true, true),
-                });
-                flushEvents(channel);
-              }
-              acknowledge(socket, command, result);
+              if (publication) deliverPublication(publication);
+              acknowledge(socket, command, result, completed);
             },
             (error: unknown) => {
               state.errors++;
@@ -537,7 +783,7 @@ export function createGameServer(
                 error,
               });
               console.error('[game-server] Command failed', error);
-              acknowledge(socket, command, { ok: false, reason: 'command-failed' });
+              acknowledge(socket, command, { ok: false, reason: 'command-failed' }, trace);
             },
           )
           .catch((error: unknown) => {
@@ -559,36 +805,16 @@ export function createGameServer(
 
   let publishing = false;
   const networkTimer = setInterval(() => {
+    if (!channels.size) return;
     if (publishing) {
       skippedNetworkTicks++;
       return;
     }
     const startedAt = performance.now();
-    const cpuStartedAt = process.cpuUsage();
+    const cpuStartedAt = process.threadCpuUsage?.();
     publishing = true;
     void session
-      .publishNetworkState((playerId, snapshot) => {
-        const connection = active.get(playerId);
-        const channel = connection && channels.get(connection.connectionId);
-        if (channel) {
-          if (channel.socket.readyState === WebSocket.OPEN)
-            session.recordPublishedMovement(connection!.connectionId, snapshot);
-          socketDetails.get(channel.socket)!.roomId = snapshot.viewport.centerRoomId;
-          const encodeStartedAt = performance.now();
-          const delta = channel.encoder.encode(snapshot, true);
-          const encodeMs = performance.now() - encodeStartedAt;
-          if (encodeMs >= 50)
-            log('warn', 'network.delta-encode-slow', {
-              playerId,
-              roomId: snapshot.viewport.centerRoomId,
-              encodeMs,
-            });
-          publish(channel.socket, { type: 'delta', delta });
-        }
-      })
-      .then(() => {
-        for (const channel of channels.values()) flushEvents(channel);
-      })
+      .publishNetworkDeltas(deliverPublication)
       .catch((error: unknown) => {
         log('error', 'network.publication-failed', { error });
         console.error('[game-server] Publication failed', error);
@@ -596,13 +822,16 @@ export function createGameServer(
       .finally(() => {
         const durationMs = performance.now() - startedAt;
         maximumPublicationMs = Math.max(maximumPublicationMs, durationMs);
-        if (durationMs >= 250) {
-          const cpu = process.cpuUsage(cpuStartedAt);
-          const cpuMs = (cpu.user + cpu.system) / 1000;
-          log('warn', 'network.publication-cpu-breakdown', {
+        profiler.record('publication/round-trip', durationMs);
+        if (
+          durationMs >= multiplayerThresholds.publication &&
+          performance.now() - lastSlowPublicationAt >= 1000
+        ) {
+          lastSlowPublicationAt = performance.now();
+          const cpu = cpuStartedAt && process.threadCpuUsage?.(cpuStartedAt);
+          log('info', 'network.publication-cpu-breakdown', {
             durationMs,
-            cpuMs,
-            wallMinusCpuMs: Math.max(0, durationMs - cpuMs),
+            coordinatorCpuMs: cpu && (cpu.user + cpu.system) / 1000,
           });
         }
         lastPublicationAt = performance.now();
@@ -610,50 +839,72 @@ export function createGameServer(
       });
   }, 100);
   networkTimer.unref();
+  let refreshingPerformance = false;
   const performanceTimer =
     options.onPerformance || options.onDiagnostic
       ? setInterval(() => {
-          const report = session.getPerformanceReport(true);
-          options.onPerformance?.(report);
-          const processReport = processPerformance?.read();
-          const connections = [...channels.values()].slice(0, 16).map((channel) => {
-            const state = socketDetails.get(channel.socket)!;
-            return {
-              connectionId: state.connectionId,
-              playerId: state.playerId,
-              roomId: state.roomId,
-              bufferedBytes: channel.socket.bufferedAmount,
-              maximumBufferedBytes: state.maximumBufferedBytes,
-              pendingMessages: channel.pending.length,
-              rttMs: state.rttMs,
-              commands: state.commands,
-              rejectedCommands: state.rejected,
-              commandErrors: state.errors,
-              maximumCommandMs: state.maximumCommandMs,
-              maximumAckMs: state.maximumAckMs,
-              sinceLastPongMs: performance.now() - state.lastPongAt,
-            };
-          });
-          log(
-            (processReport?.eventLoopMaxMs ?? 0) > 250 || report.maximumUpdateMs > 100
-              ? 'warn'
-              : 'info',
-            'performance.sample',
-            {
-              ...report,
-              ...processReport,
-              sockets: sockets.clients.size,
-              attachedSockets: channels.size,
-              pendingAttachments,
-              skippedNetworkTicks,
-              maximumPublicationMs,
-              sinceLastNetworkCycleMs: performance.now() - lastPublicationAt,
-              connections,
-              connectionsTruncated: channels.size > connections.length,
-            },
-          );
-          skippedNetworkTicks = 0;
-          maximumPublicationMs = 0;
+          if (refreshingPerformance) return;
+          refreshingPerformance = true;
+          void Promise.resolve(
+            session.refreshPerformance?.(true) ?? session.getPerformanceReport(true),
+          )
+            .then((report) => {
+              options.onPerformance?.(report);
+              const processReport = processPerformance?.read();
+              if (profiler.enabled) {
+                const { metrics, traces } = profiler.read();
+                const entries = Object.entries(metrics);
+                for (let offset = 0; offset < entries.length; offset += 24)
+                  log('info', 'multiplayer.profile', {
+                    metrics: Object.fromEntries(entries.slice(offset, offset + 24)),
+                  });
+                for (const trace of traces) log('info', 'multiplayer.trace', { ...trace });
+              }
+              const connections = [...channels.values()].slice(0, 16).map((channel) => {
+                const state = socketDetails.get(channel.socket)!;
+                return {
+                  connectionId: state.connectionId,
+                  playerId: state.playerId,
+                  roomId: state.roomId,
+                  bufferedBytes: channel.socket.bufferedAmount,
+                  maximumBufferedBytes: state.maximumBufferedBytes,
+                  pendingMessages: channel.pending.length,
+                  rttMs: state.rttMs,
+                  commands: state.commands,
+                  rejectedCommands: state.rejected,
+                  commandErrors: state.errors,
+                  maximumCommandMs: state.maximumCommandMs,
+                  maximumAckMs: state.maximumAckMs,
+                  sinceLastPongMs: performance.now() - state.lastPongAt,
+                };
+              });
+              log(
+                (processReport?.eventLoopMaxMs ?? 0) > 250 || report.maximumUpdateMs > 100
+                  ? 'warn'
+                  : 'info',
+                'performance.sample',
+                {
+                  ...report,
+                  ...processReport,
+                  sockets: sockets.clients.size,
+                  attachedSockets: channels.size,
+                  pendingAttachments,
+                  skippedNetworkTicks,
+                  maximumPublicationMs,
+                  maximumImmediateEventMs,
+                  sinceLastNetworkCycleMs: performance.now() - lastPublicationAt,
+                  connections,
+                  connectionsTruncated: channels.size > connections.length,
+                },
+              );
+              skippedNetworkTicks = 0;
+              maximumPublicationMs = 0;
+              maximumImmediateEventMs = 0;
+            })
+            .catch((error: unknown) => log('warn', 'performance.sample-failed', { error }))
+            .finally(() => {
+              refreshingPerformance = false;
+            });
         }, 10000)
       : undefined;
   performanceTimer?.unref();
@@ -688,8 +939,16 @@ export function createGameServer(
     });
     socket.on('close', () => alive.delete(socket));
   });
+  const heartbeatIntervalMs = 15000;
+  let lastHeartbeatAt = performance.now();
   const heartbeat = setInterval(() => {
+    const now = performance.now();
+    const gapMs = now - lastHeartbeatAt;
+    lastHeartbeatAt = now;
+    if (gapMs >= 2 * heartbeatIntervalMs)
+      log('warn', 'server.heartbeat-gap', { gapMs, sockets: sockets.clients.size });
     for (const socket of sockets.clients) {
+      if (socket.readyState !== WebSocket.OPEN) continue;
       const state = socketDetails.get(socket)!;
       if (!alive.delete(socket)) {
         state.closeCause = 'heartbeat-timeout';
@@ -708,12 +967,16 @@ export function createGameServer(
         socket.ping();
       }
     }
-  }, 15000);
+  }, heartbeatIntervalMs);
   heartbeat.unref();
 
   return {
     http,
     getPerformance: () => session.getPerformanceReport(),
+    samplePerformance: async () =>
+      session.refreshPerformance?.(false) ?? session.getPerformanceReport(),
+    getMultiplayerProfile: () => profiler.read(),
+    getMaximumImmediateEventMs: () => maximumImmediateEventMs,
     async listen(port = 8787, host = '127.0.0.1'): Promise<number> {
       await new Promise<void>((resolve, reject) => {
         http.once('error', reject);
@@ -734,7 +997,7 @@ export function createGameServer(
     async close(): Promise<void> {
       closing = true;
       log('info', 'server.stopping', { sockets: sockets.clients.size });
-      for (const timer of suspensionTimers) clearTimeout(timer);
+      for (const timer of suspensionTimers.values()) clearTimeout(timer);
       suspensionTimers.clear();
       clearInterval(heartbeat);
       clearInterval(networkTimer);
@@ -752,6 +1015,7 @@ export function createGameServer(
         socket.terminate();
       }
       await new Promise<void>((resolve) => sockets.close(() => resolve()));
+      await session.flush();
       await new Promise<void>((resolve, reject) =>
         http.close((error) => (error ? reject(error) : resolve())),
       );

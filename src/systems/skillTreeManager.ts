@@ -337,25 +337,11 @@ export class SkillTreeManager implements SkillTreeRuntime {
   }
 
   getCompletedBranchIds(): string[] {
-    const perks = this.system.getPerks().filter((perk) => perk.kind !== 'combo');
-    const branches = new Map<string, typeof perks>();
-    for (const perk of perks) {
-      branches.set(perk.branch, [...(branches.get(perk.branch) ?? []), perk]);
-    }
-    return [...branches.entries()]
-      .filter(([, branchPerks]) =>
-        branchPerks.every((perk) => this.system.getRank(perk.id) >= perk.costByRank.length),
-      )
-      .map(([branch]) => branch);
+    return this.system.getCompletedBranchIds();
   }
 
   getBranchCount(): number {
-    return new Set(
-      this.system
-        .getPerks()
-        .filter((perk) => perk.kind !== 'combo')
-        .map((perk) => perk.branchId),
-    ).size;
+    return this.system.getBranchCount();
   }
 
   getOverlay(): SkillTreeOverlay {

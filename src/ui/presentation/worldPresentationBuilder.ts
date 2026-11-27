@@ -1,3 +1,4 @@
+import type { ComputerLocation } from '../../computers/computerWorld.js';
 import type { AppleSnapshot } from '../../apples/types.js';
 import type { AnimalInstance } from '../../animals/types.js';
 import type { GridConfig } from '../../config/gameConfig.js';
@@ -33,6 +34,7 @@ export interface PresentationRoomInput {
   footballs?: readonly FootballInstance[];
   bombs?: readonly BombInstance[];
   alchemyStation?: { roomId: string; x: number; y: number } | null;
+  computer?: ComputerLocation;
   runtimeNpcs?: readonly RuntimeNpcPresentation[];
 }
 
@@ -453,6 +455,18 @@ function pushRoomItemSprites(
 ): void {
   const room = entry.room.room;
   pushFurnitureSprites(sprites, room, placement, assets);
+  if (entry.computer?.roomId === room.id) {
+    pushSprite(sprites, {
+      id: entry.computer.id,
+      kind: 'prop',
+      position: localRenderPoint(entry.computer, placement),
+      width: 0.85,
+      height: 0.85,
+      color: 0xd9caa4,
+      visual: assets.getFurnitureTexture('computer'),
+      roomId: room.id,
+    });
+  }
   if (room.treasure) {
     pushSprite(sprites, {
       id: `treasure:${entry.room.id}:${room.treasure.x},${room.treasure.y}`,

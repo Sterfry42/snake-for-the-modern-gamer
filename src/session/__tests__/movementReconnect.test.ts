@@ -6,7 +6,13 @@ import { defaultGameConfig } from '../../config/gameConfig.js';
 import { QuestRegistry } from '../../quests/questRegistry.js';
 import { AuthoritativeGameSession } from '../AuthoritativeGameSession.js';
 import { ClientMovementPredictor } from '../ClientMovementPredictor.js';
-import { isMovementReplay, parseMovementHello, type MovementReplay } from '../MovementResume.js';
+import {
+  CONNECTION_RECOVERY_MS,
+  MOVEMENT_GRACE_MS,
+  isMovementReplay,
+  parseMovementHello,
+  type MovementReplay,
+} from '../MovementResume.js';
 import { createGameServer } from '../../server/createGameServer.js';
 import { WebSocketGameConnection } from '../WebSocketGameConnection.js';
 import { SceneReadReplica } from '../SceneReadReplica.js';
@@ -16,6 +22,7 @@ const cleanup: Array<() => void | Promise<void>> = [];
 afterEach(async () => {
   for (const close of cleanup.splice(0).reverse()) await close();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 function setup() {
   const registry = new QuestRegistry();
@@ -187,6 +194,45 @@ describe('short movement reconnects', () => {
       expect(session.getSnapshot(id).players[id].alive).toBe(true);
     },
   );
+
+  it('recovers a character and its pause six seconds later without replaying movement', async () => {
+    const { session, id, snapshot, interval } = setup();
+    let now = 10000;
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+    const records: string[] = [];
+    session.onDiagnostic((record) => {
+      if (record.event === 'movement.replay') records.push(String(record.fields?.reason));
+    });
+    await session.executeCommand({ type: 'playerInteraction', playerId: id, mode: 'paused' });
+    await session.suspendConnection('original');
+    now += 6000;
+    await session.attachConnection(
+      'replacement',
+      'Alice',
+      { playerId: id, admin: false },
+      replay(snapshot.players[id].movementRevision!, 1, interval),
+    );
+    const recovered = session.getSnapshot(id);
+    expect(recovered.ui.playerInteraction).toBe('paused');
+    expect(recovered.players[id].body).toEqual(snapshot.players[id].body);
+    expect(records).toContain('movement-grace-expired');
+  });
+
+  it('keeps ordinary decorated tiles automatic and still recognizes actual manual rooms', () => {
+    const { game, room, session, id } = setup();
+    room.layout[10] = '.'.repeat(10) + 'P' + '.'.repeat(game.config.grid.cols - 11);
+    expect(session.getPlayerMovementDiagnostic(id)).toMatchObject({
+      controlMode: 'automatic',
+      tile: { x: 10, y: 10, glyph: 'P' },
+    });
+    const house = game.getRoom('0,-1,0');
+    house.layout[10] = 'W'.repeat(game.config.grid.cols);
+    game.placeSnakeBodyAtLocal(house.id, { x: 10, y: 10 }, { x: 1, y: 0 });
+    expect(session.getPlayerMovementDiagnostic(id)).toMatchObject({
+      controlMode: 'manual',
+      holdReason: 'manual-area',
+    });
+  });
 
   it('lets real authoritative wall safety holds stop replay and override speculative movement', async () => {
     const { session, game, room, id, snapshot, interval } = setup();
@@ -364,15 +410,17 @@ describe('short movement reconnects', () => {
     expect(notices.filter((event) => event.type === 'party.presence')).toEqual([]);
     const replacement = client.connectionId!;
     // Prevent the client's automatic retry while leaving this socket as an abrupt loss.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
     wires[1].destroy();
     await vi.waitFor(() =>
       expect(session.getSnapshot(id).connections?.[replacement].suspended).toBe(true),
     );
     client.disconnect();
-    await vi.waitFor(
-      () => expect(session.getSnapshot(id).connections?.[replacement]).toBeUndefined(),
-      { timeout: 4000 },
-    );
+    await vi.advanceTimersByTimeAsync(MOVEMENT_GRACE_MS + 1);
+    expect(session.getSnapshot(id).connections?.[replacement].suspended).toBe(true);
+    await vi.advanceTimersByTimeAsync(CONNECTION_RECOVERY_MS);
+    await session.flush();
+    expect(session.getSnapshot(id).connections?.[replacement]).toBeUndefined();
     expect(notices).toContainEqual({ type: 'party.presence', name: 'Alice', status: 'left' });
   });
 });

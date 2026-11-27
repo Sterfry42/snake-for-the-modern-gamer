@@ -16,6 +16,7 @@ const cleanup: Array<() => void | Promise<void>> = [];
 afterEach(async () => {
   for (const close of cleanup.splice(0).reverse()) await close();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   vi.useRealTimers();
 });
 async function setup(saveStore?: SaveStore<GameSaveData>) {
@@ -42,7 +43,7 @@ describe('operational server logging', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     const original = client.connectionId;
     const stop = client.onMovement!(() => {
-      throw new Error('Presentation failure');
+      throw new Error('Presentation failure token=never-log-this');
     });
     session.start(() => {});
     await vi.waitFor(() =>
@@ -54,6 +55,17 @@ describe('operational server logging', () => {
         ),
       ).toBe(true),
     );
+    expect(
+      records.find((record) => record.event === 'client.presentation-error')?.fields,
+    ).toMatchObject({
+      errorMessage: 'Presentation failure token=[redacted]',
+      errorStack: expect.stringContaining('Presentation failure'),
+      snapshotTick: expect.any(Number),
+      snapshotEpoch: expect.any(Number),
+      movementRevision: expect.any(Number),
+      authorityMovement: { alive: true, held: false, interaction: 'playing' },
+    });
+    expect(JSON.stringify(records)).not.toContain('never-log-this');
     expect(error).toHaveBeenCalledWith('[game-client] movement handler failed', expect.any(Error));
     expect(client.connectionId).toBe(original);
     stop();
@@ -65,6 +77,27 @@ describe('operational server logging', () => {
       }),
     ).toEqual({ ok: true });
   });
+  it('reports a visible movement stall once and records the authoritative pause', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'performance'] });
+    vi.stubGlobal('window', new EventTarget());
+    const document = Object.assign(new EventTarget(), { visibilityState: 'hidden' });
+    vi.stubGlobal('document', document);
+    const { records, url } = await setup();
+    const client = new WebSocketGameConnection(url);
+    cleanup.push(() => client.disconnect());
+    await client.ready;
+    expect(
+      await client.send({ type: 'playerInteraction', playerId: client.playerId!, mode: 'paused' }),
+    ).toEqual({ ok: true });
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(records.some((record) => record.event === 'client.movement-stalled')).toBe(false);
+    document.visibilityState = 'visible';
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.advanceTimersByTimeAsync(8000);
+    expect(records.some((record) => record.event === 'client.movement-stalled')).toBe(false);
+    expect(client.getMovementPresentation()).toBeNull();
+  });
+
   it('correlates a real client loss, suspension, resume and browser diagnostic without logging credentials', async () => {
     const { records, server, url } = await setup();
     const wires: Duplex[] = [];
@@ -108,6 +141,38 @@ describe('operational server logging', () => {
     expect(raw).not.toContain('A name that should not be logged');
     expect(raw).not.toContain('resumeToken');
     expect(raw).not.toContain('hostToken');
+  });
+
+  it('preserves a pause on reattachment and applies the first input sent with its release', async () => {
+    const { game, session, records, server, url } = await setup();
+    const wires: Duplex[] = [];
+    server.http.on('upgrade', (_request, socket) => wires.push(socket));
+    const client = new WebSocketGameConnection(url);
+    cleanup.push(() => client.disconnect());
+    await client.ready;
+    const id = client.playerId!;
+    const room = game.getCurrentRoom();
+    room.layout = room.layout.map((row) => '.'.repeat(row.length));
+    game.placeSnakeBodyAtLocal(room.id, { x: 10, y: 10 }, { x: 1, y: 0 });
+    expect(await client.send({ type: 'playerInteraction', playerId: id, mode: 'paused' })).toEqual({
+      ok: true,
+    });
+    const original = client.connectionId;
+    wires[0].destroy();
+    await vi.waitFor(() => expect(client.connectionId).not.toBe(original));
+    expect(session.getSnapshot(id).ui.playerInteraction).toBe('paused');
+    const release = client.send({ type: 'playerInteraction', playerId: id, mode: 'playing' });
+    const steer = client.send({ type: 'setDirection', playerId: id, direction: { x: 0, y: 1 } });
+    expect(await release).toEqual({ ok: true });
+    expect(await steer).toEqual({ ok: true });
+    await session.advance(120);
+    await session.advance(120);
+    expect(session.getSnapshot(id).players[id].body[0]).toEqual({ x: 10, y: 11 });
+    expect(
+      records
+        .filter((record) => record.event === 'movement.interaction')
+        .map((record) => record.fields?.mode),
+    ).toEqual(['paused', 'playing']);
   });
 
   it('reports malformed hello close causes even before a player was attached', async () => {
@@ -254,19 +319,23 @@ describe('operational server logging', () => {
         expect(session.getQueueDiagnostics().activeOperation).toBe('command:saveGame'),
       );
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-      const received = vi.spyOn(session, 'executeCommand');
+      const received = vi.spyOn(session, 'executeNetworkCommand');
       const result = client
         .send({ type: 'setDirection', playerId: id, direction: { x: 0, y: 1 } })
         .catch((error: unknown) => error);
       await vi.waitFor(() =>
-        expect(received).toHaveBeenCalledWith({
-          type: 'setDirection',
-          inputSequence: 1,
-          intendedRevision: 1,
-          estimatedServerTimeMs: expect.any(Number),
-          playerId: id,
-          direction: { x: 0, y: 1 },
-        }),
+        expect(received).toHaveBeenCalledWith(
+          client.connectionId,
+          {
+            type: 'setDirection',
+            inputSequence: 1,
+            intendedRevision: 1,
+            estimatedServerTimeMs: expect.any(Number),
+            playerId: id,
+            direction: { x: 0, y: 1 },
+          },
+          undefined,
+        ),
       );
       await vi.advanceTimersByTimeAsync(10001);
       expect(await result).toBeInstanceOf(Error);

@@ -1,24 +1,18 @@
 import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
 import { i18n } from '../i18n/i18nManager.js';
-import {
-  saveManagerV2,
-  type GameSaveData,
-  type SessionInfo,
-  type SessionSaveEntry,
-} from '../game/saveManagerV2.js';
+import { saveManagerV2, type GameSaveData, type SessionInfo } from '../game/saveManagerV2.js';
 import type { ControllerNavCommand } from '../input/controllerNavigation.js';
 
-export type LoadGameHandler = (sessionId: string, data: GameSaveData) => void;
-export type SaveLoadBackend = Pick<
+type SaveMetadata = Pick<GameSaveData, 'score'>;
+type SaveEntry<Data extends SaveMetadata> = { timestamp: number; data: Data };
+export type LoadGameHandler<Data extends SaveMetadata> = (sessionId: string, data: Data) => void;
+export type SaveLoadBackend<Data extends SaveMetadata> = Pick<
   typeof saveManagerV2,
-  | 'listSessions'
-  | 'listSessionSaves'
-  | 'deleteSession'
-  | 'deleteSave'
-  | 'deleteSessions'
-  | 'deleteSaves'
->;
+  'listSessions' | 'deleteSession' | 'deleteSave' | 'deleteSessions' | 'deleteSaves'
+> & {
+  listSessionSaves(sessionId: string): Promise<SaveEntry<Data>[]>;
+};
 
 interface EntryBox {
   container: Phaser.GameObjects.Container;
@@ -36,7 +30,7 @@ interface EntryBox {
  * controller) and bulk-deleted via the "Delete Selected (n)" button.
  * The single Delete button on each entry always deletes just that one.
  */
-export class SaveLoadMenu {
+export class SaveLoadMenu<Data extends SaveMetadata = GameSaveData> {
   private container?: Phaser.GameObjects.Container;
   private background?: Phaser.GameObjects.Rectangle;
   private titleText?: Phaser.GameObjects.Text;
@@ -65,8 +59,8 @@ export class SaveLoadMenu {
   private sessions: SessionInfo[] = [];
   private activeSessionId: string | null = null;
   private activeSessionLabel = '';
-  private saveEntries: SessionSaveEntry[] = [];
-  private currentOnLoad?: LoadGameHandler;
+  private saveEntries: SaveEntry<Data>[] = [];
+  private currentOnLoad?: LoadGameHandler<Data>;
   private controllerLoadActions: Array<() => void> = [];
   private controllerDeleteActions: Array<() => void> = [];
   private selectedEntryIndex = 0;
@@ -77,12 +71,12 @@ export class SaveLoadMenu {
 
   constructor(
     private readonly scene: SnakeScene,
-    private readonly backend: SaveLoadBackend = saveManagerV2,
+    private readonly backend: SaveLoadBackend<Data>,
   ) {
     this.build();
   }
 
-  async show(onLoad: LoadGameHandler, onBack?: () => void): Promise<void> {
+  async show(onLoad: LoadGameHandler<Data>, onBack?: () => void): Promise<void> {
     this.onBack = onBack;
     this.currentOnLoad = onLoad;
     this.scene.setChoicePopupVisible(true);
@@ -321,7 +315,7 @@ export class SaveLoadMenu {
   }
 
   /** Button + controller actions shared by the saves view. */
-  private saveEntryActions(entry: SessionSaveEntry): {
+  private saveEntryActions(entry: SaveEntry<Data>): {
     load: () => void;
     delete: () => void;
   } {

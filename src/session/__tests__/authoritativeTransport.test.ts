@@ -4,7 +4,7 @@ import { AuthoritativeGameSession } from '../AuthoritativeGameSession.js';
 import { LocalGameConnection } from '../LocalGameConnection.js';
 import { WebSocketGameConnection } from '../WebSocketGameConnection.js';
 import { SceneGameBridge } from '../SceneGameBridge.js';
-import { parseCommandMessage } from '../gameProtocol.js';
+import { copyGameSnapshot, parseCommandMessage, parseServerMessage } from '../gameProtocol.js';
 import { createGameServer } from '../../server/createGameServer.js';
 import { defaultGameConfig } from '../../config/gameConfig.js';
 import { QuestRegistry } from '../../quests/questRegistry.js';
@@ -67,12 +67,59 @@ describe('authoritative transport', () => {
     for (const command of [
       { type: 'setFlag', playerId: 'player-1', key: 'cheat', value: true },
       { type: 'setDirection', playerId: 'player-1', direction: { x: 1, y: 1 } },
+      { type: 'manualStep', playerId: 'player-1', direction: { x: 1, y: 1 } },
       { type: 'forceDirection', playerId: 'player-1', direction: { x: 0.5, y: 0.5 } },
       { type: 'saveGame', playerId: 'player-1', classChoice: { mods: { speed: 999 } } },
     ]) {
       expect(parseCommandMessage(JSON.stringify({ type: 'command', id: 1, command }))).toBeNull();
     }
     expect(parseCommandMessage('{')).toBeNull();
+  });
+
+  it('executes a duplicated application request once and preserves the projection barrier', async () => {
+    const session = await createSession();
+    const execute = vi.spyOn(session, 'executeNetworkCommand');
+    const diagnostics: string[] = [];
+    const server = createGameServer(session, {
+      profileMultiplayer: true,
+      onDiagnostic: (entry) => diagnostics.push(JSON.stringify(entry)),
+    });
+    const port = await server.listen(0);
+    cleanups.push(() => server.close());
+    const socket = new WebSocket('ws://127.0.0.1:' + port + '/game?prediction=1');
+    cleanups.push(() => socket.terminate());
+    socket.on('open', () => socket.send(JSON.stringify({ type: 'movementResume' })));
+    const messages: ReturnType<typeof parseServerMessage>[] = [];
+    socket.on('message', (raw) => messages.push(parseServerMessage(String(raw))));
+    await vi.waitFor(() => expect(messages[0]?.type).toBe('welcome'));
+    const welcome = messages[0];
+    if (welcome.type !== 'welcome') throw new Error('Expected welcome');
+    const request = JSON.stringify({
+      type: 'command',
+      id: 1,
+      command: { type: 'playerInteraction', playerId: welcome.playerId, mode: 'paused' },
+    });
+    socket.send(request);
+    socket.send(request);
+    await vi.waitFor(() =>
+      expect(
+        messages.some(({ type }) => type === 'result'),
+        diagnostics.join('\n'),
+      ).toBe(true),
+    );
+    expect(execute).toHaveBeenCalledTimes(1);
+    const resultAt = messages.findIndex(({ type }) => type === 'result');
+    const deltaAt = messages.findIndex(({ type }) => type === 'delta');
+    expect(deltaAt).toBeGreaterThan(0);
+    expect(deltaAt).toBeLessThan(resultAt);
+    expect(
+      server
+        .getMultiplayerProfile()
+        .traces.find(({ command }) => command === 'playerInteraction.paused'),
+    ).toMatchObject({
+      id: welcome.connectionId + ':1',
+      command: 'playerInteraction.paused',
+    });
   });
 
   it('owns clocks, honors pause, and publishes detached snapshots through a local bridge', async () => {
@@ -167,7 +214,10 @@ describe('authoritative transport', () => {
     // A subsequent acknowledged command acts as an ordered transport barrier.
     await first.send({ type: 'pause', playerId: first.playerId! });
     expect(firstBridge.getSnapshot().tick).toBe(tick + 100);
-    expect(firstBridge.getSnapshot()).toEqual(session.getSnapshot());
+    expect(firstBridge.getSnapshot()).toEqual(
+      copyGameSnapshot(await session.getConnectionSnapshot(first.playerId!)),
+    );
+    expect(firstBridge.getSnapshot().players[second.playerId!].directionQueue).toBeUndefined();
     second.disconnect();
     await vi.waitFor(() =>
       expect(

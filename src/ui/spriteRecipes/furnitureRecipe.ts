@@ -8,7 +8,8 @@ export type FurnitureSpriteVariant =
   | 'plant'
   | 'lamp'
   | 'garden'
-  | 'gardenReady';
+  | 'gardenReady'
+  | 'computer';
 
 export interface FurnitureSpritePalette {
   couch: { fill: string; accent: string; outline: string };
@@ -50,6 +51,7 @@ const VARIANTS: readonly FurnitureSpriteVariant[] = [
   'lamp',
   'garden',
   'gardenReady',
+  'computer',
 ];
 
 function drawSprite(
@@ -77,6 +79,89 @@ export const furnitureSpriteRecipe: RuntimeSpriteRecipe<
     return JSON.stringify(palette);
   },
   draw(context, variant, size, palette): void {
+    if (variant === 'computer') {
+      drawSprite(context, size, (pixelSize) => {
+        drawPixels(
+          context,
+          [
+            [1, 1],
+            [2, 1],
+            [3, 1],
+            [4, 1],
+            [5, 1],
+            [6, 1],
+            [1, 2],
+            [6, 2],
+            [1, 3],
+            [6, 3],
+            [1, 4],
+            [2, 4],
+            [3, 4],
+            [4, 4],
+            [5, 4],
+            [6, 4],
+            [3, 5],
+            [4, 5],
+            [1, 6],
+            [2, 6],
+            [3, 6],
+            [4, 6],
+            [5, 6],
+            [6, 6],
+          ],
+          pixelSize,
+          '#403c35',
+        );
+        drawPixels(
+          context,
+          [
+            [2, 2],
+            [3, 2],
+            [4, 2],
+            [5, 2],
+            [2, 3],
+            [3, 3],
+            [4, 3],
+            [5, 3],
+          ],
+          pixelSize,
+          '#133e2a',
+        );
+        drawPixels(
+          context,
+          [
+            [2, 2],
+            [3, 2],
+            [2, 3],
+          ],
+          pixelSize,
+          '#72e99c',
+        );
+        drawPixels(
+          context,
+          [
+            [2, 1],
+            [3, 1],
+            [4, 1],
+            [5, 1],
+            [1, 4],
+            [2, 4],
+            [3, 4],
+            [4, 4],
+            [5, 4],
+            [6, 4],
+            [2, 6],
+            [3, 6],
+            [4, 6],
+            [5, 6],
+          ],
+          pixelSize,
+          '#d9caa4',
+        );
+      });
+      return;
+    }
+
     if (variant === 'couch') {
       drawSprite(context, size, (pixelSize) => {
         drawPixels(

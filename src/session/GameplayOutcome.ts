@@ -33,6 +33,7 @@ export const GAMEPLAY_FEEDBACK_KEYS = [
   'ui.footballPass',
   'ui.hardenedScales',
   'ui.highlightReel',
+  'ui.houseRestPulse',
   'ui.iftar',
   'ui.karmaShift',
   'ui.libertyLandmarkReveal',
@@ -72,6 +73,7 @@ export function isGameplayFeedbackKey(key: string): key is GameplayFeedbackKey {
 }
 export interface ActionOutcome {
   apple: StepResult['apple'];
+  movementRevision?: number;
   roomChanged: boolean;
   roomsChanged: string[];
   questOfferId?: string;

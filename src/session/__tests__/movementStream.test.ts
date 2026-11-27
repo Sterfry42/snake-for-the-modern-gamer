@@ -67,6 +67,49 @@ describe('discrete movement stream', () => {
     await moved;
     await vi.waitFor(() => expect(mirror.getCurrentRoom().id).toBe('9,9,0'));
   });
+  it('keeps a retained destination out of the current scene until its matching viewport arrives', () => {
+    const { game, session } = setup();
+    session.configureHosting();
+    const id = session.registerConnection('alice', 'Alice');
+    const initial = session.getSnapshot(id);
+    const destination = '1,0,0';
+    game.getRoom(destination);
+    const nearby = session.getSnapshot(id);
+    expect(nearby.clientState?.worldRooms.some((room) => room.id === destination)).toBe(true);
+    const replica = new SceneReadReplica(defaultGameConfig, new QuestRegistry(), nearby);
+    const assembler = new SnapshotDeltaAssembler();
+    const encoder = new SnapshotDeltaEncoder();
+    assembler.reset(nearby);
+    encoder.encode(nearby, true);
+    const old = encoder.encode(nearby, true);
+    const updates: MovementUpdate[] = [];
+    session.onMovement((update) => updates.push(update));
+    game.placeSnakeBodyAtLocal(destination, { x: 10, y: 10 }, { x: 1, y: 0 });
+    session.refreshSnapshot();
+    const transition = updates.find(
+      (update) => update.player.id === id && update.player.roomId === destination,
+    )!;
+    expect(assembler.applyMovement(transition)?.players[id].roomId).toBe(
+      initial.viewport.centerRoomId,
+    );
+    replica.hydrateMovement(transition);
+    expect(replica.game.getCurrentRoom().id).toBe(initial.viewport.centerRoomId);
+    expect(assembler.apply(old).players[id].body).toEqual(initial.players[id].body);
+
+    const delta = encoder.encode(session.getSnapshot(id), true);
+    expect(delta.movementResync).toBe(true);
+    const arrived = assembler.apply(delta);
+    replica.hydrate(arrived);
+    expect(replica.game.getCurrentRoom().id).toBe(destination);
+    expect(replica.game.getSnakeBody()).toEqual(transition.player.body);
+    replica.hydrateMovement({
+      ...transition,
+      epoch: transition.epoch + 1,
+      player: { ...transition.player, body: [{ x: 0, y: 0 }] },
+    });
+    expect(replica.game.getSnakeBody()).toEqual(transition.player.body);
+  });
+
   it('caps a bounded connected prediction lead to server elapsed time instead of discarding the valid reconnect prefix', async () => {
     const { game, session } = setup();
     session.configureHosting();
@@ -233,6 +276,7 @@ describe('discrete movement stream', () => {
     expect(hot.movementResync).toBe(false);
     expect(hot.state.players[id]).toHaveProperty('patch');
     expect(JSON.stringify(hot.state.players)).not.toContain('"body"');
+    assembler.apply(hot);
     for (let frame = 0; frame < 45; frame++) await session.advance(20);
     const resync = encoder.encode(session.getSnapshot(id), true);
     expect(resync.movementResync).toBe(true);

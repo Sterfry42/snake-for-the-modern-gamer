@@ -1,3 +1,4 @@
+import type { ComputerLocation } from '../computers/computerWorld.js';
 import Phaser from 'phaser';
 import { MasonryExpiry, type MasonryBlock } from './masonryExpiry.js';
 import { paletteConfig, darkenColor } from '../config/palette.js';
@@ -92,7 +93,9 @@ interface SnakeRenderOptions {
   direction?: Vector2Like;
   snakeRenderStyle?: 'sprite' | 'retro-grid';
   characterMode?: 'snake' | 'raccoon';
+  hiddenAppleTile?: Vector2Like;
   otherPlayers?: readonly {
+    presentationBody?: readonly Vector2Like[];
     id: string;
     name?: string;
     activeEmoticon?: string | null;
@@ -113,6 +116,7 @@ interface SnakeRenderOptions {
   bombs?: readonly BombInstance[];
   animals?: readonly AnimalInstance[];
   alchemyStation?: { roomId: string; x: number; y: number } | null;
+  computer?: ComputerLocation;
   atmosphere?: ResolvedAtmosphereView;
   thermalBody?: {
     current: number;
@@ -443,8 +447,27 @@ export class SnakeRenderer {
         this.drawTreasure(entry.room);
       });
       furnitureIndex = this.drawFurniture(entry.room, entry.offset, furnitureIndex);
+      if (opts.computer?.roomId === entry.roomId) {
+        const computer = opts.computer;
+        this.ensureFurnitureSprite(furnitureIndex)
+          .setTexture(this.furnitureTextureKeys.computer)
+          .setDepth(FURNITURE_LAYER_DEPTH + 0.1)
+          .setPosition(
+            this.scaledPx((entry.offset.x + computer.x + 0.5) * this.grid.cell),
+            this.scaledPx((entry.offset.y + computer.y + 0.5) * this.grid.cell),
+          )
+          .setDisplaySize(this.scaledPx(this.grid.cell), this.scaledPx(this.grid.cell))
+          .setVisible(true);
+        furnitureIndex += 1;
+      }
       vegetationIndex = this.drawVegetation(entry.room, entry.offset, vegetationIndex);
-      appleIndex = this.drawApple(entry.room, entry.apple ?? undefined, entry.offset, appleIndex);
+      appleIndex = this.drawApple(
+        entry.room,
+        entry.apple ?? undefined,
+        entry.offset,
+        appleIndex,
+        entry.roomId === currentRoomId ? opts.hiddenAppleTile : undefined,
+      );
       powerupIndex = this.drawPowerup(entry.room, entry.offset, powerupIndex);
       this.drawAlchemyStation(
         opts.alchemyStation?.roomId === entry.roomId ? opts.alchemyStation : null,
@@ -2396,6 +2419,7 @@ export class SnakeRenderer {
         const sprite = this.ensureFurnitureSprite(index);
         sprite
           .setTexture(this.furnitureTextureKeys[variant])
+          .setDepth(FURNITURE_LAYER_DEPTH)
           .setPosition(
             this.scaledPx((offset.x + x) * this.grid.cell + this.grid.cell / 2),
             this.scaledPx((offset.y + y) * this.grid.cell + this.grid.cell / 2),
@@ -2442,6 +2466,7 @@ export class SnakeRenderer {
     appleInfo: AppleSnapshot | undefined,
     offset: Vector2Like,
     startIndex: number,
+    hiddenTile?: Vector2Like,
   ): number {
     const apples = appleInfo
       ? [appleInfo.position]
@@ -2458,7 +2483,9 @@ export class SnakeRenderer {
     const appleOutlineColor = darkenColor(appleColor, paletteConfig.apple.outlineDarkenFactor);
     const variant = this.resolveAppleVariant(appleInfo);
 
-    apples.forEach((apple, index) => {
+    let index = 0;
+    apples.forEach((apple) => {
+      if (hiddenTile?.x === apple.x && hiddenTile?.y === apple.y) return;
       const presentationPosition = appleInfo
         ? this.getPresentationTilePosition(`apple:${room.id}:${appleInfo.typeId}`)
         : null;
@@ -2467,7 +2494,7 @@ export class SnakeRenderer {
       if (appleInfo?.typeId === 'roadRash') {
         this.drawRoadRashAppleTrail(x, y, appleInfo);
       }
-      const sprite = this.ensureAppleSprite(startIndex + index);
+      const sprite = this.ensureAppleSprite(startIndex + index++);
       sprite
         .setTexture(this.appleTextureKeys[variant])
         .setPosition(this.scaledPx(x + this.grid.cell / 2), this.scaledPx(y + this.grid.cell / 2))
@@ -2487,7 +2514,7 @@ export class SnakeRenderer {
       this.graphics.lineStyle(APPLE_OUTLINE_WIDTH, appleOutlineColor, APPLE_OUTLINE_ALPHA);
       this.drawShieldIndicators(x, y, shieldDirs);
     }
-    return startIndex + apples.length;
+    return startIndex + index;
   }
 
   private createAppleSprite(): Phaser.GameObjects.Image {
@@ -2891,6 +2918,7 @@ export class SnakeRenderer {
     roomPlacements?: ReadonlyMap<string, RoomPlacement>,
     retained = { sprites: this.snakeSprites, hat: this.hatSprite },
     identity = 'snake',
+    presentationBody?: readonly Vector2Like[],
   ): void {
     const now = (this.graphics.scene as Phaser.Scene).time?.now ?? performance.now();
     const pulse = poweredUp ? 0.85 + 0.15 * Math.sin(now / 180) : 1;
@@ -2910,7 +2938,7 @@ export class SnakeRenderer {
 
     snakeBody.forEach((segment, index) => {
       const renderPosition = this.getRenderTilePosition(
-        segment,
+        presentationBody?.[index] ?? segment,
         currentRoomId,
         room,
         roomPlacements,
@@ -3080,6 +3108,7 @@ export class SnakeRenderer {
     roomPlacements?: ReadonlyMap<string, RoomPlacement>,
     retained = { sprites: this.snakeSprites, hat: this.hatSprite },
     identity = 'snake',
+    presentationBody?: readonly Vector2Like[],
   ): void {
     const now = (this.graphics.scene as Phaser.Scene).time?.now ?? performance.now();
     const pulse = poweredUp ? 0.88 + 0.12 * Math.sin(now / 180) : 1;
@@ -3098,7 +3127,7 @@ export class SnakeRenderer {
 
     snakeBody.forEach((segment, segmentIndex) => {
       const renderPosition = this.getRenderTilePosition(
-        segment,
+        presentationBody?.[segmentIndex] ?? segment,
         currentRoomId,
         room,
         roomPlacements,
@@ -3118,7 +3147,7 @@ export class SnakeRenderer {
       this.graphics.strokeRect(x + 0.5, y + 0.5, this.grid.cell - 1, this.grid.cell - 1);
     });
 
-    const head = snakeBody[0];
+    const head = presentationBody?.[0] ?? snakeBody[0];
     if (!activeHat || !head) return;
 
     const headPosition = this.getRenderTilePosition(head, currentRoomId, room, roomPlacements);
@@ -3176,12 +3205,13 @@ export class SnakeRenderer {
       name?: string;
       activeEmoticon?: string | null;
       body: readonly Vector2Like[];
+      presentationBody?: readonly Vector2Like[];
     }[],
     placements?: ReadonlyMap<string, RoomPlacement>,
   ): void {
     for (const label of this.playerNameplates.values()) label.setVisible(false);
     for (const player of players) {
-      const head = player.body[0];
+      const head = player.presentationBody?.[0] ?? player.body[0];
       const position = head && this.getRenderTilePosition(head, roomId, room, placements);
       if (!player.name || !position) continue;
       let label = this.playerNameplates.get(player.id);
@@ -3256,6 +3286,7 @@ export class SnakeRenderer {
           roomPlacements,
           retained,
           `player:${player.id}`,
+          player.presentationBody,
         );
         continue;
       }
@@ -3273,6 +3304,7 @@ export class SnakeRenderer {
         roomPlacements,
         retained,
         `player:${player.id}`,
+        player.presentationBody,
       );
     }
   }
