@@ -299,7 +299,7 @@ export const DEFAULT_SHOP_PROFILES: ReadonlyMap<string, ShopProfile> = new Map(
     profile('general-merchant', {
       equipment: { poolId: 'generic-equipment', randomCount: 2 },
       consumables: { poolId: 'generic-consumables', randomCount: 4 },
-      items: { poolId: 'generic-items', randomCount: 2 },
+      items: { poolId: 'generic-items', anchored: ['personal-computer'], randomCount: 2 },
     }),
     profile('potion-maker', {
       consumables: { poolId: 'potion-maker-consumables', randomCount: 4 },
@@ -370,8 +370,14 @@ const DEFAULT_SHOP_OFFER_POOL_LIST: ShopOfferPool[] = [
         price: 120,
         note: 'Portable brewing furniture for travelers with suspiciously specific plans.',
       },
+      {
+        id: 'personal-computer',
+        itemId: 'personal-computer',
+        price: 150,
+        note: 'SnekOS included. Monitor, keyboard, and suspiciously many cables.',
+      },
     ],
-    { 'alchemy-station': 1 },
+    { 'alchemy-station': 1, 'personal-computer': 1 },
   ),
   equipmentPool('generic-equipment', VILLAGE_SHOP_EQUIPMENT),
   supplyPool(

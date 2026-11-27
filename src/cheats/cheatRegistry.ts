@@ -205,6 +205,14 @@ export const CHEAT_DEFINITIONS: readonly CheatDefinition[] = [
     category: 'bosses',
   },
   {
+    name: 'SPAWN FREAK TURKEY',
+    code: 'freakturkey',
+    primaryCode: 'freakturkey',
+    description: 'Spawn Freak Turkey boss in current room.',
+    aliases: ['freakturkey', 'turkey'],
+    category: 'bosses',
+  },
+  {
     name: 'SPAWN JASON STATHAM',
     code: 'jasonstatham',
     primaryCode: 'jasonstatham',

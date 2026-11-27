@@ -94,22 +94,8 @@ describe('operational server logging', () => {
     document.visibilityState = 'visible';
     document.dispatchEvent(new Event('visibilitychange'));
     await vi.advanceTimersByTimeAsync(8000);
-    await vi.waitFor(() =>
-      expect(records.filter((record) => record.event === 'client.movement-stalled')).toEqual([
-        expect.objectContaining({
-          fields: expect.objectContaining({
-            browserState: 'visible',
-            desiredInteraction: 'paused',
-            movementRevision: 0,
-            authorityMovement: expect.objectContaining({
-              alive: true,
-              held: true,
-              holdReason: 'playerInteraction:paused',
-            }),
-          }),
-        }),
-      ]),
-    );
+    expect(records.some((record) => record.event === 'client.movement-stalled')).toBe(false);
+    expect(client.getMovementPresentation()).toBeNull();
   });
 
   it('correlates a real client loss, suspension, resume and browser diagnostic without logging credentials', async () => {
@@ -333,19 +319,23 @@ describe('operational server logging', () => {
         expect(session.getQueueDiagnostics().activeOperation).toBe('command:saveGame'),
       );
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-      const received = vi.spyOn(session, 'executeCommand');
+      const received = vi.spyOn(session, 'executeNetworkCommand');
       const result = client
         .send({ type: 'setDirection', playerId: id, direction: { x: 0, y: 1 } })
         .catch((error: unknown) => error);
       await vi.waitFor(() =>
-        expect(received).toHaveBeenCalledWith({
-          type: 'setDirection',
-          inputSequence: 1,
-          intendedRevision: 1,
-          estimatedServerTimeMs: expect.any(Number),
-          playerId: id,
-          direction: { x: 0, y: 1 },
-        }),
+        expect(received).toHaveBeenCalledWith(
+          client.connectionId,
+          {
+            type: 'setDirection',
+            inputSequence: 1,
+            intendedRevision: 1,
+            estimatedServerTimeMs: expect.any(Number),
+            playerId: id,
+            direction: { x: 0, y: 1 },
+          },
+          undefined,
+        ),
       );
       await vi.advanceTimersByTimeAsync(10001);
       expect(await result).toBeInstanceOf(Error);

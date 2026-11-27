@@ -3,6 +3,8 @@ import {
   HOSTED_ACHIEVEMENTS_FLAG,
 } from '../session/AuthoritativeAchievements.js';
 import { isManualMovementArea } from '../world/manualMovementPolicy.js';
+import { openComputerTerminal } from '../computers/computerTerminal.js';
+import { PERSONAL_COMPUTER_ITEM_ID, type ComputerLocation } from '../computers/computerWorld.js';
 import type {
   DatingSequencePage,
   DatingBranchResult,
@@ -144,7 +146,8 @@ import {
 import { MinimapRenderer } from '../ui/minimapRenderer.js';
 import { JuiceManager } from '../ui/juice.js';
 import { BossHud } from '../ui/bossHud.js';
-import type { BossEvent } from '../systems/boss.js';
+import type { Boss, BossEvent } from '../systems/boss.js';
+import type { DuelBossDisplay } from '../systems/enemies.js';
 import { SaveUI } from '../ui/saveUI.js';
 import { PauseUI } from '../ui/pauseUI.js';
 import { SaveLoadMenu } from '../ui/saveLoadMenu.js';
@@ -1256,6 +1259,28 @@ interface VillageResidentRetainedTarget {
   murmurColor: number | null;
 }
 
+interface PhaseBossAttackAnnouncement {
+  key: string;
+  color: string;
+  gobble?: 'dash' | 'spiral' | 'gravy';
+}
+
+const PHASE_BOSS_ATTACK_ANNOUNCEMENTS: Record<
+  'jason-statham' | 'freak-turkey',
+  Record<string, PhaseBossAttackAnnouncement>
+> = {
+  'jason-statham': {
+    charge: { key: 'jason_statham_attack_charge', color: '#ff6b6b' },
+    spiral: { key: 'jason_statham_attack_spiral', color: '#ffd166' },
+    dash: { key: 'jason_statham_attack_dash', color: '#ff8c42' },
+  },
+  'freak-turkey': {
+    'pumpkin-dash': { key: 'freak_turkey_attack_dash', color: '#ff8c42', gobble: 'dash' },
+    'stuffing-spiral': { key: 'freak_turkey_attack_spiral', color: '#ffd166', gobble: 'spiral' },
+    'gravy-round': { key: 'freak_turkey_attack_gravy', color: '#ff6b6b', gobble: 'gravy' },
+  },
+};
+
 export default class SnakeScene extends Phaser.Scene {
   graphics!: Phaser.GameObjects.Graphics;
   wallGraphics!: Phaser.GameObjects.Graphics;
@@ -1274,6 +1299,7 @@ export default class SnakeScene extends Phaser.Scene {
   private unsubscribeSnapshot: (() => void) | null = null;
   private unsubscribeMovement: (() => void) | null = null;
   private unsubscribeEvents: (() => void) | null = null;
+  private closeComputerTerminal: (() => void) | null = null;
   private questHud!: QuestHud;
   private questPopup!: QuestPopup;
   private villageShopPopup!: ChoicePopup;
@@ -1316,6 +1342,13 @@ export default class SnakeScene extends Phaser.Scene {
   private activeBossId: string | null = null;
   private lastBossHealth: Map<string, number> = new Map();
   private jasonDefeatTimer: Phaser.Time.TimerEvent | null = null;
+  private jasonTrail: { x: number; y: number }[] = [];
+  private turkeyAuraAtMs = 0;
+  private jasonIntroOverlay: {
+    top: Phaser.GameObjects.Rectangle;
+    bottom: Phaser.GameObjects.Rectangle;
+    banner: Phaser.GameObjects.Text;
+  } | null = null;
   private powerupMusicActive = false;
   private houseMusicActive = false;
   private townMusicActive = false;
@@ -2235,6 +2268,12 @@ export default class SnakeScene extends Phaser.Scene {
         this.handleJasonDefeat(bossId, scoreBonus);
       }
     });
+    this.snakeGame.setFreakTurkeyDamageCallback((bossId, defeated, scoreBonus) => {
+      this.recordAchievementEvent({ type: 'boss:freakTurkeyVulnerableDamaged', bossId });
+      if (defeated) {
+        this.handleFreakTurkeyDefeat(bossId, scoreBonus);
+      }
+    });
     await this.featureManager.load(this, defaultGameConfig.features.enabled);
 
     // Wire up minecraft feature instance from the feature registry
@@ -2524,6 +2563,34 @@ export default class SnakeScene extends Phaser.Scene {
       this.currentSnapshot = snapshot;
     });
     this.unsubscribeEvents = this.gameConnection.onEvent((event) => {
+      if ('playerId' in event && event.playerId === this.snakeGame.getLocalPlayerId()) {
+        const value =
+          event.type === 'item.picked_up'
+            ? event.itemId
+            : event.type === 'quest.completed'
+              ? event.questId
+              : event.type === 'room.changed'
+                ? event.toRoomId
+                : undefined;
+        if (
+          value !== undefined &&
+          (event.type === 'item.picked_up' ||
+            event.type === 'quest.completed' ||
+            event.type === 'room.changed')
+        ) {
+          try {
+            const errors = this.snakeGame.dispatchHomeComputerEvent(event.type, value, (message) =>
+              this.showQuestHintPopup(message, '#9ad1ff'),
+            );
+            for (const error of errors) this.showQuestHintPopup(error, '#ff6b6b');
+          } catch (error) {
+            this.showQuestHintPopup(
+              error instanceof Error ? error.message : 'SnekOS hook failed.',
+              '#ff6b6b',
+            );
+          }
+        }
+      }
       if (event.type === 'room.changed' && event.playerId === this.snakeGame.getLocalPlayerId())
         this.presentRoomTransition(event.toRoomId, event.head);
       if (event.type === 'toast') {
@@ -2543,7 +2610,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private setupInputHandlers(): void {
     this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
-      if (this.serverConnectionMenu?.visible) return;
+      if (this.closeComputerTerminal || this.serverConnectionMenu?.visible) return;
       this.emitRawKeyboardDebug(event, 'down');
       this.inputModeManager.markKeyboardInput();
       const key = event.key.toLowerCase();
@@ -2997,6 +3064,7 @@ export default class SnakeScene extends Phaser.Scene {
     });
 
     this.input.keyboard?.on('keyup', (event: KeyboardEvent) => {
+      if (this.closeComputerTerminal) return;
       this.emitRawKeyboardDebug(event, 'up');
       if (this.drivingCar) {
         this.releaseCarInput(event.key.toLowerCase());
@@ -3470,6 +3538,7 @@ export default class SnakeScene extends Phaser.Scene {
       footballs: readonly FootballInstance[];
       bombs: readonly BombInstance[];
       alchemyStation?: { roomId: string; x: number; y: number } | null;
+      computer?: ComputerLocation;
       atmosphere?: ResolvedAtmosphereView;
     },
   ): WorldRenderScene {
@@ -3486,6 +3555,7 @@ export default class SnakeScene extends Phaser.Scene {
           footballs: options.footballs,
           bombs: options.bombs,
           alchemyStation: options.alchemyStation,
+          computer: options.computer,
           runtimeNpcs: this.getFirstPersonRuntimeNpcs(roomSnapshot.id),
         },
       ],
@@ -3760,12 +3830,14 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private async performInteractAction(): Promise<void> {
+    if (this.closeComputerTerminal) return;
     if (this.tryPlaceAlchemyStation()) return;
     if (await this.interactFarmTarget()) return;
     if (this.snakeGame.getStructurePlacement()) {
       this.confirmStructurePlacement();
       return;
     }
+    if (this.tryInteractComputer()) return;
     if (this.tryEnterCar()) return;
     if (await this.tryInteractHouseGarden()) return;
     if (this.tryInteractQuestTarget()) return;
@@ -3990,37 +4062,34 @@ export default class SnakeScene extends Phaser.Scene {
     const worldX = world.x;
     const worldY = world.y;
     if (event.kind === 'jason-statham' && event.phase === 'vulnerable-entered') {
-      this.juice.stathamVulnerable(worldX, worldY);
-      this.showQuestHintPopup(i18n.getFeatureString('jason_statham_tired')!, '#ff6b6b');
-      this.showQuestHintPopup(i18n.getFeatureString('jason_statham_tired_sub')!, '#ffd166');
+      this.announcePhaseBossVulnerable('jason-statham', worldX, worldY);
     } else if (event.kind === 'jason-statham-move-started') {
       // Play warning sound and announce attack type
-      const moveType = (event as { moveType?: string }).moveType;
-      if (moveType === 'charge') {
-        this.juice.stathamAttackCharge(worldX, worldY);
-        this.showQuestHintPopup(i18n.getFeatureString('jason_statham_attack_charge')!, '#ff6b6b');
-      } else if (moveType === 'spiral') {
-        this.juice.stathamAttackCharge(worldX, worldY);
-        this.showQuestHintPopup(i18n.getFeatureString('jason_statham_attack_spiral')!, '#ffd166');
-      } else if (moveType === 'dash') {
-        this.juice.stathamAttackCharge(worldX, worldY);
-        this.showQuestHintPopup(i18n.getFeatureString('jason_statham_attack_dash')!, '#ff8c42');
-      } else {
-        this.juice.stathamAttackCharge(worldX, worldY);
-      }
+      this.announcePhaseBossMove('jason-statham', event.moveType, worldX, worldY);
     } else if (event.kind === 'jason-statham-attacking') {
-      this.juice.stathamAttackCharge(worldX, worldY);
-      this.showQuestHintPopup(i18n.getFeatureString('jason_statham_intro')!, '#ff6b6b');
+      this.announcePhaseBossAttacking('jason-statham', worldX, worldY);
     } else if (event.kind === 'jason-statham-defeated') {
       this.handleJasonDefeat(event.bossId, event.score);
+    } else if (event.kind === 'freak-turkey' && event.phase === 'vulnerable-entered') {
+      this.announcePhaseBossVulnerable('freak-turkey', worldX, worldY);
+    } else if (event.kind === 'freak-turkey-move-started') {
+      // Thanksgiving attack warning + announcement
+      this.announcePhaseBossMove('freak-turkey', event.moveType, worldX, worldY);
+    } else if (event.kind === 'freak-turkey-attacking') {
+      this.announcePhaseBossAttacking('freak-turkey', worldX, worldY);
     }
   }
 
-  private handleJasonDefeat(bossId: string, rawScore: number): void {
+  private handlePhaseBossDefeat(
+    kind: 'jason-statham' | 'freak-turkey',
+    bossId: string,
+    rawScore: number,
+  ): void {
+    const isTurkey = kind === 'freak-turkey';
     this.recordAchievementEvent({
       type: 'boss:defeated',
-      bossKind: 'jason-statham',
-      bossName: 'Jason Statham',
+      bossKind: kind,
+      bossName: isTurkey ? 'Freak Turkey' : 'Jason Statham',
     });
     if (this.archipelagoModeActive) {
       this.archipelagoCheckTracker.processBossDefeat(bossId);
@@ -4036,18 +4105,30 @@ export default class SnakeScene extends Phaser.Scene {
     // Juice
     const head = this.snakeGame.getSnakeBody()[0];
     const world = this.tileToWorld(head);
-    this.juice.stathamDefeated(world.x, world.y);
+    if (isTurkey) this.juice.turkeyDefeated(world.x, world.y);
+    else this.juice.stathamDefeated(world.x, world.y);
 
     // Show defeat announcements
-    this.showQuestHintPopup(i18n.getFeatureString('jason_statham_defeated')!, '#ffd166');
-    this.showQuestHintPopup(i18n.getFeatureString('jason_statham_victory')!, '#5dd6a2');
+    const prefix = isTurkey ? 'freak_turkey' : 'jason_statham';
+    this.showQuestHintPopup(i18n.getFeatureString(`${prefix}_defeated`)!, '#ffd166');
+    this.showQuestHintPopup(i18n.getFeatureString(`${prefix}_victory`)!, '#5dd6a2');
     this.showQuestHintPopup(
-      `${i18n.getFeatureString('jason_statham_score_bonus')}: +${rawScore}`,
+      `${i18n.getFeatureString(`${prefix}_score_bonus`)}: +${rawScore}`,
       '#5dd6a2',
     );
 
-    // Clean up defeat timer if set
-    this.jasonDefeatTimer?.remove(false);
+    // Clean up defeat timer if set (jason-only)
+    if (!isTurkey) {
+      this.jasonDefeatTimer?.remove(false);
+    }
+  }
+
+  private handleJasonDefeat(bossId: string, rawScore: number): void {
+    this.handlePhaseBossDefeat('jason-statham', bossId, rawScore);
+  }
+
+  private handleFreakTurkeyDefeat(bossId: string, rawScore: number): void {
+    this.handlePhaseBossDefeat('freak-turkey', bossId, rawScore);
   }
 
   private async runActorClockStep(stepMs: number): Promise<void> {
@@ -4136,6 +4217,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private initGame(startPaused = true, resetAchievements = false): void {
+    this.closeComputerTerminal?.();
     this.setBossStepIntervalMs(this.baseBossStepIntervalMs);
     this.setActorStepIntervalMs(this.baseActorStepIntervalMs);
     this.setBulletStepIntervalMs(this.baseBulletStepIntervalMs);
@@ -7038,6 +7120,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private handleShutdown(): void {
+    this.closeComputerTerminal?.();
     this.partyOverlay?.destroy();
     this.partyOverlay = null;
     this.serverConnectionMenu?.destroy();
@@ -7646,6 +7729,17 @@ export default class SnakeScene extends Phaser.Scene {
       if (this.snakeGame && this.snakeGame.bosses && this.currentRoomId) {
         this.snakeGame.bosses.spawnJasonStatham(this.currentRoomId);
         return { ok: true, message: 'Spawned Jason Statham!', color: '#5dd6a2' };
+      }
+      return {
+        ok: false,
+        message: 'Cannot spawn boss - game not in valid state',
+        color: '#ff6b6b',
+      };
+    }
+    if (code === 'freakturkey' || code === 'turkey') {
+      if (this.snakeGame && this.snakeGame.bosses && this.currentRoomId) {
+        this.snakeGame.bosses.spawnFreakTurkey(this.currentRoomId);
+        return { ok: true, message: 'Spawned Freak Turkey!', color: '#5dd6a2' };
       }
       return {
         ok: false,
@@ -9026,6 +9120,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   /** Apply a loaded save to the live game; returns false when the load fails. */
   private applyLoadedGame(sessionId: string, data: GameSaveData): boolean {
+    this.closeComputerTerminal?.();
     // Loading reuses the unique session this save belongs to.
     this.currentSessionId = sessionId;
     const success = this.snakeGame.loadFromSaveData(data);
@@ -10820,6 +10915,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private isModalPopupVisible(): boolean {
     return Boolean(
+      this.closeComputerTerminal ||
       this.questPopup?.isVisible() ||
       this.choicePopupVisible ||
       this.datingScenePopup?.isVisible() ||
@@ -11097,6 +11193,14 @@ export default class SnakeScene extends Phaser.Scene {
           color: result.color,
         };
       });
+    if (itemId === PERSONAL_COMPUTER_ITEM_ID) {
+      const result = this.snakeGame.placeHomeComputer();
+      if (result.ok) {
+        this.gameSession.refreshSnapshot();
+        this.isDirty = true;
+      }
+      return result;
+    }
     const result = this.snakeGame.useInventoryItem(itemId);
     if (result.ok && this.snakeGame.getFarmTool() === itemId) {
       this.showQuestHintPopup(result.message, '#5dd6a2');
@@ -11776,6 +11880,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private pollControllerInput(): void {
     const snapshot = this.controllerInput.poll();
+    if (this.closeComputerTerminal) return;
     if (this.fishingActive) {
       this.fishingMinigame?.setControllerPullDirection(snapshot.move?.x ?? 0);
     }
@@ -12158,20 +12263,271 @@ export default class SnakeScene extends Phaser.Scene {
     this.nextBabyCryAtMs = this.time.now + 3600;
   }
 
+  private clearJasonStathamIntro(): void {
+    if (this.jasonIntroOverlay) {
+      this.jasonIntroOverlay.top.destroy();
+      this.jasonIntroOverlay.bottom.destroy();
+      this.jasonIntroOverlay.banner.destroy();
+      this.jasonIntroOverlay = null;
+    }
+  }
+
+  /** Cinematic letterbox + movie-title banner when Jason enters the room. */
+  private playJasonStathamIntro(): void {
+    this.clearJasonStathamIntro();
+    const width = this.scale.width;
+    const height = this.scale.height;
+    const barHeight = Math.max(30, Math.round(height * 0.075));
+
+    const top = this.add
+      .rectangle(width / 2, 0, width, barHeight, 0x000000, 0.96)
+      .setOrigin(0.5, 0)
+      .setDepth(41)
+      .setScale(1, 0);
+    const bottom = this.add
+      .rectangle(width / 2, height, width, barHeight, 0x000000, 0.96)
+      .setOrigin(0.5, 1)
+      .setDepth(41)
+      .setScale(1, 0);
+    const banner = this.add
+      .text(width / 2, height / 2 - Math.round(height * 0.05), 'JASON STATHAM', {
+        fontFamily: 'monospace',
+        fontSize: '34px',
+        fontStyle: 'bold',
+        color: '#ff5533',
+        stroke: '#000000',
+        strokeThickness: 7,
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setDepth(42)
+      .setAlpha(0)
+      .setScale(1.45);
+
+    const overlay = { top, bottom, banner };
+    this.jasonIntroOverlay = overlay;
+
+    const inState = { p: 0 };
+    this.tweens.add({
+      targets: inState,
+      p: 1,
+      duration: 240,
+      ease: 'Cubic.easeOut',
+      onUpdate: () => {
+        top.setScale(1, inState.p);
+        bottom.setScale(1, inState.p);
+        banner.setAlpha(inState.p).setScale(1.45 - 0.45 * inState.p);
+      },
+      onComplete: () => {
+        const outState = { p: 0 };
+        this.tweens.add({
+          targets: outState,
+          p: 1,
+          delay: 1000,
+          duration: 300,
+          ease: 'Cubic.easeIn',
+          onUpdate: () => {
+            const out = 1 - outState.p;
+            top.setScale(1, out);
+            bottom.setScale(1, out);
+            banner.setAlpha(out).setScale(1 + 0.4 * outState.p);
+          },
+          onComplete: () => {
+            if (this.jasonIntroOverlay === overlay) {
+              this.clearJasonStathamIntro();
+            }
+          },
+        });
+      },
+    });
+    this.juice.jasonStathamSting();
+    this.cameras.main.shake(260, 0.012);
+  }
+
+  private phaseBossStyle(
+    boss: Boss | DuelBossDisplay,
+    timeMs: number,
+  ): { color: number; alpha: number } | null {
+    if (boss.kind === 'jason-statham') {
+      const jasonPhase = boss.jasonPhase ?? 'calm';
+      if (jasonPhase === 'vulnerable') {
+        const pulse = Math.sin(timeMs / 200) * 0.3 + 0.7;
+        return { color: 0xff2d2d, alpha: Math.max(0.5, pulse) };
+      }
+      if (jasonPhase === 'attacking') return { color: 0xcc0000, alpha: 0.95 };
+      if (jasonPhase === 'calm') {
+        const breath = Math.sin(timeMs / 700) * 0.12 + 0.5;
+        return { color: 0x881111, alpha: Math.max(0.3, breath) };
+      }
+      return { color: 0x333333, alpha: 0.3 };
+    }
+    if (boss.kind === 'freak-turkey') {
+      const turkeyPhase = boss.turkeyPhase ?? 'calm';
+      if (turkeyPhase === 'vulnerable') {
+        const pulse = Math.sin(timeMs / 180) * 0.35 + 0.65;
+        return { color: 0xffa726, alpha: Math.max(0.55, pulse) };
+      }
+      if (turkeyPhase === 'attacking') return { color: 0xff7b24, alpha: 0.95 };
+      if (turkeyPhase === 'calm') return { color: 0x6b3f1d, alpha: 0.6 };
+      return { color: 0x3a2e20, alpha: 0.3 };
+    }
+    return null;
+  }
+
+  private drawJasonAttackFx(boss: Boss, roomId: string): void {
+    const head = boss.body[0];
+    if (boss.jasonPhase === 'attacking' && head) {
+      const { x: headX, y: headY } = this.snakeRenderer.getWorldPosition(head, roomId);
+      this.jasonTrail.unshift({ x: headX, y: headY });
+      if (this.jasonTrail.length > 7) this.jasonTrail.pop();
+    } else {
+      this.jasonTrail.length = 0;
+    }
+    for (let i = 1; i < this.jasonTrail.length; i += 1) {
+      const pos = this.jasonTrail[i];
+      const alpha = Math.max(0.05, 0.24 * (1 - i / this.jasonTrail.length));
+      this.graphics
+        .fillStyle(0x4a0d0d, alpha)
+        .fillRect(pos.x, pos.y, this.grid.cell, this.grid.cell);
+    }
+    if (boss.jasonPhase === 'attacking') {
+      // Film double-exposure: a ghosted ink frame of the whole body
+      const [roomX, roomY] = this.parseRoomCoordinates(roomId);
+      const cell = this.grid.cell;
+      for (const ghost of boss.body) {
+        const localX = ghost.x - roomX * this.grid.cols;
+        const localY = ghost.y - roomY * this.grid.rows;
+        if (localX >= 0 && localX < this.grid.cols && localY >= 0 && localY < this.grid.rows) {
+          const { x: ghostX, y: ghostY } = this.snakeRenderer.getWorldPosition(ghost, roomId);
+          this.graphics.fillStyle(0x0d0a0a, 0.4).fillRect(ghostX + 3, ghostY + 3, cell, cell);
+        }
+      }
+    }
+  }
+
+  private drawTurkeyDizzyAura(boss: Boss, roomId: string, timeMs: number): void {
+    if (boss.turkeyPhase === 'vulnerable') {
+      const headSeg = boss.body[0];
+      if (headSeg && timeMs - this.turkeyAuraAtMs > 480) {
+        const { x: auraX, y: auraY } = this.snakeRenderer.getWorldPosition(headSeg, roomId);
+        this.juice.featherPuff(auraX + this.grid.cell / 2, auraY + this.grid.cell / 2, 3);
+        this.turkeyAuraAtMs = timeMs;
+      }
+    } else {
+      this.turkeyAuraAtMs = 0;
+    }
+  }
+
+  private phaseBossSegmentMetrics(
+    boss: Boss | DuelBossDisplay,
+    timeMs: number,
+    index: number,
+  ): { size: number; grow: number; bobY: number } {
+    if (boss.kind !== 'freak-turkey' || boss.turkeyPhase !== 'attacking') {
+      return { size: this.grid.cell, grow: 0, bobY: 0 };
+    }
+    const wobble = 1 + 0.13 * Math.sin(timeMs / 150 + index * 0.9);
+    const size = this.grid.cell * wobble;
+    return {
+      size,
+      grow: (this.grid.cell - size) / 2,
+      bobY: Math.sin(timeMs / 130 + 0.6) * 3,
+    };
+  }
+
+  private phaseBossHudPhaseText(boss: Boss | DuelBossDisplay): string | undefined {
+    if (boss.kind !== 'jason-statham' && boss.kind !== 'freak-turkey') return undefined;
+    const isTurkey = boss.kind === 'freak-turkey';
+    const phase = (isTurkey ? boss.turkeyPhase : boss.jasonPhase) ?? 'calm';
+    if (phase === 'attacking') return isTurkey ? 'GOBBLING!' : 'ATTACKING!';
+    if (phase === 'vulnerable') {
+      const remaining = Math.max(
+        0,
+        (15000 - ((isTurkey ? boss.turkeyVulnerableTimer : boss.jasonVulnerableTimer) ?? 0)) / 1000,
+      );
+      return isTurkey
+        ? `STUFFED & TIRED! ${remaining.toFixed(1)}s`
+        : `VULNERABLE! ${remaining.toFixed(1)}s`;
+    }
+    if (phase === 'defeated') return 'DEFEATED';
+    return undefined;
+  }
+
+  private playPhaseBossEncounterFane(boss: Boss | DuelBossDisplay): void {
+    if (boss.kind === 'jason-statham') {
+      // Cinematic movie-title intro when Jason enters the room
+      this.playJasonStathamIntro();
+      return;
+    }
+    if (boss.kind === 'freak-turkey') {
+      // Thanksgiving spawn fanfare the moment the turkey enters the room
+      const headSeg = boss.body[0];
+      if (headSeg) {
+        const { x, y } = this.snakeRenderer.getWorldPosition(headSeg, this.currentRoomId);
+        this.juice.turkeySpawn(x + this.grid.cell / 2, y + this.grid.cell / 2);
+        this.showQuestHintPopup(
+          i18n.getFeatureString('freak_turkey_spawn') ?? 'Gobble Gobble!',
+          '#ffb347',
+        );
+      }
+    }
+  }
+
+  private announcePhaseBossMove(
+    kind: 'jason-statham' | 'freak-turkey',
+    moveType: string | undefined,
+    worldX: number,
+    worldY: number,
+  ): void {
+    const ui = moveType ? PHASE_BOSS_ATTACK_ANNOUNCEMENTS[kind][moveType] : undefined;
+    if (kind === 'jason-statham') {
+      this.juice.stathamAttackCharge(worldX, worldY);
+    } else {
+      this.juice.turkeyAttackCharge(worldX, worldY);
+      this.juice.gobble(worldX, worldY, ui?.gobble ?? 'dash');
+    }
+    if (ui) {
+      this.showQuestHintPopup(i18n.getFeatureString(ui.key)!, ui.color);
+    }
+  }
+
+  private announcePhaseBossAttacking(
+    kind: 'jason-statham' | 'freak-turkey',
+    worldX: number,
+    worldY: number,
+  ): void {
+    if (kind === 'jason-statham') {
+      this.juice.stathamAttackCharge(worldX, worldY);
+      this.showQuestHintPopup(i18n.getFeatureString('jason_statham_intro')!, '#ff6b6b');
+      return;
+    }
+    this.juice.turkeyAttackCharge(worldX, worldY);
+    this.juice.gobble(worldX, worldY);
+    this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_intro')!, '#ff8c42');
+  }
+
+  private announcePhaseBossVulnerable(
+    kind: 'jason-statham' | 'freak-turkey',
+    worldX: number,
+    worldY: number,
+  ): void {
+    if (kind === 'jason-statham') {
+      this.juice.stathamVulnerable(worldX, worldY);
+      this.showQuestHintPopup(i18n.getFeatureString('jason_statham_tired')!, '#ff6b6b');
+      this.showQuestHintPopup(i18n.getFeatureString('jason_statham_tired_sub')!, '#ffd166');
+      return;
+    }
+    this.juice.turkeyVulnerable(worldX, worldY);
+    this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_stuffed')!, '#ffb347');
+    this.showQuestHintPopup(i18n.getFeatureString('freak_turkey_stuffed_sub')!, '#ffd166');
+  }
+
   private updateBossEncounter(): void {
     const bosses = this.snakeGame.getBosses(this.currentRoomId);
     const boss = bosses[0];
 
     if (boss) {
-      let hudPhaseText: string | undefined;
-      if (boss.kind === 'jason-statham') {
-        const phase = boss.jasonPhase ?? 'calm';
-        if (phase === 'attacking') hudPhaseText = 'ATTACKING!';
-        else if (phase === 'vulnerable') {
-          const remaining = Math.max(0, (15000 - (boss.jasonVulnerableTimer ?? 0)) / 1000);
-          hudPhaseText = `VULNERABLE! ${remaining.toFixed(1)}s`;
-        } else if (phase === 'defeated') hudPhaseText = 'DEFEATED';
-      }
+      const hudPhaseText = this.phaseBossHudPhaseText(boss);
       this.bossHud.show({
         name: boss.name ?? 'Nameless Horror',
         health: boss.health ?? 0,
@@ -12191,6 +12547,7 @@ export default class SnakeScene extends Phaser.Scene {
       if (this.activeBossId !== boss.id) {
         this.juice.startBossMusic(boss.kind ?? 'default');
         this.activeBossId = boss.id;
+        this.playPhaseBossEncounterFane(boss);
       }
       // Danger vignette based on boss presence
       this.juice.setDangerLevel(0.22);
@@ -13217,6 +13574,7 @@ export default class SnakeScene extends Phaser.Scene {
           y: placedAlchemyStation.position.y,
         }
       : null;
+    const computer = this.sceneClient ? undefined : this.snakeGame.getComputerInRoom(room.id);
     const dlss5PresentationEnabled = this.isDlss5PresentationEnabled();
     const firstPersonRendered = this.shouldRenderFirstPerson({
       localPlayer: Boolean(localPlayer),
@@ -13236,6 +13594,7 @@ export default class SnakeScene extends Phaser.Scene {
             footballs,
             bombs: visibleBombs,
             alchemyStation,
+            computer,
             atmosphere,
           })
         : null;
@@ -13316,6 +13675,7 @@ export default class SnakeScene extends Phaser.Scene {
         bombs: visibleBombs,
         animals,
         alchemyStation,
+        computer,
         atmosphere,
         presentationScene:
           dlss5PresentationEnabled && displayPresentationScene
@@ -13541,33 +13901,24 @@ export default class SnakeScene extends Phaser.Scene {
       this.drawFreakYouPortalFx(room.id);
       const bosses = this.snakeGame.getBosses(room.id);
       const timeMs = this.time.now;
+      if (!bosses.some((boss) => boss.kind === 'jason-statham')) {
+        this.jasonTrail.length = 0;
+        this.turkeyAuraAtMs = 0;
+      }
       for (const boss of bosses) {
         let bossColor: number;
         let bossAlpha: number;
 
-        if (boss.kind === 'angel') {
+        const phaseStyle = this.phaseBossStyle(boss, timeMs);
+        if (phaseStyle) {
+          bossColor = phaseStyle.color;
+          bossAlpha = phaseStyle.alpha;
+        } else if (boss.kind === 'angel') {
           bossColor = 0xfff2a8;
           bossAlpha = 0.92;
         } else if (boss.kind === 'freak-you') {
           bossColor = 0xff2d55;
           bossAlpha = 0.9;
-        } else if (boss.kind === 'jason-statham') {
-          // Jason: red, with pulsing glow during vulnerability
-          if (boss.jasonPhase === 'vulnerable') {
-            // Pulsing red glow
-            const pulse = Math.sin(timeMs / 200) * 0.3 + 0.7;
-            bossColor = 0xff2d2d;
-            bossAlpha = Math.max(0.5, pulse);
-          } else if (boss.jasonPhase === 'attacking') {
-            bossColor = 0xcc0000;
-            bossAlpha = 0.95;
-          } else if (boss.jasonPhase === 'calm') {
-            bossColor = 0x881111;
-            bossAlpha = 0.5;
-          } else {
-            bossColor = 0x333333;
-            bossAlpha = 0.3;
-          }
         } else if (boss.kind === 'freaker-dennis' && boss.rainbowPalette) {
           const palette = defaultGameConfig.freakerDennis?.rainbowPalette;
           if (palette && palette.enabled) {
@@ -13586,6 +13937,15 @@ export default class SnakeScene extends Phaser.Scene {
           bossAlpha = 0.8;
         }
 
+        if (boss.kind === 'freak-turkey') {
+          this.drawTurkeyDizzyAura(boss, room.id, timeMs);
+        }
+        if (boss.kind === 'jason-statham') {
+          this.drawJasonAttackFx(boss, room.id);
+        }
+
+        const isTurkey = boss.kind === 'freak-turkey';
+        const cellSize = this.grid.cell;
         for (let index = 0; index < boss.body.length; index += 1) {
           const segment = boss.body[index];
           const [roomX, roomY] = this.parseRoomCoordinates(room.id);
@@ -13599,9 +13959,16 @@ export default class SnakeScene extends Phaser.Scene {
               (boss.headCenter
                 ? segment.x === boss.headCenter.x && segment.y === boss.headCenter.y
                 : index === 1);
+            const { size, grow, bobY } = this.phaseBossSegmentMetrics(boss, timeMs, index);
             this.graphics
               .fillStyle(isFreakYouHead ? 0xff7a8f : bossColor, isFreakYouHead ? 0.98 : bossAlpha)
-              .fillRect(x, y, this.grid.cell, this.grid.cell);
+              .fillRect(x + grow, y + grow + bobY, size, size);
+            if (isTurkey && index === 0) {
+              // Signature gold ring around the turkey head
+              this.graphics
+                .lineStyle(2, 0xffd166, 0.85)
+                .strokeRect(x - 1, y - 1 + bobY, cellSize + 2, cellSize + 2);
+            }
             if (isFreakYouHeadCenter) {
               const noseSize = Math.max(3, this.grid.cell * 0.28);
               const noseX =
@@ -16293,9 +16660,12 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private getQuestGiverHint(): { text: string } | null {
-    if (this.isInHouse() || this.paused || this.offeredQuest) {
-      return null;
+    if (this.paused || this.offeredQuest) return null;
+    const computer = !this.sceneClient && this.snakeGame.getNearbyComputer();
+    if (computer) {
+      return { text: `Use ${computer.hostname} (${this.getInteractPromptText()})` };
     }
+    if (this.isInHouse()) return null;
     const questActorHint = this.snakeGame.getNearbyQuestActorHint();
     if (questActorHint) {
       return { text: questActorHint };
@@ -16568,6 +16938,48 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   /** The station is selected in inventory, then deployed through a validated world intent. */
+  private tryInteractComputer(): boolean {
+    if (this.sceneClient || this.paused || this.offeredQuest || this.choicePopupVisible) {
+      return false;
+    }
+    try {
+      const runtime = this.snakeGame.openNearbyComputer((message) =>
+        this.showQuestHintPopup(message, '#9ad1ff'),
+      );
+      if (!runtime) return false;
+      this.paused = true;
+      const keyboard = this.input.keyboard;
+      const keyboardWasEnabled = keyboard?.enabled ?? false;
+      if (keyboard) keyboard.enabled = false;
+      const resume = (): void => {
+        if (keyboard) keyboard.enabled = keyboardWasEnabled;
+        this.closeComputerTerminal = null;
+        this.paused = false;
+        this.isDirty = true;
+      };
+      try {
+        this.closeComputerTerminal = openComputerTerminal({
+          runtime,
+          onChange: () => {
+            if (this.snakeGame.persistNearbyComputer(runtime)) {
+              this.gameSession.refreshSnapshot();
+            }
+          },
+          onClose: resume,
+        });
+      } catch (error) {
+        resume();
+        throw error;
+      }
+    } catch (error) {
+      this.showQuestHintPopup(
+        error instanceof Error ? error.message : 'Could not start SnekOS.',
+        '#ff6b6b',
+      );
+    }
+    return true;
+  }
+
   private tryPlaceAlchemyStation(): boolean {
     if (!this.snakeGame.getFlag<boolean>('alchemy.placementArmed')) return false;
     if (this.paused || this.offeredQuest || this.choicePopupVisible) return true;
@@ -16999,6 +17411,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.saveLoadMenu) stack.push('save-load-menu');
     if (this.skillTree?.isOverlayVisible()) stack.push('skill-tree');
     if (this.pauseUI?.isVisible()) stack.push('pause-menu');
+    if (this.closeComputerTerminal) stack.push('computer-terminal');
     const panel = stack[stack.length - 1] ?? null;
     const pauseOwner = this.deathCutscene
       ? 'death-cutscene'

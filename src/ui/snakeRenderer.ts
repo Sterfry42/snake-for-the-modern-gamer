@@ -1,3 +1,4 @@
+import type { ComputerLocation } from '../computers/computerWorld.js';
 import Phaser from 'phaser';
 import { MasonryExpiry, type MasonryBlock } from './masonryExpiry.js';
 import { paletteConfig, darkenColor } from '../config/palette.js';
@@ -115,6 +116,7 @@ interface SnakeRenderOptions {
   bombs?: readonly BombInstance[];
   animals?: readonly AnimalInstance[];
   alchemyStation?: { roomId: string; x: number; y: number } | null;
+  computer?: ComputerLocation;
   atmosphere?: ResolvedAtmosphereView;
   thermalBody?: {
     current: number;
@@ -445,6 +447,19 @@ export class SnakeRenderer {
         this.drawTreasure(entry.room);
       });
       furnitureIndex = this.drawFurniture(entry.room, entry.offset, furnitureIndex);
+      if (opts.computer?.roomId === entry.roomId) {
+        const computer = opts.computer;
+        this.ensureFurnitureSprite(furnitureIndex)
+          .setTexture(this.furnitureTextureKeys.computer)
+          .setDepth(FURNITURE_LAYER_DEPTH + 0.1)
+          .setPosition(
+            this.scaledPx((entry.offset.x + computer.x + 0.5) * this.grid.cell),
+            this.scaledPx((entry.offset.y + computer.y + 0.5) * this.grid.cell),
+          )
+          .setDisplaySize(this.scaledPx(this.grid.cell), this.scaledPx(this.grid.cell))
+          .setVisible(true);
+        furnitureIndex += 1;
+      }
       vegetationIndex = this.drawVegetation(entry.room, entry.offset, vegetationIndex);
       appleIndex = this.drawApple(
         entry.room,
@@ -2404,6 +2419,7 @@ export class SnakeRenderer {
         const sprite = this.ensureFurnitureSprite(index);
         sprite
           .setTexture(this.furnitureTextureKeys[variant])
+          .setDepth(FURNITURE_LAYER_DEPTH)
           .setPosition(
             this.scaledPx((offset.x + x) * this.grid.cell + this.grid.cell / 2),
             this.scaledPx((offset.y + y) * this.grid.cell + this.grid.cell / 2),

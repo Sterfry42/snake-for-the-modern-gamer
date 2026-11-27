@@ -135,4 +135,50 @@ describe('boss world presentation', () => {
     expect(billboards.slice(0, 3).every((billboard) => billboard.height === 2.8)).toBe(true);
     expect(billboards[3]).toEqual(expect.objectContaining({ width: 1.2, height: 2 }));
   });
+
+  it('normalizes Freak Turkey cells and presents it with the pumpkin-orange palette', () => {
+    const room = createRoomSnapshot('1,0,0');
+    const boss: Boss = {
+      id: 'boss-turkey-test',
+      name: 'Freak Turkey',
+      kind: 'freak-turkey',
+      body: [
+        { x: 40, y: 8 },
+        { x: 39, y: 8 },
+        { x: 41, y: 8 },
+      ],
+      health: 120,
+      maxHealth: 120,
+      roomId: room.id,
+      direction: { x: 1, y: 0 },
+      turkeyPhase: 'attacking',
+    };
+    room.bosses = [boss];
+
+    const scene = buildWorldPresentationScene({
+      rooms: [{ room }],
+      currentRoomId: room.id,
+      grid,
+      snakeBody: [{ x: 32, y: 2 }],
+      direction: { x: 1, y: 0 },
+      assets: createAssets(),
+    });
+    const bossSprites = scene.sprites.filter((sprite) => sprite.kind === 'boss');
+
+    expect(bossSprites).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'boss:boss-turkey-test:0', x: 8.5, y: 8.5 }),
+        expect.objectContaining({ id: 'boss:boss-turkey-test:1', x: 7.5, y: 8.5 }),
+        expect.objectContaining({ id: 'boss:boss-turkey-test:2', x: 9.5, y: 8.5 }),
+      ]),
+    );
+
+    const billboards = createFirstPersonSpatialView(scene, room.id)
+      .getBillboards()
+      .filter((billboard) => billboard.kind === 'boss');
+    const head = billboards.find((billboard) => billboard.segmentIndex === 0);
+
+    expect(billboards).toHaveLength(3);
+    expect(head).toEqual(expect.objectContaining({ width: 2.4, height: 3.9, color: 0xff7b24 }));
+  });
 });

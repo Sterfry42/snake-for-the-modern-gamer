@@ -174,6 +174,7 @@ export type AchievementEvent =
   | { type: 'shop:generalBoughtOut'; shopId: string }
   | { type: 'boss:defeated'; bossKind: string; bossName: string }
   | { type: 'boss:jasonVulnerableDamaged'; bossId: string }
+  | { type: 'boss:freakTurkeyVulnerableDamaged'; bossId: string }
   | { type: 'divine:angelEncountered'; angelKind: 'normal' | 'goblin' }
   | { type: 'divine:escapedHell'; itemId: string }
   | { type: 'arcade:played' }

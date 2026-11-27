@@ -32,6 +32,18 @@ The local movement predictor hides an apple and plays its type-specific bite fee
 
 The development browser bridge reports `inputToFrameSamples`, `lastInputToFrameMs` and `maximumInputToFrameMs` for predicted turns observed in the renderer. For reproducible predicted input or apple timing, use the Chromium multiplayer smoke specs. Per-clock timing, discarded catch-up steps and background job round trip are also available in server performance samples.
 
+A matched 3-thread town workload on November 26, 2026 used the same deterministic seed, 4.5-second duration, and five populations. The baseline was the clean branch tip before this overhaul in a separate worktree. The updated build includes the SnekOS merge. Each figure is one run, so use these as directional measurements. The updated run shared its host with final validation, which inflated command tail latency at higher populations.
+
+| Players | Baseline average payload | Updated average payload | Baseline wire bytes/s/player | Updated wire bytes/s/player | Baseline command P99 | Updated command P99 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 14,896 B | 4,395 B | 259,488 B | 80,677 B | 19.1 ms | 19.2 ms |
+| 2 | 15,485 B | 5,078 B | 264,686 B | 87,733 B | 25.4 ms | 24.7 ms |
+| 4 | 21,164 B | 7,376 B | 379,123 B | 140,860 B | 55.9 ms | 36.0 ms |
+| 8 | 22,695 B | 7,648 B | 364,293 B | 151,493 B | 93.0 ms | 70.8 ms |
+| 16 | 28,114 B | 10,164 B | 368,859 B | 133,381 B | 269.5 ms | 341.3 ms |
+
+The wire rate uses snapshot payloads and movement packets only. It excludes welcome handshakes, events and transport overhead. The initial welcome still reaches about 140 to 146 KB. Sampled profiling showed authority-to-coordinator `executeNetworkCommand` replies with 6 to 9 KB P95 at eight to sixteen players and periodic no-change `networkDeltas` replies near 46 B. The hot path made no `getConnectionSnapshot` worker request in the updated run. At sixteen players the process RSS was workload-dependent and should not be treated as an isolated per-worker comparison.
+
 A short same-host arena run with 20 loopback clients recorded these p99 values. All 20 clients moved in each configuration. Between 4 and 10 players were still alive at the end of each run, and the process figures include the load clients.
 
 | Threads | Command completion | Coordinator event-loop delay | RSS |

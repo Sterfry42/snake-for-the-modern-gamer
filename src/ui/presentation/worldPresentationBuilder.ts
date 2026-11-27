@@ -1,3 +1,4 @@
+import type { ComputerLocation } from '../../computers/computerWorld.js';
 import type { AppleSnapshot } from '../../apples/types.js';
 import type { AnimalInstance } from '../../animals/types.js';
 import type { GridConfig } from '../../config/gameConfig.js';
@@ -33,6 +34,7 @@ export interface PresentationRoomInput {
   footballs?: readonly FootballInstance[];
   bombs?: readonly BombInstance[];
   alchemyStation?: { roomId: string; x: number; y: number } | null;
+  computer?: ComputerLocation;
   runtimeNpcs?: readonly RuntimeNpcPresentation[];
 }
 
@@ -399,6 +401,8 @@ function bossFirstPersonSize(boss: Boss, isHead: boolean): { width: number; heig
       return { width: 2.45, height: 4.2 };
     case 'jason-statham':
       return { width: 2.35, height: 3.8 };
+    case 'freak-turkey':
+      return { width: 2.4, height: 3.9 };
     case 'freaker-dennis':
       return { width: 2.25, height: 3.7 };
     default:
@@ -426,6 +430,20 @@ function bossPresentationColor(boss: Boss, index: number, isHead: boolean): numb
         return 0xaa1111;
     }
   }
+  if (boss.kind === 'freak-turkey') {
+    switch (boss.turkeyPhase) {
+      case 'vulnerable':
+        return 0xffa726;
+      case 'attacking':
+        return 0xff7b24;
+      case 'calm':
+        return 0x6b3f1d;
+      case 'defeated':
+        return 0x3a2e20;
+      default:
+        return 0xff8c42;
+    }
+  }
   return boss.kind === 'revenant' ? 0x7f39b8 : 0xff00ff;
 }
 
@@ -437,6 +455,18 @@ function pushRoomItemSprites(
 ): void {
   const room = entry.room.room;
   pushFurnitureSprites(sprites, room, placement, assets);
+  if (entry.computer?.roomId === room.id) {
+    pushSprite(sprites, {
+      id: entry.computer.id,
+      kind: 'prop',
+      position: localRenderPoint(entry.computer, placement),
+      width: 0.85,
+      height: 0.85,
+      color: 0xd9caa4,
+      visual: assets.getFurnitureTexture('computer'),
+      roomId: room.id,
+    });
+  }
   if (room.treasure) {
     pushSprite(sprites, {
       id: `treasure:${entry.room.id}:${room.treasure.x},${room.treasure.y}`,
