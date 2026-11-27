@@ -38,6 +38,16 @@ describe('SNEKOS-001', () => {
     runtime.saveEdit('mods/arrival.hook', hook);
     expect(runtime.execute('mod enable arrival').output).toBe('Mod enabled');
     expect(runtime.execute('cat /etc/system.conf').output).toContain('grid.cols=');
+    expect(runtime.execute('snake inventory').output).toContain('Personal Computer: 1');
+    expect(runtime.execute('snake quests').output).toBe('No accepted quests');
+    expect(runtime.execute('config get game.minimap.unlocked').output).toBe('false');
+    const enableMap = 'config set game.minimap.enabled true';
+    expect(runtime.execute(enableMap).output).toContain('Minimap is locked');
+    game.setFlag('ui.minimap.unlocked', true);
+    expect(runtime.execute(enableMap).output).toBe('Minimap setting updated');
+    expect(runtime.execute('config get game.minimap.enabled').output).toBe('true');
+    expect(game.getFlag('ui.minimap.enabled')).toBe(true);
+    expect(runtime.execute('config set game.grid.cols 999').output).toContain('Usage:');
     expect(game.persistNearbyComputer(runtime)).toBe(true);
     expect(game.getSaveData().flags[HOME_COMPUTER_FLAG]).toBeDefined();
 
@@ -46,6 +56,7 @@ describe('SNEKOS-001', () => {
     const reopened = restored.openNearbyComputer(() => {});
     expect(reopened?.execute('cat notes/hello.txt').output).toBe('Hello, Snake');
     expect(reopened?.execute('mod list').output).toContain('arrival: enabled');
+    expect(reopened?.execute('config get game.minimap.enabled').output).toBe('true');
 
     restored.moveToRoom('0,0,0', { x: 5, y: 5 });
     expect(restored.openNearbyComputer(() => {})).toBeUndefined();

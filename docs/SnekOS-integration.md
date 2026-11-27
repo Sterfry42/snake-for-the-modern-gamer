@@ -43,7 +43,9 @@ sessions are not supported yet.
   or packing it back into inventory. NPC PCs are read-only and generated from
   templates rather than separately saved.
 - `/etc/system.conf` is generated from allowlisted data (grid size, current room,
-  biome, hostname and theme). Only the theme is writable through config.
+  biome, hostname, theme and minimap state). `config get game.KEY` reads game
+  keys; the home PC can change the theme or toggle an already-unlocked minimap.
+  `snake inventory` and `snake quests` expose the current pack and accepted quests.
 - Notification-only home hooks continue operating while the terminal is closed.
 - Hosted multiplayer does not open or place computers. The item may still be
   listed in shops; hosted use explicitly rejects placement. A server-owned
@@ -57,9 +59,10 @@ sessions are not supported yet.
 
 The foundation's standalone checks were run previously. The integration adds
 a headless save/restore story, shop and presentation regression coverage, but
-repository formatting, typecheck, lint, tests and browser smoke validation
-remain unexecuted in this network-isolated environment. Do not treat this as
-a verified release.
+local repository commands and browser smoke validation cannot run in the
+network-isolated environment. Draft PR #159 runs the repository CI. The initial
+integration passed typecheck, lint, build, security audit and 2,079 tests;
+format corrections and follow-up changes are subject to the latest PR checks.
 
 ## Example session
 
@@ -70,6 +73,10 @@ cat projects/hello.txt
 edit scripts/dashboard.sh
 run scripts/dashboard.sh
 cat /etc/system.conf
+snake inventory
+snake quests
+config get game.minimap.unlocked
+config set game.minimap.enabled true
 config set system.theme amber
 edit mods/apple-alert.hook
 mod enable apple-alert

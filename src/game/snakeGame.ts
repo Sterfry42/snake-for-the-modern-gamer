@@ -20910,7 +20910,30 @@ export class SnakeGame implements QuestRuntime {
             `grid.rows=${this.config.grid.rows}`,
             `world.room=${this.snake.currentRoomId}`,
             `world.biome=${this.getCurrentRoom().biomeId}`,
+            `minimap.unlocked=${Boolean(this.getFlag('ui.minimap.unlocked'))}`,
+            `minimap.enabled=${Boolean(this.getFlag('ui.minimap.unlocked') && this.getFlag('ui.minimap.enabled'))}`,
           ].join('\n'),
+        readGameData: (topic) => {
+          if (topic === 'inventory') {
+            return (
+              this.inventory
+                .getAllItems()
+                .map(([id, count]) => `${getItem(id)?.name ?? id}: ${count}`)
+                .join('\n') || 'Inventory empty'
+            );
+          }
+          return (
+            this.getAcceptedQuests()
+              .filter((quest) => !this.getCompletedQuestIds().includes(quest.id))
+              .map((quest) => `${quest.label} [${quest.id}]`)
+              .join('\n') || 'No accepted quests'
+          );
+        },
+        setMinimapEnabled: (enabled) => {
+          if (!isHome) throw new Error('Permission denied');
+          if (!this.getFlag('ui.minimap.unlocked')) throw new Error('Minimap is locked');
+          this.setFlag('ui.minimap.enabled', enabled);
+        },
         notify,
       },
       saved,

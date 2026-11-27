@@ -15,6 +15,8 @@ export interface ComputerContext {
   /** Supplied by the game authority, not by player-entered commands. */
   readStatus(): string;
   readSystemConfig(): string;
+  readGameData?(topic: 'inventory' | 'quests'): string;
+  setMinimapEnabled?(enabled: boolean): void;
   notify(message: string): void;
 }
 
@@ -339,7 +341,10 @@ export class ComputerRuntime {
       }
       case 'snake':
         if (arg === 'status') return output(this.context.readStatus());
-        throw new Error('Usage: snake status');
+        if ((arg === 'inventory' || arg === 'quests') && this.context.readGameData) {
+          return output(this.context.readGameData(arg));
+        }
+        throw new Error('Usage: snake status | inventory | quests');
       case 'config':
         if (arg === 'list') return output(this.readFile(CONFIG));
         if (arg === 'get' && args[1] === 'system.theme') return output(this.theme);
@@ -352,9 +357,24 @@ export class ComputerRuntime {
           this.theme = value;
           return output('Theme updated');
         }
-        throw new Error(
-          'Usage: config list | config get system.theme | config set system.theme green',
-        );
+        if (arg === 'get' && args[1]?.startsWith('game.')) {
+          const key = args[1].slice(5);
+          const entry = this.context
+            .readSystemConfig()
+            .split('\n')
+            .find((line) => line.startsWith(`${key}=`));
+          if (!entry) throw new Error('Unknown configuration key');
+          return output(entry.slice(key.length + 1));
+        }
+        if (arg === 'set' && args[1] === 'game.minimap.enabled') {
+          if (!this.writable) throw new Error('Permission denied');
+          if (!this.context.setMinimapEnabled) throw new Error('Setting unavailable');
+          const value = args[2];
+          if (value !== 'true' && value !== 'false') throw new Error('Expected true or false');
+          this.context.setMinimapEnabled(value === 'true');
+          return output('Minimap setting updated');
+        }
+        throw new Error('Usage: config list | config get KEY | config set KEY VALUE');
       case 'mod': {
         const name = args[1];
         if (arg === 'help') {
