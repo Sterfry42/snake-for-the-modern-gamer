@@ -76,9 +76,8 @@ describe('SnekOS', () => {
   it('bounds file size and rejects noncanonical or orphaned saved paths', () => {
     const fs = new VirtualFileSystem();
     expect(() => fs.write('/big', 'a'.repeat(16_385))).toThrow('File too large');
-    expect(
-      () => new VirtualFileSystem([['/missing/file', { kind: 'file', content: '' }]]),
-    ).toThrow('Parent directory');
+    const orphan = () => new VirtualFileSystem([['/missing/file', { kind: 'file', content: '' }]]);
+    expect(orphan).toThrow('Parent directory');
     const invalidPath = () => new VirtualFileSystem([['/../bad', { kind: 'directory' }]]);
     expect(invalidPath).toThrow('Invalid saved path');
   });
