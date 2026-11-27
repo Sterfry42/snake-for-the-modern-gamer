@@ -87,7 +87,10 @@ describe('shop profile resolver', () => {
     ).toBe(true);
     for (const tool of FARM_TOOLS)
       expect(offers.some((offer) => offer.itemId === tool.id && offer.price > 0)).toBe(true);
-    expect(offers).toHaveLength(1 + 4 + FARM_TOOLS.length);
+    expect(offers).toHaveLength(2 + 4 + FARM_TOOLS.length);
+    expect(offers).toContainEqual(
+      expect.objectContaining({ id: 'personal-computer', itemId: 'personal-computer', price: 150 }),
+    );
     expect(
       tabs.flatMap((tab) => tab.offers).some((offer) => offer.itemId === 'seed-cannabis'),
     ).toBe(false);

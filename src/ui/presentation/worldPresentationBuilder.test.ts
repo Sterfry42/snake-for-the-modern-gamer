@@ -84,6 +84,35 @@ function createRoomSnapshot(id: string, layout: string[]): ClientRoomSnapshot {
 }
 
 describe('world presentation builder', () => {
+  it('presents a computer as a prop without replacing its underlying floor', () => {
+    const room = createRoomSnapshot('0,0,0', ['WWW']);
+    const scene = buildWorldPresentationScene({
+      rooms: [
+        {
+          room,
+          computer: {
+            id: 'test-computer',
+            roomId: room.id,
+            x: 1,
+            y: 0,
+            hostname: 'home-pc',
+            template: 'home',
+          },
+        },
+      ],
+      currentRoomId: room.id,
+      grid,
+      snakeBody: [],
+      direction: { x: 1, y: 0 },
+      assets: createAssets(),
+    });
+    expect(scene.sprites.find((sprite) => sprite.id === 'test-computer')).toMatchObject({
+      kind: 'prop',
+      visual: { defaultTextureKey: 'furniture-computer' },
+    });
+    expect(room.room.layout).toEqual(['WWW']);
+  });
+
   it('reuses static geometry across snapshots and invalidates edited tiles', () => {
     const roomCache = new PresentationRoomCache();
     const build = (room: ClientRoomSnapshot) =>

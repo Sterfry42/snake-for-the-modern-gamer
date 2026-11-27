@@ -1,3 +1,14 @@
+import { ComputerRuntime, type ComputerEvent } from '../computers/computerRuntime.js';
+import {
+  computerIsWithinReach,
+  homeComputerLocation,
+  HOME_COMPUTER_FLAG,
+  isHomeComputerSurface,
+  PERSONAL_COMPUTER_ITEM_ID,
+  townComputerLocation,
+  type ComputerLocation,
+  type HomeComputerRecord,
+} from '../computers/computerWorld.js';
 import { rememberStoryChoice } from '../quests/storyQuestCharacter.js';
 import { getStoryQuestDefinition, STORY_QUESTS } from '../quests/storyQuestCatalog.js';
 import { storyQuestConsequence } from '../quests/storyQuestConsequences.js';
@@ -20809,6 +20820,123 @@ export class SnakeGame implements QuestRuntime {
     return false;
   }
 
+  /** The local scene owns this action until the hosted computer protocol exists. */
+  placeHomeComputer(): { ok: boolean; message: string } {
+    if (this.runtimeMode === 'client-replica' || !this.isLocalPlayerInWorld()) {
+      return { ok: false, message: 'Cannot deploy a computer here.' };
+    }
+    if (this.getPlayerHealth().current <= 0 || this.snake.currentRoomId !== HOUSE_ROOM_ID) {
+      return { ok: false, message: 'Bring your computer home before placing it.' };
+    }
+    if (this.getFlag<HomeComputerRecord>(HOME_COMPUTER_FLAG)) {
+      return { ok: false, message: 'You already have a computer at home.' };
+    }
+    const head = this.snake.bodySegments[0];
+    if (!head || this.inventory.getItemCount(PERSONAL_COMPUTER_ITEM_ID) < 1) {
+      return { ok: false, message: 'No computer in your inventory.' };
+    }
+    const local = this.worldToLocal(HOUSE_ROOM_ID, head);
+    const direction = this.getDirection();
+    const target = { x: local.x + direction.x, y: local.y + direction.y };
+    const room = this.getCurrentRoom();
+    if (
+      Math.abs(direction.x) + Math.abs(direction.y) !== 1 ||
+      !isHomeComputerSurface(room.layout[target.y]?.[target.x]) ||
+      this.construction.getStructureAt(room.id, target.x, target.y) ||
+      this.farming.get(room.id, target.x, target.y) ||
+      this.snake.bodySegments.some((segment) => {
+        const position = this.worldToLocal(room.id, segment);
+        return position.x === target.x && position.y === target.y;
+      })
+    ) {
+      return { ok: false, message: 'Face an empty wooden floor tile or kitchen counter.' };
+    }
+    const location = homeComputerLocation(room.id, target.x, target.y);
+    const runtime = this.createComputerRuntime(location, () => {});
+    if (!this.inventory.removeItem(PERSONAL_COMPUTER_ITEM_ID)) {
+      return { ok: false, message: 'No computer in your inventory.' };
+    }
+    this.setFlag(HOME_COMPUTER_FLAG, { location, state: runtime.serialize() });
+    return { ok: true, message: 'Computer installed. Interact nearby to boot SnekOS.' };
+  }
+
+  getComputerInRoom(roomId: string): ComputerLocation | undefined {
+    const room = this.world.getRoom(roomId);
+    if (roomId === HOUSE_ROOM_ID) {
+      return this.getFlag<HomeComputerRecord>(HOME_COMPUTER_FLAG)?.location;
+    }
+    return townComputerLocation(room, room.layer?.templateId);
+  }
+
+  getNearbyComputer(): ComputerLocation | undefined {
+    if (!this.isLocalPlayerInWorld() || this.getPlayerHealth().current <= 0) return undefined;
+    const roomId = this.snake.currentRoomId;
+    const head = this.snake.bodySegments[0];
+    if (!head) return undefined;
+    const computer = this.getComputerInRoom(roomId);
+    return computer && computerIsWithinReach(computer, roomId, this.worldToLocal(roomId, head))
+      ? computer
+      : undefined;
+  }
+
+  openNearbyComputer(notify: (message: string) => void): ComputerRuntime | undefined {
+    if (this.runtimeMode === 'client-replica') return undefined;
+    const location = this.getNearbyComputer();
+    return location ? this.createComputerRuntime(location, notify) : undefined;
+  }
+
+  private createComputerRuntime(
+    location: ComputerLocation,
+    notify: (message: string) => void,
+  ): ComputerRuntime {
+    const isHome = location.template === 'home';
+    const saved = isHome ? this.getFlag<HomeComputerRecord>(HOME_COMPUTER_FLAG)?.state : undefined;
+    return new ComputerRuntime(
+      location.hostname,
+      location.template,
+      {
+        readStatus: () => {
+          const health = this.getPlayerHealth();
+          return [
+            `Room: ${this.snake.currentRoomId}`,
+            `Score: ${this.getScore()}`,
+            `Health: ${health.current}/${health.max}`,
+            `Length: ${this.snake.bodySegments.length}`,
+          ].join('\n');
+        },
+        readSystemConfig: () =>
+          [
+            `grid.cols=${this.config.grid.cols}`,
+            `grid.rows=${this.config.grid.rows}`,
+            `world.room=${this.snake.currentRoomId}`,
+            `world.biome=${this.getCurrentRoom().biomeId}`,
+          ].join('\n'),
+        notify,
+      },
+      saved,
+    );
+  }
+
+  persistNearbyComputer(runtime: ComputerRuntime): boolean {
+    if (this.runtimeMode === 'client-replica' || runtime.template !== 'home') return false;
+    const record = this.getFlag<HomeComputerRecord>(HOME_COMPUTER_FLAG);
+    if (!record || this.getNearbyComputer()?.id !== record.location.id) return false;
+    this.setFlag(HOME_COMPUTER_FLAG, { location: record.location, state: runtime.serialize() });
+    return true;
+  }
+
+  /** Enabled home hooks remain active even with the terminal closed. */
+  dispatchHomeComputerEvent(
+    event: ComputerEvent,
+    value: string,
+    notify: (message: string) => void,
+  ): string[] {
+    if (this.runtimeMode === 'client-replica') return [];
+    const record = this.getFlag<HomeComputerRecord>(HOME_COMPUTER_FLAG);
+    if (!record?.state.enabledMods.length) return [];
+    return this.createComputerRuntime(record.location, notify).dispatch(event, value);
+  }
+
   useInventoryItem(itemId: string): {
     ok: boolean;
     message: string;
@@ -20852,6 +20980,10 @@ export class SnakeGame implements QuestRuntime {
       this.inventory.removeItem(itemId);
       this.setFlag('farm.canCharges', 8);
       return { ok: true, message: 'Watering can refilled: 8/8.', color: '#9cff9c', consume: true };
+    }
+
+    if (itemId === PERSONAL_COMPUTER_ITEM_ID) {
+      return { ok: false, message: 'Deploy computers from a local single-player session.' };
     }
 
     if (itemId === 'bomb') {

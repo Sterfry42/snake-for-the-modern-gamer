@@ -1,3 +1,5 @@
+import { openComputerTerminal } from '../computers/computerTerminal.js';
+import { PERSONAL_COMPUTER_ITEM_ID, type ComputerLocation } from '../computers/computerWorld.js';
 import type {
   DatingSequencePage,
   DatingBranchResult,
@@ -1287,6 +1289,7 @@ export default class SnakeScene extends Phaser.Scene {
   private unsubscribeSnapshot: (() => void) | null = null;
   private unsubscribeMovement: (() => void) | null = null;
   private unsubscribeEvents: (() => void) | null = null;
+  private closeComputerTerminal: (() => void) | null = null;
   private questHud!: QuestHud;
   private questPopup!: QuestPopup;
   private villageShopPopup!: ChoicePopup;
@@ -2498,6 +2501,34 @@ export default class SnakeScene extends Phaser.Scene {
       this.currentSnapshot = snapshot;
     });
     this.unsubscribeEvents = this.gameConnection.onEvent((event) => {
+      if ('playerId' in event && event.playerId === this.snakeGame.getLocalPlayerId()) {
+        const value =
+          event.type === 'item.picked_up'
+            ? event.itemId
+            : event.type === 'quest.completed'
+              ? event.questId
+              : event.type === 'room.changed'
+                ? event.toRoomId
+                : undefined;
+        if (
+          value !== undefined &&
+          (event.type === 'item.picked_up' ||
+            event.type === 'quest.completed' ||
+            event.type === 'room.changed')
+        ) {
+          try {
+            const errors = this.snakeGame.dispatchHomeComputerEvent(event.type, value, (message) =>
+              this.showQuestHintPopup(message, '#9ad1ff'),
+            );
+            for (const error of errors) this.showQuestHintPopup(error, '#ff6b6b');
+          } catch (error) {
+            this.showQuestHintPopup(
+              error instanceof Error ? error.message : 'SnekOS hook failed.',
+              '#ff6b6b',
+            );
+          }
+        }
+      }
       if (event.type === 'room.changed' && event.playerId === this.snakeGame.getLocalPlayerId())
         this.presentRoomTransition(event.toRoomId, event.head);
       if (event.type === 'toast') {
@@ -2517,7 +2548,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private setupInputHandlers(): void {
     this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
-      if (this.serverConnectionMenu?.visible) return;
+      if (this.closeComputerTerminal || this.serverConnectionMenu?.visible) return;
       this.emitRawKeyboardDebug(event, 'down');
       this.inputModeManager.markKeyboardInput();
       const key = event.key.toLowerCase();
@@ -2974,6 +3005,7 @@ export default class SnakeScene extends Phaser.Scene {
     });
 
     this.input.keyboard?.on('keyup', (event: KeyboardEvent) => {
+      if (this.closeComputerTerminal) return;
       this.emitRawKeyboardDebug(event, 'up');
       if (this.drivingCar) {
         this.releaseCarInput(event.key.toLowerCase());
@@ -3423,6 +3455,7 @@ export default class SnakeScene extends Phaser.Scene {
       footballs: readonly FootballInstance[];
       bombs: readonly BombInstance[];
       alchemyStation?: { roomId: string; x: number; y: number } | null;
+      computer?: ComputerLocation;
       atmosphere?: ResolvedAtmosphereView;
     },
   ): WorldRenderScene {
@@ -3439,6 +3472,7 @@ export default class SnakeScene extends Phaser.Scene {
           footballs: options.footballs,
           bombs: options.bombs,
           alchemyStation: options.alchemyStation,
+          computer: options.computer,
           runtimeNpcs: this.getFirstPersonRuntimeNpcs(roomSnapshot.id),
         },
       ],
@@ -3715,12 +3749,14 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private async performInteractAction(): Promise<void> {
+    if (this.closeComputerTerminal) return;
     if (this.tryPlaceAlchemyStation()) return;
     if (await this.interactFarmTarget()) return;
     if (this.snakeGame.getStructurePlacement()) {
       this.confirmStructurePlacement();
       return;
     }
+    if (this.tryInteractComputer()) return;
     if (this.tryEnterCar()) return;
     if (await this.tryInteractHouseGarden()) return;
     if (this.tryInteractQuestTarget()) return;
@@ -4100,6 +4136,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private initGame(startPaused = true, resetAchievements = false): void {
+    this.closeComputerTerminal?.();
     this.setBossStepIntervalMs(this.baseBossStepIntervalMs);
     this.setActorStepIntervalMs(this.baseActorStepIntervalMs);
     this.setBulletStepIntervalMs(this.baseBulletStepIntervalMs);
@@ -6981,6 +7018,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private handleShutdown(): void {
+    this.closeComputerTerminal?.();
     this.partyOverlay?.destroy();
     this.partyOverlay = null;
     this.serverConnectionMenu?.destroy();
@@ -9002,6 +9040,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   /** Apply a loaded save to the live game; returns false when the load fails. */
   private applyLoadedGame(sessionId: string, data: GameSaveData): boolean {
+    this.closeComputerTerminal?.();
     // Loading reuses the unique session this save belongs to.
     this.currentSessionId = sessionId;
     const success = this.snakeGame.loadFromSaveData(data);
@@ -10796,6 +10835,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private isModalPopupVisible(): boolean {
     return Boolean(
+      this.closeComputerTerminal ||
       this.questPopup?.isVisible() ||
       this.choicePopupVisible ||
       this.datingScenePopup?.isVisible() ||
@@ -11073,6 +11113,14 @@ export default class SnakeScene extends Phaser.Scene {
           color: result.color,
         };
       });
+    if (itemId === PERSONAL_COMPUTER_ITEM_ID) {
+      const result = this.snakeGame.placeHomeComputer();
+      if (result.ok) {
+        this.gameSession.refreshSnapshot();
+        this.isDirty = true;
+      }
+      return result;
+    }
     const result = this.snakeGame.useInventoryItem(itemId);
     if (result.ok && this.snakeGame.getFarmTool() === itemId) {
       this.showQuestHintPopup(result.message, '#5dd6a2');
@@ -11751,6 +11799,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private pollControllerInput(): void {
     const snapshot = this.controllerInput.poll();
+    if (this.closeComputerTerminal) return;
     if (this.fishingActive) {
       this.fishingMinigame?.setControllerPullDirection(snapshot.move?.x ?? 0);
     }
@@ -13392,6 +13441,7 @@ export default class SnakeScene extends Phaser.Scene {
           y: placedAlchemyStation.position.y,
         }
       : null;
+    const computer = this.sceneClient ? undefined : this.snakeGame.getComputerInRoom(room.id);
     const dlss5PresentationEnabled = this.isDlss5PresentationEnabled();
     const firstPersonRendered = this.shouldRenderFirstPerson({
       localPlayer: Boolean(localPlayer),
@@ -13411,6 +13461,7 @@ export default class SnakeScene extends Phaser.Scene {
             footballs,
             bombs: visibleBombs,
             alchemyStation,
+            computer,
             atmosphere,
           })
         : null;
@@ -13489,6 +13540,7 @@ export default class SnakeScene extends Phaser.Scene {
         bombs: visibleBombs,
         animals,
         alchemyStation,
+        computer,
         atmosphere,
         presentationScene:
           dlss5PresentationEnabled && displayPresentationScene
@@ -16615,9 +16667,12 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private getQuestGiverHint(): { text: string } | null {
-    if (this.isInHouse() || this.paused || this.offeredQuest) {
-      return null;
+    if (this.paused || this.offeredQuest) return null;
+    const computer = !this.sceneClient && this.snakeGame.getNearbyComputer();
+    if (computer) {
+      return { text: `Use ${computer.hostname} (${this.getInteractPromptText()})` };
     }
+    if (this.isInHouse()) return null;
     const questActorHint = this.snakeGame.getNearbyQuestActorHint();
     if (questActorHint) {
       return { text: questActorHint };
@@ -16890,6 +16945,48 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   /** The station is selected in inventory, then deployed through a validated world intent. */
+  private tryInteractComputer(): boolean {
+    if (this.sceneClient || this.paused || this.offeredQuest || this.choicePopupVisible) {
+      return false;
+    }
+    try {
+      const runtime = this.snakeGame.openNearbyComputer((message) =>
+        this.showQuestHintPopup(message, '#9ad1ff'),
+      );
+      if (!runtime) return false;
+      this.paused = true;
+      const keyboard = this.input.keyboard;
+      const keyboardWasEnabled = keyboard?.enabled ?? false;
+      if (keyboard) keyboard.enabled = false;
+      const resume = (): void => {
+        if (keyboard) keyboard.enabled = keyboardWasEnabled;
+        this.closeComputerTerminal = null;
+        this.paused = false;
+        this.isDirty = true;
+      };
+      try {
+        this.closeComputerTerminal = openComputerTerminal({
+          runtime,
+          onChange: () => {
+            if (this.snakeGame.persistNearbyComputer(runtime)) {
+              this.gameSession.refreshSnapshot();
+            }
+          },
+          onClose: resume,
+        });
+      } catch (error) {
+        resume();
+        throw error;
+      }
+    } catch (error) {
+      this.showQuestHintPopup(
+        error instanceof Error ? error.message : 'Could not start SnekOS.',
+        '#ff6b6b',
+      );
+    }
+    return true;
+  }
+
   private tryPlaceAlchemyStation(): boolean {
     if (!this.snakeGame.getFlag<boolean>('alchemy.placementArmed')) return false;
     if (this.paused || this.offeredQuest || this.choicePopupVisible) return true;
@@ -17321,6 +17418,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.saveLoadMenu) stack.push('save-load-menu');
     if (this.skillTree?.isOverlayVisible()) stack.push('skill-tree');
     if (this.pauseUI?.isVisible()) stack.push('pause-menu');
+    if (this.closeComputerTerminal) stack.push('computer-terminal');
     const panel = stack[stack.length - 1] ?? null;
     const pauseOwner = this.deathCutscene
       ? 'death-cutscene'
