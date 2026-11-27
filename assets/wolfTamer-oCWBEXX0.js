@@ -1,0 +1,1 @@
+import{Q as a}from"./quest-DCM-IEEX.js";import{n as o}from"./index-Cy_k21LC.js";class s extends a{constructor(){super("wolf-tamer","Trusty Companion","Tame a wolf using a lead")}isCompleted(e){return o(e.getFlag("animals.tamedTypes")).includes("wolf")}onReward(e){e.addScore(45),e.addItem("lead",1)}}const m=new s;export{m as default};

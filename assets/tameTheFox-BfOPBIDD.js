@@ -1,1 +1,0 @@
-import{Q as a}from"./quest-DCM-IEEX.js";import{n as o}from"./index-BSYNWk-a.js";class s extends a{constructor(){super("tame-the-fox","Wild and Free","Tame a fox using a rope")}isCompleted(e){return o(e.getFlag("animals.tamedTypes")).includes("fox")}onReward(e){e.addScore(30),e.addCosmeticReward("style","goblin-hide")}}const m=new s;export{m as default};
