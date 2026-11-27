@@ -25,9 +25,18 @@ export function openComputerTerminal(options: TerminalOptions): () => void {
     overflow: 'hidden',
   });
   const layout = document.createElement('div');
-  Object.assign(layout.style, { display: 'flex', flexDirection: 'column', height: '100%', gap: '10px' });
+  Object.assign(layout.style, {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    gap: '10px',
+  });
   const header = document.createElement('div');
-  Object.assign(header.style, { display: 'flex', justifyContent: 'space-between', alignItems: 'center' });
+  Object.assign(header.style, {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  });
   const title = document.createElement('strong');
   title.textContent = `SnekOS 0.1 — ${runtime.hostname}`;
   const close = document.createElement('button');
@@ -37,7 +46,14 @@ export function openComputerTerminal(options: TerminalOptions): () => void {
   const output = document.createElement('pre');
   output.setAttribute('role', 'log');
   output.setAttribute('aria-live', 'polite');
-  Object.assign(output.style, { flex: '1', minHeight: '0', overflow: 'auto', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: '0' });
+  Object.assign(output.style, {
+    flex: '1',
+    minHeight: '0',
+    overflow: 'auto',
+    whiteSpace: 'pre-wrap',
+    overflowWrap: 'anywhere',
+    margin: '0',
+  });
   const form = document.createElement('form');
   Object.assign(form.style, { display: 'flex', alignItems: 'center', gap: '6px' });
   const prompt = document.createElement('span');
@@ -47,7 +63,15 @@ export function openComputerTerminal(options: TerminalOptions): () => void {
   input.autocomplete = 'off';
   input.spellcheck = false;
   input.maxLength = 4096;
-  Object.assign(input.style, { flex: '1', minWidth: '0', background: '#15201a', border: '1px solid #66776c', color: 'inherit', font: 'inherit', padding: '6px' });
+  Object.assign(input.style, {
+    flex: '1',
+    minWidth: '0',
+    background: '#15201a',
+    border: '1px solid #66776c',
+    color: 'inherit',
+    font: 'inherit',
+    padding: '6px',
+  });
   form.append(prompt, input);
   layout.append(header, output, form);
   dialog.append(layout);
@@ -80,7 +104,13 @@ export function openComputerTerminal(options: TerminalOptions): () => void {
     form.style.display = 'none';
     output.hidden = true;
     const editor = document.createElement('div');
-    Object.assign(editor.style, { display: 'flex', flexDirection: 'column', flex: '1', minHeight: '0', gap: '8px' });
+    Object.assign(editor.style, {
+      display: 'flex',
+      flexDirection: 'column',
+      flex: '1',
+      minHeight: '0',
+      gap: '8px',
+    });
     const label = document.createElement('label');
     label.textContent = `Editing ${path}`;
     const area = document.createElement('textarea');
@@ -88,7 +118,13 @@ export function openComputerTerminal(options: TerminalOptions): () => void {
     area.value = content;
     area.maxLength = 16384;
     area.spellcheck = false;
-    Object.assign(area.style, { flex: '1', resize: 'none', color: 'inherit', background: '#15201a', font: 'inherit' });
+    Object.assign(area.style, {
+      flex: '1',
+      resize: 'none',
+      color: 'inherit',
+      background: '#15201a',
+      font: 'inherit',
+    });
     const actions = document.createElement('div');
     const save = document.createElement('button');
     save.textContent = 'Save';
@@ -140,8 +176,10 @@ export function openComputerTerminal(options: TerminalOptions): () => void {
     if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
       event.preventDefault();
       if (historyIndex === history.length) draft = input.value;
-      historyIndex = Math.max(0, Math.min(history.length, historyIndex + (event.key === 'ArrowUp' ? -1 : 1)));
-      input.value = historyIndex === history.length ? draft : history[historyIndex] ?? '';
+      const delta = event.key === 'ArrowUp' ? -1 : 1;
+      historyIndex = Math.max(0, Math.min(history.length, historyIndex + delta));
+      const previous = history[historyIndex] ?? '';
+      input.value = historyIndex === history.length ? draft : previous;
     } else if (event.ctrlKey && event.key.toLowerCase() === 'l') {
       event.preventDefault();
       output.textContent = '';

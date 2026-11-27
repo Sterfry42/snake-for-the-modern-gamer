@@ -69,7 +69,10 @@ function parseWords(line: string): string[] {
 }
 
 function parseHook(content: string): Hook {
-  const lines = content.split('\n').map((line) => line.trim()).filter((line) => line && !line.startsWith('#'));
+  const lines = content
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'));
   if (lines.length < 2 || lines.length > 3) throw new Error('Expected on, optional if, and notify');
   const [on, eventName, ...extra] = parseWords(lines[0] ?? '');
   const event = EVENTS.find((value) => value === eventName);
@@ -84,21 +87,35 @@ function parseHook(content: string): Hook {
   }
   const [action, ...message] = parseWords(lines[lines.length - 1] ?? '');
   const text = message.join(' ');
-  if (action !== 'notify' || !text || text.length > 240) throw new Error('Expected notify "message" (max 240 characters)');
+  if (action !== 'notify' || !text || text.length > 240) {
+    throw new Error('Expected notify "message" (max 240 characters)');
+  }
   return { event, action: 'notify', message: text, equals };
 }
 
 function seedFiles(template: ComputerTemplate): VirtualFileSystem {
   const fs = new VirtualFileSystem();
-  for (const dir of ['/etc', '/home', `/home/${template === 'home' ? 'snake' : template}`]) fs.mkdir(dir);
   const home = `/home/${template === 'home' ? 'snake' : template}`;
+  for (const dir of ['/etc', '/home', home]) fs.mkdir(dir);
   fs.mkdir(`${home}/mods`);
   fs.mkdir(`${home}/notes`);
   fs.mkdir(`${home}/scripts`);
   fs.write(`${home}/readme.txt`, 'Welcome to SnekOS. Type help to learn the commands.\n');
-  if (template === 'barkeep') fs.write(`${home}/notes/stock.txt`, 'Order more cider. Stop extending credit to goblins.\n');
-  if (template === 'mayor') fs.write(`${home}/notes/budget.txt`, 'Proposed budget: roads, streetlights, and a very large statue.\n');
-  if (template === 'home') fs.write(`${home}/mods/welcome.hook`, 'on terminal_open\nnotify "An apple a day keeps the maze away."\n');
+  if (template === 'barkeep') {
+    fs.write(`${home}/notes/stock.txt`, 'Order more cider. Stop extending credit to goblins.\n');
+  }
+  if (template === 'mayor') {
+    fs.write(
+      `${home}/notes/budget.txt`,
+      'Proposed budget: roads, streetlights, and a very large statue.\n',
+    );
+  }
+  if (template === 'home') {
+    fs.write(
+      `${home}/mods/welcome.hook`,
+      'on terminal_open\nnotify "An apple a day keeps the maze away."\n',
+    );
+  }
   return fs;
 }
 
@@ -150,7 +167,8 @@ export class ComputerRuntime {
   }
 
   private path(input: string): string {
-    const expanded = input === '~' || input.startsWith('~/') ? `${this.home}${input.slice(1)}` : input;
+    const expanded =
+      input === '~' || input.startsWith('~/') ? `${this.home}${input.slice(1)}` : input;
     return resolvePath(this.cwd, expanded);
   }
 
@@ -221,7 +239,9 @@ export class ComputerRuntime {
       case undefined:
         return output();
       case 'help':
-        return output('help pwd ls cd mkdir touch cat echo write rm cp mv edit run clear whoami hostname snake config mod\nUse quotes for spaces; run executes up to 64 lines. mod help explains hooks.');
+        return output(
+          'help pwd ls cd mkdir touch cat echo write rm cp mv edit run clear whoami hostname snake config mod\nUse quotes for spaces; run executes up to 64 lines. mod help explains hooks.',
+        );
       case 'pwd':
         return output(this.cwd);
       case 'whoami':
@@ -265,8 +285,12 @@ export class ComputerRuntime {
       case 'rm': {
         const path = this.path(requireArg());
         this.assertWritable(path);
-        if (this.cwd === path || this.cwd.startsWith(`${path}/`)) throw new Error('Directory in use');
-        if (path === `${this.home}/mods` || path === `${this.home}/scripts`) throw new Error('System folder');
+        if (this.cwd === path || this.cwd.startsWith(`${path}/`)) {
+          throw new Error('Directory in use');
+        }
+        if (path === `${this.home}/mods` || path === `${this.home}/scripts`) {
+          throw new Error('System folder');
+        }
         this.fs.remove(path);
         this.disableRemovedHook(path);
         return output();
@@ -292,7 +316,8 @@ export class ComputerRuntime {
         if (inScript) throw new Error('Editor requires an interactive session');
         const path = this.path(requireArg());
         this.assertWritable(path);
-        return { output: '', edit: { path, content: this.fs.exists(path) ? this.fs.read(path) : '' } };
+        const content = this.fs.exists(path) ? this.fs.read(path) : '';
+        return { output: '', edit: { path, content } };
       }
       case 'run': {
         if (inScript) throw new Error('Nested scripts are not supported');
@@ -305,7 +330,8 @@ export class ComputerRuntime {
             const result = this.run(scriptLine, true);
             if (result.output) results.push(result.output);
           } catch (error) {
-            results.push(`Line ${index + 1}: ${error instanceof Error ? error.message : 'Command failed'}`);
+            const message = error instanceof Error ? error.message : 'Command failed';
+            results.push(`Line ${index + 1}: ${message}`);
             break;
           }
         }
@@ -320,20 +346,41 @@ export class ComputerRuntime {
         if (arg === 'set' && args[1] === 'system.theme') {
           if (!this.writable) throw new Error('Permission denied');
           const value = args[2];
-          if (value !== 'green' && value !== 'amber' && value !== 'white') throw new Error('Theme must be green, amber, or white');
+          if (value !== 'green' && value !== 'amber' && value !== 'white') {
+            throw new Error('Theme must be green, amber, or white');
+          }
           this.theme = value;
           return output('Theme updated');
         }
-        throw new Error('Usage: config list | config get system.theme | config set system.theme green');
+        throw new Error(
+          'Usage: config list | config get system.theme | config set system.theme green',
+        );
       case 'mod': {
         const name = args[1];
-        if (arg === 'help') return output('Create ~/mods/name.hook with lines: on EVENT, optional if equals "value", notify "message".\nEvents: ' + EVENTS.join(', ') + '\nmod enable name | mod disable name | mod list');
-        if (arg === 'list') return output(this.fs.list(`${this.home}/mods`).filter((file) => file.endsWith('.hook')).map((file) => `${file.slice(0, -5)}: ${this.enabledMods.has(file.slice(0, -5)) ? 'enabled' : 'disabled'}`).join('\n'));
+        if (arg === 'help') {
+          const events = EVENTS.join(', ');
+          return output(
+            'Create ~/mods/name.hook with lines: on EVENT, optional if equals "value", notify "message".\n' +
+              `Events: ${events}\nmod enable name | mod disable name | mod list`,
+          );
+        }
+        if (arg === 'list') {
+          const mods = this.fs
+            .list(`${this.home}/mods`)
+            .filter((file) => file.endsWith('.hook'))
+            .map((file) => {
+              const name = file.slice(0, -5);
+              return `${name}: ${this.enabledMods.has(name) ? 'enabled' : 'disabled'}`;
+            });
+          return output(mods.join('\n'));
+        }
         if (!this.writable) throw new Error('Permission denied');
         if (!name) throw new Error('Missing mod name');
         if (arg === 'enable') {
           this.readHook(name);
-          if (!this.enabledMods.has(name) && this.enabledMods.size >= MAX_MODS) throw new Error('Too many enabled mods');
+          if (!this.enabledMods.has(name) && this.enabledMods.size >= MAX_MODS) {
+            throw new Error('Too many enabled mods');
+          }
           this.enabledMods.add(name);
           return output('Mod enabled');
         }

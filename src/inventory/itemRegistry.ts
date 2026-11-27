@@ -17,7 +17,8 @@ export const ITEMS: readonly Item[] = [
   {
     id: 'personal-computer',
     name: 'Personal Computer',
-    description: 'A beige CRT running SnekOS. At home, face a wooden floor or kitchen counter and use it to install.',
+    description:
+      'A beige CRT running SnekOS. At home, face a wooden floor or kitchen counter and use it to install.',
     kind: 'consumable',
     category: 'material',
   },

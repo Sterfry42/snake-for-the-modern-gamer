@@ -50,18 +50,15 @@ export function townComputerLocation(
   room: Pick<RoomSnapshot, 'id' | 'layout'>,
   templateId: string | undefined,
 ): ComputerLocation | undefined {
-  const template = templateId === 'tavern' ? 'barkeep' : templateId === 'townHall' ? 'mayor' : null;
-  if (!template) return undefined;
+  if (templateId !== 'tavern' && templateId !== 'townHall') return undefined;
+  const template = templateId === 'tavern' ? 'barkeep' : 'mayor';
   for (let y = 0; y < room.layout.length; y += 1) {
     const row = room.layout[y];
     for (let x = 0; x < row.length; x += 1) {
       if (row[x] !== 'A') continue;
-      const neighbors = [
-        room.layout[y - 1]?.[x],
-        room.layout[y + 1]?.[x],
-        row[x - 1],
-        row[x + 1],
-      ];
+      const above = room.layout[y - 1]?.[x];
+      const below = room.layout[y + 1]?.[x];
+      const neighbors = [above, below, row[x - 1], row[x + 1]];
       if (!neighbors.includes('W')) continue;
       return {
         id: `computer:${room.id}:${template}`,

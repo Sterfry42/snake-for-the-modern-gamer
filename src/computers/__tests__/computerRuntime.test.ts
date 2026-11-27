@@ -22,7 +22,8 @@ describe('SnekOS', () => {
     const restored = new ComputerRuntime('home-pc', 'home', context, computer.serialize());
     expect(restored.execute('cat "my notes/report.txt"').output).toBe('an apple a day');
     expect(restored.getTheme()).toBe('amber');
-    expect(new ComputerRuntime('second-pc', 'home', context).execute('ls').output).not.toContain('my notes');
+    const second = new ComputerRuntime('second-pc', 'home', context);
+    expect(second.execute('ls').output).not.toContain('my notes');
   });
 
   it('protects system paths and reads the config from the current host', () => {
@@ -39,12 +40,16 @@ describe('SnekOS', () => {
     const edit = computer.execute('edit scripts/demo.sh').edit;
     expect(edit?.path).toBe('/home/snake/scripts/demo.sh');
     computer.saveEdit('scripts/demo.sh', 'echo hello\nrun scripts/demo.sh\necho unreachable');
-    expect(computer.execute('run scripts/demo.sh').output).toBe('hello\nLine 2: Nested scripts are not supported');
+    const result = computer.execute('run scripts/demo.sh');
+    expect(result.output).toBe('hello\nLine 2: Nested scripts are not supported');
   });
 
   it('runs only enabled, matching, validated hooks and disables a removed hook', () => {
     const { computer, context, notifications } = setup();
-    computer.saveEdit('mods/apples.hook', 'on item.picked_up\nif equals "apple"\nnotify "Apple acquired"');
+    computer.saveEdit(
+      'mods/apples.hook',
+      'on item.picked_up\nif equals "apple"\nnotify "Apple acquired"',
+    );
     computer.dispatch('item.picked_up', 'apple');
     expect(notifications).toEqual([]);
     expect(computer.execute('mod enable apples').output).toBe('Mod enabled');
@@ -71,7 +76,10 @@ describe('SnekOS', () => {
   it('bounds file size and rejects noncanonical or orphaned saved paths', () => {
     const fs = new VirtualFileSystem();
     expect(() => fs.write('/big', 'a'.repeat(16_385))).toThrow('File too large');
-    expect(() => new VirtualFileSystem([['/missing/file', { kind: 'file', content: '' }]])).toThrow('Parent directory');
-    expect(() => new VirtualFileSystem([['/../bad', { kind: 'directory' }]])).toThrow('Invalid saved path');
+    expect(
+      () => new VirtualFileSystem([['/missing/file', { kind: 'file', content: '' }]]),
+    ).toThrow('Parent directory');
+    const invalidPath = () => new VirtualFileSystem([['/../bad', { kind: 'directory' }]]);
+    expect(invalidPath).toThrow('Invalid saved path');
   });
 });

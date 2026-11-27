@@ -67,7 +67,10 @@ export class VirtualFileSystem {
     if (!this.isDirectory(path)) throw new Error('Not a directory');
     return [...this.nodes]
       .filter(([key]) => key !== path && parent(key) === path)
-      .map(([key, node]) => `${key.slice(key.lastIndexOf('/') + 1)}${node.kind === 'directory' ? '/' : ''}`)
+      .map(([key, node]) => {
+        const name = key.slice(key.lastIndexOf('/') + 1);
+        return node.kind === 'directory' ? `${name}/` : name;
+      })
       .sort();
   }
 

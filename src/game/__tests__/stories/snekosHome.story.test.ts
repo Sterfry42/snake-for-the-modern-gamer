@@ -17,11 +17,9 @@ describe('SNEKOS-001', () => {
 
     const roomId = '0,-1,0';
     const room = game.getRoom(roomId);
-    const position = room.layout.flatMap((row, y) =>
-      [...row].flatMap((tile, x) =>
-        tile === 'W' && row[x + 1] === 'W' ? [{ x, y }] : [],
-      ),
-    )[0]!;
+    const rowIndex = room.layout.findIndex((row) => row.includes('WW'));
+    const columnIndex = room.layout[rowIndex].indexOf('WW');
+    const position = { x: columnIndex, y: rowIndex };
     game.moveToRoom(roomId, position);
     game.forceDirection(1, 0);
     expect(game.placeHomeComputer().ok).toBe(true);
@@ -36,7 +34,8 @@ describe('SNEKOS-001', () => {
     expect(runtime).toBeDefined();
     if (!runtime) return;
     expect(runtime.execute('write notes/hello.txt "Hello, Snake"').output).toBe('');
-    runtime.saveEdit('mods/arrival.hook', 'on room.changed\nif equals "0,0,0"\nnotify "Homeward"');
+    const hook = 'on room.changed\nif equals "0,0,0"\nnotify "Homeward"';
+    runtime.saveEdit('mods/arrival.hook', hook);
     expect(runtime.execute('mod enable arrival').output).toBe('Mod enabled');
     expect(runtime.execute('cat /etc/system.conf').output).toContain('grid.cols=');
     expect(game.persistNearbyComputer(runtime)).toBe(true);
@@ -51,11 +50,10 @@ describe('SNEKOS-001', () => {
     restored.moveToRoom('0,0,0', { x: 5, y: 5 });
     expect(restored.openNearbyComputer(() => {})).toBeUndefined();
     const notifications: string[] = [];
-    expect(
-      restored.dispatchHomeComputerEvent('room.changed', '0,0,0', (message) =>
-        notifications.push(message),
-      ),
-    ).toEqual([]);
+    const errors = restored.dispatchHomeComputerEvent('room.changed', '0,0,0', (message) => {
+      notifications.push(message);
+    });
+    expect(errors).toEqual([]);
     expect(notifications).toEqual(['Homeward']);
   });
 
